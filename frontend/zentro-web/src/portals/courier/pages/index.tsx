@@ -1,0 +1,1 @@
+import { PlaceholderPage } from '@/shared/ui/PlaceholderPage'; export const TodayDeliveriesPage=()=> <PlaceholderPage title="Today’s deliveries"/>; export const DeliveryDetailPage=()=> <PlaceholderPage title="Delivery details"/>;

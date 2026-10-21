@@ -1,0 +1,1 @@
+import { Outlet } from 'react-router-dom'; export function PublicLayout(){return <div className="min-h-screen bg-background"><header className="border-b bg-surface p-4 font-bold">Zentro</header><Outlet/></div>;}

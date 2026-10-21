@@ -1,0 +1,7 @@
+syntax = "proto3";
+package zentro.parcel.v1;
+option java_multiple_files = true;
+option java_package = "com.zentro.contracts.parcel.v1";
+service ParcelPricingService { rpc GetParcel(GetParcelRequest) returns (ParcelResponse); }
+message GetParcelRequest { string parcel_id = 1; }
+message ParcelResponse { string parcel_id = 1; string tracking_number = 2; string status = 3; }

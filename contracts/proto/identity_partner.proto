@@ -1,0 +1,12 @@
+syntax = "proto3";
+package zentro.identity.v1;
+option java_multiple_files = true;
+option java_package = "com.zentro.contracts.identity.v1";
+service IdentityPartnerService {
+  rpc GetMerchantStatus(GetMerchantStatusRequest) returns (MerchantStatusResponse);
+  rpc GetCourierProfile(GetCourierProfileRequest) returns (CourierProfileResponse);
+}
+message GetMerchantStatusRequest { string merchant_id = 1; }
+message MerchantStatusResponse { string merchant_id = 1; string status = 2; }
+message GetCourierProfileRequest { string courier_id = 1; }
+message CourierProfileResponse { string courier_id = 1; bool active = 2; }

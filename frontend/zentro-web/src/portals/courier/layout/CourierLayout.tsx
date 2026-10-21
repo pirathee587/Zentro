@@ -1,0 +1,1 @@
+import { Outlet } from 'react-router-dom'; export function CourierLayout(){return <div className="min-h-screen bg-background"><header className="bg-surface p-4">Courier portal</header><Outlet/></div>;}

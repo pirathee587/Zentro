@@ -1,0 +1,1 @@
+import { PlaceholderPage } from '@/shared/ui/PlaceholderPage'; export const RegisterPage=()=> <PlaceholderPage title="Merchant registration"/>; export const DashboardPage=()=> <PlaceholderPage title="Merchant dashboard"/>; export const ApiCredentialsPage=()=> <PlaceholderPage title="API credentials"/>; export const WebhooksPage=()=> <PlaceholderPage title="Webhooks"/>;

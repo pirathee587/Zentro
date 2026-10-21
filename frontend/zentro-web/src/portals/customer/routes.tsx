@@ -1,0 +1,2 @@
+import type { RouteObject } from 'react-router-dom'; import { CustomerLayout } from './layout/CustomerLayout'; import { CustomerHomePage,CreateDeliveryPage,MyParcelsPage,ParcelDetailPage,ReceiptPage } from './pages';
+export const portalRoutes:RouteObject[]=[{path:'/customer',element:<CustomerLayout/>,children:[{index:true,element:<CustomerHomePage/>},{path:'create-delivery',element:<CreateDeliveryPage/>},{path:'parcels',element:<MyParcelsPage/>},{path:'parcels/:parcelId',element:<ParcelDetailPage/>},{path:'parcels/:parcelId/receipt',element:<ReceiptPage/>}]}];

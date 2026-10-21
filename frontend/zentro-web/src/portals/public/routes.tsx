@@ -1,0 +1,2 @@
+import type { RouteObject } from 'react-router-dom'; import { PublicLayout } from './layout/PublicLayout'; import { LoginPage,SignupPage,CallbackPage,TrackingSearchPage,TrackingPage } from './pages';
+export const portalRoutes:RouteObject[]=[{element:<PublicLayout/>,children:[{path:'/login',element:<LoginPage/>},{path:'/signup',element:<SignupPage/>},{path:'/callback',element:<CallbackPage/>},{path:'/track',element:<TrackingSearchPage/>},{path:'/track/:trackingNumber',element:<TrackingPage/>}]}];

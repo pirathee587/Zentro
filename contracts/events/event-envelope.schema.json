@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Zentro event envelope",
+  "type": "object",
+  "required": ["eventId", "eventType", "occurredAt", "aggregateId", "payload"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "eventType": {"type": "string"},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "aggregateId": {"type": "string", "format": "uuid"},
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": false
+}

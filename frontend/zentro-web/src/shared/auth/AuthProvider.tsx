@@ -1,0 +1,2 @@
+import { useState, type PropsWithChildren } from 'react'; import { setAccessToken } from '@/shared/api/apiClient'; import { AuthContext, type Auth } from './authContext';
+export function AuthProvider({children,initialUser=null}:PropsWithChildren<{initialUser?:Auth['user']}>) { const [user,setUser]=useState<Auth['user']>(initialUser); return <AuthContext.Provider value={{user,setUser:(next)=>{setUser(next);setAccessToken(undefined);}}}>{children}</AuthContext.Provider>; }

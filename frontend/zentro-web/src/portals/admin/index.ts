@@ -1,0 +1,1 @@
+export { portalRoutes } from './routes';

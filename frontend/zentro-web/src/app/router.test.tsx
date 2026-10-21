@@ -1,0 +1,2 @@
+import { render,screen } from '@testing-library/react'; import { describe,expect,it } from 'vitest'; import { MemoryRouter } from 'react-router-dom'; import { Providers } from './providers'; import { AppRouter } from './router';
+describe('portal routing',()=>{it('renders a lazy-loaded public tracking route',async()=>{render(<Providers><MemoryRouter initialEntries={['/track/ZTR-EXAMPLE01']}><AppRouter/></MemoryRouter></Providers>);expect(await screen.findByRole('heading',{name:'Parcel tracking'})).toBeInTheDocument();});});

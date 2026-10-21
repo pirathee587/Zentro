@@ -1,0 +1,2 @@
+import { PlaceholderPage } from '@/shared/ui/PlaceholderPage';
+export const LoginPage=()=> <PlaceholderPage title="Login"/>; export const SignupPage=()=> <PlaceholderPage title="Sign up"/>; export const CallbackPage=()=> <PlaceholderPage title="Signing you in"/>; export const TrackingSearchPage=()=> <PlaceholderPage title="Track a parcel"/>; export const TrackingPage=()=> <PlaceholderPage title="Parcel tracking"/>;

@@ -1,0 +1,2 @@
+import { render,screen } from '@testing-library/react'; import { describe,expect,it } from 'vitest'; import { StatusBadge } from './StatusBadge'; import { parcelStatuses } from './types';
+describe('StatusBadge',()=>{it('renders every parcel status',()=>{render(<>{parcelStatuses.map((status)=><StatusBadge key={status} status={status}/>)}</>);parcelStatuses.forEach((status)=>expect(screen.getByText(status.replaceAll('_',' '))).toBeInTheDocument());});});

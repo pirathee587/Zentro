@@ -1,0 +1,2 @@
+import { render, screen } from '@testing-library/react'; import { describe,expect,it } from 'vitest'; import { Button } from './Button';
+describe('Button',()=>{it('renders primary and secondary variants',()=>{const {rerender}=render(<Button>Send</Button>);expect(screen.getByRole('button',{name:'Send'})).toHaveClass('bg-primary');rerender(<Button variant="secondary">Cancel</Button>);expect(screen.getByRole('button',{name:'Cancel'})).toHaveClass('bg-surface');});});
