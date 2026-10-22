@@ -1,0 +1,42 @@
+{
+  "realm": "zentro",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "loginTheme": "zentro",
+  "defaultRoles": ["CUSTOMER"],
+  "roles": { "realm": [
+    { "name": "CUSTOMER", "description": "Zentro customer" },
+    { "name": "MERCHANT", "description": "Approved Zentro merchant" },
+    { "name": "COURIER", "description": "Zentro courier" },
+    { "name": "DISPATCHER", "description": "Zentro dispatcher" },
+    { "name": "SERVICE", "description": "Service account role" }
+  ] },
+  "clients": [{
+    "clientId": "zentro-web",
+    "name": "Zentro Web",
+    "enabled": true,
+    "protocol": "openid-connect",
+    "publicClient": true,
+    "standardFlowEnabled": true,
+    "implicitFlowEnabled": false,
+    "directAccessGrantsEnabled": false,
+    "serviceAccountsEnabled": false,
+    "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*"],
+    "webOrigins": ["http://localhost:5173", "http://localhost:3000"],
+    "attributes": {
+      "pkce.code.challenge.method": "S256",
+      "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*"
+    },
+    "protocolMappers": [{
+      "name": "zentro-api audience",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": { "included.client.audience": "zentro-api", "id.token.claim": "false", "access.token.claim": "true" }
+    }]
+  }]
+}
