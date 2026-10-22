@@ -4,3 +4,4 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.reveal,.reveal-left,.reveal-right,.reveal-zoom{opacity:1;transform:none}}
 .reveal-down{transform:translateY(-24px)}
 @media(prefers-reduced-motion:reduce){.reveal-down{transform:none}}
+.site-nav nav{background:#fffdfa;border:1px solid #eee6dc;border-radius:999px;padding:11px 18px}
