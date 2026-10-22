@@ -4,6 +4,8 @@
 !.env.common.example
 target/
 *.log
+infra/keycloak/.env
+infra/keycloak/seed-credentials.local.txt
 .idea/
 .vscode/
 node_modules/
