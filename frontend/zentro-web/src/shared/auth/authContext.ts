@@ -1,2 +1,2 @@
 import { createContext } from 'react'; import type { Role } from '@/shared/config/roles';
-export type Auth={user:{id:string;roles:Role[]}|null;setUser:(user:Auth['user'])=>void}; export const AuthContext=createContext<Auth|undefined>(undefined);
+export type Auth={user:{id:string;roles:Role[];accessToken:string;returnTo?:string}|null;setUser:(user:Auth['user'])=>void; login:(returnTo?:string,hint?:string)=>Promise<void>; register:(returnTo?:string)=>Promise<void>; logout:(returnTo?:string)=>Promise<void>; loading:boolean}; export const AuthContext=createContext<Auth|undefined>(undefined);

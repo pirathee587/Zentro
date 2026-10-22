@@ -1,1 +1,7 @@
-import { Outlet } from 'react-router-dom'; export function PublicLayout(){return <div className="min-h-screen bg-background"><header className="border-b bg-surface p-4 font-bold">Zentro</header><Outlet/></div>;}
+import { Link, Outlet, useLocation } from 'react-router-dom';
+
+export function PublicLayout() {
+  const { pathname } = useLocation();
+  if (pathname === '/') return <Outlet />;
+  return <main className="auth-page"><Link to="/" className="brand auth-brand"><span className="brand-mark">z</span>zentro</Link><Outlet /></main>;
+}

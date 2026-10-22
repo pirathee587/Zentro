@@ -1,2 +1,2 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'; import { useAuth } from './useAuth'; import { paths } from '@/shared/config/paths';
-export function ProtectedRoute(){const {user}=useAuth();const location=useLocation();return user?<Outlet/>:<Navigate to={paths.login} state={{from:location}} replace/>;}
+import { useEffect } from 'react'; import { Outlet } from 'react-router-dom'; import { useAuth } from './useAuth';
+export function ProtectedRoute(){const {user,login}=useAuth();useEffect(()=>{if(!user)void login(window.location.pathname+window.location.search);},[login,user]);return user?<Outlet/>:<main className="screen-loading">Redirecting to sign in…</main>;}

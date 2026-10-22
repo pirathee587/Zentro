@@ -1,6 +1,6 @@
 :root {
-  --primary: 229 183 121; --primary-hover: 199 152 90; --primary-soft: 252 234 207; --on-primary: 35 35 35;
-  --text: 35 35 35; --text-muted: 99 99 98; --background: 245 244 243; --surface: 255 255 255; --border: 229 223 215;
+  --primary: 211 166 102; --primary-hover: 184 137 73; --primary-soft: 246 232 208; --on-primary: 42 33 26;
+  --text: 48 38 31; --text-muted: 117 105 94; --background: 250 247 242; --surface: 255 253 250; --border: 231 222 210;
   --success: 46 125 79; --danger: 180 35 24; --warning: 183 121 31; --info: 37 99 235;
   --status-created: 99 99 98; --status-picked-up: 199 152 90; --status-in-transit: 37 99 235;
   --status-out-for-delivery: 183 121 31; --status-delivered: 46 125 79; --status-failed: 180 35 24;
