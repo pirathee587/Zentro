@@ -6,6 +6,7 @@ target/
 *.log
 infra/keycloak/.env
 infra/keycloak/seed-credentials.local.txt
+infra/keycloak/seed-users.env
 .idea/
 .vscode/
 node_modules/
