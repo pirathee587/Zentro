@@ -1,3 +1,3 @@
-# Local image assets
+# Public image assets
 
-Add future, licensed photography to this directory and reference it as `/images/<filename>` from the app. Every image used in content must include descriptive alternative text; decorative images should use `alt=""`.
+Keep future photography used from `/images` in this directory. Every real image needs meaningful alternative text at its rendered use site. Current landing and auth illustrations are original inline SVGs under `src/portals/public/assets` and do not require network access.

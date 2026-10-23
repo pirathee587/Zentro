@@ -1,12 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { HomePage } from './index';
+import { HomePage, LoginPage, StaffLoginPage } from './index';
+import { AuthContext, type Auth } from '@/shared/auth/authContext';
 
 describe('public landing page', () => {
   it('does not show Team or Contact navigation', () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).not.toHaveTextContent(/team|contact/i);
+    expect(screen.getByRole('link', { name: 'For Merchants' })).toHaveAttribute('href', '/register/merchant');
+    expect(screen.getByRole('contentinfo')).not.toHaveTextContent(/team|contact/i);
   });
   it('rejects an invalid tracking number', () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
@@ -25,5 +28,44 @@ describe('public landing page', () => {
     const { container } = render(<MemoryRouter><HomePage /></MemoryRouter>);
     expect(container.querySelector('.reveal')?.classList.contains('is-visible')).toBe(true);
     vi.unstubAllGlobals();
+  });
+  it('shows customer and business delivery tabs and the real service features', () => {
+    render(<MemoryRouter><HomePage /></MemoryRouter>);
+    expect(screen.getByRole('tab', { name: 'Customers' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Clear fee estimates')).toBeInTheDocument();
+    expect(screen.getByText('PDF receipts')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Businesses' }));
+    expect(screen.getByText('Apply for access')).toBeInTheDocument();
+    expect(screen.getAllByText(/signed webhooks/i).length).toBeGreaterThan(0);
+  });
+});
+
+describe('staff login page', () => {
+  it('offers staff login without a registration link', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter><AuthContext.Provider value={auth}><StaffLoginPage /></AuthContext.Provider></MemoryRouter>);
+    expect(screen.getByRole('button', { name: /continue securely/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /create an account|register/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('customer sign in form', () => {
+  it('explains the account email and blocks invalid addresses before redirecting', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
+    expect(screen.getByText('Use your Zentro account email.')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'not-an-email' } });
+    fireEvent.submit(screen.getByLabelText('Email address').closest('form')!);
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a valid email address');
+    expect(auth.login).not.toHaveBeenCalled();
+  });
+
+  it('sends only the email hint to the OIDC login action', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: ' person@example.com ' } });
+    fireEvent.click(screen.getByRole('button', { name: /continue securely/i }));
+    expect(auth.login).toHaveBeenCalledWith('/customer', 'person@example.com', 'customer');
   });
 });

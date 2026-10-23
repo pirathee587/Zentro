@@ -1,1 +1,3 @@
-import { PlaceholderPage } from '@/shared/ui/PlaceholderPage'; export const TodayDeliveriesPage=()=> <PlaceholderPage title="Today’s deliveries"/>; export const DeliveryDetailPage=()=> <PlaceholderPage title="Delivery details"/>;
+import { PortalPlaceholder, RoleHome } from '@/shared/ui';
+export const TodayDeliveriesPage = () => <RoleHome role="COURIER" />;
+export const DeliveryDetailPage = () => <PortalPlaceholder title="Delivery details" role="COURIER" />;

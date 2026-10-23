@@ -1,1 +1,5 @@
-import { PlaceholderPage } from '@/shared/ui/PlaceholderPage'; export const RegisterPage=()=> <PlaceholderPage title="Merchant registration"/>; export const DashboardPage=()=> <PlaceholderPage title="Merchant dashboard"/>; export const ApiCredentialsPage=()=> <PlaceholderPage title="API credentials"/>; export const WebhooksPage=()=> <PlaceholderPage title="Webhooks"/>;
+import { PortalPlaceholder, RoleHome } from '@/shared/ui';
+export const RegisterPage = () => <PortalPlaceholder title="Business registration" role="MERCHANT" />;
+export const DashboardPage = () => <RoleHome role="MERCHANT" />;
+export const ApiCredentialsPage = () => <PortalPlaceholder title="API credentials" role="MERCHANT" />;
+export const WebhooksPage = () => <PortalPlaceholder title="Webhooks" role="MERCHANT" />;
