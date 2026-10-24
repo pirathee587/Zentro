@@ -1,0 +1,125 @@
+{
+  "realm": "zentro",
+  "enabled": true,
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "loginTheme": "zentro",
+  "defaultRoles": [
+    "CUSTOMER"
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "CUSTOMER",
+        "description": "Zentro customer"
+      },
+      {
+        "name": "MERCHANT",
+        "description": "Approved Zentro merchant"
+      },
+      {
+        "name": "COURIER",
+        "description": "Zentro courier"
+      },
+      {
+        "name": "DISPATCHER",
+        "description": "Zentro dispatcher"
+      },
+      {
+        "name": "SERVICE",
+        "description": "Service account role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "zentro-web",
+      "name": "Zentro Web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5173/callback",
+        "http://localhost:5173/silent-callback",
+        "http://localhost:3000/callback",
+        "http://localhost:3000/silent-callback",
+        "http://localhost:5173/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "zentro-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "zentro-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "protocol": "openid-connect",
+          "name": "phone number claim",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "user.attribute": "phone",
+            "claim.name": "phone_number",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "zentro realm roles in ID token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "user.attribute": "foo",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "registrationEmailAsUsername": true,
+  "passwordPolicy": "length(8)",
+  "duplicateEmailsAllowed": false,
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "config": {
+          "kc.user.profile.config": [
+            "{\"unmanagedAttributePolicy\":\"ADMIN_VIEW\",\"attributes\":[{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"email\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email\"},{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"username\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email\"},{\"validations\":{\"length\":{\"max\":100}},\"name\":\"firstName\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"displayName\":\"First name\"},{\"validations\":{\"length\":{\"max\":100}},\"name\":\"lastName\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"displayName\":\"Last name\"},{\"validations\":{\"pattern\":{\"pattern\":\"^\\\\+?[0-9]{9,15}$\"}},\"name\":\"phone\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"displayName\":\"Phone number\"}]}"
+          ]
+        },
+        "subComponents": {},
+        "name": "declarative-user-profile",
+        "id": "9ef79879-5be3-4734-a441-a5b8a9c98720",
+        "providerId": "declarative-user-profile"
+      }
+    ]
+  }
+}

@@ -1,15 +1,64 @@
 server:
-  port: ${SERVER_PORT:8080}
-zentro:
+  port: ${GATEWAY_PORT:8080}
+  compression:
+    enabled: false
+spring:
+  application:
+    name: zentro-api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            response-timeout: 3600000
+          routes:
+            - id: identity
+              uri: ${S1_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/merchants/**,/api/v1/admin/merchants/**,/api/v1/admin/users/**,/api/v1/admin/couriers/**
+            - id: parcel
+              uri: ${S2_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/zones/**,/api/v1/parcels/**,/api/v1/merchant/orders/**,/api/v1/admin/zones/**,/api/v1/admin/pricing-rules/**
+            - id: dispatch
+              uri: ${S3_URI:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/dispatch/**,/api/v1/courier/**
+            - id: tracking
+              uri: ${S4_URI:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/tracking/**,/api/v1/reports/**
+            - id: notification
+              uri: ${S5_URI:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/merchant/webhooks/**,/api/v1/admin/audit-logs/**
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
 management:
-  endpoint:
-    health:
-      probes:
+  prometheus:
+    metrics:
+      export:
         enabled: true
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+    prometheus:
+      access: unrestricted
+zentro:
+  jwt:
+    audience: ${JWT_AUDIENCE:zentro-api}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  rate-limit:
+    tracking-per-minute: ${RATE_LIMIT_TRACKING_PER_MINUTE:30}
+    default-per-minute: ${RATE_LIMIT_DEFAULT_PER_MINUTE:300}
+    trust-forwarded-for: ${TRUST_X_FORWARDED_FOR:false}

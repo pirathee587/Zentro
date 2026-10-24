@@ -1,1 +1,1 @@
-export const paths={login:'/login',signup:'/signup',callback:'/callback',tracking:'/track',customer:'/customer',merchant:'/merchant',courier:'/courier',admin:'/admin',styleguide:'/styleguide'} as const;
+export const paths={login:'/login',signup:'/signup',callback:'/callback',tracking:'/track',customer:'/customer',merchant:'/merchant',courier:'/courier',dispatcher:'/dispatcher',admin:'/dispatcher',styleguide:'/styleguide'} as const;
