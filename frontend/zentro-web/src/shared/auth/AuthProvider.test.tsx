@@ -23,6 +23,7 @@ import { Button } from '@/shared/ui';
 describe('OIDC callback processing', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/callback?code=once&state=state');
+    window.sessionStorage.clear();
     signinCallback.mockReset().mockResolvedValue({ expired: false, access_token: 'test-token', profile: { sub: 'customer-id', realm_access: { roles: ['CUSTOMER'] } }, state: { returnTo: '/customer', entryPoint: 'customer' } });
     signinRedirect.mockReset().mockResolvedValue(undefined);
     getUser.mockReset().mockResolvedValue(null);
@@ -51,5 +52,41 @@ describe('OIDC callback processing', () => {
     render(<QueryClientProvider client={client}><AuthProvider><AuthContext.Consumer>{(auth) => <Button onClick={() => void auth?.login('/customer', 'person@example.com', 'customer')}>Continue</Button>}</AuthContext.Consumer></AuthProvider></QueryClientProvider>);
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/customer', entryPoint: 'customer' }, extraQueryParams: { prompt: 'login', login_hint: 'person@example.com' } }));
+  });
+
+  it('preserves merchant login intent in the same tab for the callback fallback', async () => {
+    window.history.replaceState({}, '', '/');
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><AuthProvider><AuthContext.Consumer>{(auth) => <Button onClick={() => void auth?.login('/merchant/dashboard', 'business@example.com', 'merchant')}>Merchant sign in</Button>}</AuthContext.Consumer></AuthProvider></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Merchant sign in' }));
+    await waitFor(() => expect(signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/merchant/dashboard', entryPoint: 'merchant' }, extraQueryParams: { prompt: 'login', login_hint: 'business@example.com' } }));
+    expect(JSON.parse(window.sessionStorage.getItem('zentro.auth-flow') ?? '{}')).toEqual({ returnTo: '/merchant/dashboard', entryPoint: 'merchant' });
+  });
+
+  it('restores the merchant intent when Keycloak callback state is missing', async () => {
+    window.history.replaceState({}, '', '/callback?code=once&state=state');
+    window.sessionStorage.setItem('zentro.auth-flow', JSON.stringify({ returnTo: '/merchant/dashboard', entryPoint: 'merchant' }));
+    signinCallback.mockResolvedValueOnce({ expired: false, access_token: 'test-token', profile: { sub: 'customer-id', realm_access: { roles: ['CUSTOMER'] } }, state: undefined });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><AuthProvider><AuthContext.Consumer>{(auth) => <p>{auth?.user ? `${auth.user.entryPoint}:${auth.user.returnTo}` : 'No user'}</p>}</AuthContext.Consumer></AuthProvider></QueryClientProvider>);
+    expect(await screen.findByText('merchant:/merchant/dashboard')).toBeInTheDocument();
+    await waitFor(() => expect(window.sessionStorage.getItem('zentro.auth-flow')).toBeNull());
+  });
+
+  it('prefers the current merchant sign-in over stale customer callback state', async () => {
+    window.history.replaceState({}, '', '/callback?code=once&state=state');
+    window.sessionStorage.setItem('zentro.auth-flow', JSON.stringify({ returnTo: '/merchant/dashboard', entryPoint: 'merchant' }));
+    signinCallback.mockResolvedValueOnce({ expired: false, access_token: 'test-token', profile: { sub: 'customer-id', realm_access: { roles: ['CUSTOMER'] } }, state: { returnTo: '/customer', entryPoint: 'customer' } });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><AuthProvider><AuthContext.Consumer>{(auth) => <p>{auth?.user ? `${auth.user.entryPoint}:${auth.user.returnTo}` : 'No user'}</p>}</AuthContext.Consumer></AuthProvider></QueryClientProvider>);
+    expect(await screen.findByText('merchant:/merchant/dashboard')).toBeInTheDocument();
+  });
+
+  it('starts Google OIDC through Keycloak identity brokering', async () => {
+    window.history.replaceState({}, '', '/');
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><AuthProvider><AuthContext.Consumer>{(auth) => <Button onClick={() => void auth?.login('/customer', undefined, 'customer', 'google')}>Google</Button>}</AuthContext.Consumer></AuthProvider></QueryClientProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Google' }));
+    await waitFor(() => expect(signinRedirect).toHaveBeenCalledWith({ state: { returnTo: '/customer', entryPoint: 'customer' }, extraQueryParams: { prompt: 'login', kc_idp_hint: 'google' } }));
   });
 });

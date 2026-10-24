@@ -3,8 +3,6 @@ package com.zentro.security.config;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Stream;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,7 +15,7 @@ public final class KeycloakRealmRoleConverter implements Converter<Jwt, Collecti
     if (!(realmAccess instanceof Map<?, ?> map) || !(map.get("roles") instanceof Collection<?> roles)) return List.of();
     return roles.stream().filter(String.class::isInstance).map(String.class::cast)
         .map(String::trim).filter(role -> !role.isEmpty())
-        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-        .filter(Objects::nonNull).toList();
+        .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+        .toList();
   }
 }

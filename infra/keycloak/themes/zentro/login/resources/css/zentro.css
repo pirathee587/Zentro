@@ -1,29 +1,339 @@
 @import url("zentro-tokens.css");
-:root{--pf-v5-global--primary-color--100:var(--espresso);--pf-v5-global--primary-color--200:var(--palette-594535);--pf-v5-global--link--Color:var(--bronze);--pf-v5-global--BackgroundColor--100:var(--cream);--pf-v5-global--Color--100:var(--espresso);--pf-v5-global--BorderColor--100:var(--line);--pf-v5-global--primary-color--light-100:var(--palette-f3e9d9)}
-body{font-family:"Plus Jakarta Sans","Segoe UI",sans-serif;background:radial-gradient(ellipse at 15% 10%,var(--warm-pale),var(--transparent) 45%),var(--cream);color:var(--espresso)}.login-pf body{background-color:var(--cream)}.login-pf-page .card-pf{border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px var(--palette-30261f12);background:var(--paper)}.login-pf-page .login-pf-header{color:var(--espresso)}.login-pf-page .login-pf-header h1{font-weight:700;letter-spacing:-.04em}.pf-v5-c-button.pf-m-primary{background:var(--espresso);border-radius:999px}.pf-v5-c-form-control,.pf-v5-c-button{border-radius:10px}.login-pf-page .login-pf-signup{color:var(--muted)}.login-pf-page a{color:var(--bronze)}
 
-body#keycloak-bg{min-height:100vh;background:linear-gradient(90deg,var(--sand) 0 49.9%,var(--cream) 50% 100%)}
-.pf-v5-c-login__container{width:min(100% - 40px,1180px);min-height:100vh;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,480px);column-gap:clamp(28px,8vw,112px);align-items:center;position:relative}
-.pf-v5-c-login__container::before{content:"Thoughtful delivery,\A made for Sri Lanka.";white-space:pre;grid-column:1;grid-row:1 / span 2;align-self:center;max-width:500px;color:var(--espresso);font-family:"Plus Jakarta Sans","Segoe UI",sans-serif;font-size:clamp(30px,4.5vw,58px);font-weight:600;letter-spacing:-.05em;line-height:1.15}
-.pf-v5-c-login__header,.pf-v5-c-login__main{grid-column:2;width:100%;max-width:480px;margin:0}
-.pf-v5-c-login__header{align-self:end;padding:32px 36px 0;background:var(--paper);border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0}
-.pf-v5-c-brand{display:flex;align-items:center;gap:10px;color:var(--espresso);font-size:20px;font-weight:700;text-decoration:none}
-.pf-v5-c-login__main{align-self:start;padding:18px 36px 32px;background:var(--paper);border:1px solid var(--line);border-top:0;border-radius:0 0 22px 22px;box-shadow:0 18px 50px var(--palette-30261f12)}
-.pf-v5-c-login__main-header{margin-bottom:22px}
-.pf-v5-c-login__main-title{color:var(--espresso);font-size:28px;font-weight:600;letter-spacing:-.04em}
-.pf-v5-c-form-control{min-height:46px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);box-shadow:none}
-.pf-v5-c-form-control:focus{border-color:var(--ochre);box-shadow:0 0 0 2px var(--warm-pale)}
-.pf-v5-c-button.pf-m-primary{min-height:46px;background:var(--espresso);color:var(--paper);border-radius:999px;font-weight:700}
-.pf-v5-c-button.pf-m-primary:hover{background:var(--umber)}
-.pf-v5-c-login__main-footer-band a,.pf-v5-c-login a{color:var(--bronze)}
-@media(max-width:760px){body#keycloak-bg{background:var(--cream)}.pf-v5-c-login__container{width:min(100% - 28px,480px);grid-template-columns:minmax(0,1fr);padding:72px 0 24px}.pf-v5-c-login__container::before{content:none}.pf-v5-c-login__header,.pf-v5-c-login__main{grid-column:1;max-width:none}.pf-v5-c-login__header{padding:20px 22px 0}.pf-v5-c-login__main{padding:14px 22px 24px}}
-.zentro-login-brand{display:inline-flex;align-items:center;gap:9px;color:var(--espresso);font-size:18px;font-weight:700;letter-spacing:-.04em}.zentro-login-mark{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--espresso);color:var(--gold-light);font-family:Georgia,serif;font-size:22px;font-weight:400}.zentro-login-title{display:block;margin-top:18px;color:var(--espresso);font-size:26px;font-weight:600;letter-spacing:-.04em}
-.zentro-email-chip{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--cream);color:var(--espresso);font-size:14px}.zentro-email-chip a{color:var(--bronze);font-weight:700;text-decoration:underline}
-.zentro-message{display:grid;gap:18px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--cream);color:var(--espresso);line-height:1.65}.zentro-message p{margin:0}.zentro-message-action{display:inline-flex;justify-content:center;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;background:var(--espresso);color:var(--white);font-weight:700;text-decoration:none}
-@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/plus-jakarta-sans-latin-400-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/plus-jakarta-sans-latin-500-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/plus-jakarta-sans-latin-600-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/plus-jakarta-sans-latin-700-normal.woff2') format('woff2'); }
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/plus-jakarta-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/plus-jakarta-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/plus-jakarta-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/plus-jakarta-sans-latin-700-normal.woff2") format("woff2");
+}
 
+:root {
+  --pf-v5-global--primary-color--100: var(--espresso);
+  --pf-v5-global--primary-color--200: var(--umber);
+  --pf-v5-global--link--Color: var(--bronze);
+  --pf-v5-global--BackgroundColor--100: var(--cream);
+  --pf-v5-global--Color--100: var(--espresso);
+  --pf-v5-global--BorderColor--100: var(--line);
+  --pf-v5-global--primary-color--light-100: var(--warm-pale);
+  color-scheme: light;
+}
 
-.pf-v5-c-login__main form{display:grid;gap:16px}.pf-v5-c-login__main .pf-v5-c-form__group{margin:0}.pf-v5-c-login__main label{display:block;margin-bottom:7px;color:var(--espresso-light);font-size:12px;font-weight:600}.pf-v5-c-login__main .pf-v5-c-form-control{width:100%;min-height:48px;padding:0 14px;border-radius:11px;background:var(--cream);font:inherit}.pf-v5-c-login__main .pf-v5-c-button.pf-m-primary{width:100%;margin-top:4px}.pf-v5-c-login__main .pf-v5-c-login__main-footer-band{margin-top:8px}.pf-v5-c-login__main .pf-v5-c-form__helper-text{font-size:11px;color:var(--muted)}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body,
+body#keycloak-bg {
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(90deg, var(--sand) 0 50%, var(--cream) 50% 100%);
+  color: var(--espresso);
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Responsive split layout with a quiet delivery themed illustration. */
+.pf-v5-c-login__container {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(390px, 460px);
+  align-items: center;
+  column-gap: clamp(36px, 6vw, 92px);
+  width: min(calc(100% - 64px), 1240px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 38px 0;
+}
+.pf-v5-c-login__container::before {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  max-width: 540px;
+  padding-top: 215px;
+  color: var(--espresso);
+  content: "Thoughtful delivery,\A made for Sri Lanka.";
+  font-size: clamp(38px, 4.4vw, 64px);
+  font-weight: 600;
+  letter-spacing: -.065em;
+  line-height: 1.08;
+  white-space: pre-line;
+}
+.pf-v5-c-login__container::after {
+  position: absolute;
+  top: calc(50% - 245px);
+  left: clamp(54px, 10vw, 150px);
+  width: clamp(175px, 20vw, 250px);
+  height: 154px;
+  border: 1px solid rgba(168, 116, 47, .2);
+  border-radius: 46% 54% 49% 51%;
+  background:
+    radial-gradient(circle at 84% 68%, var(--espresso) 0 5px, transparent 6px),
+    radial-gradient(circle at 15% 42%, var(--ochre) 0 4px, transparent 5px),
+    radial-gradient(ellipse at 50% 55%, rgba(251, 233, 207, .75) 0 44%, transparent 45%);
+  content: "";
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+.pf-v5-c-login__header,
+.pf-v5-c-login__main {
+  z-index: 1;
+  grid-column: 2;
+  width: 100%;
+  max-width: 460px;
+  margin: 0;
+  background: var(--paper);
+}
+.pf-v5-c-login__header {
+  align-self: end;
+  padding: 38px 42px 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 26px 26px 0 0;
+}
+.pf-v5-c-login__main {
+  align-self: start;
+  padding: 24px 42px 40px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 26px 26px;
+  box-shadow: 0 24px 70px rgba(38, 24, 12, .07);
+}
+.pf-v5-c-login__main-header { margin: 0 0 27px; }
+.pf-v5-c-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--espresso);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.045em;
+  text-decoration: none;
+}
+.pf-v5-c-login__main-title,
+.zentro-login-title {
+  display: block;
+  margin: 0;
+  color: var(--espresso);
+  font-size: clamp(28px, 2.5vw, 35px);
+  font-weight: 600;
+  letter-spacing: -.055em;
+  line-height: 1.14;
+}
+.zentro-login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--espresso);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.045em;
+}
+.zentro-login-mark {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--espresso);
+  color: var(--gold-light);
+  font-family: Georgia, serif;
+  font-size: 23px;
+  font-weight: 400;
+}
+.zentro-login-title { margin-top: 23px; }
+.zentro-login-subtitle {
+  display: block;
+  margin-top: 11px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* Inputs, validation and account actions. */
+.pf-v5-c-login__main form { display: grid; gap: 17px; }
+.pf-v5-c-login__main .pf-v5-c-form__group { min-width: 0; margin: 0; }
+.pf-v5-c-login__main label {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--espresso-light);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.pf-v5-c-form-control,
+.pf-v5-c-login__main .pf-v5-c-form-control {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  outline: 0;
+  background: #fbf9f6;
+  color: var(--ink);
+  box-shadow: none;
+  font: inherit;
+  font-size: 15px;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+.pf-v5-c-form-control:focus,
+.pf-v5-c-login__main .pf-v5-c-form-control:focus {
+  border-color: var(--ochre);
+  background: var(--paper);
+  box-shadow: 0 0 0 4px rgba(229, 181, 116, .2);
+}
+/* Keycloak user-profile fields wrap the real input in another form-control.
+   Keep the wrapper as the visible field and remove the inner duplicate box. */
+.pf-v5-c-login__main .pf-v5-c-form-control .pf-v5-c-form-control {
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.pf-v5-c-login__main .pf-v5-c-form-control .pf-v5-c-form-control:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.pf-v5-c-form-control:focus-within {
+  border-color: var(--ochre);
+  background: var(--paper);
+  box-shadow: 0 0 0 4px rgba(229, 181, 116, .2);
+}
+.pf-v5-c-form-control::placeholder { color: #a69a8b; }
+.pf-v5-c-button.pf-m-primary {
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--espresso);
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  transition: background-color .16s ease, transform .16s ease;
+}
+.pf-v5-c-login__main .pf-v5-c-button.pf-m-primary { width: 100%; margin-top: 5px; }
+.pf-v5-c-button.pf-m-primary:hover { background: var(--umber); }
+.pf-v5-c-button.pf-m-primary:active { transform: translateY(1px); }
+.pf-v5-c-button:focus-visible,
+.pf-v5-c-login a:focus-visible { outline: 3px solid rgba(201, 143, 74, .55); outline-offset: 3px; }
+.pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary) {
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 0 12px 12px 0;
+  background: #f5f1ec;
+  color: var(--espresso);
+}
+.pf-v5-c-login__main-footer-band { margin-top: 15px; text-align: center; font-size: 13px; }
+.pf-v5-c-login__main-footer-band a,
+.pf-v5-c-login a { color: var(--bronze); font-weight: 600; text-decoration: none; }
+.pf-v5-c-login__main-footer-band a:hover,
+.pf-v5-c-login a:hover { text-decoration: underline; }
+.zentro-register-signin-links { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pf-v5-c-login__main .pf-v5-c-form__helper-text { color: var(--muted); font-size: 12px; line-height: 1.55; }
+.pf-v5-c-login__main .pf-v5-c-form__helper-text ul { margin: 7px 0 0; padding-left: 18px; }
+.pf-v5-c-login__main .pf-v5-c-check { display: flex; align-items: flex-start; gap: 9px; color: var(--muted); font-size: 12px; }
+.pf-v5-c-login__main .pf-v5-c-check input { accent-color: var(--espresso); }
+.pf-v5-c-alert,
+.pf-v5-c-login__main .alert { border-radius: 12px; }
+.pf-v5-c-login__main .pf-v5-c-form__group-control .pf-v5-c-form-control[aria-invalid="true"] { border-color: var(--err); }
+
+/* Email hint, Google button, and Keycloak error/info pages. */
+.zentro-email-chip {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fbf9f6;
+  color: var(--espresso);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.zentro-email-chip a { flex: 0 0 auto; color: var(--bronze); font-weight: 700; }
+.zentro-social-providers { display: grid; gap: 12px; margin-top: 18px; }
+.zentro-social-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+.zentro-social-divider::before,
+.zentro-social-divider::after { height: 1px; flex: 1; background: var(--line); content: ""; }
+.zentro-social-button {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--espresso) !important;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.zentro-social-button:hover { transform: translateY(-1px); border-color: var(--ochre); background: #fbf5ec; }
+.zentro-social-icon { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 50%; background: #f7f3ed; color: #4285f4; font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; line-height: 1; }
+.zentro-message { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: #fbf9f6; color: var(--espresso); font-size: 15px; line-height: 1.7; }
+.zentro-message p { margin: 0; overflow-wrap: anywhere; }
+.zentro-message-action { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; padding: 0 18px; border-radius: 999px; background: var(--espresso); color: var(--white) !important; font-weight: 700; text-decoration: none !important; }
+
+@media (max-width: 920px) {
+  body, body#keycloak-bg { background: var(--cream); }
+  .pf-v5-c-login__container {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(calc(100% - 40px), 520px);
+    padding: 34px 0;
+  }
+  .pf-v5-c-login__container::before,
+  .pf-v5-c-login__container::after { display: none; }
+  .pf-v5-c-login__header,
+  .pf-v5-c-login__main { grid-column: 1; max-width: none; }
+  .pf-v5-c-login__header { padding: 30px 34px 0; border-radius: 24px 24px 0 0; }
+  .pf-v5-c-login__main { padding: 22px 34px 32px; border-radius: 0 0 24px 24px; }
+}
+@media (max-width: 540px) {
+  .pf-v5-c-login__container { width: min(calc(100% - 24px), 460px); padding: 16px 0 24px; }
+  .pf-v5-c-login__header { padding: 25px 22px 0; border-radius: 20px 20px 0 0; }
+  .pf-v5-c-login__main { padding: 18px 22px 26px; border-radius: 0 0 20px 20px; }
+  .pf-v5-c-login__main-header { margin-bottom: 22px; }
+  .zentro-login-brand { font-size: 19px; }
+  .zentro-login-mark { width: 33px; height: 33px; font-size: 22px; }
+  .zentro-login-title { margin-top: 20px; font-size: 29px; }
+  .zentro-login-subtitle { font-size: 13px; }
+  .pf-v5-c-login__main form { gap: 15px; }
+  .pf-v5-c-login__main label { font-size: 12px; }
+  .pf-v5-c-login__main .pf-v5-c-form-control { min-height: 49px; font-size: 14px; }
+  .pf-v5-c-button.pf-m-primary,
+  .pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary) { min-height: 49px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}

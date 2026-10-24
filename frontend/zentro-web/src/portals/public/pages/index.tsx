@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate, useLocation, useParams } from 'react-route
 import { useAuth } from '@/shared/auth/useAuth';
 import { apiClient, friendlyApiError } from '@/shared/api/apiClient';
 import { Button, EmptyState, ErrorState, Input, Spinner } from '@/shared/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getTracking } from '@/shared/domain/tracking/trackingApi';
 import { StatusTimeline } from '@/shared/domain/parcel/StatusTimeline';
 import type { ParcelStatus } from '@/shared/domain/parcel/types';
@@ -56,7 +56,7 @@ export function HomePage() {
       <nav aria-label="Main navigation">
         <a href="#home">Home</a><a href="#how-it-works">How It Works</a><a href="#why-zentro">Why Zentro</a><a href="#businesses">For Businesses</a><a href="#faqs">FAQs</a>
       </nav>
-      <div className="nav-actions"><Link to="/register/merchant" className="nav-login">For Merchants</Link><Link to="/login" className="nav-login">Login</Link><Link to="/register" className="button-link">Get Started <Arrow/></Link></div>
+      <div className="nav-actions"><Link to="/login" className="nav-login">Login</Link><Link to="/register" className="button-link">Get Started <Arrow/></Link></div>
     </header>
     <main id="home">
       <section className="hero">
@@ -76,28 +76,27 @@ export function HomePage() {
 export function LoginPage() { return <AuthForm kind="customer"/>; }
 export function StaffLoginPage() { return <AuthForm kind="staff"/>; }
 export function MerchantLoginPage() { return <AuthForm kind="merchant"/>; }
+function GoogleSignInButton({returnTo,entryPoint}:{returnTo:string;entryPoint:'customer'|'merchant'}) {
+  const {login}=useAuth();
+  return <Button type="button" variant="secondary" className="google-login" onClick={()=>void login(returnTo,undefined,entryPoint,'google')}><span className="google-mark" aria-hidden="true">G</span>Continue with Google</Button>;
+}
 export function SignupPage() {
   const {register,user}=useAuth();
   const location=useLocation();
   const navigate=useNavigate();
   const page=location.pathname;
-  if(page==='/register') return <section className="auth-card" aria-labelledby="register-title">
-    <span className="eyebrow">WELCOME TO ZENTRO</span><h1 id="register-title">How will you<br/><em>use Zentro?</em></h1>
-    <p>Choose the account that fits. Every new account starts with customer access.</p>
-    <Link className="button-link auth-submit" to="/register/customer">I'm a customer <Arrow/></Link>
-    <Link className="button-link auth-submit" to="/register/merchant">I'm a business <Arrow/></Link>
-    <p className="auth-switch">Already have an account? <Link to="/login">Sign in</Link></p>
-  </section>;
   const merchantApplication=page==='/register/merchant'||new URLSearchParams(location.search).get('next')==='merchant';
-  const isRegisterPage=page==='/register/customer'||page==='/register/merchant'||new URLSearchParams(location.search).has('next');
+  const isRegisterPage=page==='/register'||page==='/register/customer'||page==='/register/merchant';
   if(!isRegisterPage) return <Navigate to="/register" replace/>;
   const returnTo=merchantApplication?'/merchant/register-business':'/customer';
   const entryPoint=merchantApplication?'merchant':'customer';
   return <section className="auth-card" aria-labelledby="register-title">
     <span className="eyebrow">{merchantApplication?'ZENTRO BUSINESS':'WELCOME TO ZENTRO'}</span>
     <h1 id="register-title">{merchantApplication?<>One account.<br/><em>More ways to move.</em></>:<>Make room for<br/><em>one less worry.</em></>}</h1>
-    <p>{merchantApplication?'Create your Zentro account, then submit your business details for review.':'Create one secure account for your personal deliveries. You can use the same account to apply for merchant access.'}</p>
+    <p>{user?'You are already signed in. Continue to your account, or create a separate Zentro account.':merchantApplication?'Create your Zentro account, then submit your business details for review.':'Create one secure account for your personal deliveries. You can use the same account to apply for merchant access.'}</p>
     <Button className="auth-submit" onClick={()=>{if(user) navigate(returnTo,{replace:true});else void register(returnTo,entryPoint);}}>{user?'Continue with this account':merchantApplication?'Create merchant account':'Create customer account'} <Arrow/></Button>
+    {user&&<Button type="button" variant="secondary" className="auth-submit" onClick={()=>void register(returnTo,entryPoint)}>Create a different account <Arrow/></Button>}
+    {!user&&<><div className="auth-divider"><span>or</span></div><GoogleSignInButton returnTo={returnTo} entryPoint={entryPoint}/></>}
     <p className="auth-switch">Already have an account? <Link to={merchantApplication?'/merchant/login':'/login'}>Sign in</Link></p>
   </section>;
 }
@@ -120,34 +119,37 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
       {emailError?<p id="auth-email-error" className="form-error" role="alert" aria-live="polite">{emailError}</p>:<small id="auth-email-hint" className="auth-hint">Use your Zentro account email.</small>}
       <Button className="auth-submit" type="submit">Continue securely <Arrow/></Button>
     </form>
+    {!staff&&<><div className="auth-divider"><span>or</span></div><GoogleSignInButton returnTo={from} entryPoint={merchant?'merchant':'customer'}/></>}
     {staff?<p className="auth-switch">For dispatchers and couriers only. Staff accounts are created by Zentro.</p>:merchant?<>
       <p className="auth-switch">New to Zentro? <Link to="/register?next=merchant">Create an account and apply</Link></p>
-      <div className="auth-divider"><span>or</span></div>
-      <p className="auth-switch"><Link to="/login">Customer sign in</Link> | <Link to="/merchant">Business information</Link></p>
+      <p className="auth-switch"><Link to="/merchant">Business information</Link></p>
     </>:<>
       <p className="auth-switch">New to Zentro? <Link to="/register">Create an account</Link></p>
-      <div className="auth-divider"><span>or</span></div>
       <p className="auth-switch"><Link to="/staff/login">Staff sign in</Link> | <Link to="/merchant/login">Merchant sign in</Link></p>
     </>}
   </section>;
 }
 
-export function CallbackPage() { const {user,login,logout,loading}=useAuth(); const location=useLocation(); const [merchantStatus,setMerchantStatus]=useState<MerchantApplication|null|undefined>(undefined); const [error,setError]=useState(''); const [busy,setBusy]=useState(true); const [form,setForm]=useState({businessName:'',businessRegNo:'',contactPhone:''});
+export function CallbackPage() { const {user,login,logout,refreshAccessToken,loading}=useAuth(); const location=useLocation(); const queryClient=useQueryClient(); const [merchantStatus,setMerchantStatus]=useState<MerchantApplication|null|undefined>(undefined); const [error,setError]=useState(''); const [busy,setBusy]=useState(true); const [form,setForm]=useState({businessName:'',businessRegNo:'',contactPhone:''});
   if(!user) return loading?<section className="auth-card"><Spinner/><p>Finishing sign in...</p></section>:<section className="auth-card"><ErrorState message="We could not complete sign in. Please try again."/><Button onClick={()=>void login('/')}>Try again</Button></section>;
   const isMerchantApplicationPath=location.pathname==='/merchant/register-business'||location.pathname==='/merchant/status';
   const returnTo=isMerchantApplicationPath?location.pathname:user.returnTo ?? '/';
   const roles=user.roles;
-  const entryPoint=isMerchantApplicationPath?'merchant':user.entryPoint ?? (returnTo.startsWith('/staff')||returnTo.startsWith('/admin')||returnTo.startsWith('/courier')?'staff':returnTo.startsWith('/merchant')?'merchant':'customer');
+  const entryPoint=isMerchantApplicationPath||returnTo.startsWith('/merchant')?'merchant':user.entryPoint ?? (returnTo.startsWith('/staff')||returnTo.startsWith('/admin')||returnTo.startsWith('/dispatcher')||returnTo.startsWith('/courier')?'staff':'customer');
   const hasStaffRole=roles.includes('DISPATCHER')||roles.includes('COURIER');
   if(entryPoint==='staff') {
-    if(roles.includes('DISPATCHER')) return <Navigate to="/admin" replace/>;
+    if(roles.includes('DISPATCHER')) return <Navigate to="/dispatcher" replace/>;
     if(roles.includes('COURIER')) return <Navigate to="/courier" replace/>;
     return <section className="auth-card"><span className="eyebrow">STAFF ACCESS</span><h1>This account is not enabled for staff.</h1><p>Staff sign-in requires a Zentro-issued dispatcher or courier account. Contact your administrator if you need staff access.</p><Button onClick={()=>void logout()}>Sign out</Button></section>;
   }
   if(entryPoint==='merchant') {
     if(hasStaffRole) return <section className="auth-card"><span className="eyebrow">BUSINESS ACCESS</span><h1>Use your staff sign-in.</h1><p>Staff accounts cannot use the merchant portal.</p><Button onClick={()=>void logout()}>Sign out</Button></section>;
     if(roles.includes('MERCHANT')) return <Navigate to="/merchant/dashboard" replace/>;
-    if(roles.includes('CUSTOMER')) return <MerchantStatus merchantStatus={merchantStatus} setMerchantStatus={setMerchantStatus} error={error} setError={setError} busy={busy} setBusy={setBusy} form={form} setForm={setForm}/>;
+    if(roles.includes('CUSTOMER')) {
+      if(user.merchantStatus==='PENDING') return <Navigate to="/merchant/dashboard" replace/>;
+      if(!isMerchantApplicationPath) return <Navigate to="/merchant/register-business" replace/>;
+      return <MerchantStatus accessToken={user.accessToken} userId={user.id} refreshAccessToken={refreshAccessToken} logout={logout} merchantStatus={merchantStatus} setMerchantStatus={setMerchantStatus} error={error} setError={setError} busy={busy} setBusy={setBusy} form={form} setForm={setForm}/>;
+    }
   }
   if(entryPoint==='customer'&&!hasStaffRole&&roles.includes('CUSTOMER')) {
     const customerPath=returnTo==='/customer'||returnTo.startsWith('/customer/')?returnTo:'/customer';
@@ -157,18 +159,21 @@ export function CallbackPage() { const {user,login,logout,loading}=useAuth(); co
 }
 type MerchantApplication = { status: 'PENDING'|'REJECTED'|'APPROVED'; rejectionReason?: string };
 type MerchantForm = { businessName: string; businessRegNo: string; contactPhone: string };
-type MerchantStatusProps = { merchantStatus: MerchantApplication|null|undefined; setMerchantStatus:(value:MerchantApplication|null)=>void; error:string; setError:(value:string)=>void; busy:boolean; setBusy:(value:boolean)=>void; form:MerchantForm; setForm:(value:MerchantForm)=>void };
-function MerchantStatus({merchantStatus,setMerchantStatus,error,setError,busy,setBusy,form,setForm}:MerchantStatusProps) {
+type MerchantStatusProps = { accessToken:string; userId:string; refreshAccessToken?:(force?:boolean)=>Promise<string|undefined>; logout:(returnTo?:string)=>Promise<void>; merchantStatus: MerchantApplication|null|undefined; setMerchantStatus:(value:MerchantApplication|null)=>void; error:string; setError:(value:string)=>void; busy:boolean; setBusy:(value:boolean)=>void; form:MerchantForm; setForm:(value:MerchantForm)=>void };
+function MerchantStatus({accessToken,userId,refreshAccessToken,logout,merchantStatus,setMerchantStatus,error,setError,busy,setBusy,form,setForm}:MerchantStatusProps) {
   const navigate=useNavigate();
-  const refresh=useCallback(async()=>{setBusy(true);setError('');try{const {data}=await apiClient.get<MerchantApplication>('/api/v1/merchants/me');setMerchantStatus(data);if(window.location.pathname!=='/merchant/status')navigate('/merchant/status',{replace:true});}catch(e:unknown){if((e as {response?:{status?:number}})?.response?.status===404)setMerchantStatus(null);else setError(friendlyApiError(e,'We could not load your business status. Please try again.'));}finally{setBusy(false);}},[navigate,setBusy,setError,setMerchantStatus]);
-  useEffect(()=>{void refresh();},[refresh]);
+  const queryClient=useQueryClient();
+  const initialCheckStarted=useRef(false);
+  const authorization=async(force=false)=>{const token=refreshAccessToken?await refreshAccessToken(force):accessToken;if(!token)throw new Error('Your sign-in session has ended. Please sign in again.');return {headers:{Authorization:`Bearer ${token}`}};};
+  const refresh=useCallback(async()=>{setBusy(true);setError('');try{let response;try{response=await apiClient.get<MerchantApplication>('/api/v1/merchants/me',await authorization());}catch(e){if((e as {response?:{status?:number}})?.response?.status!==401||!refreshAccessToken)throw e;response=await apiClient.get<MerchantApplication>('/api/v1/merchants/me',await authorization(true));}setMerchantStatus(response.data);if(response.data.status==='PENDING')navigate('/merchant/dashboard',{replace:true});else if(window.location.pathname!=='/merchant/status')navigate('/merchant/status',{replace:true});}catch(e:unknown){if((e as {response?:{status?:number}})?.response?.status===404)setMerchantStatus(null);else setError(friendlyApiError(e,'We could not load your business status. Please try again.'));}finally{setBusy(false);}},[accessToken,refreshAccessToken,navigate,setBusy,setError,setMerchantStatus]);
+  useEffect(()=>{if(initialCheckStarted.current)return;initialCheckStarted.current=true;void refresh();},[refresh]);
   if(busy&&merchantStatus===undefined)return <section className="auth-card"><Spinner/><p>Checking your business status...</p></section>;
   if(merchantStatus?.status==='APPROVED')return <section className="auth-card"><h1>Your business is approved.</h1><p>A dispatcher will assign merchant access to your account. Sign in again after access is enabled.</p><EmptyState message="Merchant access requires the MERCHANT role."/></section>;
   if(merchantStatus?.status==='PENDING')return <section className="auth-card"><h1>We're reviewing your details.</h1><p>Your business profile is pending review. We'll update this page when a decision is made.</p><Button variant="secondary" onClick={()=>void refresh()}>Refresh status</Button></section>;
   if(merchantStatus?.status==='REJECTED')return <section className="auth-card"><h1>A little more information, please.</h1><p>{merchantStatus.rejectionReason||'Your application was not approved. Please contact our team for next steps.'}</p><EmptyState message="Only a dispatcher can approve merchant access."/></section>;
-  return <form className="auth-card" onSubmit={async e=>{e.preventDefault();const phone=form.contactPhone.replace(/[\s()-]/g,'');if(!/^\+?[0-9]{9,15}$/.test(phone)){setError('Enter a phone number with 9 to 15 digits.');return;}setBusy(true);setError('');try{const {data}=await apiClient.post<MerchantApplication>('/api/v1/merchants',{businessName:form.businessName.trim(),businessRegNo:form.businessRegNo.trim(),contactPhone:phone});setMerchantStatus(data);navigate('/merchant/status',{replace:true});}catch(err:unknown){setError(friendlyApiError(err,'We could not submit your business details. Please try again.'));}finally{setBusy(false);}}}><span className="eyebrow">BUSINESS REGISTRATION</span><h1>Let's get<br/><em>good things moving.</em></h1><label>Business name<Input required maxLength={140} value={form.businessName} onChange={e=>setForm({...form,businessName:e.target.value})}/></label><label>Business registration number<Input maxLength={80} value={form.businessRegNo} onChange={e=>setForm({...form,businessRegNo:e.target.value})}/></label><label>Contact phone<Input required type="tel" pattern="\+?[0-9]{9,15}" aria-describedby="contact-phone-help" value={form.contactPhone} onChange={e=>setForm({...form,contactPhone:e.target.value})}/><small id="contact-phone-help">Use 9 to 15 digits, with an optional + prefix.</small></label>{error&&<ErrorState message={error}/>}<Button className="auth-submit" disabled={busy}>{busy?<Spinner label="Submitting business details"/>:'Submit for review'}</Button></form>;
+  return <form className="auth-card" onSubmit={async e=>{e.preventDefault();const phone=form.contactPhone.replace(/[\s()-]/g,'');if(!/^\+?[0-9]{9,15}$/.test(phone)){setError('Enter a phone number with 9 to 15 digits.');return;}setBusy(true);setError('');try{let response;try{response=await apiClient.post<MerchantApplication>('/api/v1/merchants',{businessName:form.businessName.trim(),businessRegNo:form.businessRegNo.trim(),contactPhone:phone},await authorization());}catch(err){if((err as {response?:{status?:number}})?.response?.status!==401||!refreshAccessToken)throw err;response=await apiClient.post<MerchantApplication>('/api/v1/merchants',{businessName:form.businessName.trim(),businessRegNo:form.businessRegNo.trim(),contactPhone:phone},await authorization(true));}setMerchantStatus(response.data);await queryClient.invalidateQueries({queryKey:['current-user',userId]});navigate('/merchant/dashboard',{replace:true,state:{merchantStatus:response.data.status}});}catch(err:unknown){setError(friendlyApiError(err,'We could not submit your business details. Please try again.'));}finally{setBusy(false);}}}><span className="eyebrow">BUSINESS REGISTRATION</span><h1>Let's get<br/><em>good things moving.</em></h1><label>Business name<Input required maxLength={140} value={form.businessName} onChange={e=>setForm({...form,businessName:e.target.value})}/></label><label>Business registration number<Input maxLength={80} value={form.businessRegNo} onChange={e=>setForm({...form,businessRegNo:e.target.value})}/></label><label>Contact phone<Input required type="tel" pattern="\+?[0-9]{9,15}" aria-describedby="contact-phone-help" value={form.contactPhone} onChange={e=>setForm({...form,contactPhone:e.target.value})}/><small id="contact-phone-help">Use 9 to 15 digits, with an optional + prefix.</small></label>{error&&<ErrorState message={error}/>}<Button className="auth-submit" disabled={busy}>{busy?<Spinner label="Submitting business details"/>:'Submit for review'}</Button>{/session has expired/i.test(error)&&<Button type="button" variant="secondary" className="auth-submit" onClick={()=>void logout('/merchant/login')}>Sign out and sign in again</Button>}</form>;
 }
 export function TrackingSearchPage() { return <section className="auth-card"><span className="eyebrow">PARCEL TRACKING</span><h1>Where's it<br/><em>headed?</em></h1><p>Enter the tracking number from your booking.</p><TrackForm/></section>; }
 function TrackForm(){const [value,setValue]=useState('');const [error,setError]=useState('');const navigate=useNavigate();return <form onSubmit={e=>{e.preventDefault();const v=value.trim().toUpperCase();if(!/^ZTR-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{10}$/.test(v)){setError('Enter a valid tracking number: ZTR- followed by 10 letters or numbers.');return;}navigate(`/track/${v}`);}}><Input aria-label="Tracking number" value={value} onChange={e=>{setValue(e.target.value);setError('');}} placeholder="ZTR-ABCDEFG234"/>{error&&<ErrorState message={error}/>}<Button className="auth-submit">Track parcel <Arrow/></Button></form>;}
 export function TrackingPage() { const {trackingNumber=''}=useParams(); const navigate=useNavigate(); const tracking=useQuery({queryKey:['tracking',trackingNumber],queryFn:async()=> (await getTracking(trackingNumber)).data,retry:false}); const { refetch } = tracking; const refresh=useCallback(()=>{void refetch();},[refetch]); useTrackingStream(trackingNumber,refresh); const timeline=(tracking.data as {timeline?:ParcelStatus[]}|undefined)?.timeline; return <section className="auth-card"><span className="eyebrow">TRACKING UPDATE</span><h1>Your parcel's<br/><em>journey.</em></h1><p>Tracking number: <b>{trackingNumber}</b></p>{tracking.isPending?<Spinner label="Loading parcel updates"/>:tracking.isError?<ErrorState message="We couldn't load this parcel. Check the number and try again."/>:timeline?.length?<StatusTimeline statuses={timeline}/>:<EmptyState message="No tracking updates are available yet."/>}<Button variant="secondary" onClick={()=>navigate('/track')}>Track another parcel</Button></section>; }
-export function MerchantPage(){const navigate=useNavigate();return <section className="auth-card"><span className="eyebrow">FOR SRI LANKAN BUSINESSES</span><h1>Let's deliver<br/><em>something good.</em></h1><p>Use your existing Zentro account to apply for business access. Once approved, sign in with the same email and password on the merchant page.</p><Button className="auth-submit" onClick={()=>navigate('/register?next=merchant')}>Create account and apply <Arrow/></Button><Button variant="secondary" onClick={()=>navigate('/merchant/login')}>I already have a Zentro account</Button><p className="auth-switch">Personal deliveries? <Link to="/login">Customer sign in</Link></p></section>; }
+export function MerchantPage(){const navigate=useNavigate();return <section className="auth-card"><span className="eyebrow">FOR SRI LANKAN BUSINESSES</span><h1>Let's deliver<br/><em>something good.</em></h1><p>Use your existing Zentro account to apply for business access. Once approved, sign in with the same email and password on the merchant page.</p><Button className="auth-submit" onClick={()=>navigate('/register/merchant')}>Create account and apply <Arrow/></Button><Button variant="secondary" onClick={()=>navigate('/merchant/login')}>I already have a Zentro account</Button></section>; }

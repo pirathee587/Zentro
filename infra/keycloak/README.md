@@ -13,10 +13,23 @@ The Compose file mounts the realm import and the Zentro login theme with develop
 
 The generated local admin password is stored only in `.env`. Keep that file private and do not commit it. PowerShell equivalents are provided for Windows users; the shell scripts require `curl`, `jq`, and `openssl` in Git Bash or WSL.
 
+## Google sign-in (OIDC identity brokering)
+
+Configure Google as an identity provider in Keycloak; the React app never receives a Google client secret:
+
+1. In Google Cloud Console, create an OAuth client for a web application. Add `http://localhost:8180/realms/zentro/broker/google/endpoint` as an authorized redirect URI. Add the corresponding public Keycloak realm broker endpoint for each deployed environment.
+2. Put the OAuth client ID and secret in the local `infra/keycloak/.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (these are OAuth app credentials, not your Gmail password). Run `node infra/keycloak/apply-google-provider.mjs` from the repository root. It creates or updates the enabled Keycloak provider with alias `google`, keeps the secret server-side, makes name/phone fields optional, and disables the first-login profile review. Alternatively, enter the same values in the Keycloak Admin Console under **Identity providers → Google** and set **Authentication → Flows → First Broker Login → Review Profile → Update Profile On First Login** to **Off**.
+3. Keep first broker login confirmation enabled for existing-account linking. Do not map Google profile data or email to privileged realm roles. The realm default role is `CUSTOMER`; assign `MERCHANT`, `COURIER`, or `DISPATCHER` only through an authorized Keycloak administrator workflow.
+4. The public customer and merchant sign-in screens send `kc_idp_hint=google`. Keycloak must have an enabled provider with the `google` alias for that button to redirect to Google; without it, Keycloak shows its password form. Staff sign-in remains on the normal Keycloak form.
+
+Google credentials are configured in the Keycloak Admin Console and are not stored in this repository. The frontend and backend rely on Keycloak's signed realm roles for authorization. Account enablement is enforced by Keycloak: disable a user in the realm to prevent new sessions/tokens. Self-registration and Google brokered registration receive only the realm default `CUSTOMER` role. After approving a merchant application, a dispatcher must grant `MERCHANT` in Keycloak; pending or rejected users do not receive that role and cannot access merchant APIs. Staff roles are assigned only to provisioned accounts.
+
+S1 uses the same Supabase Postgres database with its own `identity` schema. The new Flyway migration creates application profiles keyed by the immutable Keycloak subject and merchant application/status records. It does not alter Keycloak's `keycloak` schema or Supabase's empty `public` schema. S1 applies the migration when it starts; do not run it manually against the shared database.
+
 ## Later main Compose handoff (M7)
 
 M7 can add a `keycloak` service to the main `docker-compose.yml` with image `quay.io/keycloak/keycloak:26.8.1`, `env_file: infra/keycloak/.env`, `8180:8180` and `9000:9000`, the realm/theme mounts from this file, the theme-cache environment values, and command `start-dev --import-realm`. Keep the mounts read-only. Keycloak uses the Supabase session pooler directly; it should not depend on a local Postgres container. Keep this standalone file available for identity development.
 
-## Application data handoff
+## Application data
 
-S1 creates an application user row on the first `GET /api/v1/users/me`. Courier profile rows are created through `POST /api/v1/admin/couriers`; do not write directly into S1 tables. If multiple teammates connect separate Keycloak servers to this same Supabase schema, they will overwrite each other's identity data, so use one shared Keycloak instance.
+S1 creates an application user row on the first `GET /api/v1/users/me`. `POST /api/v1/merchants` creates or resubmits a merchant application as `PENDING`; `GET /api/v1/merchants/me` returns its status. Dispatchers review pending applications through `/api/v1/admin/merchants` and `PATCH /api/v1/admin/merchants/{applicationId}`. Do not write directly into S1 tables. If multiple teammates connect separate Keycloak servers to this same Supabase schema, they will overwrite each other's identity data, so use one shared Keycloak instance.

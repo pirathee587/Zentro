@@ -7,7 +7,7 @@ export function mapSupportedRoles(...sources: string[][]): Role[] {
 }
 
 export function routeForRoles(userRoles: Role[]): string | null {
-  if (userRoles.includes('DISPATCHER')) return '/admin';
+  if (userRoles.includes('DISPATCHER')) return '/dispatcher';
   if (userRoles.includes('COURIER')) return '/courier';
   if (userRoles.includes('MERCHANT')) return '/merchant/dashboard';
   if (userRoles.includes('CUSTOMER')) return '/customer';

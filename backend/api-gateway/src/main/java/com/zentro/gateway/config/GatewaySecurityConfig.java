@@ -2,6 +2,8 @@ package com.zentro.gateway.config;
 
 import com.zentro.gateway.error.ProblemWriter;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -9,6 +11,7 @@ import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authorization.ServerAccessDeniedHandler;
@@ -18,14 +21,22 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 @Configuration
 @EnableWebFluxSecurity
 public class GatewaySecurityConfig {
+  private static final Logger log = LoggerFactory.getLogger(GatewaySecurityConfig.class);
   private static final Set<String> HUMAN = Set.of("ROLE_CUSTOMER", "ROLE_MERCHANT", "ROLE_COURIER", "ROLE_DISPATCHER");
 
   @Bean
   SecurityWebFilterChain gatewaySecurityFilterChain(ServerHttpSecurity http, CorsConfigurationSource corsSource) {
     ReactiveJwtAuthenticationConverter converter = new ReactiveJwtAuthenticationConverter();
     converter.setJwtGrantedAuthoritiesConverter(new RoleConverter());
-    ServerAuthenticationEntryPoint entry = (exchange, ex) -> ProblemWriter.write(exchange.getResponse(), HttpStatus.UNAUTHORIZED,
-        "Unauthorized", "Authentication is required or the bearer token is invalid.", exchange.getRequest().getPath().value());
+    ServerAuthenticationEntryPoint entry = (exchange, ex) -> {
+      // Never log the Authorization header, token, or exception message.
+      String reason = ex instanceof OAuth2AuthenticationException oauth
+          ? oauth.getError().getErrorCode() : ex.getClass().getSimpleName();
+      log.warn("JWT authentication rejected: path={} exception={} reason={}",
+          exchange.getRequest().getPath().value(), ex.getClass().getSimpleName(), reason);
+      return ProblemWriter.write(exchange.getResponse(), HttpStatus.UNAUTHORIZED,
+          "Unauthorized", "Authentication is required or the bearer token is invalid.", exchange.getRequest().getPath().value());
+    };
     ServerAccessDeniedHandler denied = (exchange, ex) -> ProblemWriter.write(exchange.getResponse(), HttpStatus.FORBIDDEN,
         "Forbidden", "You do not have access to this resource.", exchange.getRequest().getPath().value());
     return http.csrf(ServerHttpSecurity.CsrfSpec::disable)

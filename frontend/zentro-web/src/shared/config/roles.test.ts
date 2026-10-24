@@ -9,9 +9,9 @@ describe('role mapping', () => {
     [['CUSTOMER'], '/customer'],
     [['MERCHANT'], '/merchant/dashboard'],
     [['COURIER'], '/courier'],
-    [['DISPATCHER'], '/admin'],
+    [['DISPATCHER'], '/dispatcher'],
     [['CUSTOMER', 'MERCHANT'], '/merchant/dashboard'],
-    [['CUSTOMER', 'COURIER', 'DISPATCHER'], '/admin'],
+    [['CUSTOMER', 'COURIER', 'DISPATCHER'], '/dispatcher'],
     [[], null],
   ] as [Role[], string | null][])('routes role combination %j to %s', (roles, route) => { expect(routeForRoles(roles)).toBe(route); });
 });

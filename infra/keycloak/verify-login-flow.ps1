@@ -36,17 +36,17 @@ function Get-InputAttribute([string]$Tag, [string]$Name) {
 $registrationPkce = New-PkcePair
 $registrationState = [Guid]::NewGuid().ToString('N')
 $registration = Invoke-WebRequest -UseBasicParsing -Uri (New-AuthorizeUrl 'create' $email $registrationPkce.Challenge $registrationState)
-if ($registration.StatusCode -ne 200 -or $registration.Content -notmatch 'name="firstName"' -or $registration.Content -notmatch 'name="lastName"' -or $registration.Content -notmatch 'name="phone"' -or $registration.Content -notmatch 'name="password-confirm"') {
-  throw 'Keycloak registration page did not show required name, phone, and password confirmation fields.'
+if ($registration.StatusCode -ne 200 -or $registration.Content -notmatch 'name="firstName"' -or $registration.Content -notmatch 'name="lastName"' -or $registration.Content -notmatch 'name="phone"' -or $registration.Content -notmatch 'name="password-confirm"' -or $registration.Content -notmatch 'data-zentro-signin-return href="http://localhost:5173/login">Sign in</a>') {
+  throw 'Keycloak registration must include required fields and a sign-in link that returns to the selected account type.'
 }
-Write-Output 'Keycloak registration form: required name, phone, password, and confirm fields are present.'
+Write-Output 'Keycloak registration form: required fields and the account-aware sign-in link are present.'
 
 # Complete a real authorization-code + PKCE sign-in through Keycloak using a cookie-backed HTTP session.
 $pkce = New-PkcePair
 $state = [Guid]::NewGuid().ToString('N')
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $loginPage = Invoke-WebRequest -UseBasicParsing -WebSession $session -Uri (New-AuthorizeUrl 'login' $email $pkce.Challenge $state)
-if ($loginPage.Content -notmatch 'zentro-email-chip' -or $loginPage.Content -notmatch [Regex]::Escape($email) -or $loginPage.Content -notmatch '>Change</a>' -or $loginPage.Content -notmatch 'type="password"') {
+if ($loginPage.Content -notmatch 'zentro-email-chip' -or $loginPage.Content -notmatch [Regex]::Escape($email) -or $loginPage.Content -notmatch 'href="[^"]*login-actions[^"]*">Change</a>' -or $loginPage.Content -notmatch 'type="password"') {
   throw 'Keycloak login page did not show the hinted email chip, Change link, and password field.'
 }
 if ($loginPage.Content -match 'type="email"') { throw 'Keycloak unexpectedly asked for the email again after receiving login_hint.' }

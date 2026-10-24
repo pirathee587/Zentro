@@ -1,14 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { HomePage, LoginPage, StaffLoginPage } from './index';
+import { HomePage, LoginPage, MerchantLoginPage, SignupPage, StaffLoginPage } from './index';
 import { AuthContext, type Auth } from '@/shared/auth/authContext';
 
 describe('public landing page', () => {
   it('does not show Team or Contact navigation', () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).not.toHaveTextContent(/team|contact/i);
-    expect(screen.getByRole('link', { name: 'For Merchants' })).toHaveAttribute('href', '/register/merchant');
     expect(screen.getByRole('contentinfo')).not.toHaveTextContent(/team|contact/i);
   });
   it('rejects an invalid tracking number', () => {
@@ -67,5 +66,64 @@ describe('customer sign in form', () => {
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: ' person@example.com ' } });
     fireEvent.click(screen.getByRole('button', { name: /continue securely/i }));
     expect(auth.login).toHaveBeenCalledWith('/customer', 'person@example.com', 'customer');
+  });
+});
+
+describe('merchant sign in and registration', () => {
+  it('starts email sign in with the merchant dashboard return path and merchant intent', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter initialEntries={['/merchant/login']}><AuthContext.Provider value={auth}><MerchantLoginPage /></AuthContext.Provider></MemoryRouter>);
+
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'business@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /continue securely/i }));
+    expect(auth.login).toHaveBeenCalledWith('/merchant/dashboard', 'business@example.com', 'merchant');
+  });
+
+  it('keeps the merchant Google sign in on the merchant dashboard flow', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter initialEntries={['/merchant/login']}><AuthContext.Provider value={auth}><MerchantLoginPage /></AuthContext.Provider></MemoryRouter>);
+
+    expect(screen.queryByRole('link', { name: /customer sign in/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+    expect(auth.login).toHaveBeenCalledWith('/merchant/dashboard', undefined, 'merchant', 'google');
+  });
+
+  it('returns merchant registration sign in to merchant login', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter initialEntries={['/register/merchant']}><AuthContext.Provider value={auth}><SignupPage /></AuthContext.Provider></MemoryRouter>);
+
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/merchant/login');
+    fireEvent.click(screen.getByRole('button', { name: /continue with google/i }));
+    expect(auth.login).toHaveBeenCalledWith('/merchant/register-business', undefined, 'merchant', 'google');
+  });
+});
+
+describe('customer registration page', () => {
+  it('opens customer registration directly from /register', () => {
+    const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter initialEntries={['/register']}><AuthContext.Provider value={auth}><SignupPage /></AuthContext.Provider></MemoryRouter>);
+
+    expect(screen.queryByText(/how will you use zentro/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /create customer account/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /i'm a business/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /create customer account/i }));
+    expect(auth.register).toHaveBeenCalledWith('/customer', 'customer');
+  });
+
+  it('offers to continue with the existing account', () => {
+    const auth: Auth = { user: { id: 'customer', roles: ['CUSTOMER'], accessToken: '' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter initialEntries={['/register']}><AuthContext.Provider value={auth}><Routes><Route path="/register" element={<SignupPage />} /><Route path="/customer" element={<p>Customer page</p>} /></Routes></AuthContext.Provider></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: /continue with this account/i }));
+    expect(screen.getByText('Customer page')).toBeInTheDocument();
+    expect(auth.register).not.toHaveBeenCalled();
+  });
+
+  it('can still start Keycloak signup when a session is already active', () => {
+    const auth: Auth = { user: { id: 'customer', roles: ['CUSTOMER'], accessToken: '' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    render(<MemoryRouter initialEntries={['/register']}><AuthContext.Provider value={auth}><SignupPage /></AuthContext.Provider></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole('button', { name: /create a different account/i }));
+    expect(auth.register).toHaveBeenCalledWith('/customer', 'customer');
   });
 });
