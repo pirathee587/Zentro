@@ -130,7 +130,7 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
   </section>;
 }
 
-export function CallbackPage() { const {user,login,logout,refreshAccessToken,loading}=useAuth(); const location=useLocation(); const queryClient=useQueryClient(); const [merchantStatus,setMerchantStatus]=useState<MerchantApplication|null|undefined>(undefined); const [error,setError]=useState(''); const [busy,setBusy]=useState(true); const [form,setForm]=useState({businessName:'',businessRegNo:'',contactPhone:''});
+export function CallbackPage() { const {user,login,logout,refreshAccessToken,loading}=useAuth(); const location=useLocation(); const [merchantStatus,setMerchantStatus]=useState<MerchantApplication|null|undefined>(undefined); const [error,setError]=useState(''); const [busy,setBusy]=useState(true); const [form,setForm]=useState({businessName:'',businessRegNo:'',contactPhone:''});
   if(!user) return loading?<section className="auth-card"><Spinner/><p>Finishing sign in...</p></section>:<section className="auth-card"><ErrorState message="We could not complete sign in. Please try again."/><Button onClick={()=>void login('/')}>Try again</Button></section>;
   const isMerchantApplicationPath=location.pathname==='/merchant/register-business'||location.pathname==='/merchant/status';
   const returnTo=isMerchantApplicationPath?location.pathname:user.returnTo ?? '/';
@@ -146,7 +146,7 @@ export function CallbackPage() { const {user,login,logout,refreshAccessToken,loa
     if(hasStaffRole) return <section className="auth-card"><span className="eyebrow">BUSINESS ACCESS</span><h1>Use your staff sign-in.</h1><p>Staff accounts cannot use the merchant portal.</p><Button onClick={()=>void logout()}>Sign out</Button></section>;
     if(roles.includes('MERCHANT')) return <Navigate to="/merchant/dashboard" replace/>;
     if(roles.includes('CUSTOMER')) {
-      if(user.merchantStatus==='PENDING') return <Navigate to="/merchant/dashboard" replace/>;
+      if(user.merchantStatus==='PENDING') return <Navigate to="/merchant/status" replace/>;
       if(!isMerchantApplicationPath) return <Navigate to="/merchant/register-business" replace/>;
       return <MerchantStatus accessToken={user.accessToken} userId={user.id} refreshAccessToken={refreshAccessToken} logout={logout} merchantStatus={merchantStatus} setMerchantStatus={setMerchantStatus} error={error} setError={setError} busy={busy} setBusy={setBusy} form={form} setForm={setForm}/>;
     }
@@ -164,8 +164,8 @@ function MerchantStatus({accessToken,userId,refreshAccessToken,logout,merchantSt
   const navigate=useNavigate();
   const queryClient=useQueryClient();
   const initialCheckStarted=useRef(false);
-  const authorization=async(force=false)=>{const token=refreshAccessToken?await refreshAccessToken(force):accessToken;if(!token)throw new Error('Your sign-in session has ended. Please sign in again.');return {headers:{Authorization:`Bearer ${token}`}};};
-  const refresh=useCallback(async()=>{setBusy(true);setError('');try{let response;try{response=await apiClient.get<MerchantApplication>('/api/v1/merchants/me',await authorization());}catch(e){if((e as {response?:{status?:number}})?.response?.status!==401||!refreshAccessToken)throw e;response=await apiClient.get<MerchantApplication>('/api/v1/merchants/me',await authorization(true));}setMerchantStatus(response.data);if(response.data.status==='PENDING')navigate('/merchant/dashboard',{replace:true});else if(window.location.pathname!=='/merchant/status')navigate('/merchant/status',{replace:true});}catch(e:unknown){if((e as {response?:{status?:number}})?.response?.status===404)setMerchantStatus(null);else setError(friendlyApiError(e,'We could not load your business status. Please try again.'));}finally{setBusy(false);}},[accessToken,refreshAccessToken,navigate,setBusy,setError,setMerchantStatus]);
+  const authorization=useCallback(async(force=false)=>{const token=refreshAccessToken?await refreshAccessToken(force):accessToken;if(!token)throw new Error('Your sign-in session has ended. Please sign in again.');return {headers:{Authorization:`Bearer ${token}`}};},[accessToken,refreshAccessToken]);
+  const refresh=useCallback(async()=>{setBusy(true);setError('');try{let response;try{response=await apiClient.get<MerchantApplication>('/api/v1/merchants/me',await authorization());}catch(e){if((e as {response?:{status?:number}})?.response?.status!==401||!refreshAccessToken)throw e;response=await apiClient.get<MerchantApplication>('/api/v1/merchants/me',await authorization(true));}setMerchantStatus(response.data);if(window.location.pathname!=='/merchant/status')navigate('/merchant/status',{replace:true});}catch(e:unknown){if((e as {response?:{status?:number}})?.response?.status===404)setMerchantStatus(null);else setError(friendlyApiError(e,'We could not load your business status. Please try again.'));}finally{setBusy(false);}},[authorization,refreshAccessToken,navigate,setBusy,setError,setMerchantStatus]);
   useEffect(()=>{if(initialCheckStarted.current)return;initialCheckStarted.current=true;void refresh();},[refresh]);
   if(busy&&merchantStatus===undefined)return <section className="auth-card"><Spinner/><p>Checking your business status...</p></section>;
   if(merchantStatus?.status==='APPROVED')return <section className="auth-card"><h1>Your business is approved.</h1><p>A dispatcher will assign merchant access to your account. Sign in again after access is enabled.</p><EmptyState message="Merchant access requires the MERCHANT role."/></section>;

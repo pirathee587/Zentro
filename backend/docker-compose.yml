@@ -1,0 +1,40 @@
+name: zentro-backend
+
+# Run from backend/:  docker compose up -d --build
+# Requires the Keycloak stack (infra/keycloak) to be running; its default network is joined below.
+services:
+  identity-partner-service:
+    build:
+      context: .
+      dockerfile: identity-partner-service/Dockerfile
+    container_name: zentro-identity-partner-service
+    env_file:
+      - path: ./identity-partner-service/.env
+        required: true
+    ports:
+      - "8081:8081"
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: zentro-api-gateway
+    env_file:
+      - path: ./api-gateway/.env
+        required: true
+    ports:
+      - "8080:8080"
+    depends_on:
+      identity-partner-service:
+        condition: service_healthy
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+networks:
+  zentro:
+    name: zentro-backend
+  keycloak:
+    name: keycloak_default
+    external: true

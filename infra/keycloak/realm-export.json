@@ -45,20 +45,24 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:5173/callback",
-        "http://localhost:5173/silent-callback",
+        "http://localhost:3000/*",
         "http://localhost:3000/callback",
         "http://localhost:3000/silent-callback",
+        "http://localhost:3001/*",
+        "http://localhost:3001/callback",
+        "http://localhost:3001/silent-callback",
         "http://localhost:5173/*",
-        "http://localhost:3000/*"
+        "http://localhost:5173/callback",
+        "http://localhost:5173/silent-callback"
       ],
       "webOrigins": [
-        "http://localhost:5173",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:5173"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*"
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*##http://localhost:3001/*"
       },
       "protocolMappers": [
         {

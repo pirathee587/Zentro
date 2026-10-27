@@ -5,6 +5,7 @@
 target/
 *.log
 infra/keycloak/.env
+infra/keycloak/backups/
 infra/keycloak/seed-credentials.local.txt
 infra/keycloak/seed-users.env
 .idea/
