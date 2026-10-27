@@ -3,7 +3,7 @@
   "enabled": true,
   "registrationAllowed": true,
   "loginWithEmailAllowed": true,
-  "verifyEmail": false,
+  "verifyEmail": true,
   "bruteForceProtected": true,
   "loginTheme": "zentro",
   "defaultRoles": [
@@ -112,7 +112,7 @@
       {
         "config": {
           "kc.user.profile.config": [
-            "{\"unmanagedAttributePolicy\":\"ADMIN_VIEW\",\"attributes\":[{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"email\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email\"},{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"username\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email\"},{\"validations\":{\"length\":{\"max\":100}},\"name\":\"firstName\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"displayName\":\"First name\"},{\"validations\":{\"length\":{\"max\":100}},\"name\":\"lastName\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"displayName\":\"Last name\"},{\"validations\":{\"pattern\":{\"pattern\":\"^\\\\+?[0-9]{9,15}$\"}},\"name\":\"phone\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"displayName\":\"Phone number\"}]}"
+            "{\"unmanagedAttributePolicy\":\"ADMIN_VIEW\",\"attributes\":[{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"email\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email address\"}]}"
           ]
         },
         "subComponents": {},
