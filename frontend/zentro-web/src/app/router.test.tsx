@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
@@ -19,7 +19,7 @@ import { AppRouter } from './router';
 describe('portal routing', () => {
   it('renders a lazy-loaded public tracking route', async () => {
     render(<Providers><MemoryRouter initialEntries={['/track/ZTR-ABCDEFG234']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /Your parcel.s journey/ }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Track Your Shipment|Your parcel.s journey/i }, { timeout: 5000 })).toBeInTheDocument();
   });
 
   it('renders the customer dashboard for an authenticated customer', async () => {
@@ -31,7 +31,8 @@ describe('portal routing', () => {
       state: { returnTo: '/customer', entryPoint: 'customer' },
     } as never);
     render(<Providers><MemoryRouter initialEntries={['/customer']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /What would you like to do\?/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /log out/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Welcome back/i }, { timeout: 5000 })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /User profile options/i }));
+    expect(screen.getByRole('menuitem', { name: /Sign out/i })).toBeInTheDocument();
   });
 });

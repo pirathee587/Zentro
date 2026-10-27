@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Zentro service environment templates</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: Arial, sans-serif; color: #172033; }
+    h1 { font-size: 22px; margin-bottom: 6px; }
+    h2 { font-size: 15px; margin: 22px 0 8px; }
+    p { font-size: 11px; line-height: 1.45; }
+    pre { background: #f4f6f8; border: 1px solid #d9dee5; border-radius: 4px; padding: 10px; font: 8.5px/1.45 "Liberation Mono", monospace; white-space: pre-wrap; }
+    .notice { background: #fff3cd; border-left: 4px solid #d99c00; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <h1>Zentro service environment templates</h1>
+  <p class="notice"><strong>Before sharing:</strong> These are templates only. Each group member must put their own database password in <code>DB_PASSWORD</code>. Never commit or share a completed <code>.env</code> file containing real credentials.</p>
+
+  <h2>Identity Partner Service</h2>
+  <pre>SERVER_PORT=8081
+DB_URL=jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.rtqctqvlzhwerwnzinkp
+DB_PASSWORD=replace-with-your-supabase-database-password
+JWT_ISSUER_URI=http://localhost:8180/realms/zentro
+JWT_AUDIENCE=zentro-api</pre>
+
+  <h2>Parcel Pricing Service</h2>
+  <pre>SERVER_PORT=8082
+DB_URL=jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.qhlirfnhiwiqcumtwhtd
+DB_PASSWORD=replace-with-your-supabase-database-password
+JWT_ISSUER_URI=http://localhost:8180/realms/zentro
+JWT_AUDIENCE=zentro-api</pre>
+
+  <h2>Dispatch Courier Service</h2>
+  <pre>SERVER_PORT=8083
+DB_URL=jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.jmcecnkrxpdbtrebshxx
+DB_PASSWORD=replace-with-your-supabase-database-password
+JWT_ISSUER_URI=http://localhost:8180/realms/zentro
+JWT_AUDIENCE=zentro-api</pre>
+
+  <h2>Tracking Reporting Service</h2>
+  <pre>SERVER_PORT=8084
+DB_URL=jdbc:postgresql://aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.aobzlsddvcgipvvudgpa
+DB_PASSWORD=replace-with-your-supabase-database-password
+JWT_ISSUER_URI=http://localhost:8180/realms/zentro
+JWT_AUDIENCE=zentro-api</pre>
+
+  <h2>Notification Integration Service</h2>
+  <pre>SERVER_PORT=8085
+DB_URL=jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
+DB_USER=postgres.gextxpppufuubsoeyqdx
+DB_PASSWORD=replace-with-your-supabase-database-password
+JWT_ISSUER_URI=http://localhost:8180/realms/zentro
+JWT_AUDIENCE=zentro-api</pre>
+</body>
+</html>

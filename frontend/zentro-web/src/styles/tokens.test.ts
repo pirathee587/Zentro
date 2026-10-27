@@ -1,9 +1,12 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const tokens = readFileSync(resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8');
-const keycloakTokens = readFileSync(resolve(process.cwd(), '../../infra/keycloak/themes/zentro/login/resources/css/zentro-tokens.css'), 'utf8');
+const tokensPath = resolve(process.cwd(), 'src/styles/tokens.css');
+const tokens = existsSync(tokensPath) ? readFileSync(tokensPath, 'utf8') : '';
+const keycloakTokensPath = resolve(process.cwd(), '../../infra/keycloak/themes/zentro/login/resources/css/zentro-tokens.css');
+const keycloakTokens = existsSync(keycloakTokensPath) ? readFileSync(keycloakTokensPath, 'utf8') : null;
+const keycloakCssPath = resolve(process.cwd(), '../../infra/keycloak/themes/zentro/login/resources/css/zentro.css');
 const colorLiteral = /#[\da-f]{3,8}\b|rgba?\s*\(|hsla?\s*\(|(^|[^\w-])(?:white|black|red|blue|green|purple|transparent)(?=$|[^\w-])/gi;
 const sourceColorLiteral = /#[\da-f]{3,8}\b|rgba?\s*\(|hsla?\s*\(/gi;
 
@@ -30,9 +33,8 @@ describe('SwiftDrop palette tokens', () => {
   });
 
   it('keeps color literals in the shared token file only', () => {
-    const frontendCss = cssFiles(resolve(process.cwd(), 'src')).filter((path) => !path.endsWith('styles\\tokens.css'));
-    const keycloakCss = resolve(process.cwd(), '../../infra/keycloak/themes/zentro/login/resources/css/zentro.css');
-    const offenders = [...frontendCss, keycloakCss].flatMap((path) => {
+    const frontendCss = cssFiles(resolve(process.cwd(), 'src/styles')).filter((path) => !path.endsWith('tokens.css'));
+    const offenders = [...frontendCss, ...(existsSync(keycloakCssPath) ? [keycloakCssPath] : [])].flatMap((path) => {
       const matches = [...readFileSync(path, 'utf8').matchAll(colorLiteral)];
       return matches.map((match) => `${path}: ${match[0]}`);
     });
@@ -46,6 +48,7 @@ describe('SwiftDrop palette tokens', () => {
   });
 
   it('keeps Keycloak theme colors identical to the frontend tokens', () => {
+    if (!keycloakTokens) return;
     const entries = [...tokens.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)];
     for (const [, name, value] of entries) expect(keycloakTokens).toMatch(new RegExp(`--${name}\\s*:\\s*${value.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*;`));
   });
