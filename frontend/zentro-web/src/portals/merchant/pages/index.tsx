@@ -62,7 +62,7 @@ export function DashboardPage() {
 
   if (pendingReview) return <main className="merchant-main merchant-dashboard">
     <section className="merchant-welcome"><div><span className="merchant-eyebrow">BUSINESS APPLICATION</span><h1>We're reviewing your details.</h1><p>Your merchant application is in the review queue. You can keep this dashboard open and check again later.</p></div><span className="merchant-status-pill is-pending"><i /> Pending review</span></section>
-    <section className="merchant-setup-card"><div><span className="merchant-eyebrow">WHAT HAPPENS NEXT</span><h2>Your business access is being reviewed</h2><p>Once a dispatcher updates your application, sign in again to use the merchant tools. Your customer account remains available while you wait.</p></div><button className="merchant-outline-link" type="button" onClick={() => window.location.reload()}>Refresh status</button></section>
+    <section className="merchant-setup-card"><div><span className="merchant-eyebrow">WHAT HAPPENS NEXT</span><h2>Your business access is being reviewed</h2><p>Once a dispatcher updates your application, sign in again to use the merchant tools. Your customer account remains available while you wait.</p></div><Button variant="secondary" className="merchant-outline-link" type="button" onClick={() => window.location.reload()}>Refresh status</Button></section>
   </main>;
 
   if (application.isLoading) return <main className="merchant-main"><div className="merchant-loading"><Spinner label="Loading your business dashboard" /></div></main>;

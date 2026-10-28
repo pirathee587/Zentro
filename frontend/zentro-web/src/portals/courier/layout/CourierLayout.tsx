@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
+import { Button } from '@/shared/ui';
 import './courier.css';
 
 export function CourierLayout() {
@@ -13,7 +14,7 @@ export function CourierLayout() {
       <nav className="staff-nav" aria-label="Courier navigation"><NavLink end to="/courier">My dashboard</NavLink></nav>
       <div className="staff-account">
         <span>{user?.name || 'Courier'}</span>
-        <button className="staff-logout" type="button" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></button>
+        <Button variant="secondary" className="staff-logout" type="button" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></Button>
       </div>
     </header>
     <Outlet />
