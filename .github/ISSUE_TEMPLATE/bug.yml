@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem in Zentro
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Define the outcomes that prove the fix is complete.
+      placeholder: |
+        - [ ] The issue is reproducible before the fix.
+        - [ ] Expected behaviour is verified after the fix.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [High, Medium, Low]
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [backend, devops, docs]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include steps, logs, or screenshots where useful.
+    validations:
+      required: true
