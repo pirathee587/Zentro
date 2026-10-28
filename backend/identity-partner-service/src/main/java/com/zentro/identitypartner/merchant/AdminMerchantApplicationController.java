@@ -30,7 +30,7 @@ public class AdminMerchantApplicationController {
 
   @PatchMapping("/{applicationId}")
   public MerchantApplication review(
-      @PathVariable UUID applicationId,
+      @PathVariable("applicationId") UUID applicationId,
       @AuthenticationPrincipal Jwt reviewer,
       @Valid @RequestBody ReviewMerchantApplicationRequest request) {
     return applications.review(applicationId, reviewer, request);

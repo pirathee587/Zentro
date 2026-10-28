@@ -3,6 +3,8 @@ server:
   compression:
     enabled: false
 spring:
+  config:
+    import: optional:file:./.env[.properties]
   application:
     name: zentro-api-gateway
   cloud:

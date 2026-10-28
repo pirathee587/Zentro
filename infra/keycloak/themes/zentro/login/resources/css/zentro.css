@@ -254,6 +254,16 @@ body#keycloak-bg {
 .pf-v5-c-login__main-footer-band a:hover,
 .pf-v5-c-login a:hover { text-decoration: underline; }
 .zentro-register-signin-links { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
+.zentro-verification-note {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--warm-pale);
+  color: var(--espresso);
+  font-size: 12px;
+  line-height: 1.55;
+}
 .pf-v5-c-login__main .pf-v5-c-form__helper-text { color: var(--muted); font-size: 12px; line-height: 1.55; }
 .pf-v5-c-login__main .pf-v5-c-form__helper-text ul { margin: 7px 0 0; padding-left: 18px; }
 .pf-v5-c-login__main .pf-v5-c-check { display: flex; align-items: flex-start; gap: 9px; color: var(--muted); font-size: 12px; }

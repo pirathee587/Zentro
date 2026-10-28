@@ -1,10 +1,12 @@
 server:
   port: ${SERVER_PORT:8081}
 spring:
+  config:
+    import: optional:file:./.env[.properties],optional:file:../../infra/keycloak/.env[.properties]
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:${KC_DB_URL}}
+    username: ${DB_USER:${KC_DB_USERNAME}}
+    password: ${DB_PASSWORD:${KC_DB_PASSWORD}}
   flyway:
     schemas: identity
     default-schema: identity
