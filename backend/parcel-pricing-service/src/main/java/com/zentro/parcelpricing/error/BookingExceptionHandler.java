@@ -1,5 +1,6 @@
 package com.zentro.parcelpricing.error;
 
+import com.zentro.parcelpricing.controller.ParcelBookingController;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
  * Error responses for the booking endpoint only. Messages never include names, phone numbers or addresses,
  * and logs record only the exception type.
  */
-@RestControllerAdvice(basePackages = "com.zentro.parcelpricing.booking")
+@RestControllerAdvice(assignableTypes = ParcelBookingController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class BookingExceptionHandler {
   private static final Logger log = LoggerFactory.getLogger(BookingExceptionHandler.class);
