@@ -19,6 +19,17 @@
   --white: #ffffff;
   --transparent: transparent;
   --espresso-light: var(--umber);
+  --login-decoration-border: rgba(168, 116, 47, .2);
+  --login-decoration-highlight: rgba(251, 233, 207, .75);
+  --login-card-shadow: rgba(38, 24, 12, .07);
+  --login-focus-ring: rgba(229, 181, 116, .2);
+  --login-focus-outline: rgba(201, 143, 74, .55);
+  --login-field-background: #fbf9f6;
+  --login-placeholder: #a69a8b;
+  --login-input-group-background: #f5f1ec;
+  --login-social-hover: #fbf5ec;
+  --login-social-icon-background: #f7f3ed;
+  --login-google-blue: #4285f4;
   --palette-30261f0b: #30261f0b;
   --palette-30261f0d: #30261f0d;
   --palette-30261f12: #30261f12;
