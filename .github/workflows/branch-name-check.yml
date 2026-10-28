@@ -1,0 +1,26 @@
+name: Branch name check
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  branch-name-check:
+    name: branch-name-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          pattern='^(feature|fix|chore|hotfix|docs)/[0-9]+-[a-z0-9-]+$'
+          if [[ "$HEAD_REF" =~ $pattern ]]; then
+            echo "Branch name '$HEAD_REF' is valid."
+          else
+            echo "::error::Invalid branch name '$HEAD_REF'. Use <type>/<issue-number>-<short-name>, for example feature/123-add-login. Allowed types: feature, fix, chore, hotfix, docs."
+            exit 1
+          fi
