@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
+import { Button } from '@/shared/ui';
 import './merchant.css';
 
 export function MerchantLayout() {
@@ -12,7 +13,7 @@ export function MerchantLayout() {
         <NavLink to="/merchant/dashboard/api-credentials">API credentials</NavLink>
         <NavLink to="/merchant/dashboard/webhooks">Webhooks</NavLink>
       </nav>
-      <div className="merchant-account"><span>{user?.name || 'Merchant account'}</span><button type="button" className="merchant-logout" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></button></div>
+      <div className="merchant-account"><span>{user?.name || 'Merchant account'}</span><Button variant="secondary" type="button" className="merchant-logout" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></Button></div>
     </header>
     <Outlet />
   </div>;
