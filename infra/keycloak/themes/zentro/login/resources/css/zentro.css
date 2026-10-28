@@ -84,12 +84,12 @@ body#keycloak-bg {
   left: clamp(54px, 10vw, 150px);
   width: clamp(175px, 20vw, 250px);
   height: 154px;
-  border: 1px solid rgba(168, 116, 47, .2);
+  border: 1px solid var(--login-decoration-border);
   border-radius: 46% 54% 49% 51%;
   background:
-    radial-gradient(circle at 84% 68%, var(--espresso) 0 5px, transparent 6px),
-    radial-gradient(circle at 15% 42%, var(--ochre) 0 4px, transparent 5px),
-    radial-gradient(ellipse at 50% 55%, rgba(251, 233, 207, .75) 0 44%, transparent 45%);
+    radial-gradient(circle at 84% 68%, var(--espresso) 0 5px, var(--transparent) 6px),
+    radial-gradient(circle at 15% 42%, var(--ochre) 0 4px, var(--transparent) 5px),
+    radial-gradient(ellipse at 50% 55%, var(--login-decoration-highlight) 0 44%, var(--transparent) 45%);
   content: "";
   transform: rotate(-8deg);
   pointer-events: none;
@@ -116,7 +116,7 @@ body#keycloak-bg {
   border: 1px solid var(--line);
   border-top: 0;
   border-radius: 0 0 26px 26px;
-  box-shadow: 0 24px 70px rgba(38, 24, 12, .07);
+  box-shadow: 0 24px 70px var(--login-card-shadow);
 }
 .pf-v5-c-login__main-header { margin: 0 0 27px; }
 .pf-v5-c-brand {
@@ -188,7 +188,7 @@ body#keycloak-bg {
   border: 1px solid var(--line);
   border-radius: 12px;
   outline: 0;
-  background: #fbf9f6;
+  background: var(--login-field-background);
   color: var(--ink);
   box-shadow: none;
   font: inherit;
@@ -199,7 +199,7 @@ body#keycloak-bg {
 .pf-v5-c-login__main .pf-v5-c-form-control:focus {
   border-color: var(--ochre);
   background: var(--paper);
-  box-shadow: 0 0 0 4px rgba(229, 181, 116, .2);
+  box-shadow: 0 0 0 4px var(--login-focus-ring);
 }
 /* Keycloak user-profile fields wrap the real input in another form-control.
    Keep the wrapper as the visible field and remove the inner duplicate box. */
@@ -211,20 +211,20 @@ body#keycloak-bg {
   border: 0;
   border-radius: 0;
   outline: 0;
-  background: transparent;
+  background: var(--transparent);
   box-shadow: none;
 }
 .pf-v5-c-login__main .pf-v5-c-form-control .pf-v5-c-form-control:focus {
   border: 0;
-  background: transparent;
+  background: var(--transparent);
   box-shadow: none;
 }
 .pf-v5-c-form-control:focus-within {
   border-color: var(--ochre);
   background: var(--paper);
-  box-shadow: 0 0 0 4px rgba(229, 181, 116, .2);
+  box-shadow: 0 0 0 4px var(--login-focus-ring);
 }
-.pf-v5-c-form-control::placeholder { color: #a69a8b; }
+.pf-v5-c-form-control::placeholder { color: var(--login-placeholder); }
 .pf-v5-c-button.pf-m-primary {
   min-height: 52px;
   border: 0;
@@ -240,12 +240,12 @@ body#keycloak-bg {
 .pf-v5-c-button.pf-m-primary:hover { background: var(--umber); }
 .pf-v5-c-button.pf-m-primary:active { transform: translateY(1px); }
 .pf-v5-c-button:focus-visible,
-.pf-v5-c-login a:focus-visible { outline: 3px solid rgba(201, 143, 74, .55); outline-offset: 3px; }
+.pf-v5-c-login a:focus-visible { outline: 3px solid var(--login-focus-outline); outline-offset: 3px; }
 .pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary) {
   min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 0 12px 12px 0;
-  background: #f5f1ec;
+  background: var(--login-input-group-background);
   color: var(--espresso);
 }
 .pf-v5-c-login__main-footer-band { margin-top: 15px; text-align: center; font-size: 13px; }
@@ -282,7 +282,7 @@ body#keycloak-bg {
   padding: 10px 16px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #fbf9f6;
+  background: var(--login-field-background);
   color: var(--espresso);
   font-size: 14px;
   overflow-wrap: anywhere;
@@ -309,9 +309,9 @@ body#keycloak-bg {
   text-decoration: none !important;
   transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
 }
-.zentro-social-button:hover { transform: translateY(-1px); border-color: var(--ochre); background: #fbf5ec; }
-.zentro-social-icon { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 50%; background: #f7f3ed; color: #4285f4; font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; line-height: 1; }
-.zentro-message { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: #fbf9f6; color: var(--espresso); font-size: 15px; line-height: 1.7; }
+.zentro-social-button:hover { transform: translateY(-1px); border-color: var(--ochre); background: var(--login-social-hover); }
+.zentro-social-icon { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 50%; background: var(--login-social-icon-background); color: var(--login-google-blue); font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; line-height: 1; }
+.zentro-message { display: grid; gap: 18px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--login-field-background); color: var(--espresso); font-size: 15px; line-height: 1.7; }
 .zentro-message p { margin: 0; overflow-wrap: anywhere; }
 .zentro-message-action { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; padding: 0 18px; border-radius: 999px; background: var(--espresso); color: var(--white) !important; font-weight: 700; text-decoration: none !important; }
 
