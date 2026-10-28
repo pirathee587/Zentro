@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button as BaseButton, Input as BaseInput } from '@/shared/ui';
 import { Card, CardContent } from '../components/Card';
@@ -7,12 +7,14 @@ import { StatusChip } from '../components/StatusChip';
 import { Skeleton } from '../components/Skeleton';
 import { EmptyState } from '../components/EmptyState';
 import { SearchIcon, CircleAlertIcon } from '../components/icons';
+import { friendlyApiError } from '@/shared/api/apiClient';
 import {
   listParcels,
   type Parcel,
   type ParcelStatus,
   formatMoney,
   formatDate,
+  normalizeParcelStatus,
 } from '../services/customerApi';
 
 type FilterTab = 'ALL' | 'In progress' | 'Delivered' | 'Failed';
@@ -46,6 +48,9 @@ export const HistoryPage: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
 
+  // Track request sequence to prevent stale responses from overwriting newer search/filter results
+  const activeRequestIdRef = useRef(0);
+
   // Debounce search input by 300ms
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -56,6 +61,7 @@ export const HistoryPage: React.FC = () => {
 
   const fetchParcels = useCallback(
     async (targetPage: number, append = false) => {
+      const requestId = ++activeRequestIdRef.current;
       if (append) {
         setLoadingMore(true);
       } else {
@@ -72,30 +78,63 @@ export const HistoryPage: React.FC = () => {
           search: debouncedQuery || undefined,
         });
 
-        if (append) {
-          setParcels((prev) => [...prev, ...res.parcels]);
-        } else {
-          setParcels(res.parcels);
+        // Discard stale response if a newer request was initiated
+        if (requestId !== activeRequestIdRef.current) {
+          return;
         }
 
-        setTotalCount(res.total);
+        const incoming = res.parcels || [];
+
+        if (append) {
+          setParcels((prev) => {
+            const existingKeys = new Set(prev.map((p) => p.id || p.trackingRef));
+            const uniqueIncoming = incoming.filter(
+              (p) => !existingKeys.has(p.id || p.trackingRef)
+            );
+            const combined = [...prev, ...uniqueIncoming];
+
+            if (typeof res.totalSpent !== 'number') {
+              const sum = combined.reduce((acc: number, p: Parcel) => acc + (p.fee || 0), 0);
+              setTotalSpent(sum);
+            }
+            return combined;
+          });
+        } else {
+          setParcels(incoming);
+          if (typeof res.totalSpent !== 'number') {
+            const sum = incoming.reduce((acc: number, p: Parcel) => acc + (p.fee || 0), 0);
+            setTotalSpent(sum);
+          }
+        }
+
+        if (typeof res.total === 'number') {
+          setTotalCount(res.total);
+        } else {
+          setTotalCount((prevCount) => (append ? prevCount + incoming.length : incoming.length));
+        }
         if (typeof res.totalSpent === 'number') {
           setTotalSpent(res.totalSpent);
-        } else {
-          const sum = (append ? [...parcels, ...res.parcels] : res.parcels).reduce(
-            (acc: number, p: Parcel) => acc + (p.fee || 0),
-            0
-          );
-          setTotalSpent(sum);
         }
-      } catch {
-        setError('Unable to load deliveries right now. Please try again.');
+      } catch (err: unknown) {
+        if (requestId !== activeRequestIdRef.current) {
+          return;
+        }
+        if (append) {
+          setPage((prevPage) => Math.max(1, prevPage - 1));
+        }
+        const friendlyMessage = friendlyApiError(
+          err,
+          'Unable to load deliveries right now. Please try again.'
+        );
+        setError(friendlyMessage);
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (requestId === activeRequestIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
-    [statusFilter, debouncedQuery, parcels]
+    [statusFilter, debouncedQuery]
   );
 
   // Trigger initial fetch when filter or debounced query changes
@@ -106,6 +145,7 @@ export const HistoryPage: React.FC = () => {
   }, [statusFilter, debouncedQuery]);
 
   const handleLoadMore = () => {
+    if (loadingMore || loading) return;
     const nextPage = page + 1;
     setPage(nextPage);
     void fetchParcels(nextPage, true);
@@ -114,6 +154,7 @@ export const HistoryPage: React.FC = () => {
   const handleClearFilters = () => {
     setStatusFilter('ALL');
     setSearchTerm('');
+    setDebouncedQuery('');
   };
 
   const subtitle = useMemo(() => {
@@ -186,20 +227,31 @@ export const HistoryPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Error State with Retry */}
+          {/* Error State with Retry and Auth Expiry Handling */}
           {!loading && error && (
             <EmptyState
               title="Unable to load deliveries"
               description={error}
               icon={<CircleAlertIcon size={34} />}
               action={
-                <Button
-                  variant="accent"
-                  size="small"
-                  onClick={() => void fetchParcels(1, false)}
-                >
-                  Retry
-                </Button>
+                <div style={{ display: 'inline-flex', gap: '8px' }}>
+                  <Button
+                    variant="accent"
+                    size="small"
+                    onClick={() => void fetchParcels(1, false)}
+                  >
+                    Retry
+                  </Button>
+                  {/session has expired/i.test(error) && (
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onClick={() => navigate('/login')}
+                    >
+                      Sign in again
+                    </Button>
+                  )}
+                </div>
               }
             />
           )}
@@ -282,9 +334,10 @@ export const HistoryPage: React.FC = () => {
                   </tbody>
                 ) : (
                   <tbody>
-                    {parcels.map((parcel) => {
-                      const isDelivered = parcel.status === 'Delivered';
-                      const isFailed = parcel.status === 'Failed';
+                    {parcels.map((parcel, idx) => {
+                      const normalizedStatus = normalizeParcelStatus(parcel.status || parcel.rawStatus);
+                      const isDelivered = normalizedStatus === 'Delivered';
+                      const isFailed = normalizedStatus === 'Failed';
                       const failureReason =
                         parcel.failureReason ||
                         parcel.timeline?.find(
@@ -292,17 +345,20 @@ export const HistoryPage: React.FC = () => {
                         )?.description ||
                         'Delivery failed to complete.';
 
-                      const routeText = `${parcel.sender?.city || 'Origin'} → ${
-                        parcel.recipient?.city || 'Destination'
+                      const routeText = `${parcel.sender?.city || parcel.sender?.address || 'Origin'} → ${
+                        parcel.recipient?.city || parcel.recipient?.address || 'Destination'
                       }`;
                       const dateText =
-                        parcel.formattedCreatedAt || formatDate(parcel.createdAt);
+                        parcel.formattedCreatedAt || (parcel.createdAt ? formatDate(parcel.createdAt) : '—');
+                      const feeText =
+                        parcel.formattedFee || (typeof parcel.fee === 'number' ? formatMoney(parcel.fee) : '—');
+                      const trackingRef = parcel.trackingRef || parcel.id || '—';
 
                       return (
-                        <tr key={parcel.id || parcel.trackingRef} className="sd-table-row">
+                        <tr key={parcel.id || parcel.trackingRef || `pcl-${idx}`} className="sd-table-row">
                           {/* Tracking No. & Secondary Failure Reason if Failed */}
                           <td>
-                            <div className="sd-history-ref">{parcel.trackingRef}</div>
+                            <div className="sd-history-ref">{trackingRef}</div>
                             {isFailed && (
                               <div
                                 className="sd-history-failed-reason"
@@ -323,12 +379,12 @@ export const HistoryPage: React.FC = () => {
 
                           {/* Status */}
                           <td>
-                            <StatusChip status={parcel.status} />
+                            <StatusChip status={normalizedStatus} />
                           </td>
 
                           {/* Fee */}
                           <td style={{ fontWeight: '500' }}>
-                            {parcel.formattedFee || formatMoney(parcel.fee || 0)}
+                            {feeText}
                           </td>
 
                           {/* Actions */}
@@ -343,7 +399,7 @@ export const HistoryPage: React.FC = () => {
                                 onClick={() =>
                                   navigate(
                                     `/customer/track/${encodeURIComponent(
-                                      parcel.trackingRef
+                                      trackingRef
                                     )}`
                                   )
                                 }
@@ -358,7 +414,7 @@ export const HistoryPage: React.FC = () => {
                                   onClick={() =>
                                     navigate(
                                       `/customer/receipts?trackingRef=${encodeURIComponent(
-                                        parcel.trackingRef
+                                        trackingRef
                                       )}`
                                     )
                                   }
