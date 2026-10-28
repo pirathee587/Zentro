@@ -1,0 +1,102 @@
+name: Task status sync
+
+on:
+  create:
+  pull_request:
+    branches: [develop]
+    types: [opened, ready_for_review, closed]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  sync-task-status:
+    name: sync-task-status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync issue status
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const eventName = context.eventName;
+
+            async function getIssueNumberFromBranch(branch) {
+              const match = branch.match(/^feature\/(\d+)-/);
+              return match ? Number(match[1]) : null;
+            }
+
+            async function getIssueNumberFromPrBody(body) {
+              const match = (body || "").match(/\b(?:Closes|Fixes|Resolves)\s+#(\d+)\b/i);
+              return match ? Number(match[1]) : null;
+            }
+
+            async function addLabel(issue_number, name) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [name] });
+            }
+
+            async function removeLabelIfPresent(issue_number, name) {
+              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                owner, repo, issue_number
+              });
+              if (labels.some(label => label.name === name)) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              }
+            }
+
+            if (eventName === "create") {
+              const { ref, ref_type } = context.payload;
+              if (ref_type !== "branch") {
+                core.info("Not a branch creation event; nothing to do.");
+                return;
+              }
+              const issue_number = await getIssueNumberFromBranch(ref);
+              if (!issue_number) {
+                core.info("Branch does not match feature/<issue-number>-...; nothing to do.");
+                return;
+              }
+
+              let issue;
+              try {
+                ({ data: issue } = await github.rest.issues.get({ owner, repo, issue_number }));
+              } catch (error) {
+                core.warning(`Issue #${issue_number} could not be fetched: ${error.message}`);
+                return;
+              }
+              if (issue.pull_request) {
+                core.info(`#${issue_number} is a pull request, not an issue.`);
+                return;
+              }
+              if (!issue.assignees || issue.assignees.length === 0) {
+                await github.rest.issues.addAssignees({
+                  owner, repo, issue_number, assignees: [context.actor]
+                });
+              }
+              await addLabel(issue_number, "in-progress");
+              core.info(`Updated issue #${issue_number} for branch ${ref}.`);
+              return;
+            }
+
+            const pr = context.payload.pull_request;
+            const issue_number = await getIssueNumberFromPrBody(pr.body);
+            if (!issue_number) {
+              core.info("PR has no closing reference; linked-issue check handles this.");
+              return;
+            }
+
+            const action = context.payload.action;
+            if (action === "opened" || action === "ready_for_review") {
+              await addLabel(issue_number, "in-review");
+              await removeLabelIfPresent(issue_number, "in-progress");
+              core.info(`Issue #${issue_number} moved to in-review.`);
+            } else if (action === "closed" && pr.merged) {
+              await addLabel(issue_number, "done");
+              await removeLabelIfPresent(issue_number, "in-review");
+              await github.rest.issues.createComment({
+                owner, repo, issue_number,
+                body: `Merged in PR #${pr.number} by @${context.actor}`
+              });
+              core.info(`Issue #${issue_number} marked done after PR #${pr.number} merged.`);
+            }
