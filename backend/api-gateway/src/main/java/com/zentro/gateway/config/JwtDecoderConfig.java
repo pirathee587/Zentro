@@ -3,6 +3,7 @@ package com.zentro.gateway.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -18,8 +19,11 @@ public class JwtDecoderConfig {
 
   @Bean
   ReactiveJwtDecoder jwtDecoder(@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuer,
-                                @Value("${zentro.jwt.audience}") String audience) {
-    NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder.withIssuerLocation(issuer).build();
+                                @Value("${zentro.jwt.audience}") String audience,
+                                @Value("${zentro.jwt.jwks-uri:}") String jwksUri) {
+    NimbusReactiveJwtDecoder decoder = StringUtils.hasText(jwksUri)
+        ? NimbusReactiveJwtDecoder.withJwkSetUri(jwksUri).build()
+        : NimbusReactiveJwtDecoder.withIssuerLocation(issuer).build();
     OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
     OAuth2TokenValidator<Jwt> audienceValidator = jwt -> {
       if (jwt.getAudience().contains(audience)) return OAuth2TokenValidatorResult.success();

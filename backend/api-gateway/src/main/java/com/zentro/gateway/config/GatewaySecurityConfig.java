@@ -47,7 +47,9 @@ public class GatewaySecurityConfig {
         .exceptionHandling(spec -> spec.authenticationEntryPoint(entry).accessDeniedHandler(denied))
         .authorizeExchange(exchanges -> exchanges
             .pathMatchers("/api/v1/tracking/mine").access(hasAny("ROLE_CUSTOMER", "ROLE_MERCHANT"))
-            .pathMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/tracking/**").access(notServiceOnly())
+            .pathMatchers(org.springframework.http.HttpMethod.GET,
+                "/api/v1/tracking/*", "/api/v1/tracking/*/events", "/api/v1/tracking/*/stream").access(notServiceOnly())
+            .pathMatchers("/api/v1/tracking/**").denyAll()
             .pathMatchers("/actuator/health/**", "/actuator/health").permitAll()
             .pathMatchers("/api/v1/admin/**", "/api/v1/dispatch/**", "/api/v1/reports/**").access(has("ROLE_DISPATCHER"))
             .pathMatchers("/api/v1/courier/**").access(has("ROLE_COURIER"))
@@ -55,8 +57,8 @@ public class GatewaySecurityConfig {
             .pathMatchers("/api/v1/parcels/**").access(hasAny("ROLE_CUSTOMER", "ROLE_DISPATCHER"))
             .pathMatchers("/api/v1/users/**", "/api/v1/merchants/**", "/api/v1/zones/**").access(humanAuthenticated())
             .pathMatchers("/actuator/prometheus").access(humanAuthenticated())
-            .pathMatchers("/api/v1/**").denyAll()
-            .anyExchange().permitAll())
+            .pathMatchers("/api/v1/**").permitAll()
+            .anyExchange().denyAll())
         .oauth2ResourceServer(resource -> resource.authenticationEntryPoint(entry).accessDeniedHandler(denied)
             .jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
         .build();
@@ -71,7 +73,7 @@ public class GatewaySecurityConfig {
   }
 
   private static org.springframework.security.authorization.ReactiveAuthorizationManager<org.springframework.security.web.server.authorization.AuthorizationContext> humanAuthenticated() {
-    return (authentication, context) -> authentication.map(auth -> new AuthorizationDecision(auth.isAuthenticated() && !serviceOnly(auth))).defaultIfEmpty(new AuthorizationDecision(false));
+    return (authentication, context) -> authentication.map(auth -> new AuthorizationDecision(auth.isAuthenticated() && isHuman(auth))).defaultIfEmpty(new AuthorizationDecision(false));
   }
 
   private static org.springframework.security.authorization.ReactiveAuthorizationManager<org.springframework.security.web.server.authorization.AuthorizationContext> notServiceOnly() {

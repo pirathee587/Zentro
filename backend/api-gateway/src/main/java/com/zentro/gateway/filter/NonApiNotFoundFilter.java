@@ -21,5 +21,5 @@ public class NonApiNotFoundFilter implements WebFilter, Ordered {
     return chain.filter(exchange);
   }
 
-  @Override public int getOrder() { return Ordered.LOWEST_PRECEDENCE; }
+  @Override public int getOrder() { return Ordered.HIGHEST_PRECEDENCE; }
 }
