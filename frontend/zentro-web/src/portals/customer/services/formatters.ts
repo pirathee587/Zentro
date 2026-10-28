@@ -29,3 +29,24 @@ export function formatDate(input: string | number | Date): string {
 
   return `${day} ${month} ${year}`;
 }
+
+export type StandardParcelStatus = 'In progress' | 'Delivered' | 'Failed' | 'Created';
+
+/**
+ * Normalizes any backend or raw status string (e.g. "IN_PROGRESS", "DELIVERED", "FAILED")
+ * into the customer portal standard status.
+ */
+export function normalizeParcelStatus(status?: string | null): StandardParcelStatus {
+  if (!status) return 'Created';
+  const s = status.trim().toUpperCase().replace(/[\s_-]+/g, '');
+  if (['DELIVERED', 'COMPLETED', 'RECEIVED'].includes(s)) {
+    return 'Delivered';
+  }
+  if (['FAILED', 'CANCELLED', 'RETURNED', 'REJECTED'].includes(s)) {
+    return 'Failed';
+  }
+  if (['CREATED', 'DRAFT', 'PENDING', 'BOOKED'].includes(s)) {
+    return 'Created';
+  }
+  return 'In progress';
+}

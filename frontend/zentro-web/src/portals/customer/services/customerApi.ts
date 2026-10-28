@@ -2,6 +2,7 @@ import axios from 'axios';
 import { apiClient } from '@/shared/api/apiClient';
 import { customerApiConfig } from './config';
 import { mockCustomerAdapter } from '../mocks/mockAdapter';
+import { normalizeParcelStatus, formatMoney, formatDate } from './formatters';
 import type {
   DashboardData,
   FeeEstimateRequest,
@@ -122,17 +123,113 @@ export async function createDelivery(
   }
 }
 
+export function normalizeParcelRecord(p: Partial<Parcel>): Parcel {
+  const normStatus = normalizeParcelStatus(p.status || p.rawStatus);
+  const fee = typeof p.fee === 'number' ? p.fee : 0;
+  const createdAt = p.createdAt || new Date().toISOString();
+
+  return {
+    id: p.id || p.trackingRef || `pcl-${Math.random().toString(36).slice(2, 9)}`,
+    trackingRef: p.trackingRef || p.id || 'ZTR-UNKNOWN',
+    status: normStatus,
+    rawStatus: p.rawStatus || p.status,
+    sender: {
+      name: p.sender?.name || '',
+      phone: p.sender?.phone || '',
+      address: p.sender?.address || '',
+      city: p.sender?.city || p.sender?.address || 'Origin',
+    },
+    recipient: {
+      name: p.recipient?.name || '',
+      phone: p.recipient?.phone || '',
+      address: p.recipient?.address || '',
+      city: p.recipient?.city || p.recipient?.address || 'Destination',
+    },
+    parcel: {
+      description: p.parcel?.description || 'Parcel',
+      weightKg: typeof p.parcel?.weightKg === 'number' ? p.parcel.weightKg : 1.0,
+      category: p.parcel?.category || 'Standard',
+      size: p.parcel?.size,
+    },
+    fee,
+    formattedFee: p.formattedFee || formatMoney(fee),
+    createdAt,
+    formattedCreatedAt: p.formattedCreatedAt || formatDate(createdAt),
+    estimatedDeliveryDate: p.estimatedDeliveryDate,
+    formattedEstimatedDeliveryDate:
+      p.formattedEstimatedDeliveryDate ||
+      (p.estimatedDeliveryDate ? formatDate(p.estimatedDeliveryDate) : undefined),
+    deliveredAt: p.deliveredAt,
+    formattedDeliveredAt:
+      p.formattedDeliveredAt || (p.deliveredAt ? formatDate(p.deliveredAt) : undefined),
+    failureReason: p.failureReason,
+    courier: p.courier,
+    timeline: Array.isArray(p.timeline) ? p.timeline : [],
+  };
+}
+
+export function normalizeListParcelsResponse(raw: unknown): ListParcelsResponse {
+  if (!raw || typeof raw !== 'object') {
+    return { parcels: [], total: 0, totalSpent: 0, formattedTotalSpent: formatMoney(0) };
+  }
+
+  if (Array.isArray(raw)) {
+    const parcels = raw.map(normalizeParcelRecord);
+    const totalSpent = parcels.reduce((sum, p) => sum + (p.fee || 0), 0);
+    return {
+      parcels,
+      total: parcels.length,
+      totalSpent,
+      formattedTotalSpent: formatMoney(totalSpent),
+    };
+  }
+
+  const obj = raw as Record<string, unknown>;
+  const rawList = (Array.isArray(obj.parcels)
+    ? obj.parcels
+    : Array.isArray(obj.content)
+    ? obj.content
+    : Array.isArray(obj.items)
+    ? obj.items
+    : Array.isArray(obj.deliveries)
+    ? obj.deliveries
+    : Array.isArray(obj.data)
+    ? obj.data
+    : []) as Partial<Parcel>[];
+
+  const parcels = rawList.map(normalizeParcelRecord);
+  const total =
+    typeof obj.total === 'number'
+      ? obj.total
+      : typeof obj.totalElements === 'number'
+      ? obj.totalElements
+      : parcels.length;
+
+  const totalSpent =
+    typeof obj.totalSpent === 'number'
+      ? obj.totalSpent
+      : parcels.reduce((sum, p) => sum + (p.fee || 0), 0);
+
+  return {
+    parcels,
+    total,
+    totalSpent,
+    formattedTotalSpent:
+      typeof obj.formattedTotalSpent === 'string'
+        ? obj.formattedTotalSpent
+        : formatMoney(totalSpent),
+  };
+}
+
 export async function listParcels(
   params?: ListParcelsParams
 ): Promise<ListParcelsResponse> {
   if (customerApiConfig.useMocks) {
     return mockCustomerAdapter.listParcels(params);
   }
-  const { data } = await apiClient.get<ListParcelsResponse>(
-    `${customerApiConfig.baseUrl}/parcels`,
-    { params }
-  );
-  return data;
+  const endpoint = customerApiConfig.deliveriesEndpoint || `${customerApiConfig.baseUrl}/parcels`;
+  const { data } = await apiClient.get<unknown>(endpoint, { params });
+  return normalizeListParcelsResponse(data);
 }
 
 export async function getParcel(idOrRef: string): Promise<Parcel | null> {
