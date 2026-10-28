@@ -16,6 +16,7 @@ import com.zentro.identitypartner.merchant.MerchantApplicationController;
 import com.zentro.identitypartner.merchant.MerchantApplicationService;
 import com.zentro.identitypartner.merchant.MerchantApiKeyController;
 import com.zentro.identitypartner.merchant.MerchantApiKeyService;
+import com.zentro.identitypartner.user.AdminUserController;
 import com.zentro.identitypartner.user.UserProfileController;
 import com.zentro.identitypartner.user.UserProfileService;
 import java.time.OffsetDateTime;
@@ -30,7 +31,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = {UserProfileController.class, MerchantApplicationController.class, MerchantApiKeyController.class, AdminMerchantApplicationController.class})
+@WebMvcTest(controllers = {UserProfileController.class, MerchantApplicationController.class, MerchantApiKeyController.class, AdminMerchantApplicationController.class, AdminUserController.class})
 @Import(com.zentro.security.config.ZentroSecurityAutoConfiguration.class)
 @TestPropertySource(properties = {
     "zentro.security.issuer-uri=http://localhost:8180/realms/zentro",
@@ -91,5 +92,13 @@ class IdentityAuthorizationTests {
         .andExpect(status().isForbidden());
 
     verifyNoInteractions(apiKeys);
+  }
+
+  @Test
+  void onlyDispatcherCanReadAdminUsersEndpoint() throws Exception {
+    mvc.perform(get("/api/v1/admin/users")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER"))))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(profiles);
   }
 }
