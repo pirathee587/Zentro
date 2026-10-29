@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -168,7 +168,8 @@ describe('UsersPage', () => {
     // The dispatcher's own id is 'dispatcher-id'; neither listed user matches, so let's
     // verify the edit panel for a user other than the dispatcher does NOT disable the select.
     fireEvent.click(screen.getByRole('button', { name: 'Edit user Alice' }));
-    const statusSelect = screen.getByLabelText(/Account status/i) as HTMLSelectElement;
+    const dialog1 = screen.getByRole('dialog');
+    const statusSelect = within(dialog1).getByLabelText(/Account status/i) as HTMLSelectElement;
     expect(statusSelect.disabled).toBe(false);
   });
 
@@ -182,7 +183,8 @@ describe('UsersPage', () => {
     renderUsersPage();
     const editBtn = await screen.findByRole('button', { name: /Edit user Alice/i });
     fireEvent.click(editBtn);
-    const statusSelect = screen.getByLabelText(/Account status/i) as HTMLSelectElement;
+    const dialog2 = screen.getByRole('dialog');
+    const statusSelect = within(dialog2).getByLabelText(/Account status/i) as HTMLSelectElement;
     expect(statusSelect.disabled).toBe(true);
   });
 

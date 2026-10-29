@@ -165,7 +165,8 @@ describe('MerchantApprovalsPage', () => {
     renderApprovals();
     await screen.findByText('Approved Ltd');
     // reviewedAt: '2026-01-15T10:00:00Z' — just check the label exists
-    expect(screen.getByText(/Reviewed on/i)).toBeInTheDocument();
+    // REJECTED_APP also has reviewedAt so multiple "Reviewed on" labels exist; assert at least 1.
+    expect(screen.getAllByText(/Reviewed on/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('requires rejection reason before rejecting', async () => {
