@@ -53,6 +53,64 @@
 .staff-review-button:disabled { cursor: wait; opacity: .55; }
 .staff-review-button.is-approve { border-color: var(--espresso); background: var(--espresso); color: var(--paper); }
 .staff-review-notice { margin: 0 0 14px; color: #a83d30; font-size: 12px; }
+.staff-review-success { margin: 0 0 14px; color: #2a6b3a; font-size: 12px; }
+
+/* ─── Status & role badges ─────────────────────────────────────── */
+.staff-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .6px; white-space: nowrap; }
+.staff-badge-active { background: #d7ead9; color: #215529; }
+.staff-badge-disabled { background: #fce4e2; color: #7f1c17; }
+.staff-badge-suspended { background: #fef3dd; color: #7a4f0a; }
+.staff-badge-pending { background: #e8e0f8; color: #3d1e7a; }
+.staff-badge-unknown { background: var(--sand); color: var(--muted); }
+.staff-role-pill { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--cream); color: var(--umber); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.staff-role-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.staff-muted { color: var(--muted); font-size: 12px; }
+
+/* ─── Filter bar ───────────────────────────────────────────────── */
+.staff-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.staff-filter-bar input[type="search"] { flex: 1 1 200px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--espresso); font: inherit; font-size: 13px; }
+.staff-filter-bar select { min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--espresso); font: inherit; font-size: 13px; cursor: pointer; }
+.staff-filter-bar input[type="search"]:focus, .staff-filter-bar select:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+/* ─── Users table ──────────────────────────────────────────────── */
+.staff-user-table { display: grid; }
+.staff-user-thead { border-bottom: 1px solid var(--line); }
+.staff-user-row { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr auto; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid #f0ebe4; }
+.staff-user-row-head { padding: 0 4px 10px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+.staff-user-row:last-child { border-bottom: 0; }
+.staff-user-row strong { display: block; font-size: 13px; }
+.staff-user-row small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staff-user-row:hover { background: var(--cream); border-radius: 10px; }
+
+/* ─── Overlay ──────────────────────────────────────────────────── */
+.staff-overlay { position: fixed; inset: 0; background: rgba(26,18,9,.4); z-index: 100; }
+
+/* ─── Edit panel ───────────────────────────────────────────────── */
+.staff-edit-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100%); background: var(--paper); border-left: 1px solid var(--line); box-shadow: -8px 0 32px rgba(26,18,9,.1); z-index: 101; display: flex; flex-direction: column; overflow-y: auto; }
+.staff-edit-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 28px 28px 18px; border-bottom: 1px solid var(--line); }
+.staff-edit-panel-header .staff-eyebrow { margin-bottom: 4px; }
+.staff-edit-panel-header h2 { margin: 0; font-size: 20px; letter-spacing: -.5px; }
+.staff-edit-panel-header small { color: var(--muted); font-size: 12px; }
+.staff-close-btn { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: var(--cream); color: var(--muted); cursor: pointer; font-size: 14px; flex-shrink: 0; }
+.staff-close-btn:hover { border-color: var(--gold); color: var(--espresso); }
+.staff-edit-panel-body { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+.staff-edit-panel-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 18px 28px; border-top: 1px solid var(--line); }
+.staff-field { display: flex; flex-direction: column; gap: 6px; }
+.staff-field label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.staff-field input,.staff-field select { min-height: 42px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); color: var(--espresso); font: inherit; font-size: 13px; }
+.staff-field input:focus,.staff-field select:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.staff-field input:disabled,.staff-field select:disabled { opacity: .55; cursor: not-allowed; }
+.staff-field-hint { color: var(--muted); font-size: 11px; }
+.staff-field-row { display: flex; flex-direction: column; gap: 8px; }
+.staff-field-row strong { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+
+/* ─── Merchant review card improvements ────────────────────────── */
+.staff-review-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.staff-review-top .staff-badge { margin-bottom: 6px; }
+
+/* ─── Action grid — 3 col at wide viewport ─────────────────────── */
+.staff-action-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }
+
 .courier-main { width: min(calc(100% - 64px), 1120px); margin: 0 auto; padding: 42px 0 72px; }
 .courier-status { display: flex; align-items: center; gap: 9px; padding: 11px 15px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: var(--warm-pale); font-size: 12px; font-weight: 700; }
 .courier-status i { width: 8px; height: 8px; border-radius: 50%; background: #84c293; }
