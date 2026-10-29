@@ -78,6 +78,17 @@ class IdentityAuthorizationTests {
   }
 
   @Test
+  void merchantApplicationRequiresBusinessNameAndValidContactPhone() throws Exception {
+    mvc.perform(post("/api/v1/merchants")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+        .contentType("application/json")
+        .content("{\"businessName\":\"\",\"contactPhone\":\"not-a-phone\"}"))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(applications);
+  }
+
+  @Test
   void onlyDispatcherCanReadUserAdministrationEndpoints() throws Exception {
     mvc.perform(get("/api/v1/admin/merchants")
         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER"))))
