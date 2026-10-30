@@ -80,7 +80,7 @@ class CourierPostgresTestcontainersIntegrationTest {
   }
 
   @Test
-  @DisplayName("Flyway migrations V1, V2, V3 apply successfully on real PostgreSQL")
+  @DisplayName("Flyway migrations V1, V2, V3, V4 apply successfully on real PostgreSQL")
   void testMigrationsApplied() {
     Integer count = jdbcTemplate.queryForObject(
         "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'identity' AND table_name = 'courier_profile'",
