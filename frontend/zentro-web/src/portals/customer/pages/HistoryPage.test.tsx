@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import axios from 'axios';
 import { HistoryPage } from './HistoryPage';
 import * as customerApi from '../services/customerApi';
 import type { Parcel, ListParcelsResponse } from '../services/customerApi';
@@ -330,7 +331,86 @@ describe('HistoryPage Component', () => {
     });
   });
 
-  it('shows empty state ("No parcels match") when no records match filter', async () => {
+  it('does not append duplicate deliveries when loading more pages', async () => {
+    const page1Parcels = [mockParcels[0], mockParcels[1]];
+    // Page 2 returns mockParcels[1] again (duplicate) and mockParcels[2]
+    const page2Parcels = [mockParcels[1], mockParcels[2]];
+
+    vi.spyOn(customerApi, 'listParcels')
+      .mockResolvedValueOnce({
+        parcels: page1Parcels,
+        total: 3,
+      })
+      .mockResolvedValueOnce({
+        parcels: page2Parcels,
+        total: 3,
+      });
+
+    render(
+      <MemoryRouter>
+        <HistoryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Showing 2 of 3 parcels')).toBeInTheDocument();
+    });
+
+    const loadMoreBtn = screen.getByRole('button', { name: 'Load more' });
+    fireEvent.click(loadMoreBtn);
+
+    await waitFor(() => {
+      // Should show 3 parcels total, not 4
+      expect(screen.getByText('Showing 3 of 3 parcels')).toBeInTheDocument();
+    });
+  });
+
+  it('discards stale search/filter responses when newer requests resolve first (race conditions)', async () => {
+    let resolveFirstRequest: (value: ListParcelsResponse) => void = () => {};
+    const firstRequestPromise = new Promise<ListParcelsResponse>((resolve) => {
+      resolveFirstRequest = resolve;
+    });
+
+    const listSpy = vi.spyOn(customerApi, 'listParcels');
+    // First call (initial render) is slow
+    listSpy.mockReturnValueOnce(firstRequestPromise);
+
+    render(
+      <MemoryRouter>
+        <HistoryPage />
+      </MemoryRouter>
+    );
+
+    // User switches filter to "Delivered", which resolves immediately
+    const deliveredResult: ListParcelsResponse = {
+      parcels: [mockParcels[1]],
+      total: 1,
+      totalSpent: 650,
+      formattedTotalSpent: 'LKR 650',
+    };
+    listSpy.mockResolvedValueOnce(deliveredResult);
+
+    const deliveredChip = screen.getByRole('button', { name: 'Delivered' });
+    fireEvent.click(deliveredChip);
+
+    await waitFor(() => {
+      expect(screen.getByText('ZTR-SD5512B8X9')).toBeInTheDocument();
+    });
+
+    // Now resolve the older, initial request with 3 parcels
+    act(() => {
+      resolveFirstRequest(mockListResponse);
+    });
+
+    // The older response must be discarded; the table should still show only the Delivered parcel
+    await waitFor(() => {
+      expect(screen.getByText('ZTR-SD5512B8X9')).toBeInTheDocument();
+      expect(screen.queryByText('ZTR-SD8941K2M7')).not.toBeInTheDocument();
+      expect(screen.getByText(/1 parcels • LKR 650 total/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows empty state ("No parcels match") when no records match filter and allows clearing filters', async () => {
     vi.spyOn(customerApi, 'listParcels').mockResolvedValue({
       parcels: [],
       total: 0,
@@ -345,6 +425,20 @@ describe('HistoryPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No parcels match')).toBeInTheDocument();
+    });
+
+    // Select Delivered filter to reveal "Clear filters" button
+    const deliveredChip = screen.getByRole('button', { name: 'Delivered' });
+    fireEvent.click(deliveredChip);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'All' })).toHaveClass('is-active');
     });
   });
 
@@ -385,6 +479,63 @@ describe('HistoryPage Component', () => {
     await waitFor(() => {
       expect(listSpy).toHaveBeenCalledTimes(2);
       expect(screen.getByText('ZTR-SD8941K2M7')).toBeInTheDocument();
+    });
+  });
+
+  it('handles 401 session expiration error with sign in action', async () => {
+    const authError = new axios.AxiosError('Unauthorized', '401', undefined, undefined, {
+      status: 401,
+      statusText: 'Unauthorized',
+      data: { message: 'Authentication required' },
+      headers: {},
+      config: {} as never,
+    });
+
+    vi.spyOn(customerApi, 'listParcels').mockRejectedValueOnce(authError);
+
+    render(
+      <MemoryRouter>
+        <HistoryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Your session has expired\. Please sign in again\./i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'Sign in again' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('renders gracefully with fallback when sender/recipient/dates are missing', async () => {
+    const sparseParcel: Parcel = {
+      id: 'pcl-sparse',
+      trackingRef: 'ZTR-SPARSE01',
+      status: 'Created',
+      sender: { name: '', phone: '', address: '', city: '' },
+      recipient: { name: '', phone: '', address: '', city: '' },
+      parcel: { description: '', weightKg: 1, category: '' },
+      fee: 0,
+      formattedFee: '',
+      createdAt: '',
+      formattedCreatedAt: '',
+      timeline: [],
+    };
+
+    vi.spyOn(customerApi, 'listParcels').mockResolvedValueOnce({
+      parcels: [sparseParcel],
+      total: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <HistoryPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('ZTR-SPARSE01')).toBeInTheDocument();
+      expect(screen.getByText('Origin → Destination')).toBeInTheDocument();
     });
   });
 });

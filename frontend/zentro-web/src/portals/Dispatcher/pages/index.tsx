@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, friendlyApiError } from '@/shared/api/apiClient';
 import { useAuth } from '@/shared/auth/useAuth';
+import { Button, Input } from '@/shared/ui';
 
 type MerchantApplication = {
   id: string;
@@ -108,14 +109,14 @@ export function MerchantApprovalsPage() {
               <span>Contact phone<strong>{application.contactPhone}</strong></span>
             </div>
             <div className="staff-review-actions">
-              <input aria-label={`Reason for rejecting ${application.businessName}`} placeholder="Rejection reason (required to reject)" value={rejectionReasons[application.id] ?? ''} onChange={(event) => setRejectionReasons((current) => ({ ...current, [application.id]: event.target.value }))} />
-              <button className="staff-review-button" type="button" disabled={review.isPending} onClick={() => {
+              <Input aria-label={`Reason for rejecting ${application.businessName}`} placeholder="Rejection reason (required to reject)" value={rejectionReasons[application.id] ?? ''} onChange={(event) => setRejectionReasons((current) => ({ ...current, [application.id]: event.target.value }))} />
+              <Button variant="secondary" className="staff-review-button" type="button" disabled={review.isPending} onClick={() => {
                 const reason = rejectionReasons[application.id]?.trim();
                 if (!reason) { setActionError('Add a rejection reason before rejecting an application.'); return; }
                 setActionError('');
                 review.mutate({ id: application.id, decision: 'REJECTED', rejectionReason: reason });
-              }}>Reject</button>
-              <button className="staff-review-button is-approve" type="button" disabled={review.isPending} onClick={() => { setActionError(''); review.mutate({ id: application.id, decision: 'APPROVED' }); }}>Approve</button>
+              }}>Reject</Button>
+              <Button className="staff-review-button is-approve" type="button" disabled={review.isPending} onClick={() => { setActionError(''); review.mutate({ id: application.id, decision: 'APPROVED' }); }}>Approve</Button>
             </div>
           </article>)}</div>
             : <div className="staff-panel staff-empty">No merchant applications are waiting for review.</div>}

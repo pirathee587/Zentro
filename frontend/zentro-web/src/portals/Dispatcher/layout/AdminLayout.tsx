@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
+import { Button } from '@/shared/ui';
 import './admin.css';
 
 export function AdminLayout() {
@@ -17,7 +18,7 @@ export function AdminLayout() {
       </nav>
       <div className="staff-account">
         <span>{user?.name || 'Dispatcher'}</span>
-        <button className="staff-logout" type="button" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></button>
+        <Button variant="secondary" className="staff-logout" type="button" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></Button>
       </div>
     </header>
     <Outlet />

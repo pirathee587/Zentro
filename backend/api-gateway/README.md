@@ -9,20 +9,21 @@ Browser / merchant client -> Gateway :8080 -> S1 identity | S2 parcel | S3 dispa
 
 ## Routes and roles
 
-Role claims come from `realm_access.roles`; only `CUSTOMER`, `MERCHANT`, `COURIER`, `DISPATCHER`, and `SERVICE` are recognized. `SERVICE` is technical and cannot access routes by itself. No `ADMIN` role exists; administrative work belongs to `DISPATCHER`.
+Role claims come from `realm_access.roles`; only `CUSTOMER`, `MERCHANT`, `COURIER`, `DISPATCHER`, and `SERVICE` are recognized. `SERVICE` is technical and cannot access routes by itself. No `ADMIN` role exists; administrative work belongs to `DISPATCHER`. Requests with a token but no recognized human role are denied on human routes.
 
 | Route and method | Access | Upstream |
 |---|---|---|
 | `GET /api/v1/tracking/mine` | CUSTOMER, MERCHANT | S4 |
-| `GET /api/v1/tracking/**` | Public lookup and SSE stream | S4 |
+| `GET /api/v1/tracking/{trackingNumber}` and `/events` or `/stream` | Public lookup and SSE stream | S4 |
+| Other methods under `/api/v1/tracking/**` | Denied | — |
 | `GET /actuator/health/**` | Public | Gateway |
 | `/api/v1/admin/**` | DISPATCHER | S1/S2/S5 per path |
 | `/api/v1/dispatch/**`, `/api/v1/reports/**` | DISPATCHER | S3/S4 |
 | `/api/v1/courier/**` | COURIER | S3 |
 | `/api/v1/merchant/**` | MERCHANT | S2 orders; S5 webhooks |
 | `/api/v1/parcels/**` | CUSTOMER, DISPATCHER | S2 |
-| `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/zones/**` | Any authenticated human user | S1/S2 |
-| Other `/api/v1/**` | Denied (401 anonymous, 403 authenticated) | — |
+| `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/zones/**` | CUSTOMER, MERCHANT, COURIER, DISPATCHER | S1/S2 |
+| Unknown `/api/v1/**` | Safe 404 problem+json | — |
 | Non-API paths | 404 problem+json | — |
 
 | Route ID | Path predicates | Service |
@@ -44,6 +45,10 @@ Copy `.env.example` to `.env` and set values for your environment. `.env` is ign
 | `JWT_AUDIENCE` | `zentro-api` | Required JWT audience |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Explicit browser origins |
 | `S1_URI` … `S5_URI` | localhost ports 8081–8085 | Upstream service URLs |
+| `JWT_JWKS_URI` | issuer discovery | Optional explicit Keycloak JWKS URL; issuer and token timestamps are still validated |
+| `GATEWAY_CONNECT_TIMEOUT_MS` | `1000` | Upstream connection timeout in milliseconds |
+| `GATEWAY_RESPONSE_TIMEOUT` | `30s` | Default upstream response timeout |
+| `GATEWAY_TRACKING_RESPONSE_TIMEOUT_MS` | `3600000` | S4 tracking/report response timeout in milliseconds, preserving long-lived event streams |
 | `RATE_LIMIT_TRACKING_PER_MINUTE` | `30` | Tracking endpoint limit per IP |
 | `RATE_LIMIT_DEFAULT_PER_MINUTE` | `300` | Other API endpoint limit per IP |
 | `TRUST_X_FORWARDED_FOR` | `false` | Trust first forwarded IP only behind a trusted proxy |

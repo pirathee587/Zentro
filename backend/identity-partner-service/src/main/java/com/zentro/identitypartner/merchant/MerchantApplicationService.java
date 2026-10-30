@@ -5,7 +5,9 @@ import com.zentro.identitypartner.user.UserProfileService;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -44,27 +46,33 @@ public class MerchantApplicationService {
   @Transactional
   public MerchantApplication createOrReapply(Jwt jwt, CreateMerchantApplicationRequest request) {
     UserProfile user = profiles.current(jwt);
-    List<MerchantApplication> saved = jdbc.query("""
-        INSERT INTO identity.merchant_application
-            (app_user_id, business_name, business_reg_no, contact_phone)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT (app_user_id) DO UPDATE SET
-            business_name = EXCLUDED.business_name,
-            business_reg_no = EXCLUDED.business_reg_no,
-            contact_phone = EXCLUDED.contact_phone,
-            status = 'PENDING',
-            rejection_reason = NULL,
-            reviewed_by_subject = NULL,
-            reviewed_at = NULL,
-            updated_at = now()
-        WHERE identity.merchant_application.status = 'REJECTED'
-        RETURNING id, app_user_id, business_name, business_reg_no, contact_phone, status,
-                  rejection_reason, created_at, reviewed_at
-        """, ROW_MAPPER, user.id(), request.businessName().trim(), clean(request.businessRegNo()), request.contactPhone().trim());
-    if (saved.isEmpty()) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "A merchant application is already pending or approved.");
+    try {
+      List<MerchantApplication> saved = jdbc.query("""
+          INSERT INTO identity.merchant_application
+              (app_user_id, business_name, business_reg_no, contact_phone)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT (app_user_id) DO UPDATE SET
+              business_name = EXCLUDED.business_name,
+              business_reg_no = EXCLUDED.business_reg_no,
+              contact_phone = EXCLUDED.contact_phone,
+              status = 'PENDING',
+              rejection_reason = NULL,
+              reviewed_by_subject = NULL,
+              reviewed_at = NULL,
+              updated_at = now()
+          WHERE identity.merchant_application.status = 'REJECTED'
+          RETURNING id, app_user_id, business_name, business_reg_no, contact_phone, status,
+                    rejection_reason, created_at, reviewed_at
+          """, ROW_MAPPER, user.id(), request.businessName().trim(),
+          normalizeBusinessRegNo(request.businessRegNo()), request.contactPhone().trim());
+      if (saved.isEmpty()) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "A merchant application is already pending or approved.");
+      }
+      return saved.getFirst();
+    } catch (DuplicateKeyException duplicate) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,
+          "The business details conflict with an existing merchant application.");
     }
-    return saved.getFirst();
   }
 
   public List<MerchantApplication> listPending() {
@@ -118,5 +126,10 @@ public class MerchantApplicationService {
 
   private static String clean(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private static String normalizeBusinessRegNo(String value) {
+    String cleaned = clean(value);
+    return cleaned == null ? null : cleaned.toUpperCase(Locale.ROOT);
   }
 }

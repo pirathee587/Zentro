@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'pull_request' }}
 
 jobs:
   frontend:
@@ -74,3 +74,29 @@ jobs:
           path: backend/**/target/surefire-reports/*.xml
           if-no-files-found: ignore
           retention-days: 7
+
+  ci-result:
+    name: CI result
+    if: ${{ always() }}
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Summarize CI result
+        env:
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+        run: |
+          {
+            echo '## CI result'
+            echo
+            echo "- Frontend checks: **${FRONTEND_RESULT}**"
+            echo "- Backend checks: **${BACKEND_RESULT}**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$FRONTEND_RESULT" != 'success' || "$BACKEND_RESULT" != 'success' ]]; then
+            echo 'At least one required CI job did not succeed.'
+            exit 1
+          fi
+
+          echo 'Frontend and backend checks both succeeded.'

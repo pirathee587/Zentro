@@ -1,0 +1,40 @@
+name: PR linked issue
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  pr-linked-issue:
+    name: pr-linked-issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate linked issue reference
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            const linkedIssue = /\b(Closes|Fixes|Resolves|Refs)\s+#\d+\b/i.test(body);
+
+            if (!linkedIssue) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: [
+                  "This PR needs a linked issue before it can be merged.",
+                  "",
+                  "Add an issue reference to the PR description, for example `Closes #123`, `Fixes #123`, `Resolves #123`, or `Refs #123`.",
+                  "Then update the PR description so this check can pass."
+                ].join("\n")
+              });
+              core.setFailed("PR description must include Closes #N, Fixes #N, Resolves #N, or Refs #N.");
+            } else {
+              core.info("Found a linked issue reference.");
+            }
