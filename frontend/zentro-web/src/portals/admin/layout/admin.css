@@ -80,3 +80,45 @@
   .staff-review-actions input { width: 100%; }
   .staff-review-meta { grid-template-columns: 1fr; }
 }
+
+/* Dispatcher Courier Management Styles */
+.staff-filter-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.staff-filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.staff-filter-input { min-width: 220px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--espresso); font: inherit; font-size: 13px; }
+.staff-filter-input:focus { outline: none; border-color: var(--gold); }
+.staff-filter-select { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--espresso); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.staff-filter-select:focus { outline: none; border-color: var(--gold); }
+.staff-courier-list { display: grid; gap: 14px; }
+.staff-courier-card { padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); display: flex; flex-direction: column; gap: 16px; transition: border-color 0.15s ease; }
+.staff-courier-card:hover { border-color: var(--gold); }
+.staff-courier-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.staff-courier-header h3 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.4px; }
+.staff-courier-header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.staff-courier-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.courier-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.courier-badge.is-active { background: #e6f4ea; color: #137333; }
+.courier-badge.is-inactive { background: #fce8e6; color: #c5221f; }
+.courier-badge.is-tag { background: #f6ead8; color: var(--umber); text-transform: none; font-size: 12px; }
+.courier-badge.is-status { background: #eef1f6; color: #2e4a70; }
+.staff-courier-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 14px; background: var(--cream); border-radius: 12px; }
+.staff-courier-cell span { display: block; font-size: 11px; color: var(--muted); }
+.staff-courier-cell strong { display: block; margin-top: 4px; font-size: 13px; color: var(--espresso); }
+.staff-courier-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.staff-modal-overlay { position: fixed; inset: 0; background: rgba(28, 22, 17, 0.6); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 1000; padding: 20px; overflow-y: auto; }
+.staff-modal { width: min(100%, 540px); background: var(--paper); border: 1px solid var(--line); border-radius: 24px; padding: clamp(24px, 4vw, 36px); box-shadow: 0 20px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 20px; }
+.staff-modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.staff-modal-header h2 { margin: 0; font-size: 22px; letter-spacing: -0.6px; }
+.staff-modal-header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.staff-modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; padding: 4px; }
+.staff-modal-body { display: grid; gap: 16px; }
+.staff-modal-field { display: grid; gap: 6px; }
+.staff-modal-field label { font-size: 12px; font-weight: 700; color: var(--espresso); }
+.staff-modal-field input, .staff-modal-field select { width: 100%; min-height: 42px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); color: var(--espresso); font: inherit; font-size: 13px; }
+.staff-modal-field input:focus, .staff-modal-field select:focus { outline: none; border-color: var(--gold); }
+.staff-checkbox-label { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.staff-checkbox-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--espresso); cursor: pointer; }
+.staff-modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+@media (max-width: 760px) {
+  .staff-courier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+

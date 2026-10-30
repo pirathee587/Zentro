@@ -30,3 +30,5 @@ export function TodayDeliveriesPage() {
 }
 
 export const DeliveryDetailPage = () => <PortalPlaceholder title="Delivery details" role="COURIER" />;
+export { CourierProfilePage } from './CourierProfilePage';
+
