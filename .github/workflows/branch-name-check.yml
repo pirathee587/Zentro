@@ -17,7 +17,7 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
-          pattern='^(feature|fix|chore|hotfix|docs)/[0-9]+-[a-z0-9-]+$'
+          pattern='^(feature|fix|chore|hotfix|docs)/[0-9]+-[A-Za-z0-9-]+$'
           if [[ "$HEAD_REF" =~ $pattern ]]; then
             echo "Branch name '$HEAD_REF' is valid."
           else
