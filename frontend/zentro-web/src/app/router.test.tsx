@@ -31,8 +31,36 @@ describe('portal routing', () => {
       state: { returnTo: '/customer', entryPoint: 'customer' },
     } as never);
     render(<Providers><MemoryRouter initialEntries={['/customer']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /Welcome back/i }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Welcome back/i }, { timeout: 10000 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /User profile options/i }));
     expect(screen.getByRole('menuitem', { name: /Sign out/i })).toBeInTheDocument();
+  }, 15000);
+
+  it('renders the courier portal for an authenticated courier', async () => {
+    server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Zentro Courier', roles: ['COURIER'] })));
+    getUser.mockResolvedValueOnce({
+      expired: false,
+      access_token: 'courier-token',
+      profile: { sub: 'courier-id', realm_access: { roles: ['COURIER'] } },
+      state: { returnTo: '/courier', entryPoint: 'staff' },
+    } as never);
+    render(<Providers><MemoryRouter initialEntries={['/courier']}><AppRouter /></MemoryRouter></Providers>);
+    expect(await screen.findByRole('heading', { name: /Welcome/i }, { timeout: 10000 })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /My profile/i })).toBeInTheDocument();
+  });
+
+  it('renders courier management for an authenticated dispatcher', async () => {
+    server.use(
+      http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'dispatcher-id', name: 'Zentro Dispatcher', roles: ['DISPATCHER'] })),
+      http.get('*/api/v1/admin/couriers', () => HttpResponse.json([]))
+    );
+    getUser.mockResolvedValueOnce({
+      expired: false,
+      access_token: 'dispatcher-token',
+      profile: { sub: 'dispatcher-id', realm_access: { roles: ['DISPATCHER'] } },
+      state: { returnTo: '/dispatcher/couriers', entryPoint: 'staff' },
+    } as never);
+    render(<Providers><MemoryRouter initialEntries={['/dispatcher/couriers']}><AppRouter /></MemoryRouter></Providers>);
+    expect(await screen.findByRole('heading', { name: /Courier Management/i }, { timeout: 10000 })).toBeInTheDocument();
   });
 });

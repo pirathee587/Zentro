@@ -85,6 +85,59 @@ class UserProfileOwnershipTest {
 
       verify(profiles).update(any(), any(UpdateUserProfileRequest.class));
     }
+
+    @Test
+    void authenticatedCourierCanReadOwnProfileWithSafeFields() throws Exception {
+      when(profiles.current(any())).thenReturn(
+          new UserProfile(OWN_USER_ID, "courier@zentro.lk", "Kamal Perera", "+94771234567", true, "ACTIVE", null, List.of("COURIER"))
+      );
+
+      mvc.perform(get("/api/v1/users/me")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER"))))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.id").value(OWN_USER_ID.toString()))
+          .andExpect(jsonPath("$.email").value("courier@zentro.lk"))
+          .andExpect(jsonPath("$.name").value("Kamal Perera"))
+          .andExpect(jsonPath("$.phone").value("+94771234567"))
+          .andExpect(jsonPath("$.enabled").value(true))
+          .andExpect(jsonPath("$.accountStatus").value("ACTIVE"))
+          .andExpect(jsonPath("$.roles[0]").value("COURIER"))
+          .andExpect(jsonPath("$.keycloak_subject").doesNotExist())
+          .andExpect(jsonPath("$.sub").doesNotExist());
+
+      verify(profiles).current(any());
+    }
+
+    @Test
+    void authenticatedCourierCanUpdateOwnProfile() throws Exception {
+      when(profiles.update(any(), any(UpdateUserProfileRequest.class))).thenReturn(
+          new UserProfile(OWN_USER_ID, "courier@zentro.lk", "Kamal P.", "+94779876543", true, "ACTIVE", null, List.of("COURIER"))
+      );
+
+      mvc.perform(patch("/api/v1/users/me")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER")))
+          .contentType("application/json")
+          .content("{\"name\":\"Kamal P.\",\"phone\":\"+94779876543\"}"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.name").value("Kamal P."))
+          .andExpect(jsonPath("$.phone").value("+94779876543"));
+
+      verify(profiles).update(any(), any(UpdateUserProfileRequest.class));
+    }
+
+    @Test
+    void courierUpdateFailsValidationWhenFieldsExceedAllowedLengths() throws Exception {
+      String tooLongName = "A".repeat(201);
+      String tooLongPhone = "0".repeat(33);
+
+      mvc.perform(patch("/api/v1/users/me")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER")))
+          .contentType("application/json")
+          .content(String.format("{\"name\":\"%s\",\"phone\":\"%s\"}", tooLongName, tooLongPhone)))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
   }
 
   @Nested
@@ -187,6 +240,32 @@ class UserProfileOwnershipTest {
           .andExpect(status().isNotFound());
 
       verify(profiles).getByIdForCaller(any(), eq(OTHER_USER_ID));
+    }
+
+    @Test
+    void courierCannotReadAnotherUsersProfile() throws Exception {
+      when(profiles.getByIdForCaller(any(), eq(OTHER_USER_ID)))
+          .thenThrow(new AccessDeniedException("Access denied: cannot view another user's profile."));
+
+      mvc.perform(get("/api/v1/users/" + OTHER_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER"))))
+          .andExpect(status().isForbidden());
+
+      verify(profiles).getByIdForCaller(any(), eq(OTHER_USER_ID));
+    }
+
+    @Test
+    void courierCannotUpdateAnotherUsersProfile() throws Exception {
+      when(profiles.updateByIdForCaller(any(), eq(OTHER_USER_ID), any(UpdateUserProfileRequest.class)))
+          .thenThrow(new AccessDeniedException("Access denied: cannot update another user's profile."));
+
+      mvc.perform(patch("/api/v1/users/" + OTHER_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_COURIER")))
+          .contentType("application/json")
+          .content("{\"name\":\"Unauthorized Courier Attempt\"}"))
+          .andExpect(status().isForbidden());
+
+      verify(profiles).updateByIdForCaller(any(), eq(OTHER_USER_ID), any(UpdateUserProfileRequest.class));
     }
   }
 }
