@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
+import { Button, Input } from '@/shared/ui';
 import {
   getCourierProfile,
   provisionCourierProfile,
   updateCourierPersonalInfo,
-  type CourierProfile,
 } from '../api/courierApi';
 
 export function CourierProfilePage() {
@@ -123,26 +123,26 @@ export function CourierProfilePage() {
       {feedbackSuccess && (
         <div className="courier-alert is-success" role="alert" style={{ marginTop: 24 }}>
           <span>{feedbackSuccess}</span>
-          <button
+          <Button
             type="button"
             className="courier-dismiss-btn"
             onClick={() => setFeedbackSuccess(null)}
           >
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
 
       {feedbackError && (
         <div className="courier-alert is-error" role="alert" style={{ marginTop: 24 }}>
           <span>{feedbackError}</span>
-          <button
+          <Button
             type="button"
             className="courier-dismiss-btn"
             onClick={() => setFeedbackError(null)}
           >
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
 
@@ -169,14 +169,14 @@ export function CourierProfilePage() {
                 Click the button below to provision your profile and connect to dispatch operations.
               </p>
               <div style={{ marginTop: 18 }}>
-                <button
+                <Button
                   type="button"
                   className="courier-submit-btn"
                   disabled={provisionMutation.isPending}
                   onClick={() => provisionMutation.mutate()}
                 >
                   {provisionMutation.isPending ? 'Provisioning…' : 'Initialize Courier Profile'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -188,13 +188,13 @@ export function CourierProfilePage() {
         <section className="courier-section">
           <div className="courier-alert is-error" role="alert">
             <span>{friendlyApiError(profileQuery.error, 'Could not retrieve your courier profile.')}</span>
-            <button
+            <Button
               type="button"
               className="staff-text-link"
               onClick={() => void profileQuery.refetch()}
             >
               Retry
-            </button>
+            </Button>
           </div>
         </section>
       )}
@@ -214,7 +214,7 @@ export function CourierProfilePage() {
             <form className="courier-form" onSubmit={handleSubmit} noValidate>
               <div className="courier-form-group">
                 <label htmlFor="courier-name-input">Full Name</label>
-                <input
+                <Input
                   id="courier-name-input"
                   className={`courier-input ${formError ? 'courier-input-error' : ''}`}
                   type="text"
@@ -236,7 +236,7 @@ export function CourierProfilePage() {
 
               <div className="courier-form-group">
                 <label htmlFor="courier-phone-input">Phone Number</label>
-                <input
+                <Input
                   id="courier-phone-input"
                   className="courier-input"
                   type="tel"
@@ -250,7 +250,7 @@ export function CourierProfilePage() {
 
               <div className="courier-form-group">
                 <label htmlFor="courier-email-input">Account Email (Read-only)</label>
-                <input
+                <Input
                   id="courier-email-input"
                   className="courier-input"
                   type="email"
@@ -263,13 +263,13 @@ export function CourierProfilePage() {
               </div>
 
               <div style={{ marginTop: 10 }}>
-                <button
+                <Button
                   type="submit"
                   className="courier-submit-btn"
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending ? 'Saving Changes…' : 'Save Personal Details'}
-                </button>
+                </Button>
               </div>
             </form>
           </article>
