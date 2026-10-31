@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
 import { AdminLayout } from './layout/AdminLayout';
+import { DispatchQueuePage } from './pages/DispatchQueuePage';
 import {
   UnassignedParcelsPage,
   WorkloadPage,
@@ -15,6 +16,7 @@ export const portalRoutes: RouteObject[] = [
     element: <AdminLayout />,
     children: [
       { index: true, element: <UnassignedParcelsPage /> },
+      { path: 'queue', element: <DispatchQueuePage /> },
       { path: 'couriers', element: <CouriersPage /> },
       { path: 'workload', element: <WorkloadPage /> },
       { path: 'reports', element: <ReportsPage /> },
