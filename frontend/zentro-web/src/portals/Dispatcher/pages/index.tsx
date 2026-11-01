@@ -1,3 +1,4 @@
+import { DispatchQueueCard } from './DispatchQueueCard';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -55,7 +56,7 @@ export function UnassignedParcelsPage() {
     <section className="staff-section" aria-label="Operations overview">
       <div className="staff-stat-grid">
         <article className="staff-stat-card"><span>Merchant applications</span><strong>{applications.isPending ? '—' : applications.data?.length ?? '—'}</strong><small>Waiting for your review</small></article>
-        <article className="staff-stat-card"><span>Dispatch queue</span><strong>Not connected</strong><small>Parcel dispatch data is not available yet</small></article>
+        <DispatchQueueCard />
         <article className="staff-stat-card"><span>Courier workload</span><strong>Not connected</strong><small>Courier job data is not available yet</small></article>
       </div>
     </section>
