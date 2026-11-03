@@ -105,7 +105,8 @@ class ParcelStatusIntegrationTest {
   }
 
   private int outboxCount(UUID parcelId) {
-    return jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?", Integer.class,
+    return jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?"
+        + " AND event_type = 'parcel.status.updated'", Integer.class,
         parcelId);
   }
 
@@ -149,7 +150,8 @@ class ParcelStatusIntegrationTest {
 
     List<Map<String, Object>> events = jdbc.queryForList("""
         SELECT event_id, event_type, payload::text AS payload, published_at, attempts
-          FROM parcel.outbox_event WHERE aggregate_id = ? ORDER BY occurred_at
+          FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.status.updated'
+         ORDER BY occurred_at
         """, parcelId);
     assertThat(events).hasSize(4);
     List<String> statuses = new ArrayList<>();
@@ -215,7 +217,8 @@ class ParcelStatusIntegrationTest {
         .containsEntry("actor_role", "SERVICE");
 
     String payload = jdbc.queryForObject("""
-        SELECT payload::text FROM parcel.outbox_event WHERE aggregate_id = ? ORDER BY occurred_at DESC LIMIT 1
+        SELECT payload::text FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.status.updated'
+         ORDER BY occurred_at DESC LIMIT 1
         """, String.class, parcelId);
     JsonNode event = objectMapper.readTree(payload).get("payload");
     assertThat(event.get("failureReason").asText()).isEqualTo("Recipient not available");

@@ -252,6 +252,22 @@ class ParcelStatusServiceTest {
     assertThat(change.toString()).doesNotContain("0771234567", ACTOR);
   }
 
+  @Test
+  @DisplayName("Event timestamps always include seconds, even on a whole minute")
+  void timestampsKeepSecondsOnWholeMinute() throws Exception {
+    ParcelStatusService wholeMinute = new ParcelStatusService(repository, objectMapper,
+        Clock.fixed(Instant.parse("2026-11-03T10:15:00Z"), ZoneOffset.UTC));
+    parcelIs(ParcelStatus.CREATED, 0);
+
+    wholeMinute.updateStatus(PARCEL_ID, ParcelStatus.PICKED_UP, null, null, ACTOR, "DISPATCHER");
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(repository).insertOutboxEvent(any(), any(), anyString(), json.capture(), any());
+    JsonNode event = objectMapper.readTree(json.getValue());
+    assertThat(event.get("occurredAt").asText()).isEqualTo("2026-11-03T10:15:00Z");
+    assertThat(event.get("payload").get("occurredAt").asText()).isEqualTo("2026-11-03T10:15:00Z");
+  }
+
   private static List<String> fieldNames(JsonNode node) {
     List<String> names = new java.util.ArrayList<>();
     node.fieldNames().forEachRemaining(names::add);

@@ -1,1 +1,35 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","allOf":[{"$ref":"event-envelope.schema.json"}],"title":"parcel.status.updated"}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "parcel.status.updated",
+  "description": "Published by S2 Parcel & Pricing for every accepted parcel status change. Kafka topic parcel.status.updated, key = parcel id (aggregateId). Delivery is at-least-once; consumers de-duplicate on eventId. Contains no names, phone numbers, addresses, notes or user ids.",
+  "allOf": [{"$ref": "event-envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "parcel.status.updated"},
+    "payload": {
+      "type": "object",
+      "required": ["trackingRef", "previousStatus", "status", "actorRole", "occurredAt"],
+      "properties": {
+        "trackingRef": {"type": "string", "pattern": "^ZT-[0-9A-HJKMNP-TV-Z]{10}$"},
+        "previousStatus": {"$ref": "#/$defs/parcelStatus"},
+        "status": {"$ref": "#/$defs/parcelStatus"},
+        "actorRole": {
+          "description": "Role that made the change, for example DISPATCHER or SERVICE. Never the user id.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z_]*$"
+        },
+        "occurredAt": {"type": "string", "format": "date-time"},
+        "failureReason": {"type": "string", "minLength": 1, "maxLength": 200}
+      },
+      "additionalProperties": false,
+      "if": {"properties": {"status": {"const": "FAILED"}}, "required": ["status"]},
+      "then": {"required": ["failureReason"]},
+      "else": {"not": {"required": ["failureReason"]}}
+    }
+  },
+  "$defs": {
+    "parcelStatus": {
+      "type": "string",
+      "enum": ["CREATED", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"]
+    }
+  }
+}

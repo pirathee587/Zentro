@@ -12,6 +12,7 @@ import com.zentro.parcelpricing.error.StatusFieldException;
 import com.zentro.parcelpricing.service.ParcelStatusRepository.LockedParcel;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -120,7 +121,9 @@ public class ParcelStatusService {
     payload.put("previousStatus", change.previousStatus().name());
     payload.put("status", change.status().name());
     payload.put("actorRole", change.actorRole());
-    payload.put("occurredAt", change.occurredAt().toString());
+    // ISO_OFFSET_DATE_TIME always prints seconds; OffsetDateTime.toString() drops ":00", which is not RFC 3339.
+    String occurredAt = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(change.occurredAt());
+    payload.put("occurredAt", occurredAt);
     if (change.status() == ParcelStatus.FAILED) {
       payload.put("failureReason", change.reason());
     }
@@ -128,7 +131,7 @@ public class ParcelStatusService {
     Map<String, Object> envelope = new LinkedHashMap<>();
     envelope.put("eventId", eventId.toString());
     envelope.put("eventType", EVENT_TYPE);
-    envelope.put("occurredAt", change.occurredAt().toString());
+    envelope.put("occurredAt", occurredAt);
     envelope.put("aggregateId", change.parcelId().toString());
     envelope.put("payload", payload);
     try {

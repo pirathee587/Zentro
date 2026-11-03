@@ -10,6 +10,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zentro.parcelpricing.domain.DestinationType;
 import com.zentro.parcelpricing.domain.ParcelBooking;
 import com.zentro.parcelpricing.domain.ParcelSize;
@@ -33,6 +35,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.QueryTimeoutException;
+import org.springframework.transaction.support.TransactionOperations;
 
 @ExtendWith(MockitoExtension.class)
 class ParcelBookingServiceTest {
@@ -41,12 +44,99 @@ class ParcelBookingServiceTest {
   @Mock PricingService pricingService;
   @Mock ParcelBookingRepository repository;
   @Mock TrackingReferenceGenerator trackingReferenceGenerator;
+  @Mock ParcelStatusRepository eventRepository;
+  final ObjectMapper objectMapper = new ObjectMapper();
 
   ParcelBookingService service;
 
   @BeforeEach
   void setUp() {
-    service = new ParcelBookingService(pricingService, repository, trackingReferenceGenerator);
+    service = new ParcelBookingService(pricingService, repository, trackingReferenceGenerator, eventRepository,
+        objectMapper, TransactionOperations.withoutTransaction());
+  }
+
+  @Test
+  @DisplayName("A new booking writes exactly one parcel.created event without personal data")
+  void newBookingWritesCreatedEvent() throws Exception {
+    stubPrice("1072.00", 3);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+
+    BookingResult result = service.book(CUSTOMER, request("0771234567"), "key-1");
+
+    ArgumentCaptor<UUID> eventId = ArgumentCaptor.forClass(UUID.class);
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(eventRepository).insertOutboxEvent(eventId.capture(), eq(result.booking().id()), eq("parcel.created"),
+        json.capture(), any());
+    JsonNode event = objectMapper.readTree(json.getValue());
+    assertThat(event.get("eventId").asText()).isEqualTo(eventId.getValue().toString());
+    assertThat(event.get("eventType").asText()).isEqualTo("parcel.created");
+    assertThat(event.get("aggregateId").asText()).isEqualTo(result.booking().id().toString());
+    assertThat(event.get("payload").get("trackingRef").asText()).isEqualTo("ZT-ABCDEFGH12");
+    assertThat(event.get("payload").get("status").asText()).isEqualTo("CREATED");
+    assertThat(event.get("payload").get("source").asText()).isEqualTo("CUSTOMER_BOOKING");
+    assertThat(event.get("payload").get("occurredAt").asText()).matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z");
+    java.util.List<String> fields = new java.util.ArrayList<>();
+    event.get("payload").fieldNames().forEachRemaining(fields::add);
+    assertThat(fields).containsExactly("trackingRef", "status", "source", "occurredAt");
+    assertThat(json.getValue()).doesNotContain("Nimal", "Kamala", "0771234567", "Galle Road", "Temple Street",
+        CUSTOMER, "key-1");
+  }
+
+  @Test
+  @DisplayName("An idempotent replay writes no new parcel.created event")
+  void replayWritesNoEvent() {
+    stubPrice("550.00", 2);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.findByCustomerAndIdempotencyKey(CUSTOMER, "key-1")).thenReturn(Optional.empty());
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+    service.book(CUSTOMER, request("0771234567"), "key-1");
+    ArgumentCaptor<ParcelBooking> stored = ArgumentCaptor.forClass(ParcelBooking.class);
+    verify(repository).insert(stored.capture());
+    when(repository.findByCustomerAndIdempotencyKey(CUSTOMER, "key-1")).thenReturn(Optional.of(saved(stored.getValue())));
+
+    assertThat(service.book(CUSTOMER, request("0771234567"), "key-1").created()).isFalse();
+
+    verify(eventRepository, times(1)).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+  }
+
+  @Test
+  @DisplayName("A tracking reference collision still writes the event only once, for the stored booking")
+  void collisionWritesEventOnce() {
+    stubPrice("550.00", 2);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-AAAAAAAAAA", "ZT-BBBBBBBBBB");
+    when(repository.insert(any()))
+        .thenThrow(new DuplicateKeyException("duplicate key value violates unique constraint \"uq_parcel_tracking_ref\""))
+        .thenAnswer(inv -> saved(inv.getArgument(0)));
+
+    service.book(CUSTOMER, request("0771234567"), null);
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(eventRepository, times(1)).insertOutboxEvent(any(), any(), anyString(), json.capture(), any());
+    assertThat(json.getValue()).contains("ZT-BBBBBBBBBB").doesNotContain("ZT-AAAAAAAAAA");
+  }
+
+  @Test
+  @DisplayName("Pricing failure writes no event")
+  void pricingFailureWritesNoEvent() {
+    when(pricingService.estimateFee(any())).thenThrow(new QueryTimeoutException("db down"));
+
+    assertThatThrownBy(() -> service.book(CUSTOMER, request("0771234567"), null))
+        .isInstanceOf(PricingUnavailableException.class);
+    verify(eventRepository, never()).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+  }
+
+  @Test
+  @DisplayName("If the event cannot be written the booking call fails, so the transaction rolls the booking back")
+  void eventWriteFailurePropagates() {
+    stubPrice("550.00", 2);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+    org.mockito.Mockito.doThrow(new QueryTimeoutException("outbox down"))
+        .when(eventRepository).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+
+    assertThatThrownBy(() -> service.book(CUSTOMER, request("0771234567"), null))
+        .isInstanceOf(QueryTimeoutException.class);
   }
 
   @Test
