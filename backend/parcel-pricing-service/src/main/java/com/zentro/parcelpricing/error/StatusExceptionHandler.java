@@ -1,5 +1,6 @@
 package com.zentro.parcelpricing.error;
 
+import com.zentro.parcelpricing.controller.ParcelStatusController;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -22,7 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
  * Problem responses for the parcel status endpoint only. Every body has a "code" property.
  * Messages contain status names and ids only, never notes, names, phone numbers or addresses.
  */
-@RestControllerAdvice(basePackages = "com.zentro.parcelpricing.status")
+@RestControllerAdvice(assignableTypes = ParcelStatusController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class StatusExceptionHandler {
   private static final Logger log = LoggerFactory.getLogger(StatusExceptionHandler.class);
