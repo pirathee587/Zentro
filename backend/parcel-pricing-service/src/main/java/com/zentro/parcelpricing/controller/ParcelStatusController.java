@@ -38,7 +38,7 @@ public class ParcelStatusController {
   @PatchMapping(path = "/{parcelId}/status",
       consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
   public ParcelStatusResponse updateStatus(
-      @PathVariable UUID parcelId,
+      @PathVariable("parcelId") UUID parcelId,
       @Valid @RequestBody UpdateParcelStatusRequest request,
       Authentication authentication) {
     String actorSubject = authentication != null && authentication.getPrincipal() instanceof Jwt jwt
