@@ -131,7 +131,7 @@ Migration `V5__create_parcel_outbox_event.sql` creates `parcel.outbox_event`:
 - `occurred_at`, `published_at`, `attempts`
 - a partial index on unpublished rows
 
-This task only writes the rows. Publishing them to Kafka, retries and duplicate handling are #58.
+This task only writes the rows. Publishing them to Kafka (topic, key, headers, ordering, retries, duplicates) is described in [parcel-events.md](parcel-events.md) (#58).
 
 Each accepted change writes one row with `event_type = parcel.status.updated`. The payload column holds the full envelope from `contracts/events/event-envelope.schema.json`:
 
@@ -158,7 +158,7 @@ The payload never contains these fields:
 - the note
 - the actor subject
 
-**Proposed payload.** `contracts/events/parcel-status-updated.schema.json` does not define payload fields yet. The schema file is to be finalised in #58 with the S4/S5 owners. This task does not edit the contract files.
+**Schema.** The payload is defined in `contracts/events/parcel-status-updated.schema.json` (#58) and checked by the producer contract test. See [parcel-events.md](parcel-events.md) for the publishing rules.
 
 ## S3 integration (open item)
 
