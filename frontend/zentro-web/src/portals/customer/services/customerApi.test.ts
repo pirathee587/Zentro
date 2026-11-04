@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { apiClient } from '@/shared/api/apiClient';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/shared/testing/mocks/server';
+import { apiClient, setAccessToken } from '@/shared/api/apiClient';
 import {
   getDashboard,
   estimateFee,
@@ -17,7 +19,14 @@ import {
 describe('SwiftDrop customerApi service and mock adapter', () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    setCustomerApiConfig({ useMocks: true, baseUrl: '/api/v1/customer', deliveriesEndpoint: undefined });
+    setAccessToken(undefined);
+    setCustomerApiConfig({
+      mode: 'mock',
+      useMocks: true,
+      baseUrl: '/api/v1/customer',
+      parcelsPath: '/api/v1/parcels',
+      deliveriesEndpoint: undefined,
+    });
   });
 
   it('getDashboard returns metrics and recent parcels', async () => {
@@ -38,6 +47,69 @@ describe('SwiftDrop customerApi service and mock adapter', () => {
     expect(res.fee).toBeGreaterThan(550);
     expect(res.formattedFee).toBe(`LKR ${res.fee.toLocaleString('en-US')}`);
     expect(res.estimatedDays).toBe(1);
+    expect(res.breakdown.distanceSurcharge).toBeUndefined();
+    expect(res.breakdown.expressFee).toBe(300);
+  });
+
+  it('estimateFee calls POST /api/v1/parcels/estimate with Bearer token in real mode and keeps other customer endpoints on mock', async () => {
+    setCustomerApiConfig({ mode: 'real' });
+    setAccessToken('jwt-customer-token-16');
+
+    let capturedUrl = '';
+    let capturedAuth: string | null = null;
+    let capturedBody: unknown = null;
+
+    server.use(
+      http.post('*/api/v1/parcels/estimate', async ({ request }) => {
+        capturedUrl = request.url;
+        capturedAuth = request.headers.get('authorization');
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          fee: 1072,
+          formattedFee: 'LKR 1,072',
+          currency: 'LKR',
+          estimatedDays: 3,
+          breakdown: {
+            baseFee: 550,
+            weightFee: 120,
+            distanceSurcharge: 402,
+          },
+        });
+      })
+    );
+
+    const res = await estimateFee({
+      weightKg: 2,
+      destinationType: 'OTHER_DISTRICT',
+      parcelSize: 'MEDIUM',
+    });
+
+    expect(capturedUrl).toBe('http://localhost:8080/api/v1/parcels/estimate');
+    expect(capturedAuth).toBe('Bearer jwt-customer-token-16');
+    expect(capturedBody).toEqual({
+      weightKg: 2,
+      destinationType: 'OTHER_DISTRICT',
+      parcelSize: 'MEDIUM',
+    });
+    expect(res.fee).toBe(1072);
+    expect(res.formattedFee).toBe('LKR 1,072');
+    expect(res.breakdown).toEqual({
+      baseFee: 550,
+      weightFee: 120,
+      distanceSurcharge: 402,
+    });
+
+    // Unapproved customer endpoints remain on the mock adapter in real mode
+    const dash = await getDashboard();
+    expect(dash.recentParcels.length).toBeGreaterThan(0);
+    const history = await listParcels();
+    expect(history.parcels.length).toBeGreaterThan(0);
+    const tracked = await getParcel('SD-20418');
+    expect(tracked?.trackingRef).toBe('SD-20418');
+    const receipts = await listReceipts();
+    expect(receipts.length).toBeGreaterThan(0);
+    const reply = await askAssistant('Where is my parcel?');
+    expect(reply.reply).toBeDefined();
   });
 
   it('createDelivery creates parcel with tracking reference and timeline', async () => {

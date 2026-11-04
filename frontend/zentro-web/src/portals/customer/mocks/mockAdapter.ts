@@ -57,7 +57,13 @@ export const mockCustomerAdapter = {
 
   async estimateFee(payload: FeeEstimateRequest): Promise<FeeEstimateResponse> {
     await new Promise((r) => setTimeout(r, 100));
-    const q = priceQuote(payload.weightKg, payload.destinationType, payload.isExpress);
+    const defaultWeight =
+      payload.parcelSize === 'SMALL' ? 1 : payload.parcelSize === 'LARGE' ? 5 : 3;
+    const effectiveWeight =
+      typeof payload.weightKg === 'number' && payload.weightKg > 0
+        ? payload.weightKg
+        : defaultWeight;
+    const q = priceQuote(effectiveWeight, payload.destinationType, payload.isExpress);
 
     return {
       fee: q.total,
@@ -67,8 +73,8 @@ export const mockCustomerAdapter = {
       breakdown: {
         baseFee: q.baseFee,
         weightFee: q.weightFee,
-        distanceSurcharge: q.distanceSurcharge,
-        expressFee: q.expressFee > 0 ? q.expressFee : undefined,
+        ...(q.distanceSurcharge > 0 ? { distanceSurcharge: q.distanceSurcharge } : {}),
+        ...(q.expressFee > 0 ? { expressFee: q.expressFee } : {}),
       },
     };
   },

@@ -30,19 +30,16 @@ export * from './config';
  */
 
 export async function getDashboard(): Promise<DashboardData> {
-  if (customerApiConfig.useMocks) {
-    return mockCustomerAdapter.getDashboard();
-  }
-  const { data } = await apiClient.get<DashboardData>(`${customerApiConfig.baseUrl}/dashboard`);
-  return data;
+  // Dashboard contract is not approved; keep on mock adapter.
+  return mockCustomerAdapter.getDashboard();
 }
 
 export async function estimateFee(payload: FeeEstimateRequest): Promise<FeeEstimateResponse> {
-  if (customerApiConfig.useMocks) {
+  if (customerApiConfig.useMocks || customerApiConfig.mode === 'mock') {
     return mockCustomerAdapter.estimateFee(payload);
   }
   const { data } = await apiClient.post<FeeEstimateResponse>(
-    `${customerApiConfig.baseUrl}/estimate-fee`,
+    `${customerApiConfig.parcelsPath}/estimate`,
     payload
   );
   return data;
@@ -299,7 +296,11 @@ export function normalizeListParcelsResponse(raw: unknown): ListParcelsResponse 
 export async function listParcels(
   params?: ListParcelsParams
 ): Promise<ListParcelsResponse> {
-  if (customerApiConfig.useMocks) {
+  if (
+    customerApiConfig.useMocks ||
+    customerApiConfig.mode === 'mock' ||
+    !customerApiConfig.allowLegacyListParcelsRealCall
+  ) {
     return mockCustomerAdapter.listParcels(params);
   }
   const endpoint = customerApiConfig.deliveriesEndpoint || `${customerApiConfig.baseUrl}/parcels`;
@@ -308,89 +309,27 @@ export async function listParcels(
 }
 
 export async function getParcel(idOrRef: string): Promise<Parcel | null> {
-  if (customerApiConfig.useMocks) {
-    return mockCustomerAdapter.getParcel(idOrRef);
-  }
-  const clean = idOrRef.trim().toUpperCase();
-  try {
-    // Call approved S4 public tracking endpoint
-    const { data } = await apiClient.get<unknown>(
-      `/api/v1/tracking/${encodeURIComponent(clean)}`
-    );
-    return normalizeParcelRecord(data as RawTrackingPayload);
-  } catch (error: unknown) {
-    const status = (error as { response?: { status?: number } })?.response?.status;
-    if (status === 404) return null;
-
-    // Fallback to customer parcels endpoint if configured
-    try {
-      const { data } = await apiClient.get<unknown>(
-        `${customerApiConfig.baseUrl}/parcels/${encodeURIComponent(clean)}`
-      );
-      return normalizeParcelRecord(data as RawTrackingPayload);
-    } catch {
-      return null;
-    }
-  }
+  // Tracking contract for customer portal remains on mock adapter in this slice.
+  return mockCustomerAdapter.getParcel(idOrRef);
 }
 
 export function subscribeToParcel(
   idOrRef: string,
   callback: (parcel: Parcel) => void
 ): () => void {
-  if (customerApiConfig.useMocks) {
-    return mockCustomerAdapter.subscribeToParcel(idOrRef, callback);
-  }
-
-  const clean = idOrRef.trim().toUpperCase();
-  const streamUrl = `/api/v1/tracking/${encodeURIComponent(clean)}/stream`;
-  let eventSource: EventSource | null = null;
-  try {
-    eventSource = new EventSource(streamUrl);
-    const handleUpdate = () => {
-      void getParcel(clean).then((updated) => {
-        if (updated) callback(updated);
-      });
-    };
-    eventSource.addEventListener('tracking-update', handleUpdate);
-    eventSource.onmessage = handleUpdate;
-  } catch {
-    // Graceful fallback if EventSource is not supported
-  }
-
-  return () => {
-    eventSource?.close();
-  };
+  return mockCustomerAdapter.subscribeToParcel(idOrRef, callback);
 }
 
 export async function listReceipts(): Promise<Receipt[]> {
-  if (customerApiConfig.useMocks) {
-    return mockCustomerAdapter.listReceipts();
-  }
-  const { data } = await apiClient.get<Receipt[]>(`${customerApiConfig.baseUrl}/receipts`);
-  return data;
+  return mockCustomerAdapter.listReceipts();
 }
 
 export async function askAssistant(question: string): Promise<AssistantResponse> {
-  if (customerApiConfig.useMocks) {
-    return mockCustomerAdapter.askAssistant(question);
-  }
-  const { data } = await apiClient.post<AssistantResponse>(
-    `${customerApiConfig.baseUrl}/assistant`,
-    { question }
-  );
-  return data;
+  return mockCustomerAdapter.askAssistant(question);
 }
 
 export async function sendSupportMessage(
   payload: SupportMessagePayload
 ): Promise<SupportTicket> {
-  if (customerApiConfig.useMocks) {
-    return mockCustomerAdapter.sendSupportMessage(payload);
-  }
-  const { data } = await apiClient.post<SupportTicket>(
-    `${customerApiConfig.baseUrl}/support/messages`,
-    payload
-  );
-  return data;
+  return mockCustomerAdapter.sendSupportMessage(payload);
 }

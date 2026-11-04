@@ -1,13 +1,13 @@
 /**
  * Format currency strictly as "LKR 1,072"
  */
-export function formatMoney(amount: number): string {
+export function formatMoney(amount: number, currency = 'LKR'): string {
   const rounded = Math.round(amount);
   const formattedNumber = new Intl.NumberFormat('en-US', {
     useGrouping: true,
     maximumFractionDigits: 0,
   }).format(rounded);
-  return `LKR ${formattedNumber}`;
+  return `${currency || 'LKR'} ${formattedNumber}`;
 }
 
 const MONTH_NAMES = [
