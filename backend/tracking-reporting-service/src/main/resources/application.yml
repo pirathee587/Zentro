@@ -1,14 +1,40 @@
 server:
   port: ${SERVER_PORT:8084}
+
 spring:
+  application:
+    name: tracking-reporting-service
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: tracking
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    schemas: tracking
+    default-schema: tracking
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:tracking-reporting-service}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
 zentro:
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
+    audience: ${JWT_AUDIENCE:zentro-api}
+  kafka:
+    enabled: ${KAFKA_CONSUMER_ENABLED:false}
+
 management:
   endpoint:
     health:
@@ -17,4 +43,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
