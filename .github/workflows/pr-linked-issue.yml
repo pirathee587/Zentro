@@ -19,8 +19,16 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           script: |
+            if (context.payload.pull_request.draft) {
+              core.info("Skipping linked issue validation for draft PR.");
+              return;
+            }
+
             const body = context.payload.pull_request.body || "";
-            const linkedIssue = /\b(Closes|Fixes|Resolves|Refs)\s+#\d+\b/i.test(body);
+            const headRef = context.payload.pull_request.head.ref || "";
+            const linkedIssueInBody = /\b(Closes|Fixes|Resolves|Refs)\s+#\d+\b/i.test(body);
+            const linkedIssueInBranchName = /^(feature|fix|chore|hotfix|docs)\/\d+-[a-z0-9-]+$/i.test(headRef);
+            const linkedIssue = linkedIssueInBody || linkedIssueInBranchName;
 
             if (!linkedIssue) {
               await github.rest.issues.createComment({
@@ -31,10 +39,11 @@ jobs:
                   "This PR needs a linked issue before it can be merged.",
                   "",
                   "Add an issue reference to the PR description, for example `Closes #123`, `Fixes #123`, `Resolves #123`, or `Refs #123`.",
+                  "Or use the required branch format `<type>/<issue-number>-<short-name>` (for example `feature/123-add-login`).",
                   "Then update the PR description so this check can pass."
                 ].join("\n")
               });
-              core.setFailed("PR description must include Closes #N, Fixes #N, Resolves #N, or Refs #N.");
+              core.setFailed("Add an issue reference in the PR body (Closes/Fixes/Resolves/Refs #N) or use the required branch naming format.");
             } else {
               core.info("Found a linked issue reference.");
             }

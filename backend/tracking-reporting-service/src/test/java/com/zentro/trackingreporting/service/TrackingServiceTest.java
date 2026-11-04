@@ -1,0 +1,182 @@
+package com.zentro.trackingreporting.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.zentro.trackingreporting.domain.TrackingEvent;
+import com.zentro.trackingreporting.domain.TrackingParcel;
+import com.zentro.trackingreporting.domain.TrackingStatus;
+import com.zentro.trackingreporting.dto.CustomerDeliveryListResponse;
+import com.zentro.trackingreporting.dto.PublicTrackingResponse;
+import com.zentro.trackingreporting.dto.TrackingEventDto;
+import com.zentro.trackingreporting.error.TrackingNotFoundException;
+import com.zentro.trackingreporting.repository.TrackingEventRepository;
+import com.zentro.trackingreporting.repository.TrackingParcelRepository;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+@ExtendWith(MockitoExtension.class)
+class TrackingServiceTest {
+
+  @Mock private TrackingParcelRepository parcelRepository;
+  @Mock private TrackingEventRepository eventRepository;
+  @Mock private TrackingStreamService streamService;
+  @Mock private JdbcTemplate jdbcTemplate;
+
+  private TrackingService trackingService;
+
+  @BeforeEach
+  void setUp() {
+    trackingService = new TrackingService(parcelRepository, eventRepository, streamService, jdbcTemplate);
+  }
+
+  @Test
+  @DisplayName("getPublicTracking returns public view and excludes private personal data")
+  void getPublicTrackingExcludesPrivateData() {
+    String trackingRef = "ZT-ABCDEFGH12";
+    TrackingParcel parcel = new TrackingParcel();
+    parcel.setTrackingRef(trackingRef);
+    parcel.setSenderName("Secret Sender");
+    parcel.setSenderPhone("0771234567");
+    parcel.setSenderAddress("12 Top Secret Road");
+    parcel.setSenderCity("Colombo");
+    parcel.setRecipientName("Secret Recipient");
+    parcel.setRecipientPhone("0777654321");
+    parcel.setRecipientAddress("99 Hidden Street");
+    parcel.setRecipientCity("Kandy");
+    parcel.setFee(new BigDecimal("1500.00"));
+    parcel.setStatus(TrackingStatus.IN_TRANSIT);
+    parcel.setCategory("Parcel");
+    parcel.setSize("MEDIUM");
+
+    when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.of(parcel));
+    when(eventRepository.findByTrackingRefOrderByOccurredAtAsc(trackingRef)).thenReturn(List.of(
+        new TrackingEvent(trackingRef, TrackingStatus.CREATED, "Created", "Booked", Instant.parse("2026-11-04T10:00:00Z")),
+        new TrackingEvent(trackingRef, TrackingStatus.IN_TRANSIT, "In Transit", "Hub", Instant.parse("2026-11-04T12:00:00Z"))
+    ));
+
+    PublicTrackingResponse response = trackingService.getPublicTracking(trackingRef);
+
+    assertThat(response.trackingRef()).isEqualTo(trackingRef);
+    assertThat(response.status()).isEqualTo("In progress");
+    assertThat(response.rawStatus()).isEqualTo("IN_TRANSIT");
+    assertThat(response.originCity()).isEqualTo("Colombo");
+    assertThat(response.destinationCity()).isEqualTo("Kandy");
+    assertThat(response.events()).hasSize(2);
+    assertThat(response.timeline()).hasSize(2);
+
+    // Verify chronological order: oldest to newest
+    assertThat(response.events().get(0).occurredAt()).isBefore(response.events().get(1).occurredAt());
+  }
+
+  @Test
+  @DisplayName("getPublicTracking throws TrackingNotFoundException for unknown reference")
+  void getPublicTrackingThrowsNotFound() {
+    when(parcelRepository.findByTrackingRef("ZT-UNKNOWN999")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> trackingService.getPublicTracking("ZT-UNKNOWN999"))
+        .isInstanceOf(TrackingNotFoundException.class)
+        .hasMessageContaining("ZT-UNKNOWN999");
+  }
+
+  @Test
+  @DisplayName("getTrackingEvents returns chronological events in ascending order")
+  void getTrackingEventsChronologicalOrder() {
+    String trackingRef = "ZT-ORDER12345";
+    TrackingParcel parcel = new TrackingParcel();
+    parcel.setTrackingRef(trackingRef);
+    parcel.setStatus(TrackingStatus.DELIVERED);
+
+    Instant t1 = Instant.parse("2026-11-04T08:00:00Z");
+    Instant t2 = Instant.parse("2026-11-04T11:00:00Z");
+    Instant t3 = Instant.parse("2026-11-04T14:00:00Z");
+
+    when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.of(parcel));
+    when(eventRepository.findByTrackingRefOrderByOccurredAtAsc(trackingRef)).thenReturn(List.of(
+        new TrackingEvent(trackingRef, TrackingStatus.CREATED, "Created", "Booked", t1),
+        new TrackingEvent(trackingRef, TrackingStatus.PICKED_UP, "Picked Up", "Courier", t2),
+        new TrackingEvent(trackingRef, TrackingStatus.DELIVERED, "Delivered", "Completed", t3)
+    ));
+
+    List<TrackingEventDto> events = trackingService.getTrackingEvents(trackingRef);
+
+    assertThat(events).hasSize(3);
+    assertThat(events.get(0).occurredAt()).isEqualTo(t1);
+    assertThat(events.get(1).occurredAt()).isEqualTo(t2);
+    assertThat(events.get(2).occurredAt()).isEqualTo(t3);
+  }
+
+  @Test
+  @DisplayName("getCustomerDeliveries strictly isolates customer parcels and computes totals")
+  void getCustomerDeliveriesIsolatesOwner() {
+    String customer = "customer-user-123";
+    TrackingParcel p1 = new TrackingParcel();
+    p1.setTrackingRef("ZT-AAA1111111");
+    p1.setCustomerSubject(customer);
+    p1.setFee(new BigDecimal("750.00"));
+    p1.setStatus(TrackingStatus.DELIVERED);
+
+    TrackingParcel p2 = new TrackingParcel();
+    p2.setTrackingRef("ZT-BBB2222222");
+    p2.setCustomerSubject(customer);
+    p2.setFee(new BigDecimal("1250.00"));
+    p2.setStatus(TrackingStatus.IN_TRANSIT);
+
+    when(parcelRepository.findByCustomerSubject(eq(customer), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(p1, p2)));
+
+    CustomerDeliveryListResponse result = trackingService.getCustomerDeliveries(customer, 1, 10, null, null);
+
+    assertThat(result.total()).isEqualTo(2);
+    assertThat(result.content()).hasSize(2);
+    assertThat(result.totalSpent()).isEqualByComparingTo("2000.00");
+    assertThat(result.formattedTotalSpent()).contains("2,000.00");
+  }
+
+  @Test
+  @DisplayName("recordEvent updates parcel and notifies stream subscribers")
+  void recordEventNotifiesStream() {
+    String trackingRef = "ZT-STREAM1234";
+    TrackingParcel parcel = new TrackingParcel();
+    parcel.setTrackingRef(trackingRef);
+    parcel.setStatus(TrackingStatus.CREATED);
+
+    when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.of(parcel));
+    when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(i -> i.getArgument(0));
+
+    TrackingEvent saved = trackingService.recordEvent(
+        trackingRef,
+        UUID.randomUUID(),
+        TrackingStatus.IN_TRANSIT,
+        "PICKED_UP",
+        "DISPATCHER",
+        "In Transit",
+        "Moving between hubs",
+        null,
+        "Colombo Hub",
+        Instant.now(),
+        UUID.randomUUID()
+    );
+
+    assertThat(saved.getStatus()).isEqualTo(TrackingStatus.IN_TRANSIT);
+    assertThat(parcel.getStatus()).isEqualTo(TrackingStatus.IN_TRANSIT);
+    verify(streamService).notifySubscribers(saved);
+  }
+}
+

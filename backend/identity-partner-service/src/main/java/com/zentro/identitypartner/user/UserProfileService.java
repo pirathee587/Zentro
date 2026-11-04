@@ -197,7 +197,7 @@ public class UserProfileService {
         rs.getString("phone"),
         enabled,
         status,
-        merchantStatus.isBlank() ? null : merchantStatus,
+        merchantStatus == null || merchantStatus.isBlank() ? null : merchantStatus,
         roles);
   }
 

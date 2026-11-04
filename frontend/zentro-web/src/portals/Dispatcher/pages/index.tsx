@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
+import { DispatchQueueCard } from './DispatchQueueCard';
 import { useMerchantApplications } from './MerchantApprovalsPage';
 
 type ApplicationPreviewProps = {
@@ -35,8 +36,8 @@ function ApplicationRows({ applications }: { applications: ApplicationPreviewPro
     return <div className="staff-empty">There are no applications waiting for review.</div>;
   return (
     <div className="staff-application-list">
-      {applications.map((a, i) => (
-        <ApplicationRow key={i} {...a} />
+      {applications.map((application, index) => (
+        <ApplicationRow key={index} {...application} />
       ))}
     </div>
   );
@@ -46,7 +47,7 @@ export function UnassignedParcelsPage() {
   const { user } = useAuth();
   const applications = useMerchantApplications();
   const firstName = user?.name?.trim().split(/\s+/)[0] || 'Dispatcher';
-  const pendingCount = applications.data?.filter((a) => a.status === 'PENDING').length;
+  const pendingCount = applications.data?.filter((application) => application.status === 'PENDING').length;
 
   return (
     <main className="staff-main">
@@ -66,11 +67,7 @@ export function UnassignedParcelsPage() {
             <strong>{applications.isPending ? '—' : pendingCount ?? '—'}</strong>
             <small>Waiting for your review</small>
           </article>
-          <article className="staff-stat-card">
-            <span>Dispatch queue</span>
-            <strong>Not connected</strong>
-            <small>Parcel dispatch data is not available yet</small>
-          </article>
+          <DispatchQueueCard />
           <article className="staff-stat-card">
             <span>Courier workload</span>
             <strong>Not connected</strong>
@@ -102,7 +99,7 @@ export function UnassignedParcelsPage() {
           ) : (
             <ApplicationRows
               applications={(applications.data ?? [])
-                .filter((a) => a.status === 'PENDING')
+                .filter((application) => application.status === 'PENDING')
                 .slice(0, 5)}
             />
           )}
@@ -129,10 +126,12 @@ export function UnassignedParcelsPage() {
             </strong>
             <p>Search registered accounts, view roles and statuses, update account details.</p>
           </Link>
-          <article className="staff-action-card">
-            <strong>Dispatch and courier tools</strong>
-            <p>These work queues will appear when the dispatch service is available.</p>
-          </article>
+          <Link className="staff-action-card" to="/dispatcher/couriers">
+            <strong>
+              Courier fleet &amp; profiles <span aria-hidden="true">↗</span>
+            </strong>
+            <p>Manage courier eligibility, assigned delivery zones, and vehicle categories.</p>
+          </Link>
         </div>
       </section>
     </main>
@@ -141,6 +140,7 @@ export function UnassignedParcelsPage() {
 
 export { MerchantApprovalsPage } from './MerchantApprovalsPage';
 export { UsersPage } from './UsersPage';
+export { CouriersPage } from './CouriersPage';
 
 export const WorkloadPage = () => (
   <section className="staff-main">

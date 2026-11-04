@@ -11,11 +11,39 @@ spring:
     schemas: pricing
     default-schema: pricing
     create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        "[enable.idempotence]": true
+        # Bounded waits so a broker outage turns into a recorded, retried failure instead of a hang.
+        "[max.block.ms]": ${KAFKA_MAX_BLOCK_MS:5000}
+        "[request.timeout.ms]": ${KAFKA_REQUEST_TIMEOUT_MS:10000}
+        "[delivery.timeout.ms]": ${KAFKA_DELIVERY_TIMEOUT_MS:30000}
 zentro:
   security:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
     jwks-uri: ${JWT_JWKS_URI:}
+  outbox:
+    # Off by default so tests and environments without a broker never try to connect.
+    enabled: ${OUTBOX_PUBLISHER_ENABLED:false}
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:10}
+    send-timeout-ms: ${OUTBOX_SEND_TIMEOUT_MS:5000}
+    retry-base-delay-ms: ${OUTBOX_RETRY_BASE_DELAY_MS:1000}
+    retry-max-delay-ms: ${OUTBOX_RETRY_MAX_DELAY_MS:300000}
+    stuck-threshold-ms: ${OUTBOX_STUCK_THRESHOLD_MS:300000}
+    topic-partitions: ${OUTBOX_TOPIC_PARTITIONS:3}
+    topic-replicas: ${OUTBOX_TOPIC_REPLICAS:1}
+    # Outbox event_type -> Kafka topic.
+    topics:
+      "[parcel.status.updated]": parcel.status.updated
+      "[parcel.created]": parcel.created
 management:
   endpoint:
     health:
