@@ -34,6 +34,22 @@ class IdentityCourierClientTest {
         + "\",\"name\":\"Courier\",\"active\":" + active + ",\"accountStatus\":\"" + status + "\"}";
   }
 
+  @Test void resolvesSelfProfileWithCourierTokenAndDistinctIds() {
+    server.expect(requestTo("http://identity/api/v1/users/courier-profile"))
+        .andExpect(header("Authorization", "Bearer courier-token"))
+        .andRespond(withSuccess(profile(true, "ACTIVE"), MediaType.APPLICATION_JSON));
+    var courier = client.currentCourier("courier-token");
+    assertThat(courier.id()).isEqualTo(PROFILE);
+    assertThat(courier.userId()).isEqualTo(USER);
+    server.verify();
+  }
+  @Test void selfProfileFailsClosedForInactiveOrMalformedIdentity() {
+    server.expect(anything()).andRespond(withSuccess(profile(false, "ACTIVE"), MediaType.APPLICATION_JSON));
+    server.expect(anything()).andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+    assertStatus(() -> client.currentCourier("token"), 403);
+    assertStatus(() -> client.currentCourier("token"), 503);
+  }
+
   @Test void listsOnlyEffectivelyActiveCouriersAndForwardsAuthentication() {
     server.expect(requestTo("http://identity/api/v1/admin/couriers?active=true"))
         .andExpect(header("Authorization", "Bearer dispatcher-token"))

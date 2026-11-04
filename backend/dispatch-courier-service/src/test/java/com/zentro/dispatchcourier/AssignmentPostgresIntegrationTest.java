@@ -40,7 +40,7 @@ class AssignmentPostgresIntegrationTest {
     repository = new AssignmentRepository(jdbc, new DataSourceTransactionManager(dataSource));
   }
 
-  @BeforeEach void reset() { jdbc.execute("TRUNCATE dispatch.delivery_assignment"); }
+  @BeforeEach void reset() { jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.delivery_assignment"); }
 
   @Test void competingServicesCommitExactlyOneAssignmentAndExcludeItFromQueue() throws Exception {
     var barrier = new CyclicBarrier(2);

@@ -35,6 +35,19 @@ public class IdentityCourierClient {
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus) {}
 
+  /** Resolve the authenticated courier, never the dispatcher-only directory. */
+  public Courier currentCourier(String bearerToken) {
+    try {
+      Courier courier = client.get().uri("/api/v1/users/courier-profile")
+          .headers(headers -> headers.setBearerAuth(bearerToken)).retrieve().body(Courier.class);
+      if (!valid(courier)) throw unavailable();
+      if (!eligible(courier)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Courier is not eligible.");
+      return courier;
+    } catch (RestClientException ex) {
+      throw translate(ex);
+    }
+  }
+
   public List<Courier> listEligible(String bearerToken) {
     try {
       List<Courier> couriers = client.get()

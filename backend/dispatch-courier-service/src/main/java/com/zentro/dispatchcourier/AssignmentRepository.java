@@ -30,6 +30,14 @@ public class AssignmentRepository {
         "SELECT EXISTS(SELECT 1 FROM dispatch.delivery_assignment WHERE parcel_id = ?)", Boolean.class, parcelId));
   }
 
+  public java.util.Optional<Assignment> find(UUID parcelId) {
+    return jdbc.query("SELECT * FROM dispatch.delivery_assignment WHERE parcel_id = ?",
+        (row, index) -> new Assignment(row.getObject("parcel_id", UUID.class),
+            row.getObject("courier_profile_id", UUID.class), row.getObject("courier_user_id", UUID.class),
+            row.getString("assigned_by_subject"), row.getObject("assigned_at", OffsetDateTime.class).toInstant()),
+        parcelId).stream().findFirst();
+  }
+
   public Set<UUID> assignedIds(Collection<UUID> candidates) {
     Set<UUID> result = new HashSet<>();
     List<UUID> ids = List.copyOf(candidates);
