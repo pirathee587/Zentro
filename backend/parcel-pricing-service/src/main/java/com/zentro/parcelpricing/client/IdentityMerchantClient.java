@@ -1,4 +1,4 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.client;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;

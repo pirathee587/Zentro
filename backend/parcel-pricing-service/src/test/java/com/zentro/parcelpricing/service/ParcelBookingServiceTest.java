@@ -1,5 +1,7 @@
 package com.zentro.parcelpricing.service;
 
+import com.zentro.parcelpricing.repository.ParcelStatusRepository;
+import com.zentro.parcelpricing.repository.ParcelBookingRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;

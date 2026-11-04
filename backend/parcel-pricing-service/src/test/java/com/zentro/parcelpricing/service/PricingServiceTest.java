@@ -9,6 +9,7 @@ import com.zentro.parcelpricing.domain.PricingRule;
 import com.zentro.parcelpricing.dto.FeeEstimateRequest;
 import com.zentro.parcelpricing.dto.FeeEstimateResponse;
 import com.zentro.parcelpricing.dto.PricingRuleUpdateRequest;
+import com.zentro.parcelpricing.error.PricingUnavailableException;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -116,5 +117,23 @@ class PricingServiceTest {
     );
     assertEquals(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, ex.getStatusCode());
     assertTrue(ex.getReason().contains("Failed to persist pricing rule update"));
+  }
+
+  @Test
+  @DisplayName("estimateFee throws PricingUnavailableException when active rule has zero or missing base fee")
+  void estimateFeeThrowsWhenActiveRuleIsInvalid() {
+    PricingRule invalidRule = new PricingRule(
+        null, "CORRUPT", BigDecimal.ZERO, new BigDecimal("1.00"),
+        new BigDecimal("120.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+        BigDecimal.ZERO, "LKR", true, null
+    );
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of(invalidRule));
+
+    FeeEstimateRequest req = new FeeEstimateRequest(
+        "Colombo", "Colombo", DestinationType.SAME_CITY, null,
+        new BigDecimal("2.00"), null, false, null, null, null, null, null, null, "LKR"
+    );
+
+    assertThrows(PricingUnavailableException.class, () -> pricingService.estimateFee(req));
   }
 }

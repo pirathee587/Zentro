@@ -1,5 +1,6 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.event;
 
+import com.zentro.parcelpricing.repository.OutboxRepository;
 import com.zentro.parcelpricing.config.OutboxProperties;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;

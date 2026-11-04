@@ -1,5 +1,6 @@
 package com.zentro.parcelpricing.service;
 
+import com.zentro.parcelpricing.repository.ParcelStatusRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zentro.parcelpricing.domain.ParcelLifecycle;
@@ -9,7 +10,7 @@ import com.zentro.parcelpricing.dto.ParcelStatusResponse;
 import com.zentro.parcelpricing.error.InvalidTransitionException;
 import com.zentro.parcelpricing.error.ParcelNotFoundException;
 import com.zentro.parcelpricing.error.StatusFieldException;
-import com.zentro.parcelpricing.service.ParcelStatusRepository.LockedParcel;
+import com.zentro.parcelpricing.repository.ParcelStatusRepository.LockedParcel;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;

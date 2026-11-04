@@ -215,6 +215,28 @@ class GatewayBehaviorTests {
         .exchange().expectStatus().isOk();
   }
 
+  @Test
+  void pricingQuotationPrefixForwardsPostToParcelPricingService() throws Exception {
+    clearRecordedRequests();
+    String quotePayload = "{\"weightKg\":2.0,\"destinationType\":\"SAME_CITY\"}";
+
+    for (String path : List.of("/api/v1/parcels/estimate", "/api/v1/parcels/estimate-fee")) {
+      client.post().uri("http://localhost:" + port + path)
+          .header("Authorization", "Bearer test.ROLE_CUSTOMER")
+          .header("Content-Type", "application/json")
+          .bodyValue(quotePayload)
+          .exchange()
+          .expectStatus().isOk()
+          .expectBody(String.class).isEqualTo("S2");
+
+      RecordedRequest forwarded = upstreams.get("S2").takeRequest(2, TimeUnit.SECONDS);
+      assertThat(forwarded).as("quotation request forwarded to S2 for %s", path).isNotNull();
+      assertThat(forwarded.getMethod()).isEqualTo("POST");
+      assertThat(forwarded.getPath()).isEqualTo(path);
+      assertThat(forwarded.getBody().readUtf8()).isEqualTo(quotePayload);
+    }
+  }
+
   private static void clearRecordedRequests() throws InterruptedException {
     for (MockWebServer server : upstreams.values()) {
       while (server.takeRequest(10, TimeUnit.MILLISECONDS) != null) { /* drain earlier test traffic */ }

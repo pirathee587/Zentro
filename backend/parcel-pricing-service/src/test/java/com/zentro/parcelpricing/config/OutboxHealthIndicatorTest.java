@@ -3,8 +3,8 @@ package com.zentro.parcelpricing.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.zentro.parcelpricing.service.OutboxMetrics;
-import com.zentro.parcelpricing.service.OutboxRepository;
+import com.zentro.parcelpricing.event.OutboxMetrics;
+import com.zentro.parcelpricing.repository.OutboxRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Instant;

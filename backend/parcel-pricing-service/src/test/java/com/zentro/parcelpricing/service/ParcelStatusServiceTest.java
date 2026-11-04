@@ -1,5 +1,6 @@
 package com.zentro.parcelpricing.service;
 
+import com.zentro.parcelpricing.repository.ParcelStatusRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,7 +20,7 @@ import com.zentro.parcelpricing.dto.ParcelStatusResponse;
 import com.zentro.parcelpricing.error.InvalidTransitionException;
 import com.zentro.parcelpricing.error.ParcelNotFoundException;
 import com.zentro.parcelpricing.error.StatusFieldException;
-import com.zentro.parcelpricing.service.ParcelStatusRepository.LockedParcel;
+import com.zentro.parcelpricing.repository.ParcelStatusRepository.LockedParcel;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;

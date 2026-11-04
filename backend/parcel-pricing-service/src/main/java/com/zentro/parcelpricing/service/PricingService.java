@@ -4,6 +4,7 @@ import com.zentro.parcelpricing.domain.PricingRule;
 import com.zentro.parcelpricing.dto.FeeEstimateRequest;
 import com.zentro.parcelpricing.dto.FeeEstimateResponse;
 import com.zentro.parcelpricing.dto.PricingRuleUpdateRequest;
+import com.zentro.parcelpricing.error.PricingUnavailableException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
@@ -31,7 +32,22 @@ public class PricingService {
 
   public FeeEstimateResponse estimateFee(FeeEstimateRequest request) {
     PricingRule activeRule = getActiveRule();
+    if (!isRuleUsable(activeRule)) {
+      throw new PricingUnavailableException("Active pricing rule configuration is unavailable or incomplete.");
+    }
     return calculationEngine.calculate(request, activeRule);
+  }
+
+  private static boolean isRuleUsable(PricingRule rule) {
+    return rule != null
+        && rule.active()
+        && rule.baseFee() != null && rule.baseFee().compareTo(BigDecimal.ZERO) > 0
+        && rule.includedWeightKg() != null && rule.includedWeightKg().compareTo(BigDecimal.ZERO) > 0
+        && rule.additionalWeightRatePerKg() != null && rule.additionalWeightRatePerKg().compareTo(BigDecimal.ZERO) >= 0
+        && rule.distanceSurchargeOtherDistrict() != null && rule.distanceSurchargeOtherDistrict().compareTo(BigDecimal.ZERO) >= 0
+        && rule.expressSurcharge() != null && rule.expressSurcharge().compareTo(BigDecimal.ZERO) >= 0
+        && rule.perKmRate() != null && rule.perKmRate().compareTo(BigDecimal.ZERO) >= 0
+        && rule.currency() != null && !rule.currency().isBlank();
   }
 
   public PricingRule getActiveRule() {

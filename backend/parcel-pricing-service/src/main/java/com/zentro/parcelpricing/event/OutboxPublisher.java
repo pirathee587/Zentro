@@ -1,7 +1,8 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.event;
 
+import com.zentro.parcelpricing.repository.OutboxRepository;
 import com.zentro.parcelpricing.config.OutboxProperties;
-import com.zentro.parcelpricing.service.OutboxRepository.PendingEvent;
+import com.zentro.parcelpricing.repository.OutboxRepository.PendingEvent;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.OffsetDateTime;
