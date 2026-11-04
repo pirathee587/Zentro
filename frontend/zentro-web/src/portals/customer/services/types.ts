@@ -144,6 +144,56 @@ export interface CreateDeliveryOptions {
   idempotencyKey: string;
 }
 
+export interface ParcelBookingResponse {
+  trackingRef: string;
+  status: 'CREATED' | string;
+  fee: number;
+  currency: string;
+  estimatedDays: number;
+  createdAt: string;
+  sender: {
+    name: string;
+    phone: string;
+    address: string;
+    city?: string;
+  };
+  recipient: {
+    name: string;
+    phone: string;
+    address: string;
+    city?: string;
+  };
+  parcel: {
+    weightKg: number;
+    category: string;
+    size?: ParcelSize | string;
+    description?: string;
+  };
+}
+
+export type BookingErrorKind =
+  | 'validation'
+  | 'bad_request'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'conflict'
+  | 'unavailable'
+  | 'unknown';
+
+/** Typed failure from createDelivery so the UI can decide between field errors, re-login and retry. */
+export class BookingError extends Error {
+  constructor(
+    public readonly kind: BookingErrorKind,
+    message: string,
+    /** Server field errors keyed by request path, e.g. "recipient.phone". */
+    public readonly fieldErrors: Record<string, string> = {},
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'BookingError';
+  }
+}
+
 export interface ListParcelsParams {
   status?: ParcelStatus | 'ALL' | string;
   search?: string;

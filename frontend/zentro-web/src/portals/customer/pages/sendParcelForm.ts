@@ -16,6 +16,9 @@ export type FieldErrors = Partial<Record<FieldName, string>>;
 
 export const WEIGHT_MIN = 0.1;
 export const WEIGHT_MAX = 20;
+export const ADDRESS_MIN_LENGTH = 8;
+export const ADDRESS_MAX_LENGTH = 255;
+export const RECIPIENT_NAME_MAX_LENGTH = 100;
 const SL_PHONE = /^(\+94|0)\d{9}$/;
 
 export const SIZE_OPTIONS: { value: ParcelSize; label: string }[] = [
@@ -53,15 +56,33 @@ export function validateField(name: FieldName, form: SendParcelForm): string | u
   const value = form[name];
   switch (name) {
     case 'pickupAddress':
-    case 'dropoffAddress':
-      return value.trim().length >= 8 ? undefined : 'Enter at least 8 characters.';
+    case 'dropoffAddress': {
+      const trimmedLength = value.trim().length;
+      if (trimmedLength < ADDRESS_MIN_LENGTH) return 'Enter at least 8 characters.';
+      if (trimmedLength > ADDRESS_MAX_LENGTH) return 'Address must be between 8 and 255 characters.';
+      return undefined;
+    }
     case 'pickupPhone':
     case 'recipientPhone':
       return SL_PHONE.test(normalizePhone(value))
         ? undefined
         : 'Enter a Sri Lankan number, e.g. 0771234567 or +94771234567.';
-    case 'recipientName':
-      return value.trim() ? undefined : 'Recipient name is required.';
+    case 'recipientName': {
+      const trimmed = value.trim();
+      if (!trimmed) return 'Recipient name is required.';
+      if (trimmed.length > RECIPIENT_NAME_MAX_LENGTH) {
+        return 'Recipient name must be at most 100 characters.';
+      }
+      return undefined;
+    }
+    case 'parcelSize':
+      return SIZE_OPTIONS.some((opt) => opt.value === value)
+        ? undefined
+        : 'Select a valid parcel size.';
+    case 'destinationType':
+      return DESTINATION_OPTIONS.some((opt) => opt.value === value)
+        ? undefined
+        : 'Select a valid destination.';
     case 'weightKg':
       return parseWeight(value) !== null ? undefined : `Weight must be between ${WEIGHT_MIN} and ${WEIGHT_MAX} kg.`;
     default:

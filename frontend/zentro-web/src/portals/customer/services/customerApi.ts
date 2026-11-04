@@ -3,20 +3,23 @@ import { apiClient } from '@/shared/api/apiClient';
 import { customerApiConfig } from './config';
 import { mockCustomerAdapter } from '../mocks/mockAdapter';
 import { normalizeParcelStatus, formatMoney, formatDate } from './formatters';
-import type {
-  DashboardData,
-  FeeEstimateRequest,
-  FeeEstimateResponse,
-  CreateDeliveryRequest,
-  CreateDeliveryOptions,
-  Parcel,
-  ProofOfDeliverySummary,
-  ListParcelsParams,
-  ListParcelsResponse,
-  Receipt,
-  AssistantResponse,
-  SupportMessagePayload,
-  SupportTicket,
+import {
+  BookingError,
+  type BookingErrorKind,
+  type DashboardData,
+  type FeeEstimateRequest,
+  type FeeEstimateResponse,
+  type CreateDeliveryRequest,
+  type CreateDeliveryOptions,
+  type ParcelBookingResponse,
+  type Parcel,
+  type ProofOfDeliverySummary,
+  type ListParcelsParams,
+  type ListParcelsResponse,
+  type Receipt,
+  type AssistantResponse,
+  type SupportMessagePayload,
+  type SupportTicket,
 } from './types';
 
 export * from './types';
@@ -45,34 +48,26 @@ export async function estimateFee(payload: FeeEstimateRequest): Promise<FeeEstim
   return data;
 }
 
-export type BookingErrorKind = 'validation' | 'unauthorized' | 'unavailable' | 'unknown';
-
-/** Typed failure from createDelivery so the UI can decide between field errors, re-login and retry. */
-export class BookingError extends Error {
-  constructor(
-    public readonly kind: BookingErrorKind,
-    message: string,
-    /** Server field errors keyed by request path, e.g. "recipient.phone". */
-    public readonly fieldErrors: Record<string, string> = {},
-    public readonly status?: number
-  ) {
-    super(message);
-    this.name = 'BookingError';
-  }
-}
+export { BookingError, type BookingErrorKind };
 
 /**
- * Accepts the two common 422 body shapes:
+ * Accepts the common 422 body shapes:
  *   { fieldErrors: { "recipient.phone": "..." } }
+ *   { invalidFields: { "recipient.phone": "..." } }
  *   { errors: [{ field: "recipient.phone", message: "..." }] }
  */
 function parseFieldErrors(body: unknown): Record<string, string> {
   if (!body || typeof body !== 'object') return {};
-  const b = body as { fieldErrors?: unknown; errors?: unknown };
+  const b = body as { fieldErrors?: unknown; invalidFields?: unknown; errors?: unknown };
   const out: Record<string, string> = {};
   if (b.fieldErrors && typeof b.fieldErrors === 'object') {
     for (const [k, v] of Object.entries(b.fieldErrors as Record<string, unknown>)) {
       if (typeof v === 'string') out[k] = v;
+    }
+  }
+  if (b.invalidFields && typeof b.invalidFields === 'object') {
+    for (const [k, v] of Object.entries(b.invalidFields as Record<string, unknown>)) {
+      if (typeof v === 'string' && !(k in out)) out[k] = v;
     }
   }
   if (Array.isArray(b.errors)) {
@@ -85,37 +80,184 @@ function parseFieldErrors(body: unknown): Record<string, string> {
 
 export function toBookingError(error: unknown): BookingError {
   if (error instanceof BookingError) return error;
-  if (axios.isAxiosError(error)) {
-    const status = error.response?.status;
-    if (!error.response) {
-      return new BookingError('unavailable', 'We could not reach SwiftDrop. Check your connection and try again.');
+  const isErrorLike =
+    axios.isAxiosError(error) ||
+    (typeof error === 'object' &&
+      error !== null &&
+      ('response' in error ||
+        'code' in error ||
+        'isAxiosError' in error ||
+        ('message' in error &&
+          typeof (error as { message?: unknown }).message === 'string' &&
+          /network|timeout|exceeded|failed to fetch/i.test(
+            (error as { message: string }).message
+          ))));
+
+  if (isErrorLike) {
+    const errObj = error as {
+      response?: { status?: number; data?: unknown };
+      code?: string;
+    };
+    const status = errObj.response?.status;
+    if (
+      !errObj.response ||
+      errObj.code === 'ECONNABORTED' ||
+      errObj.code === 'ETIMEDOUT' ||
+      errObj.code === 'ERR_NETWORK'
+    ) {
+      return new BookingError(
+        'unavailable',
+        'We could not reach SwiftDrop. Check your connection and try again.'
+      );
     }
-    if (status === 422 || status === 400) {
-      return new BookingError('validation', 'Some details need fixing.', parseFieldErrors(error.response.data), status);
+    if (status === 422) {
+      return new BookingError(
+        'validation',
+        'Some booking details are missing or invalid.',
+        parseFieldErrors(errObj.response.data),
+        422
+      );
+    }
+    if (status === 400) {
+      return new BookingError(
+        'bad_request',
+        "We couldn't process this request, please check your details",
+        {},
+        400
+      );
     }
     if (status === 401) {
-      return new BookingError('unauthorized', 'Your session has expired. Please sign in again.', {}, status);
+      return new BookingError(
+        'unauthorized',
+        'Your session has expired. Please sign in again.',
+        {},
+        401
+      );
+    }
+    if (status === 403) {
+      return new BookingError('forbidden', "Your account can't create deliveries", {}, 403);
+    }
+    if (status === 409) {
+      return new BookingError(
+        'conflict',
+        'This booking conflicts with an earlier attempt. Review your details and try again',
+        {},
+        409
+      );
     }
     if (status === 502 || status === 503 || status === 504) {
-      return new BookingError('unavailable', 'Booking service is temporarily unavailable. Please try again.', {}, status);
+      return new BookingError(
+        'unavailable',
+        'Booking service is temporarily unavailable. Please try again.',
+        {},
+        status
+      );
     }
-    return new BookingError('unknown', 'Something went wrong while booking. Please try again.', {}, status);
+    return new BookingError(
+      'unknown',
+      'Something went wrong while booking. Please try again.',
+      {},
+      status
+    );
   }
   return new BookingError('unknown', 'Something went wrong while booking. Please try again.');
 }
 
+function sanitizeCreateDeliveryRequest(payload: CreateDeliveryRequest): CreateDeliveryRequest {
+  return {
+    sender: {
+      name: payload.sender.name,
+      phone: payload.sender.phone,
+      address: payload.sender.address,
+      ...(payload.sender.city !== undefined ? { city: payload.sender.city } : {}),
+    },
+    recipient: {
+      name: payload.recipient.name,
+      phone: payload.recipient.phone,
+      address: payload.recipient.address,
+      ...(payload.recipient.city !== undefined ? { city: payload.recipient.city } : {}),
+    },
+    parcel: {
+      weightKg: payload.parcel.weightKg,
+      category: payload.parcel.category,
+      ...(payload.parcel.size !== undefined ? { size: payload.parcel.size } : {}),
+      ...(payload.parcel.description !== undefined ? { description: payload.parcel.description } : {}),
+    },
+    ...(payload.destinationType !== undefined ? { destinationType: payload.destinationType } : {}),
+    ...(payload.isExpress !== undefined ? { isExpress: payload.isExpress } : {}),
+    ...(payload.notes !== undefined ? { notes: payload.notes } : {}),
+  };
+}
+
+function toParcelBookingResponse(raw: ParcelBookingResponse): ParcelBookingResponse {
+  if (
+    !raw ||
+    typeof raw !== 'object' ||
+    typeof raw.trackingRef !== 'string' ||
+    !raw.trackingRef.trim() ||
+    typeof raw.fee !== 'number'
+  ) {
+    throw new BookingError('unknown', 'Something went wrong while booking. Please try again.');
+  }
+  return {
+    trackingRef: raw.trackingRef,
+    status: raw.status || 'CREATED',
+    fee: raw.fee,
+    currency: raw.currency || 'LKR',
+    estimatedDays: typeof raw.estimatedDays === 'number' ? raw.estimatedDays : 2,
+    createdAt: raw.createdAt,
+    sender: {
+      name: raw.sender?.name || '',
+      phone: raw.sender?.phone || '',
+      address: raw.sender?.address || '',
+      ...(raw.sender?.city !== undefined ? { city: raw.sender.city } : {}),
+    },
+    recipient: {
+      name: raw.recipient?.name || '',
+      phone: raw.recipient?.phone || '',
+      address: raw.recipient?.address || '',
+      ...(raw.recipient?.city !== undefined ? { city: raw.recipient.city } : {}),
+    },
+    parcel: {
+      weightKg: raw.parcel?.weightKg ?? 0,
+      category: raw.parcel?.category || '',
+      ...(raw.parcel?.size !== undefined ? { size: raw.parcel.size } : {}),
+      ...(raw.parcel?.description !== undefined ? { description: raw.parcel.description } : {}),
+    },
+  };
+}
+
 export async function createDelivery(
   payload: CreateDeliveryRequest,
-  options: CreateDeliveryOptions = { idempotencyKey: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `idemp-${Date.now()}` }
-): Promise<Parcel> {
+  options: CreateDeliveryOptions = {
+    idempotencyKey:
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  }
+): Promise<ParcelBookingResponse> {
+  const sanitizedPayload = sanitizeCreateDeliveryRequest(payload);
+  const idempotencyKey =
+    options?.idempotencyKey?.trim() ||
+    (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+
   try {
-    if (customerApiConfig.useMocks) {
-      return await mockCustomerAdapter.createDelivery(payload, options);
+    if (customerApiConfig.useMocks || customerApiConfig.mode === 'mock') {
+      const mockResult = await mockCustomerAdapter.createDelivery(sanitizedPayload, {
+        idempotencyKey,
+      });
+      return toParcelBookingResponse(mockResult);
     }
-    const { data } = await apiClient.post<Parcel>(`${customerApiConfig.baseUrl}/deliveries`, payload, {
-      headers: { 'Idempotency-Key': options.idempotencyKey },
-    });
-    return data;
+    const { data } = await apiClient.post<ParcelBookingResponse>(
+      customerApiConfig.parcelsPath,
+      sanitizedPayload,
+      {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      }
+    );
+    return toParcelBookingResponse(data);
   } catch (error) {
     throw toBookingError(error);
   }
