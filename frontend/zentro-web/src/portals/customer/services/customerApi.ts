@@ -10,6 +10,7 @@ import type {
   CreateDeliveryRequest,
   CreateDeliveryOptions,
   Parcel,
+  ProofOfDeliverySummary,
   ListParcelsParams,
   ListParcelsResponse,
   Receipt,
@@ -141,6 +142,7 @@ export interface RawTrackingPayload {
   deliveredAt?: string;
   formattedDeliveredAt?: string;
   failureReason?: string;
+  proofOfDelivery?: ProofOfDeliverySummary;
   fee?: number;
   formattedFee?: string;
   sender?: { name?: string; phone?: string; address?: string; city?: string };
@@ -226,6 +228,7 @@ export function normalizeParcelRecord(p: RawTrackingPayload | Partial<Parcel> | 
     formattedDeliveredAt:
       raw.formattedDeliveredAt || (raw.deliveredAt ? formatDate(raw.deliveredAt) : undefined),
     failureReason: raw.failureReason,
+    proofOfDelivery: raw.proofOfDelivery,
     courier: raw.courier?.name
       ? {
           name: raw.courier.name,
