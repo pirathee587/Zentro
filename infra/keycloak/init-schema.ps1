@@ -21,7 +21,7 @@ if ($schema -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') { throw 'KC_DB_SCHEMA contains
 $port = if ($dbUri.IsDefaultPort) { 5432 } else { $dbUri.Port }
 if ($port -ne 5432) { throw 'Use the Supabase session pooler on port 5432 for Keycloak.' }
 
-$sql = "CREATE SCHEMA IF NOT EXISTS `"$schema`";"
-docker run --rm -e "PGPASSWORD=$env:KC_DB_PASSWORD" postgres:16 psql "host=$($dbUri.Host) port=$port dbname=postgres user=$env:KC_DB_USERNAME sslmode=require" --set=ON_ERROR_STOP=1 --command=$sql
+$sql = "CREATE SCHEMA IF NOT EXISTS $schema;"
+docker run --rm -e "PGPASSWORD=$env:KC_DB_PASSWORD" postgres:16-alpine psql "host=$($dbUri.Host) port=$port dbname=postgres user=$env:KC_DB_USERNAME sslmode=require" --set=ON_ERROR_STOP=1 --command=$sql
 if ($LASTEXITCODE -ne 0) { throw 'Schema creation failed. Check Docker connectivity and the Supabase database settings.' }
 Write-Output "Keycloak schema '$schema' is ready."

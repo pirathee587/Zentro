@@ -1,4 +1,6 @@
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+[System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $envPath = Join-Path $scriptDir '.env'
 $realmPath = Join-Path $scriptDir 'realm-export.json'
@@ -16,10 +18,13 @@ Get-Content -LiteralPath $envPath | ForEach-Object {
 $baseUrl = if ($env:KEYCLOAK_URL) { $env:KEYCLOAK_URL.TrimEnd('/') } else { "http://localhost:$($env:KC_HTTP_PORT)" }
 $realmName = if ($env:KEYCLOAK_REALM) { $env:KEYCLOAK_REALM } else { 'zentro' }
 if (-not $env:KC_BOOTSTRAP_ADMIN_USERNAME -or -not $env:KC_BOOTSTRAP_ADMIN_PASSWORD) { throw 'Keycloak bootstrap admin credentials are missing from infra/keycloak/.env.' }
-$admin = Invoke-RestMethod -Method Post -Uri "$baseUrl/realms/master/protocol/openid-connect/token" -ContentType 'application/x-www-form-urlencoded' -Body @{
-  grant_type = 'password'; client_id = 'admin-cli'; username = $env:KC_BOOTSTRAP_ADMIN_USERNAME; password = $env:KC_BOOTSTRAP_ADMIN_PASSWORD
+function Get-FreshHeaders {
+  $token = Invoke-RestMethod -Method Post -Uri "$baseUrl/realms/master/protocol/openid-connect/token" -ContentType 'application/x-www-form-urlencoded' -Body @{
+    grant_type = 'password'; client_id = 'admin-cli'; username = $env:KC_BOOTSTRAP_ADMIN_USERNAME; password = $env:KC_BOOTSTRAP_ADMIN_PASSWORD
+  }
+  return @{ Authorization = ("Bearer " + $token.access_token) }
 }
-$headers = @{ Authorization = "Bearer $($admin.access_token)" }
+$headers = Get-FreshHeaders
 $api = "$baseUrl/admin/realms/$realmName"
 $desired = Get-Content -LiteralPath $realmPath -Raw | ConvertFrom-Json
 
@@ -98,6 +103,7 @@ $verifiedReviewConfig = Invoke-RestMethod -Method Get -Uri $reviewConfigUri -Hea
 if ($verifiedReviewConfig.config.'update.profile.on.first.login' -ne 'off') { throw 'Keycloak still prompts users to review profile details on first sign-in.' }
 
 $clients = Invoke-RestMethod -Method Get -Uri "$api/clients?clientId=zentro-web" -Headers $headers
+$headers = Get-FreshHeaders
 $client = $clients[0]
 if (-not $client.id) { throw 'Keycloak client zentro-web was not found.' }
 $client | Add-Member -MemberType NoteProperty -Name redirectUris -Value @($client.redirectUris) -Force
