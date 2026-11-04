@@ -7,11 +7,41 @@ spring:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASSWORD}
+  flyway:
+    schemas: notification
+    default-schema: notification
+    create-schemas: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:notification-integration-service}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Offsets are committed only after the event was stored (see ParcelEventConsumer).
+      ack-mode: manual
 zentro:
   security:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
     jwks-uri: ${JWT_JWKS_URI:}
+  notifications:
+    consumer:
+      # Off by default so tests and environments without a broker never connect to Kafka.
+      enabled: ${NOTIFICATIONS_CONSUMER_ENABLED:false}
+    retry:
+      max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:5}
+      poll-interval-ms: ${NOTIFICATION_RETRY_POLL_MS:5000}
+      base-delay-ms: ${NOTIFICATION_RETRY_BASE_DELAY_MS:5000}
+      max-delay-ms: ${NOTIFICATION_RETRY_MAX_DELAY_MS:600000}
+    mock:
+      # none | always | first-attempt (only for testing retries locally)
+      fail-mode: ${NOTIFICATION_MOCK_FAIL_MODE:none}
+    health:
+      failed-window-minutes: ${NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES:60}
+      stuck-pending-minutes: ${NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES:10}
 management:
   endpoint:
     health:
