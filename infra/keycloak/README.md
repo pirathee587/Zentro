@@ -22,6 +22,20 @@ Configure Google as an identity provider in Keycloak; the React app never receiv
 3. Keep first broker login confirmation enabled for existing-account linking. Do not map Google profile data or email to privileged realm roles. The realm default role is `CUSTOMER`; assign `MERCHANT`, `COURIER`, or `DISPATCHER` only through an authorized Keycloak administrator workflow.
 4. The public customer and merchant sign-in screens send `kc_idp_hint=google`. Keycloak must have an enabled provider with the `google` alias for that button to redirect to Google; without it, Keycloak shows its password form. Staff sign-in remains on the normal Keycloak form.
 
+### Gmail verification email
+
+The realm requires email verification, so local Keycloak must have an SMTP sender. For Gmail, enable 2-Step Verification, create a Google App Password, and add these values to the ignored `infra/keycloak/.env`:
+
+```text
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_FROM=your-account@gmail.com
+SMTP_USER=your-account@gmail.com
+SMTP_PASSWORD=your-16-character-app-password
+```
+
+Run `./infra/keycloak/apply-realm-config.ps1` again after saving the file. The script applies the SMTP settings without deleting existing users. Do not use the normal Gmail account password or commit the local `.env`.
+
 Google credentials are configured in the Keycloak Admin Console and are not stored in this repository. The frontend and backend rely on Keycloak's signed realm roles for authorization. Account enablement is enforced by Keycloak: disable a user in the realm to prevent new sessions/tokens. Self-registration and Google brokered registration receive only the realm default `CUSTOMER` role. After approving a merchant application, a dispatcher must grant `MERCHANT` in Keycloak; pending or rejected users do not receive that role and cannot access merchant APIs. Staff roles are assigned only to provisioned accounts.
 
 S1 uses the same Supabase Postgres database with its own `identity` schema. The new Flyway migration creates application profiles keyed by the immutable Keycloak subject and merchant application/status records. It does not alter Keycloak's `keycloak` schema or Supabase's empty `public` schema. S1 applies the migration when it starts; do not run it manually against the shared database.

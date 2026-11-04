@@ -16,6 +16,7 @@ export function AdminLayout() {
         <NavLink to="/dispatcher/queue">Dispatch Queue</NavLink>
         <NavLink to="/dispatcher/couriers">Couriers</NavLink>
         <NavLink to="/dispatcher/merchant-approvals">Merchant applications</NavLink>
+          <NavLink to="/dispatcher/users">Users</NavLink>
       </nav>
       <div className="staff-account">
         <span>{user?.name || 'Dispatcher'}</span>

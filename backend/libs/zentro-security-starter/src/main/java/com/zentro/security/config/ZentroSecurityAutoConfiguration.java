@@ -19,7 +19,9 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableConfigurationProperties(ZentroSecurityProperties.class)
 public class ZentroSecurityAutoConfiguration {
   @Bean JwtDecoder zentroJwtDecoder(ZentroSecurityProperties properties) {
-    NimbusJwtDecoder decoder = JwtDecoders.fromIssuerLocation(properties.issuerUri());
+    NimbusJwtDecoder decoder = properties.jwksUri() == null || properties.jwksUri().isBlank()
+        ? (NimbusJwtDecoder) JwtDecoders.fromIssuerLocation(properties.issuerUri())
+        : NimbusJwtDecoder.withJwkSetUri(properties.jwksUri()).build();
     decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuerUri()));
     decoder.setJwtValidator(new org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator<>(
         JwtValidators.createDefaultWithIssuer(properties.issuerUri()), new AudienceValidator(properties.audience())));

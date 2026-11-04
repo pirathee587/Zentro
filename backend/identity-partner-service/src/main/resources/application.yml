@@ -15,6 +15,7 @@ zentro:
   security:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
+    jwks-uri: ${JWT_JWKS_URI:}
     internal-token: ${INTERNAL_SERVICE_TOKEN:zentro-internal-service-secret}
 grpc:
   server:
@@ -29,4 +30,3 @@ management:
     web:
       exposure:
         include: health
-

@@ -1,0 +1,130 @@
+# Zentro – Full‑stack Docker Compose (backend + frontend)
+# Run from project root:  docker compose up -d --build
+
+services:
+  # ── Backend micro‑services ──────────────────────────────
+  # All backend Dockerfiles expect the build context to be backend/
+  # because they COPY pom.xml, libs/, and sibling service pom.xml files.
+
+  identity-partner-service:
+    build:
+      context: ./backend
+      dockerfile: identity-partner-service/Dockerfile
+    container_name: zentro-identity-partner-service
+    env_file:
+      - ./backend/identity-partner-service/.env
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 5
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./backend
+      dockerfile: api-gateway/Dockerfile
+    container_name: zentro-api-gateway
+    env_file:
+      - ./backend/api-gateway/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      identity-partner-service:
+        condition: service_started
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  parcel-pricing-service:
+    build:
+      context: ./backend
+      dockerfile: parcel-pricing-service/Dockerfile
+    container_name: zentro-parcel-pricing-service
+    env_file:
+      - ./backend/parcel-pricing-service/.env
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 5
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  dispatch-courier-service:
+    build:
+      context: ./backend
+      dockerfile: dispatch-courier-service/Dockerfile
+    container_name: zentro-dispatch-courier-service
+    env_file:
+      - ./backend/dispatch-courier-service/.env
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 5
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  tracking-reporting-service:
+    build:
+      context: ./backend
+      dockerfile: tracking-reporting-service/Dockerfile
+    container_name: zentro-tracking-reporting-service
+    env_file:
+      - ./backend/tracking-reporting-service/.env
+    ports:
+      - "8084:8084"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8084/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 5
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  notification-integration-service:
+    build:
+      context: ./backend
+      dockerfile: notification-integration-service/Dockerfile
+    container_name: zentro-notification-integration-service
+    env_file:
+      - ./backend/notification-integration-service/.env
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8085/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 5
+    networks: [zentro, keycloak]
+    restart: unless-stopped
+
+  # ── Frontend (Vite/React → Nginx) ──────────────────────
+  zentro-web:
+    build:
+      context: ./frontend/zentro-web
+      dockerfile: Dockerfile
+    container_name: zentro-web
+    ports:
+      - "80:8080"
+    networks: [zentro]
+    restart: unless-stopped
+
+networks:
+  zentro:
+    name: zentro-backend
+  keycloak:
+    name: keycloak_default
+    external: true

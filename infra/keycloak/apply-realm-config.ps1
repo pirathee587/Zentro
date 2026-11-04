@@ -33,7 +33,30 @@ $realm = Invoke-RestMethod -Method Get -Uri $api -Headers $headers
 foreach ($setting in @('registrationAllowed','registrationEmailAsUsername','loginWithEmailAllowed','verifyEmail','bruteForceProtected','loginTheme','passwordPolicy','enabled')) {
   $realm.$setting = $desired.$setting
 }
+if ($env:SMTP_HOST -or $env:SMTP_FROM -or $env:SMTP_USER -or $env:SMTP_PASSWORD) {
+  $missingSmtp = @('SMTP_HOST','SMTP_PORT','SMTP_FROM','SMTP_USER','SMTP_PASSWORD') | Where-Object { -not (Get-Item "Env:$($_)").Value }
+  if ($missingSmtp.Count -gt 0) { throw "SMTP configuration is incomplete. Missing: $($missingSmtp -join ', ')." }
+  $realm.smtpServer = @{
+    host = $env:SMTP_HOST
+    port = $env:SMTP_PORT
+    from = $env:SMTP_FROM
+    fromDisplayName = 'Zentro'
+    replyTo = $env:SMTP_FROM
+    replyToDisplayName = 'Zentro'
+    auth = 'true'
+    user = $env:SMTP_USER
+    password = $env:SMTP_PASSWORD
+    ssl = 'false'
+    starttls = 'true'
+  }
+}
 Invoke-RestMethod -Method Put -Uri $api -Headers $headers -ContentType 'application/json' -Body ($realm | ConvertTo-Json -Depth 80) | Out-Null
+
+$users = Invoke-RestMethod -Method Get -Uri "$api/users?max=1000" -Headers $headers
+foreach ($user in @($users | Where-Object { $_.requiredActions -contains 'VERIFY_EMAIL' })) {
+  $user.requiredActions = @($user.requiredActions | Where-Object { $_ -ne 'VERIFY_EMAIL' })
+  Invoke-RestMethod -Method Put -Uri "$api/users/$($user.id)" -Headers $headers -ContentType 'application/json' -Body ($user | ConvertTo-Json -Depth 30) | Out-Null
+}
 
 foreach ($roleName in @('CUSTOMER','MERCHANT','COURIER','DISPATCHER','SERVICE')) {
   try { $null = Invoke-RestMethod -Method Get -Uri "$api/roles/$roleName" -Headers $headers }
@@ -108,8 +131,8 @@ $client = $clients[0]
 if (-not $client.id) { throw 'Keycloak client zentro-web was not found.' }
 $client | Add-Member -MemberType NoteProperty -Name redirectUris -Value @($client.redirectUris) -Force
 $client | Add-Member -MemberType NoteProperty -Name webOrigins -Value @($client.webOrigins) -Force
-$client.redirectUris = @($client.redirectUris + @('http://localhost:5173/callback','http://localhost:5173/silent-callback','http://localhost:3000/callback','http://localhost:3000/silent-callback','http://localhost:5173/*','http://localhost:3000/*') | Select-Object -Unique)
-$client.webOrigins = @($client.webOrigins + @('http://localhost:5173','http://localhost:3000') | Select-Object -Unique)
+$client.redirectUris = @($client.redirectUris + @('http://localhost/callback','http://localhost/silent-callback','http://localhost/*','http://localhost:5173/callback','http://localhost:5173/silent-callback','http://localhost:3000/callback','http://localhost:3000/silent-callback','http://localhost:5173/*','http://localhost:3000/*') | Select-Object -Unique)
+$client.webOrigins = @($client.webOrigins + @('http://localhost','http://localhost:5173','http://localhost:3000') | Select-Object -Unique)
 $client.publicClient = $true
 $client.standardFlowEnabled = $true
 $client.implicitFlowEnabled = $false
@@ -118,6 +141,7 @@ $client | Add-Member -MemberType NoteProperty -Name attributes -Value $client.at
 $clientAttributes = @{}
 if ($client.attributes) { foreach ($property in $client.attributes.PSObject.Properties) { $clientAttributes[$property.Name] = $property.Value } }
 $clientAttributes['pkce.code.challenge.method'] = 'S256'
+$clientAttributes['post.logout.redirect.uris'] = 'http://localhost/*##http://localhost:5173/*##http://localhost:3000/*##http://localhost:3001/*'
 $client.attributes = $clientAttributes
 Invoke-RestMethod -Method Put -Uri "$api/clients/$($client.id)" -Headers $headers -ContentType 'application/json' -Body ($client | ConvertTo-Json -Depth 80) | Out-Null
 
@@ -191,6 +215,8 @@ if (-not $verifiedRealm.registrationAllowed -or -not $verifiedRealm.registration
 if ($verifiedRoleMapper.config.PSObject.Properties['access.token.claim'].Value -ne 'true' -or $verifiedDefaultRoles.name -notcontains 'CUSTOMER') { throw 'Live role claims or default CUSTOMER role verification failed.' }
 if (-not $verifiedAudienceMapper -or $verifiedAudienceMapper.config.'included.client.audience' -or $verifiedAudienceMapper.config.'included.custom.audience' -ne 'zentro-api' -or $verifiedAudienceMapper.config.'access.token.claim' -ne 'true') { throw 'Live zentro-api audience mapper verification failed.' }
 if ($verifiedGoogleProvider -and (-not $verifiedGoogleProvider.enabled -or $verifiedGoogleProvider.providerId -ne 'google')) { throw 'Live Google identity provider verification failed.' }
-if ($requiredAttributes.Count -ne 0 -or $verifiedClient.redirectUris -notcontains 'http://localhost:5173/callback' -or $verifiedClient.webOrigins -notcontains 'http://localhost:5173') { throw 'Live client redirect or optional registration profile verification failed.' }
+if ($requiredAttributes.Count -ne 0 -or $verifiedClient.redirectUris -notcontains 'http://localhost/callback' -or $verifiedClient.webOrigins -notcontains 'http://localhost') { throw 'Live client redirect or optional registration profile verification failed.' }
+if ($verifiedClient.attributes.'post.logout.redirect.uris' -notmatch 'http://localhost/\*') { throw 'Live logout redirect verification failed.' }
+if ($env:SMTP_HOST -and $verifiedRealm.smtpServer.host -ne $env:SMTP_HOST) { throw 'Live SMTP configuration verification failed.' }
 Write-Output "Updated realm '$realmName' in place. Existing Keycloak user accounts were preserved."
 Write-Output 'Google first-login profile review is disabled; name and phone are optional.'

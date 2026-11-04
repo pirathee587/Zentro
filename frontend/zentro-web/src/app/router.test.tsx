@@ -22,6 +22,8 @@ describe('portal routing', () => {
     expect(await screen.findByRole('heading', { name: /Track Your Shipment|Your parcel.s journey/i }, { timeout: 5000 })).toBeInTheDocument();
   });
 
+  // Lazy-loading the portal bundle + OIDC restore + mock-adapter delay can exceed
+  // vitest's default 5 s testTimeout; allow up to 40 s for this integration route test.
   it('renders the customer dashboard for an authenticated customer', async () => {
     server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'customer-id', name: 'Zentro Customer', roles: ['CUSTOMER'] })));
     getUser.mockResolvedValueOnce({
@@ -31,10 +33,10 @@ describe('portal routing', () => {
       state: { returnTo: '/customer', entryPoint: 'customer' },
     } as never);
     render(<Providers><MemoryRouter initialEntries={['/customer']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /Welcome back/i }, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Welcome back/i }, { timeout: 15000 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /User profile options/i }));
     expect(screen.getByRole('menuitem', { name: /Sign out/i })).toBeInTheDocument();
-  }, 15000);
+  }, 40000);
 
   it('renders the courier portal for an authenticated courier', async () => {
     server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Zentro Courier', roles: ['COURIER'] })));

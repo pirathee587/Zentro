@@ -169,7 +169,7 @@ Environment rules:
 
 | Component | URL |
 |---|---|
-| Frontend | <http://localhost:3000> |
+| Frontend | <http://localhost> |
 | API Gateway | <http://localhost:8080> |
 | Keycloak | <http://localhost:8180> |
 
@@ -181,6 +181,9 @@ cp .env.example .env
 npm install
 npm run dev                       # http://localhost:5173
 ```
+
+The Docker Compose frontend is served at `http://localhost`. The Keycloak
+`zentro-web` client allows both that URL and the Vite development URL.
 
 ### Run one backend service
 

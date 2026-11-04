@@ -3,19 +3,28 @@
     image: quay.io/keycloak/keycloak:26.8.1
     container_name: zentro-keycloak
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
       KC_SPI_THEME_CACHE_THEMES: "false"
       KC_SPI_THEME_CACHE_TEMPLATES: "false"
       KC_SPI_THEME_STATIC_MAX_AGE: "-1"
+      JAVA_OPTS_APPEND: "-XX:ActiveProcessorCount=2"
+    # Keep external Supabase hostname resolution independent of Docker Desktop's
+    # embedded DNS forwarding.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     ports:
-      - "8180:8180"
+      - "8180:8080"
       - "9000:9000"
     command: ["start-dev", "--import-realm"]
     volumes:
+      - keycloak-data:/opt/keycloak/data
       - ./realm-export.json:/opt/keycloak/data/import/zentro-realm.json:ro
       - ./themes:/opt/keycloak/themes:ro
 
+volumes:
+  keycloak-data:
