@@ -1,4 +1,4 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.repository;
 
 import java.time.OffsetDateTime;
 import java.util.List;

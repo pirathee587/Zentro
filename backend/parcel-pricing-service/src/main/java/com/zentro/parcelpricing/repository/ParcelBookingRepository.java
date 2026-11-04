@@ -1,4 +1,4 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.repository;
 
 import com.zentro.parcelpricing.domain.DestinationType;
 import com.zentro.parcelpricing.domain.ParcelBooking;

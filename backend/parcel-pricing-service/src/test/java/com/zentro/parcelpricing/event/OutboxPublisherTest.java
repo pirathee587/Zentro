@@ -1,5 +1,6 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.event;
 
+import com.zentro.parcelpricing.repository.OutboxRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -15,7 +16,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.zentro.parcelpricing.config.OutboxProperties;
-import com.zentro.parcelpricing.service.OutboxRepository.PendingEvent;
+import com.zentro.parcelpricing.repository.OutboxRepository.PendingEvent;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;

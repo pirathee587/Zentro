@@ -1,4 +1,4 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.repository;
 
 import com.zentro.parcelpricing.domain.DestinationType;
 import com.zentro.parcelpricing.domain.MerchantOrder;
@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Repository
 public class MerchantOrderRepository {
-  static final String TRACKING_REF_CONSTRAINT = "uq_parcel_tracking_ref";
+  public static final String TRACKING_REF_CONSTRAINT = "uq_parcel_tracking_ref";
   static final String MERCHANT_EXTERNAL_REF_CONSTRAINT = "uq_parcel_merchant_external_ref";
 
   private static final String COLUMNS = """

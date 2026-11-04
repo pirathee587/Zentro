@@ -2,7 +2,7 @@ package com.zentro.parcelpricing.controller;
 
 import com.zentro.parcelpricing.dto.CreateMerchantOrderRequest;
 import com.zentro.parcelpricing.dto.MerchantOrderResponse;
-import com.zentro.parcelpricing.service.IdentityMerchantClient;
+import com.zentro.parcelpricing.client.IdentityMerchantClient;
 import com.zentro.parcelpricing.service.MerchantOrderService;
 import com.zentro.parcelpricing.service.MerchantOrderService.OrderResult;
 import jakarta.validation.Valid;

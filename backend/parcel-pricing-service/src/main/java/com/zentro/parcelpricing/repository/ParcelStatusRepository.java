@@ -1,4 +1,4 @@
-package com.zentro.parcelpricing.service;
+package com.zentro.parcelpricing.repository;
 
 import com.zentro.parcelpricing.domain.ParcelStatus;
 import com.zentro.parcelpricing.domain.ParcelStatusChange;
