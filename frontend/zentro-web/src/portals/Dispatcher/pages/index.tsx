@@ -1,3 +1,4 @@
+import { DispatchQueueCard } from './DispatchQueueCard';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -55,7 +56,7 @@ export function UnassignedParcelsPage() {
     <section className="staff-section" aria-label="Operations overview">
       <div className="staff-stat-grid">
         <article className="staff-stat-card"><span>Merchant applications</span><strong>{applications.isPending ? '—' : applications.data?.length ?? '—'}</strong><small>Waiting for your review</small></article>
-        <article className="staff-stat-card"><span>Dispatch queue</span><strong>Not connected</strong><small>Parcel dispatch data is not available yet</small></article>
+        <DispatchQueueCard />
         <article className="staff-stat-card"><span>Courier workload</span><strong>Not connected</strong><small>Courier job data is not available yet</small></article>
       </div>
     </section>
@@ -73,7 +74,7 @@ export function UnassignedParcelsPage() {
       <div className="staff-section-heading"><div><h2>Quick access</h2><p>Continue with common dispatcher tasks.</p></div></div>
       <div className="staff-action-grid">
         <Link className="staff-action-card" to="/dispatcher/merchant-approvals"><strong>Review business applications <span aria-hidden="true">↗</span></strong><p>Check submitted details and record an approval decision.</p></Link>
-        <article className="staff-action-card"><strong>Dispatch and courier tools</strong><p>These work queues will appear when the dispatch service is available.</p></article>
+        <Link className="staff-action-card" to="/dispatcher/couriers"><strong>Courier fleet & profiles <span aria-hidden="true">↗</span></strong><p>Manage courier eligibility, assigned delivery zones, and vehicle categories.</p></Link>
       </div>
     </section>
   </main>;
@@ -127,5 +128,7 @@ export function MerchantApprovalsPage() {
 
 export const WorkloadPage = () => <section className="staff-main"><div className="staff-panel staff-empty">Courier workload data will appear when the dispatch service is available.</div></section>;
 export const ReportsPage = () => <section className="staff-main"><div className="staff-panel staff-empty">Dispatch reports will appear when reporting data is available.</div></section>;
-export const UsersPage = () => <section className="staff-main"><div className="staff-panel staff-empty">Staff management tools are not connected yet.</div></section>;
+export { CouriersPage as UsersPage } from './CouriersPage';
+export { CouriersPage } from './CouriersPage';
 export const ZonesPricingPage = () => <section className="staff-main"><div className="staff-panel staff-empty">Zone and pricing tools are not connected yet.</div></section>;
+

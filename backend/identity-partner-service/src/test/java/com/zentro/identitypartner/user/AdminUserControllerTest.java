@@ -144,6 +144,27 @@ class AdminUserControllerTest {
     }
 
     @Test
+    void dispatcherCanGetCourierProfileByIdWithSafeFields() throws Exception {
+      when(profiles.getById(TARGET_USER_ID)).thenReturn(
+          new UserProfile(TARGET_USER_ID, "courier.colombo@zentro.lk", "Sunil Perera", "+94712345678", true, "ACTIVE", null, List.of("COURIER"))
+      );
+
+      mvc.perform(get("/api/v1/admin/users/" + TARGET_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.id").value(TARGET_USER_ID.toString()))
+          .andExpect(jsonPath("$.email").value("courier.colombo@zentro.lk"))
+          .andExpect(jsonPath("$.name").value("Sunil Perera"))
+          .andExpect(jsonPath("$.phone").value("+94712345678"))
+          .andExpect(jsonPath("$.accountStatus").value("ACTIVE"))
+          .andExpect(jsonPath("$.enabled").value(true))
+          .andExpect(jsonPath("$.roles[0]").value("COURIER"))
+          .andExpect(jsonPath("$.keycloak_subject").doesNotExist());
+
+      verify(profiles).getById(TARGET_USER_ID);
+    }
+
+    @Test
     void dispatcherReceives404WhenUserNotFound() throws Exception {
       when(profiles.getById(TARGET_USER_ID))
           .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));

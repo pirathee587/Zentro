@@ -1,1 +1,24 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","allOf":[{"$ref":"event-envelope.schema.json"}],"title":"parcel.created"}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "parcel.created",
+  "description": "Published by S2 Parcel & Pricing once per new booking (not for idempotent replays). Kafka topic parcel.created, key = parcel id (aggregateId). Delivery is at-least-once; consumers de-duplicate on eventId. Contains no names, phone numbers, addresses or user ids.",
+  "allOf": [{"$ref": "event-envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "parcel.created"},
+    "payload": {
+      "type": "object",
+      "required": ["trackingRef", "status", "source", "occurredAt"],
+      "properties": {
+        "trackingRef": {"type": "string", "pattern": "^ZT-[0-9A-HJKMNP-TV-Z]{10}$"},
+        "status": {"const": "CREATED"},
+        "source": {
+          "description": "How the parcel was created. CUSTOMER_BOOKING is published today; MERCHANT_ORDER is reserved for merchant orders.",
+          "type": "string",
+          "enum": ["CUSTOMER_BOOKING", "MERCHANT_ORDER"]
+        },
+        "occurredAt": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

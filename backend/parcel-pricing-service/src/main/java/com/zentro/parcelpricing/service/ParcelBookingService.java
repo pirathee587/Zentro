@@ -16,16 +16,27 @@ import com.zentro.parcelpricing.error.PricingUnavailableException;
 import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Books customer deliveries: prices the parcel first, then stores the booking with a unique tracking reference.
- * Nothing is stored when pricing fails. Repeated submissions with the same Idempotency-Key are replayed.
+ * Books customer deliveries: prices the parcel first, then stores the booking with a unique tracking reference
+ * and a parcel.created outbox event in the same transaction. Nothing is stored when pricing fails.
+ * Repeated submissions with the same Idempotency-Key are replayed without a new event.
  */
 @Service
 public class ParcelBookingService {
@@ -34,18 +45,42 @@ public class ParcelBookingService {
 
   private static final Logger log = LoggerFactory.getLogger(ParcelBookingService.class);
 
+  public static final String CREATED_EVENT_TYPE = "parcel.created";
+  static final String SOURCE_CUSTOMER_BOOKING = "CUSTOMER_BOOKING";
+
   private final PricingService pricingService;
   private final ParcelBookingRepository repository;
   private final TrackingReferenceGenerator trackingReferenceGenerator;
+  private final ParcelStatusRepository eventRepository;
+  private final ObjectMapper eventMapper;
+  private final TransactionOperations transactions;
   private final ObjectMapper canonicalMapper;
 
+  @Autowired
   public ParcelBookingService(
       PricingService pricingService,
       ParcelBookingRepository repository,
-      TrackingReferenceGenerator trackingReferenceGenerator) {
+      TrackingReferenceGenerator trackingReferenceGenerator,
+      ParcelStatusRepository eventRepository,
+      ObjectMapper eventMapper,
+      PlatformTransactionManager transactionManager) {
+    this(pricingService, repository, trackingReferenceGenerator, eventRepository, eventMapper,
+        new TransactionTemplate(transactionManager));
+  }
+
+  ParcelBookingService(
+      PricingService pricingService,
+      ParcelBookingRepository repository,
+      TrackingReferenceGenerator trackingReferenceGenerator,
+      ParcelStatusRepository eventRepository,
+      ObjectMapper eventMapper,
+      TransactionOperations transactions) {
     this.pricingService = pricingService;
     this.repository = repository;
     this.trackingReferenceGenerator = trackingReferenceGenerator;
+    this.eventRepository = eventRepository;
+    this.eventMapper = eventMapper;
+    this.transactions = transactions;
     this.canonicalMapper = JsonMapper.builder()
         .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
         .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
@@ -71,7 +106,13 @@ public class ParcelBookingService {
 
     for (int attempt = 1; ; attempt++) {
       try {
-        ParcelBooking saved = repository.insert(draft.withTrackingRef(trackingReferenceGenerator.next()));
+        ParcelBooking candidate = draft.withTrackingRef(trackingReferenceGenerator.next());
+        // The booking and its parcel.created event are written in one transaction: both or neither.
+        ParcelBooking saved = transactions.execute(status -> {
+          ParcelBooking inserted = repository.insert(candidate);
+          writeCreatedEvent(inserted);
+          return inserted;
+        });
         log.info("Parcel booked: id={} trackingRef={}", saved.id(), saved.trackingRef());
         return new BookingResult(ParcelBookingResponse.from(saved), true);
       } catch (DuplicateKeyException ex) {
@@ -86,6 +127,35 @@ public class ParcelBookingService {
         }
         log.warn("Tracking reference collision on attempt {}; retrying", attempt);
       }
+    }
+  }
+
+  /**
+   * Writes the parcel.created outbox event for a newly inserted booking. The payload holds only the tracking
+   * reference, status, source and time: never names, phone numbers, addresses or the customer id.
+   */
+  private void writeCreatedEvent(ParcelBooking booking) {
+    UUID eventId = UUID.randomUUID();
+    OffsetDateTime occurredAt = booking.createdAt().withOffsetSameInstant(ZoneOffset.UTC);
+    String timestamp = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(occurredAt);
+
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("trackingRef", booking.trackingRef());
+    payload.put("status", ParcelStatus.CREATED.name());
+    payload.put("source", SOURCE_CUSTOMER_BOOKING);
+    payload.put("occurredAt", timestamp);
+
+    Map<String, Object> envelope = new LinkedHashMap<>();
+    envelope.put("eventId", eventId.toString());
+    envelope.put("eventType", CREATED_EVENT_TYPE);
+    envelope.put("occurredAt", timestamp);
+    envelope.put("aggregateId", booking.id().toString());
+    envelope.put("payload", payload);
+    try {
+      eventRepository.insertOutboxEvent(eventId, booking.id(), CREATED_EVENT_TYPE,
+          eventMapper.writeValueAsString(envelope), occurredAt);
+    } catch (JsonProcessingException ex) {
+      throw new IllegalStateException("Could not serialise the parcel.created event", ex);
     }
   }
 

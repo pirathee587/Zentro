@@ -1,11 +1,17 @@
 server:
   port: ${SERVER_PORT:8083}
 spring:
+  flyway:
+    schemas: dispatch
+    default-schema: dispatch
+    create-schemas: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASSWORD}
 zentro:
+  identity:
+    base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   security:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}

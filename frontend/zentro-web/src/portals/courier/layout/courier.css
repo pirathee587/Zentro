@@ -28,6 +28,42 @@
 .courier-step span { display: inline-grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: var(--cream); color: var(--umber); font-size: 12px; font-weight: 800; }
 .courier-step strong { display: block; margin-top: 14px; font-size: 13px; }
 .courier-step p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
+
+/* Courier Profile Styles */
+.courier-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
+.courier-card { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); padding: clamp(22px, 3.5vw, 32px); display: flex; flex-direction: column; }
+.courier-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 20px; }
+.courier-card-header h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.courier-card-header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.courier-form { display: grid; gap: 18px; }
+.courier-form-group { display: grid; gap: 6px; }
+.courier-form-group label { font-size: 12px; font-weight: 700; color: var(--espresso); }
+.courier-input { width: 100%; min-height: 42px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--cream); color: var(--espresso); font: inherit; font-size: 13px; transition: border-color 0.15s ease; }
+.courier-input:focus { outline: none; border-color: var(--umber); box-shadow: 0 0 0 3px rgba(168,111,54,0.15); }
+.courier-input:disabled { background: #f3efe9; color: var(--muted); cursor: not-allowed; }
+.courier-input-error { border-color: #a83d30; }
+.courier-form-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.courier-form-error { font-size: 11px; color: #a83d30; margin-top: 2px; font-weight: 600; }
+.courier-field-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-top: 1px solid #eee9e2; }
+.courier-field-row:first-of-type { border-top: none; }
+.courier-field-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+.courier-field-val { font-size: 13px; font-weight: 700; color: var(--espresso); text-align: right; }
+.courier-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.courier-badge.is-active { background: #e6f4ea; color: #137333; }
+.courier-badge.is-inactive { background: #fce8e6; color: #c5221f; }
+.courier-badge.is-tag { background: #f6ead8; color: var(--umber); text-transform: none; font-size: 12px; }
+.courier-badge.is-status { background: #eef1f6; color: #2e4a70; }
+.courier-alert { padding: 14px 18px; border-radius: 12px; font-size: 13px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.courier-alert.is-success { background: #e6f4ea; color: #137333; border: 1px solid #ceead6; }
+.courier-alert.is-error { background: #fce8e6; color: #c5221f; border: 1px solid #fad2cf; }
+.courier-submit-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 24px; border-radius: 999px; background: var(--espresso); color: var(--paper); border: none; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background-color 0.15s ease; }
+.courier-submit-btn:hover:not(:disabled) { background: #352a22; }
+.courier-submit-btn:disabled { opacity: 0.6; cursor: wait; }
+.courier-notice-box { margin-top: auto; padding: 14px; border-radius: 12px; background: #faf6f0; border: 1px solid #eee4d5; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.courier-badge-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.courier-dismiss-btn { cursor: pointer; background: none; border: none; font: inherit; color: inherit; font-size: 12px; font-weight: 700; }
+
+
 @media (max-width:760px) {
   .courier-header { width: min(calc(100% - 32px),560px); flex-wrap: wrap; gap: 13px; padding: 14px 0; }
   .staff-nav { order: 3; width: 100%; justify-content: flex-start; gap: 20px; }
@@ -35,4 +71,6 @@
   .courier-main { width: min(calc(100% - 32px),560px); padding: 26px 0 48px; }
   .staff-hero { align-items: flex-start; flex-direction: column; border-radius: 20px; }
   .courier-steps { grid-template-columns: 1fr; }
+  .courier-profile-grid { grid-template-columns: 1fr; }
 }
+

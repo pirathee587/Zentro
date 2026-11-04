@@ -13,6 +13,8 @@ export function AdminLayout() {
       </Link>
       <nav className="staff-nav" aria-label="Dispatcher navigation">
         <NavLink end to="/dispatcher">Overview</NavLink>
+        <NavLink to="/dispatcher/queue">Dispatch Queue</NavLink>
+        <NavLink to="/dispatcher/couriers">Couriers</NavLink>
         <NavLink to="/dispatcher/merchant-approvals">Merchant applications</NavLink>
       </nav>
       <div className="staff-account">
