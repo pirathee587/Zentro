@@ -514,14 +514,7 @@ export const ReceiptsPage: React.FC = () => {
                           {selectedParcel.proofOfDelivery?.signedBy ? (
                             <>
                               <span
-                                style={{
-                                  fontSize: '11px',
-                                  padding: '2px 8px',
-                                  borderRadius: '9999px',
-                                  background: 'rgba(34, 197, 94, 0.15)',
-                                  color: '#16a34a',
-                                  fontWeight: 700,
-                                }}
+                                className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                               >
                                 Verified
                               </span>
