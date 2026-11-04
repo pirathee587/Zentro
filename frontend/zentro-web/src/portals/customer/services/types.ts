@@ -2,6 +2,14 @@ import type { TimelineEvent } from '../components/Timeline';
 
 export type ParcelStatus = 'Created' | 'In progress' | 'Delivered' | 'Failed';
 
+export interface ProofOfDeliverySummary {
+  signedBy?: string;
+  timestamp?: string;
+  notes?: string;
+  signatureUrl?: string;
+  photoUrl?: string;
+}
+
 export interface Parcel {
   id: string;
   trackingRef: string;
@@ -34,6 +42,7 @@ export interface Parcel {
   deliveredAt?: string;
   formattedDeliveredAt?: string;
   failureReason?: string;
+  proofOfDelivery?: ProofOfDeliverySummary;
   courier?: {
     name: string;
     initials?: string;
