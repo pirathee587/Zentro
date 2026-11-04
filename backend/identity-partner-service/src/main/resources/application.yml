@@ -15,6 +15,7 @@ zentro:
   security:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
+    jwks-uri: ${JWT_JWKS_URI:}
 management:
   endpoint:
     health:

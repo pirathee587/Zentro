@@ -3,7 +3,7 @@
   "enabled": true,
   "registrationAllowed": true,
   "loginWithEmailAllowed": true,
-  "verifyEmail": true,
+  "verifyEmail": false,
   "bruteForceProtected": true,
   "loginTheme": "zentro",
   "defaultRoles": [
@@ -53,16 +53,20 @@
         "http://localhost:3001/silent-callback",
         "http://localhost:5173/*",
         "http://localhost:5173/callback",
-        "http://localhost:5173/silent-callback"
+        "http://localhost:5173/silent-callback",
+        "http://localhost/*",
+        "http://localhost/callback",
+        "http://localhost/silent-callback"
       ],
       "webOrigins": [
         "http://localhost:3000",
         "http://localhost:3001",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "http://localhost"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:3000/*##http://localhost:3001/*"
+        "post.logout.redirect.uris": "http://localhost/*##http://localhost:5173/*##http://localhost:3000/*##http://localhost:3001/*"
       },
       "protocolMappers": [
         {
@@ -116,7 +120,7 @@
       {
         "config": {
           "kc.user.profile.config": [
-            "{\"unmanagedAttributePolicy\":\"ADMIN_VIEW\",\"attributes\":[{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"email\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email address\"}]}"
+            "{\"unmanagedAttributePolicy\":\"ADMIN_VIEW\",\"attributes\":[{\"name\":\"username\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Username\"},{\"validations\":{\"email\":{},\"length\":{\"max\":254}},\"name\":\"email\",\"multivalued\":false,\"permissions\":{\"edit\":[\"admin\",\"user\"],\"view\":[\"admin\",\"user\"]},\"required\":{\"roles\":[\"user\"]},\"displayName\":\"Email address\"}]}"
           ]
         },
         "subComponents": {},

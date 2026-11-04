@@ -1,6 +1,8 @@
 server:
   port: ${SERVER_PORT:8085}
 spring:
+  config:
+    import: optional:file:./.env[.properties]
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
@@ -9,6 +11,7 @@ zentro:
   security:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
+    jwks-uri: ${JWT_JWKS_URI:}
 management:
   endpoint:
     health:
