@@ -35,10 +35,29 @@
   </dependencyManagement>
   <build>
     <pluginManagement>
-      <plugins>
-        <plugin><artifactId>maven-compiler-plugin</artifactId><version>${maven-compiler-plugin.version}</version><configuration><release>${java.version}</release></configuration></plugin>
-        <plugin><artifactId>maven-surefire-plugin</artifactId><version>${maven-surefire-plugin.version}</version></plugin>
-      </plugins>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <release>${java.version}</release>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+            </plugin>
+        </plugins>
     </pluginManagement>
-  </build>
+
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <version>${spring-boot.version}</version>
+        </plugin>
+    </plugins>
+</build>
+  
 </project>

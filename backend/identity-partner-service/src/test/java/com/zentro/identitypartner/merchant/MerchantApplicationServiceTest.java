@@ -3,11 +3,14 @@ package com.zentro.identitypartner.merchant;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.zentro.identitypartner.user.UserProfile;
 import com.zentro.identitypartner.user.UserProfileService;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,11 +40,11 @@ class MerchantApplicationServiceTest {
   @BeforeEach
   void setUp() {
     service = new MerchantApplicationService(jdbc, profiles);
-    when(profiles.current(jwt)).thenReturn(user);
   }
 
   @Test
   void duplicateBusinessRegistrationNumberReturnsConflictWithoutDatabaseDetails() {
+    when(profiles.current(jwt)).thenReturn(user);
     doThrow(new DuplicateKeyException("duplicate key value contains internal database details"))
         .when(jdbc).query(anyString(), any(RowMapper.class), any(Object[].class));
 
@@ -52,6 +55,51 @@ class MerchantApplicationServiceTest {
           ResponseStatusException response = (ResponseStatusException) error;
           org.assertj.core.api.Assertions.assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
           org.assertj.core.api.Assertions.assertThat(response.getReason()).doesNotContain("internal database");
+        });
+  }
+
+  @Test
+  void rejectionRequiresAReasonBeforeWritingToDatabase() {
+    ReviewMerchantApplicationRequest request =
+        new ReviewMerchantApplicationRequest(ReviewMerchantApplicationRequest.MerchantDecision.REJECTED, "  ");
+
+    assertThatThrownBy(() -> service.review(UUID.randomUUID(), jwt, request))
+        .isInstanceOf(ResponseStatusException.class)
+        .satisfies(error -> {
+          ResponseStatusException response = (ResponseStatusException) error;
+          org.assertj.core.api.Assertions.assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        });
+
+    verifyNoInteractions(jdbc);
+  }
+
+  @Test
+  void approvedReviewReturnsPersistedApprovedApplication() {
+    UUID applicationId = UUID.randomUUID();
+    MerchantApplication approved = new MerchantApplication(
+        applicationId, userId, "Example Shop", "BR-100", "0771234567", "APPROVED", null,
+        OffsetDateTime.now(), OffsetDateTime.now());
+    when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of(approved));
+
+    MerchantApplication result = service.review(applicationId, jwt,
+        new ReviewMerchantApplicationRequest(ReviewMerchantApplicationRequest.MerchantDecision.APPROVED, "ignored"));
+
+    org.assertj.core.api.Assertions.assertThat(result.status()).isEqualTo("APPROVED");
+    org.assertj.core.api.Assertions.assertThat(result.rejectionReason()).isNull();
+  }
+
+  @Test
+  void reviewOfAlreadyResolvedApplicationReturnsConflict() {
+    UUID applicationId = UUID.randomUUID();
+    when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of());
+    when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(applicationId))).thenReturn(Boolean.TRUE);
+
+    assertThatThrownBy(() -> service.review(applicationId, jwt,
+        new ReviewMerchantApplicationRequest(ReviewMerchantApplicationRequest.MerchantDecision.APPROVED, null)))
+        .isInstanceOf(ResponseStatusException.class)
+        .satisfies(error -> {
+          ResponseStatusException response = (ResponseStatusException) error;
+          org.assertj.core.api.Assertions.assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         });
   }
 }
