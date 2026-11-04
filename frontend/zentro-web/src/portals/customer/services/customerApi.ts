@@ -123,48 +123,120 @@ export async function createDelivery(
   }
 }
 
-export function normalizeParcelRecord(p: Partial<Parcel>): Parcel {
-  const normStatus = normalizeParcelStatus(p.status || p.rawStatus);
-  const fee = typeof p.fee === 'number' ? p.fee : 0;
-  const createdAt = p.createdAt || new Date().toISOString();
+export interface RawTrackingPayload {
+  id?: string;
+  trackingRef?: string;
+  status?: string;
+  rawStatus?: string;
+  category?: string;
+  size?: string;
+  description?: string;
+  originCity?: string;
+  destinationCity?: string;
+  estimatedDays?: number;
+  estimatedDeliveryDate?: string;
+  formattedEstimatedDeliveryDate?: string;
+  createdAt?: string;
+  formattedCreatedAt?: string;
+  deliveredAt?: string;
+  formattedDeliveredAt?: string;
+  failureReason?: string;
+  fee?: number;
+  formattedFee?: string;
+  sender?: { name?: string; phone?: string; address?: string; city?: string };
+  recipient?: { name?: string; phone?: string; address?: string; city?: string };
+  parcel?: { description?: string; weightKg?: number; category?: string; size?: string };
+  weightKg?: number;
+  courier?: { name?: string; initials?: string; role?: string; zone?: string; phone?: string; vehicle?: string };
+  timeline?: Array<{
+    id?: string;
+    title: string;
+    description?: string;
+    timestamp?: string;
+    formattedDate?: string;
+    location?: string;
+    status: 'completed' | 'current' | 'upcoming' | 'failed' | string;
+    failureReason?: string;
+  }>;
+}
+
+export function normalizeParcelRecord(p: RawTrackingPayload | Partial<Parcel> | Record<string, unknown>): Parcel {
+  if (!p || typeof p !== 'object') {
+    return {
+      id: '',
+      trackingRef: '',
+      status: 'Created',
+      sender: { name: '', phone: '', address: '', city: 'Origin' },
+      recipient: { name: '', phone: '', address: '', city: 'Destination' },
+      parcel: { description: 'Parcel', weightKg: 1, category: 'Standard' },
+      fee: 0,
+      formattedFee: '',
+      createdAt: new Date().toISOString(),
+      formattedCreatedAt: '',
+      timeline: [],
+    };
+  }
+
+  const raw = p as RawTrackingPayload;
+  const normStatus = normalizeParcelStatus(raw.status || raw.rawStatus);
+  const fee = typeof raw.fee === 'number' ? raw.fee : 0;
+  const createdAt = raw.createdAt || new Date().toISOString();
+
+  // Support both PublicTrackingResponse (originCity/destinationCity) and customerApi (sender/recipient)
+  const originCity = raw.originCity || raw.sender?.city || raw.sender?.address || 'Origin';
+  const destinationCity = raw.destinationCity || raw.recipient?.city || raw.recipient?.address || 'Destination';
 
   return {
-    id: p.id || p.trackingRef || `pcl-${Math.random().toString(36).slice(2, 9)}`,
-    trackingRef: p.trackingRef || p.id || 'ZTR-UNKNOWN',
+    id: raw.id || raw.trackingRef || `pcl-${Math.random().toString(36).slice(2, 9)}`,
+    trackingRef: raw.trackingRef || raw.id || 'ZTR-UNKNOWN',
     status: normStatus,
-    rawStatus: p.rawStatus || p.status,
+    rawStatus: raw.rawStatus || raw.status,
     sender: {
-      name: p.sender?.name || '',
-      phone: p.sender?.phone || '',
-      address: p.sender?.address || '',
-      city: p.sender?.city || p.sender?.address || 'Origin',
+      name: raw.sender?.name || '',
+      phone: raw.sender?.phone || '',
+      address: raw.sender?.address || '',
+      city: originCity,
     },
     recipient: {
-      name: p.recipient?.name || '',
-      phone: p.recipient?.phone || '',
-      address: p.recipient?.address || '',
-      city: p.recipient?.city || p.recipient?.address || 'Destination',
+      name: raw.recipient?.name || '',
+      phone: raw.recipient?.phone || '',
+      address: raw.recipient?.address || '',
+      city: destinationCity,
     },
     parcel: {
-      description: p.parcel?.description || 'Parcel',
-      weightKg: typeof p.parcel?.weightKg === 'number' ? p.parcel.weightKg : 1.0,
-      category: p.parcel?.category || 'Standard',
-      size: p.parcel?.size,
+      description: raw.description || raw.parcel?.description || 'Parcel',
+      weightKg:
+        typeof raw.parcel?.weightKg === 'number'
+          ? raw.parcel.weightKg
+          : typeof raw.weightKg === 'number'
+          ? raw.weightKg
+          : 1.0,
+      category: raw.category || raw.parcel?.category || 'Standard',
+      size: raw.size || raw.parcel?.size,
     },
     fee,
-    formattedFee: p.formattedFee || formatMoney(fee),
+    formattedFee: raw.formattedFee || (fee > 0 ? formatMoney(fee) : ''),
     createdAt,
-    formattedCreatedAt: p.formattedCreatedAt || formatDate(createdAt),
-    estimatedDeliveryDate: p.estimatedDeliveryDate,
+    formattedCreatedAt: raw.formattedCreatedAt || formatDate(createdAt),
+    estimatedDeliveryDate: raw.estimatedDeliveryDate,
     formattedEstimatedDeliveryDate:
-      p.formattedEstimatedDeliveryDate ||
-      (p.estimatedDeliveryDate ? formatDate(p.estimatedDeliveryDate) : undefined),
-    deliveredAt: p.deliveredAt,
+      raw.formattedEstimatedDeliveryDate ||
+      (raw.estimatedDeliveryDate ? formatDate(raw.estimatedDeliveryDate) : undefined),
+    deliveredAt: raw.deliveredAt,
     formattedDeliveredAt:
-      p.formattedDeliveredAt || (p.deliveredAt ? formatDate(p.deliveredAt) : undefined),
-    failureReason: p.failureReason,
-    courier: p.courier,
-    timeline: Array.isArray(p.timeline) ? p.timeline : [],
+      raw.formattedDeliveredAt || (raw.deliveredAt ? formatDate(raw.deliveredAt) : undefined),
+    failureReason: raw.failureReason,
+    courier: raw.courier?.name
+      ? {
+          name: raw.courier.name,
+          initials: raw.courier.initials,
+          role: raw.courier.role,
+          zone: raw.courier.zone,
+          phone: raw.courier.phone,
+          vehicle: raw.courier.vehicle,
+        }
+      : undefined,
+    timeline: (Array.isArray(raw.timeline) ? raw.timeline : []) as Parcel['timeline'],
   };
 }
 
@@ -236,15 +308,26 @@ export async function getParcel(idOrRef: string): Promise<Parcel | null> {
   if (customerApiConfig.useMocks) {
     return mockCustomerAdapter.getParcel(idOrRef);
   }
+  const clean = idOrRef.trim().toUpperCase();
   try {
-    const { data } = await apiClient.get<Parcel>(
-      `${customerApiConfig.baseUrl}/parcels/${encodeURIComponent(idOrRef)}`
+    // Call approved S4 public tracking endpoint
+    const { data } = await apiClient.get<unknown>(
+      `/api/v1/tracking/${encodeURIComponent(clean)}`
     );
-    return data;
+    return normalizeParcelRecord(data as RawTrackingPayload);
   } catch (error: unknown) {
     const status = (error as { response?: { status?: number } })?.response?.status;
     if (status === 404) return null;
-    throw error;
+
+    // Fallback to customer parcels endpoint if configured
+    try {
+      const { data } = await apiClient.get<unknown>(
+        `${customerApiConfig.baseUrl}/parcels/${encodeURIComponent(clean)}`
+      );
+      return normalizeParcelRecord(data as RawTrackingPayload);
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -256,20 +339,24 @@ export function subscribeToParcel(
     return mockCustomerAdapter.subscribeToParcel(idOrRef, callback);
   }
 
-  // Real SSE / WebSocket / polling fallback when real baseUrl is enabled
-  const eventSource = new EventSource(
-    `${customerApiConfig.baseUrl}/parcels/${encodeURIComponent(idOrRef)}/stream`
-  );
-  eventSource.onmessage = (event) => {
-    try {
-      const parsed = JSON.parse(event.data) as Parcel;
-      callback(parsed);
-    } catch {
-      // ignore parse errors
-    }
-  };
+  const clean = idOrRef.trim().toUpperCase();
+  const streamUrl = `/api/v1/tracking/${encodeURIComponent(clean)}/stream`;
+  let eventSource: EventSource | null = null;
+  try {
+    eventSource = new EventSource(streamUrl);
+    const handleUpdate = () => {
+      void getParcel(clean).then((updated) => {
+        if (updated) callback(updated);
+      });
+    };
+    eventSource.addEventListener('tracking-update', handleUpdate);
+    eventSource.onmessage = handleUpdate;
+  } catch {
+    // Graceful fallback if EventSource is not supported
+  }
+
   return () => {
-    eventSource.close();
+    eventSource?.close();
   };
 }
 

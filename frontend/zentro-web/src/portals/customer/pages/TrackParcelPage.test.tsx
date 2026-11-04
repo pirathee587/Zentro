@@ -391,7 +391,6 @@ describe('TrackView and Tracking Pages', () => {
   it('handles clipboard copy and fallback text "Select the link and copy it" if clipboard is blocked', async () => {
     vi.spyOn(customerApi, 'getParcel').mockResolvedValue(mockInProgressParcel);
 
-    // Mock clipboard.writeText rejecting to simulate clipboard permission denied/blocked
     const originalClipboard = navigator.clipboard;
     Object.defineProperty(navigator, 'clipboard', {
       value: {
@@ -534,5 +533,130 @@ describe('TrackView and Tracking Pages', () => {
       expect(screen.getByText('Track Parcel')).toBeInTheDocument();
       expect(screen.getByText('ZTR-SD8941K2M7')).toBeInTheDocument();
     });
+  });
+
+  it('correctly maps and renders S4 PublicTrackingResponse shape without private customer data', async () => {
+    const s4PublicParcel: Parcel = customerApi.normalizeParcelRecord({
+      trackingRef: 'ZTR-PUBLIC9988',
+      status: 'In progress',
+      rawStatus: 'IN_TRANSIT',
+      category: 'Electronics',
+      size: 'Medium',
+      description: 'Smartphone accessories',
+      originCity: 'Galle',
+      destinationCity: 'Matara',
+      estimatedDays: 1,
+      estimatedDeliveryDate: '2026-11-06T15:00:00.000Z',
+      timeline: [
+        {
+          id: 's4-ev-1',
+          title: 'Parcel Booked',
+          description: 'Confirmed at Galle dispatch center',
+          timestamp: '2026-11-04T08:00:00.000Z',
+          status: 'completed',
+          location: 'Galle',
+        },
+        {
+          id: 's4-ev-2',
+          title: 'In Transit',
+          description: 'En route to Matara hub',
+          timestamp: '2026-11-04T12:00:00.000Z',
+          status: 'current',
+          location: 'Southern Expressway',
+        },
+      ],
+    });
+
+    vi.spyOn(customerApi, 'getParcel').mockResolvedValue(s4PublicParcel);
+
+    render(
+      <MemoryRouter initialEntries={['/track/ZTR-PUBLIC9988']}>
+        <Routes>
+          <Route path="/track/:trackingRef" element={<PublicTrackPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('ZTR-PUBLIC9988')).toBeInTheDocument();
+    });
+
+    // Renders city route from originCity / destinationCity
+    expect(screen.getByText(/Galle to Matara/i)).toBeInTheDocument();
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+
+    // No private customer names, phone numbers, or fees
+    expect(screen.queryByText(/Kasun/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Amara/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\+94/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/LKR/i)).not.toBeInTheDocument();
+  });
+
+  it('handles empty tracking milestone history safely', async () => {
+    const emptyTimelineParcel: Parcel = customerApi.normalizeParcelRecord({
+      trackingRef: 'ZTR-EMPTY00000',
+      status: 'Created',
+      rawStatus: 'CREATED',
+      originCity: 'Colombo',
+      destinationCity: 'Jaffna',
+      timeline: [],
+    });
+
+    vi.spyOn(customerApi, 'getParcel').mockResolvedValue(emptyTimelineParcel);
+
+    render(
+      <MemoryRouter initialEntries={['/track/ZTR-EMPTY00000']}>
+        <ToastProvider>
+          <TrackView initialTrackingRef="ZTR-EMPTY00000" />
+        </ToastProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('ZTR-EMPTY00000')).toBeInTheDocument();
+    });
+
+    const createdElements = screen.getAllByText('Created');
+    expect(createdElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('normalizes lowercase tracking reference input to uppercase', async () => {
+    const getParcelSpy = vi.spyOn(customerApi, 'getParcel').mockResolvedValue(mockInProgressParcel);
+
+    render(
+      <MemoryRouter initialEntries={['/track']}>
+        <ToastProvider>
+          <TrackView />
+        </ToastProvider>
+      </MemoryRouter>
+    );
+
+    const input = screen.getByLabelText(/Tracking number/i);
+    fireEvent.change(input, { target: { value: 'ztr-sd8941k2m7' } });
+    fireEvent.submit(input.closest('form')!);
+
+    await waitFor(() => {
+      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7');
+    });
+  });
+
+  it('does not display courier phone or call courier button on public tracking page', async () => {
+    vi.spyOn(customerApi, 'getParcel').mockResolvedValue(mockInProgressParcel);
+
+    render(
+      <MemoryRouter initialEntries={['/track/ZTR-SD8941K2M7']}>
+        <Routes>
+          <Route path="/track/:trackingRef" element={<PublicTrackPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('ZTR-SD8941K2M7')).toBeInTheDocument();
+    });
+
+    // Public page must NEVER expose courier phone or Call courier button
+    expect(screen.queryByRole('button', { name: /Call courier/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/\+94 77 800 1234/i)).not.toBeInTheDocument();
   });
 });

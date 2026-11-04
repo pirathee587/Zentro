@@ -33,7 +33,7 @@ interface StageItem {
 }
 
 function getParcelSize(parcel: Parcel): string {
-  if (parcel.parcel.size) {
+  if (parcel.parcel?.size) {
     if (typeof parcel.parcel.size === 'string') {
       const lower = parcel.parcel.size.toLowerCase();
       if (lower === 'small') return 'Small';
@@ -42,7 +42,7 @@ function getParcelSize(parcel: Parcel): string {
       return parcel.parcel.size;
     }
   }
-  const weight = parcel.parcel.weightKg || 1;
+  const weight = parcel.parcel?.weightKg || 1;
   if (weight <= 1) return 'Small';
   if (weight <= 5) return 'Medium';
   return 'Large';
@@ -98,35 +98,31 @@ function computeStages(parcel: Parcel): {
         name: 'Picked up',
         status: pickedUpEv ? 'done' : 'pending',
         dateTime: pickedUpTime,
-        description: pickedUpEv?.description,
+        description: pickedUpEv?.description || 'Courier collected package',
       },
       {
         id: 'stage-3',
         name: 'In transit',
         status: inTransitEv ? 'done' : 'pending',
         dateTime: inTransitTime,
-        description: inTransitEv?.description,
+        description: inTransitEv?.description || 'Moving between distribution hubs',
       },
       {
         id: 'stage-4',
         name: 'Out for delivery',
         status: outForDeliveryEv ? 'done' : 'pending',
         dateTime: outForDeliveryTime,
-        description: outForDeliveryEv?.description,
+        description: outForDeliveryEv?.description || 'With courier for delivery',
       },
       {
         id: 'stage-5',
         name: 'Delivery failed',
         status: 'failed',
         reason: failureReason,
-        dateTime:
-          findEvent(/fail/i)?.formattedDate ||
-          findEvent(/fail/i)?.timestamp ||
-          parcel.formattedCreatedAt,
       },
     ];
-    progressPercent = inTransitEv ? 60 : pickedUpEv ? 40 : 20;
-    etaText = failureReason;
+    progressPercent = 100;
+    etaText = `Delivery interrupted: ${failureReason}`;
   } else if (isDelivered) {
     stages = [
       {
@@ -140,39 +136,43 @@ function computeStages(parcel: Parcel): {
         id: 'stage-2',
         name: 'Picked up',
         status: 'done',
-        dateTime: pickedUpTime || createdTime,
-        description: pickedUpEv?.description || 'Collected by courier',
+        dateTime: pickedUpTime,
+        description: pickedUpEv?.description || 'Courier collected package',
       },
       {
         id: 'stage-3',
         name: 'In transit',
         status: 'done',
-        dateTime: inTransitTime || createdTime,
-        description: inTransitEv?.description || 'Processed through sorting facility',
+        dateTime: inTransitTime,
+        description: inTransitEv?.description || 'Package reached regional sorting center',
       },
       {
         id: 'stage-4',
         name: 'Out for delivery',
         status: 'done',
-        dateTime: outForDeliveryTime || deliveredTime,
-        description: outForDeliveryEv?.description || 'Courier on final delivery run',
+        dateTime: outForDeliveryTime,
+        description: outForDeliveryEv?.description || 'With courier on local route',
       },
       {
         id: 'stage-5',
         name: 'Delivered',
         status: 'done',
         dateTime: deliveredTime,
-        description: deliveredEv?.description || 'Package received and signed',
+        description: deliveredEv?.description || 'Signed by recipient at delivery address',
       },
     ];
     progressPercent = 100;
-    etaText = `Delivered on ${parcel.formattedDeliveredAt || deliveredTime || 'recent date'}`;
+    etaText = deliveredTime ? `Delivered on ${deliveredTime}` : 'Delivered successfully';
   } else {
-    const isOutForDelivery = Boolean(
-      outForDeliveryEv && (outForDeliveryEv.status === 'current' || outForDeliveryEv.status === 'completed')
-    );
-    const isInTransit = Boolean(inTransitEv && inTransitEv.status === 'current');
-    const isPickedUp = Boolean(pickedUpEv && pickedUpEv.status === 'current');
+    // Determine active stage from timeline & status
+    const isOutForDelivery =
+      Boolean(outForDeliveryEv) ||
+      parcel.status === 'In progress' &&
+        Boolean(parcel.timeline?.some((e) => /out for delivery/i.test(e.title)));
+    const isInTransit =
+      Boolean(inTransitEv) ||
+      (parcel.status === 'In progress' && Boolean(pickedUpEv));
+    const isPickedUp = Boolean(pickedUpEv);
 
     if (isOutForDelivery) {
       stages = [
@@ -262,7 +262,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
 
   const fetchTracking = useCallback(async (ref: string) => {
-    const clean = ref.trim();
+    const clean = ref.trim().toUpperCase();
     if (!clean) {
       setParcel(null);
       setNotFound(false);
@@ -294,11 +294,12 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
 
   useEffect(() => {
     if (activeRef) {
-      setInputRef(activeRef);
-      void fetchTracking(activeRef);
+      const clean = activeRef.trim().toUpperCase();
+      setInputRef(clean);
+      void fetchTracking(clean);
 
       // Subscribe to real-time parcel updates
-      const unsubscribe = subscribeToParcel(activeRef, (updated) => {
+      const unsubscribe = subscribeToParcel(clean, (updated) => {
         setParcel((prev) => {
           if (prev) {
             if (prev.status !== updated.status) {
@@ -317,7 +318,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = inputRef.trim();
+    const clean = inputRef.trim().toUpperCase();
     if (!clean) return;
     setClipboardBlocked(false);
 
@@ -373,14 +374,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
   }, [parcel]);
 
   const courier = useMemo(() => {
-    return (
-      parcel?.courier || {
-        name: 'Nuwan Jayasuriya',
-        vehicle: 'Delivery Van (WP CAS-8821)',
-        zone: 'Colombo Metro & Western',
-        phone: '+94 77 800 1234',
-      }
-    );
+    return parcel?.courier;
   }, [parcel?.courier]);
 
   return (
@@ -517,7 +511,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
               {routeSubtitle}
             </p>
 
-            {/* Route progress bar: from-place, track with --y fill, to-place */}
+            {/* Route progress bar: from-place, track with fill, to-place */}
             <div className="sd-route-bar-wrap">
               <span className="sd-route-place">{parcel.sender?.city || 'From'}</span>
               <div
@@ -602,7 +596,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
               })}
             </div>
 
-            {/* Footer with ETA and Simulate update */}
+            {/* Footer with ETA */}
             <div
               style={{
                 display: 'flex',
@@ -615,89 +609,82 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
                 gap: '12px',
               }}
             >
-              <div className={`sd-eta-banner ${stageData.isFailed ? 'is-failed' : ''}`} style={{ margin: 0, padding: 0, background: 'transparent', border: 'none' }}>
+              <div
+                className={`sd-eta-banner ${stageData.isFailed ? 'is-failed' : ''}`}
+                style={{ margin: 0, padding: 0, background: 'transparent', border: 'none' }}
+              >
                 <ClockIcon size={16} />
                 <span style={{ fontSize: '13px', color: 'var(--mute)' }}>
                   {stageData.etaText}
                 </span>
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="small"
-                style={{ borderRadius: '9999px', padding: '6px 16px', fontSize: '13px' }}
-                onClick={() => {
-                  const nextStatus = parcel.status === 'In progress' ? 'Delivered' : 'In progress';
-                  setParcel((prev) => (prev ? { ...prev, status: nextStatus } : null));
-                }}
-              >
-                Simulate next update
-              </Button>
             </div>
           </Card>
 
-          {/* Right column (span 5): Your courier panel + Share tracking link card */}
+          {/* Right column (span 5): Your courier panel (if available) + Share tracking link card */}
           <div className="sd-col-span-5" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* "Your courier" panel (dark --panel card) */}
-            <Card variant="panel">
-              <CardHeader>
-                <div>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      letterSpacing: '0.08em',
-                      color: 'var(--mute)',
-                      textTransform: 'uppercase',
-                    }}
-                    className="sr-only"
-                  >
-                    Assigned Driver
-                  </span>
-                  <CardTitle style={{ color: 'var(--onDark)', marginTop: '2px', fontSize: '18px' }}>
-                    Your courier
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* "Your courier" panel (dark --panel card) - rendered only when courier is assigned */}
+            {courier && (
+              <Card variant="panel">
+                <CardHeader>
                   <div>
-                    <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--onDark)' }}>
-                      {courier.name || 'Saman Perera'}
-                    </div>
-                    <div className="sd-courier-vehicle" style={{ color: 'var(--mute)', fontSize: '13px', marginTop: '2px' }}>
-                      <span>{courier.vehicle || 'Motorbike • Colombo zone'}</span>
-                      {courier.zone && !courier.vehicle?.includes(courier.zone) ? (
-                        <>
-                          <span aria-hidden="true"> • </span>
-                          <span>{courier.zone}</span>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '12px' }}>
-                    <Button
-                      type="button"
-                      variant="accent"
-                      icon={<PhoneIcon size={15} />}
+                    <span
                       style={{
-                        borderRadius: '9999px',
-                        padding: '8px 20px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        letterSpacing: '0.08em',
+                        color: 'var(--mute)',
+                        textTransform: 'uppercase',
                       }}
-                      onClick={() => {
-                        if (courier.phone) {
-                          window.location.href = `tel:${courier.phone.replace(/\s+/g, '')}`;
-                        }
-                      }}
+                      className="sr-only"
                     >
-                      Call courier
-                    </Button>
+                      Assigned Driver
+                    </span>
+                    <CardTitle style={{ color: 'var(--onDark)', marginTop: '2px', fontSize: '18px' }}>
+                      Your courier
+                    </CardTitle>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--onDark)' }}>
+                        {courier.name || 'Assigned Courier'}
+                      </div>
+                      <div className="sd-courier-vehicle" style={{ color: 'var(--mute)', fontSize: '13px', marginTop: '2px' }}>
+                        <span>{courier.vehicle || 'Delivery Courier'}</span>
+                        {courier.zone && !courier.vehicle?.includes(courier.zone) ? (
+                          <>
+                            <span aria-hidden="true"> • </span>
+                            <span>{courier.zone}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Personal courier phone only shown in authenticated customer view, never in public view */}
+                    {!isPublic && courier.phone && (
+                      <div style={{ marginTop: '12px' }}>
+                        <Button
+                          type="button"
+                          variant="accent"
+                          icon={<PhoneIcon size={15} />}
+                          style={{
+                            borderRadius: '9999px',
+                            padding: '8px 20px',
+                          }}
+                          onClick={() => {
+                            window.location.href = `tel:${courier.phone!.replace(/\s+/g, '')}`;
+                          }}
+                        >
+                          Call courier
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* "Share tracking link" card */}
             <Card>
