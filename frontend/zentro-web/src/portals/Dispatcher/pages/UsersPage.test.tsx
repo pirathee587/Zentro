@@ -42,6 +42,11 @@ const USERS = [
     accountStatus: 'ACTIVE',
     merchantStatus: 'APPROVED',
     roles: ['CUSTOMER', 'MERCHANT'],
+    password: 'should-not-render',
+    passwordHash: 'should-not-render',
+    accessToken: 'should-not-render',
+    refreshToken: 'should-not-render',
+    secret: 'should-not-render',
   },
   {
     id: 'user-2',
@@ -137,6 +142,12 @@ describe('UsersPage', () => {
     expect(screen.getByText('MERCHANT')).toBeInTheDocument();
   });
 
+  it('does not render sensitive fields returned by the API', async () => {
+    renderUsersPage();
+    await screen.findByText('Alice');
+    expect(screen.queryByText('should-not-render')).not.toBeInTheDocument();
+  });
+
   it('shows an error state when the API fails', async () => {
     server.use(
       http.get('*/api/v1/admin/users', () =>
@@ -195,6 +206,21 @@ describe('UsersPage', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the API error when an update conflicts', async () => {
+    server.use(
+      http.patch('*/api/v1/admin/users/:userId', () =>
+        HttpResponse.json({ status: 409 }, { status: 409 }),
+      ),
+    );
+    renderUsersPage();
+    await screen.findByText('Alice');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit user Alice' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not update the user. Please try again.',
+    );
   });
 
   it('does not render when the user is not logged in', () => {

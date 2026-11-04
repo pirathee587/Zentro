@@ -123,7 +123,12 @@ class AdminUserControllerTest {
           .andExpect(jsonPath("$[0].id").value(TARGET_USER_ID.toString()))
           .andExpect(jsonPath("$[0].email").value("smith@zentro.com"))
           .andExpect(jsonPath("$[0].accountStatus").value("ACTIVE"))
-          .andExpect(jsonPath("$[0].enabled").value(true));
+          .andExpect(jsonPath("$[0].enabled").value(true))
+          .andExpect(jsonPath("$[0].password").doesNotExist())
+          .andExpect(jsonPath("$[0].passwordHash").doesNotExist())
+          .andExpect(jsonPath("$[0].accessToken").doesNotExist())
+          .andExpect(jsonPath("$[0].refreshToken").doesNotExist())
+          .andExpect(jsonPath("$[0].secret").doesNotExist());
 
       verify(profiles).listUsers(eq("ACTIVE"), eq("smith"));
     }
@@ -138,7 +143,12 @@ class AdminUserControllerTest {
           .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.id").value(TARGET_USER_ID.toString()))
-          .andExpect(jsonPath("$.email").value("smith@zentro.com"));
+          .andExpect(jsonPath("$.email").value("smith@zentro.com"))
+          .andExpect(jsonPath("$.password").doesNotExist())
+          .andExpect(jsonPath("$.passwordHash").doesNotExist())
+          .andExpect(jsonPath("$.accessToken").doesNotExist())
+          .andExpect(jsonPath("$.refreshToken").doesNotExist())
+          .andExpect(jsonPath("$.secret").doesNotExist());
 
       verify(profiles).getById(TARGET_USER_ID);
     }
@@ -190,7 +200,12 @@ class AdminUserControllerTest {
           .andExpect(jsonPath("$.name").value("John Smith Updated"))
           .andExpect(jsonPath("$.phone").value("0779998888"))
           .andExpect(jsonPath("$.accountStatus").value("DISABLED"))
-          .andExpect(jsonPath("$.enabled").value(false));
+          .andExpect(jsonPath("$.enabled").value(false))
+          .andExpect(jsonPath("$.password").doesNotExist())
+          .andExpect(jsonPath("$.passwordHash").doesNotExist())
+          .andExpect(jsonPath("$.accessToken").doesNotExist())
+          .andExpect(jsonPath("$.refreshToken").doesNotExist())
+          .andExpect(jsonPath("$.secret").doesNotExist());
 
       verify(profiles).adminUpdate(eq(TARGET_USER_ID), any(), any(AdminUpdateUserRequest.class));
     }
@@ -201,6 +216,37 @@ class AdminUserControllerTest {
           .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
           .contentType("application/json")
           .content("{\"accountStatus\":\"SUPERUSER\"}"))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
+
+    @Test
+    void malformedUserIdReturns400() throws Exception {
+      mvc.perform(get("/api/v1/admin/users/not-a-uuid")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
+
+    @Test
+    void oversizedNameReturns400() throws Exception {
+      mvc.perform(patch("/api/v1/admin/users/" + TARGET_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"name\":\"" + "A".repeat(201) + "\"}"))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
+
+    @Test
+    void roleAssignmentIsRejected() throws Exception {
+      mvc.perform(patch("/api/v1/admin/users/" + TARGET_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"roles\":[\"DISPATCHER\"]}"))
           .andExpect(status().isBadRequest());
 
       verifyNoInteractions(profiles);
@@ -222,4 +268,3 @@ class AdminUserControllerTest {
     }
   }
 }
-
