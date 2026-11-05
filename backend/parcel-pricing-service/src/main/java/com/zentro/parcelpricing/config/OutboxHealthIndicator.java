@@ -1,6 +1,6 @@
 package com.zentro.parcelpricing.config;
 
-import com.zentro.parcelpricing.repository.OutboxRepository;
+import com.zentro.parcelpricing.outbox.repository.OutboxRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;

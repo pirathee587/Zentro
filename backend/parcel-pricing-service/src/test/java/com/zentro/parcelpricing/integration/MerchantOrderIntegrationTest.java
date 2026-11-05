@@ -12,7 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zentro.parcelpricing.client.IdentityMerchantClient;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;

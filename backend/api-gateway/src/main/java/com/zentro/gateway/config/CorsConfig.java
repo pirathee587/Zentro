@@ -1,5 +1,6 @@
 package com.zentro.gateway.config;
 
+import com.zentro.gateway.constants.GatewayConstants;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,8 +17,8 @@ public class CorsConfig {
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList());
     config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Correlation-Id"));
-    config.setExposedHeaders(List.of("X-Correlation-Id"));
+    config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", GatewayConstants.CORRELATION_ID_HEADER));
+    config.setExposedHeaders(List.of(GatewayConstants.CORRELATION_ID_HEADER));
     config.setAllowCredentials(false);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);

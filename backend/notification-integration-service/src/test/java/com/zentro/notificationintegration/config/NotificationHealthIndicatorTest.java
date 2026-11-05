@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.zentro.notificationintegration.service.NotificationMetrics;
-import com.zentro.notificationintegration.service.NotificationRepository;
+import com.zentro.notificationintegration.notification.repository.NotificationRepository;
+import com.zentro.notificationintegration.notification.service.NotificationMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Instant;

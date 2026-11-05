@@ -9,16 +9,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.zentro.identitypartner.merchant.CreateMerchantApplicationRequest;
-import com.zentro.identitypartner.merchant.MerchantApplication;
-import com.zentro.identitypartner.merchant.AdminMerchantApplicationController;
-import com.zentro.identitypartner.merchant.MerchantApplicationController;
-import com.zentro.identitypartner.merchant.MerchantApplicationService;
-import com.zentro.identitypartner.merchant.MerchantApiKeyController;
-import com.zentro.identitypartner.merchant.MerchantApiKeyService;
-import com.zentro.identitypartner.user.AdminUserController;
-import com.zentro.identitypartner.user.UserProfileController;
-import com.zentro.identitypartner.user.UserProfileService;
+import com.zentro.identitypartner.merchant.dto.CreateMerchantApplicationRequest;
+import com.zentro.identitypartner.merchant.dto.MerchantApplication;
+import com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationController;
+import com.zentro.identitypartner.merchant.controller.MerchantApplicationController;
+import com.zentro.identitypartner.merchant.service.MerchantApplicationService;
+import com.zentro.identitypartner.merchant.controller.MerchantApiKeyController;
+import com.zentro.identitypartner.merchant.service.MerchantApiKeyService;
+import com.zentro.identitypartner.user.controller.AdminUserController;
+import com.zentro.identitypartner.user.controller.UserProfileController;
+import com.zentro.identitypartner.user.service.UserProfileService;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

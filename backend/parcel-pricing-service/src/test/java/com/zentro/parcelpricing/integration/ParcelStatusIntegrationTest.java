@@ -10,9 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zentro.parcelpricing.domain.ParcelStatus;
-import com.zentro.parcelpricing.dto.ParcelStatusResponse;
-import com.zentro.parcelpricing.service.ParcelStatusService;
+import com.zentro.parcelpricing.parcel.entity.ParcelStatus;
+import com.zentro.parcelpricing.parcel.dto.ParcelStatusResponse;
+import com.zentro.parcelpricing.parcel.service.ParcelStatusService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

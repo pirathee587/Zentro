@@ -6,9 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.zentro.trackingreporting.domain.TrackingParcel;
-import com.zentro.trackingreporting.domain.TrackingStatus;
-import com.zentro.trackingreporting.service.TrackingService;
+import com.zentro.trackingreporting.tracking.entity.TrackingParcel;
+import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
+import com.zentro.trackingreporting.tracking.service.TrackingService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
