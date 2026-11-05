@@ -1,7 +1,7 @@
 # Parcel events (ZD-23)
 
 Producer: S2 Parcel & Pricing (`parcel-pricing-service`). Issue: #58.
-Consumers: S4 tracking history (#31), S5 notifications (#24), S4 merchant webhooks (#32).
+Consumers: S4 tracking history (#31), S5 notifications (#24), S5 merchant webhooks (#32, [merchant-webhooks.md](merchant-webhooks.md)).
 Schemas: `contracts/events/event-envelope.schema.json`, `parcel-status-updated.schema.json`, `parcel-created.schema.json`.
 
 ## How events are produced
@@ -17,7 +17,7 @@ The publisher is off unless `OUTBOX_PUBLISHER_ENABLED=true`, so no broker is nee
 
 | Topic | Event type | Written when |
 |---|---|---|
-| `parcel.created` | `parcel.created` | A new customer booking is stored (`POST /api/v1/parcels`, 201). Not for idempotent replays. |
+| `parcel.created` | `parcel.created` | A new customer booking (`POST /api/v1/parcels`, 201) or a new merchant order (`POST /api/v1/merchant/orders`, 201) is stored. Not for idempotent replays or conflicting replays. |
 | `parcel.status.updated` | `parcel.status.updated` | An accepted status change (`PATCH /api/v1/parcels/{parcelId}/status`, `changed: true`). Not for repeats or rejected changes. |
 
 **Not published by S2:**
@@ -61,6 +61,7 @@ The publisher is off unless `OUTBOX_PUBLISHER_ENABLED=true`, so no broker is nee
 | `actorRole` | string | Role that made the change, for example `DISPATCHER` or `SERVICE` |
 | `occurredAt` | date-time | |
 | `failureReason` | string | Present only when `status` is `FAILED` (1-200 characters) |
+| `merchantId` | string | Optional (#32). Present only for merchant parcels: the merchant account id (Keycloak subject of the merchant, 1-255 characters). Absent for customer bookings. |
 
 ### `parcel.created` payload
 
@@ -68,10 +69,11 @@ The publisher is off unless `OUTBOX_PUBLISHER_ENABLED=true`, so no broker is nee
 |---|---|---|
 | `trackingRef` | string | |
 | `status` | `CREATED` | |
-| `source` | string | `CUSTOMER_BOOKING`. `MERCHANT_ORDER` is reserved for merchant orders (#23 / PR #98, not emitted yet). |
+| `source` | string | `CUSTOMER_BOOKING` for customer bookings, `MERCHANT_ORDER` for merchant orders (#23, emitted since #32) |
 | `occurredAt` | date-time | |
+| `merchantId` | string | Optional (#32). Present only when `source` is `MERCHANT_ORDER`: the merchant account id. |
 
-**Personal data:** payloads never contain names, phone numbers, addresses, notes, customer ids or user ids. Consumers that need contact details must ask S2 through an authorised API. The producer contract test (`ParcelEventContractTest`) enforces this together with the schemas.
+**Personal data:** payloads never contain names, phone numbers, addresses, notes, customer ids or the id of the user who made a change. The only account identifier is the optional `merchantId` of merchant parcels, which S5 needs to find the merchant's webhook endpoint (#32). The change is additive: existing consumers ignore the field. Consumers that need contact details must ask S2 through an authorised API. The producer contract test (`ParcelEventContractTest`) enforces this together with the schemas.
 
 ## Delivery guarantees
 
@@ -148,5 +150,4 @@ The producer uses `acks=all` and `enable.idempotence=true`.
 
 - **Local broker:** `backend/docker-compose.yml` has no Kafka service yet. Owner: @pirathee587. Until then, run `docker run -d --name zd23-kafka -p 9092:9092 apache/kafka:3.7.0`.
 - **Kubernetes/Helm:** the Kafka deployment and production topic settings belong to the deployment owner.
-- **Merchant orders:** parcels created through merchant orders (#23 / PR #98) do not emit `parcel.created` yet. Owner: @Kiruthiyan.
-- **Payload confirmation:** the payloads above still need confirmation from the S4 and S5 owners (@hephzibah-peries, @Deadsecnote1).
+- **Payload confirmation:** the payloads above, including the optional `merchantId` added in #32, still need confirmation from the S4 and S5 owners (@hephzibah-peries, @Deadsecnote1).
