@@ -27,6 +27,9 @@ zentro:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
     jwks-uri: ${JWT_JWKS_URI:}
+  identity:
+    # S1 Identity, used to check that a merchant is approved before it registers a webhook endpoint.
+    base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   notifications:
     consumer:
       # Off by default so tests and environments without a broker never connect to Kafka.
