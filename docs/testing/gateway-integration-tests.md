@@ -142,10 +142,11 @@ Record the following after running the suite and backend build:
 |---|---|
 | Gateway integration command | Passed twice; each run: 146 tests, 0 failures, 0 errors, 1 intentionally disabled |
 | First/second repeat run | Both passed; first elapsed 118.7 s, second 112.6 s |
-| Full backend `mvn test package` | Pending execution in this environment |
+| Full backend `mvn test` | Passed: 1,037 tests, 0 failures, 0 errors, 6 skipped across all modules |
+| Full backend `mvn test package` | Gateway tests passed; packaging stopped because Maven Central DNS resolution failed for `spring-boot-buildpack-platform:3.5.16`, so later modules were skipped in that invocation |
 | Surefire reports | `backend/api-gateway/target/surefire-reports/` |
-| Commit SHA | Filled after task commit |
+| Commit SHA | Recorded in Git history and the pull request description |
 | Environment (OS, Docker, Java) | Ubuntu 24.04.4 (kernel 7.0.0-38-generic); Docker Engine 29.8.0; Java 21.0.12.1 |
 
-The Keycloak-backed suite requires Docker. A skipped suite is not pass evidence; CI must run it with
-Docker available.
+The package phase needs Maven Central access for the uncached Spring Boot plugin dependency. The
+separate full reactor `mvn test` passed; retry packaging when Maven Central is reachable.

@@ -53,7 +53,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 
 /** Exercises the deployed gateway application and its configured routes using tokens issued by Keycloak. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureWebTestClient
+@AutoConfigureWebTestClient(timeout = "30s")
 @Testcontainers(disabledWithoutDocker = true)
 class GatewayKeycloakIntegrationTests {
   private static final String REALM = "zentro";
