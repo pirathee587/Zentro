@@ -82,7 +82,7 @@ class GatewayKeycloakIntegrationTests {
       .withEnv("KC_BOOTSTRAP_ADMIN_PASSWORD", TOKEN_PASSWORD)
       .withCopyFileToContainer(
           org.testcontainers.utility.MountableFile.forHostPath(realmExportPath()),
-          "/opt/keycloak/data/import/zentro-realm-export.json")
+          "/opt/keycloak/data/import/zentro-realm.json")
       .withCommand("start-dev", "--import-realm", "--http-enabled=true", "--hostname-strict=false")
       .waitingFor(Wait.forHttp("/realms/zentro/.well-known/openid-configuration")
           .forStatusCode(200).withStartupTimeout(Duration.ofMinutes(2)));
