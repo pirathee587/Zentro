@@ -6,3 +6,4 @@
 @import './landing.css';
 @tailwind base; @tailwind components; @tailwind utilities;
 @layer base { html {scroll-behavior:smooth} body {@apply m-0 bg-background text-text antialiased; font-family:'Plus Jakarta Sans',sans-serif;} * {@apply border-border;} :focus-visible {@apply outline-none ring-2 ring-primary ring-offset-2;} }
+@layer components { .merchant-application-card { margin: clamp(48px, 12vh, 140px) auto; } }
