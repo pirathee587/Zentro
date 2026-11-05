@@ -3,6 +3,8 @@ package com.zentro.parcelpricing.parcel.service;
 import com.zentro.parcelpricing.pricing.service.PricingService;
 
 import com.zentro.parcelpricing.parcel.repository.MerchantOrderRepository;
+import com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,11 +36,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.support.TransactionOperations;
 
 class MerchantOrderServiceTest {
   private PricingService pricingService;
   private MerchantOrderRepository repository;
   private TrackingReferenceGenerator trackingGen;
+  private ParcelStatusRepository eventRepository;
   private MerchantOrderService service;
 
   @BeforeEach
@@ -46,7 +50,9 @@ class MerchantOrderServiceTest {
     pricingService = mock(PricingService.class);
     repository = mock(MerchantOrderRepository.class);
     trackingGen = mock(TrackingReferenceGenerator.class);
-    service = new MerchantOrderService(pricingService, repository, trackingGen);
+    eventRepository = mock(ParcelStatusRepository.class);
+    service = new MerchantOrderService(pricingService, repository, trackingGen, eventRepository,
+        new ObjectMapper(), TransactionOperations.withoutTransaction());
   }
 
   @Test
@@ -148,7 +154,7 @@ class MerchantOrderServiceTest {
     when(pricingService.estimateFee(any())).thenReturn(new FeeEstimateResponse(new BigDecimal("500.00"), "LKR 500", "LKR", 1, null));
     when(trackingGen.next()).thenReturn("ZT-REF1", "ZT-REF2");
     when(repository.findByMerchantAndExternalRef(any(), eq("ORD-SHARED"))).thenReturn(Optional.empty());
-    when(repository.insert(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
 
     OrderResult result1 = service.createOrder("merchant-1", request);
     OrderResult result2 = service.createOrder("merchant-2", request);
@@ -169,7 +175,7 @@ class MerchantOrderServiceTest {
     DuplicateKeyException collision = new DuplicateKeyException("Pretend duplicate " + MerchantOrderRepository.TRACKING_REF_CONSTRAINT);
     when(repository.insert(any()))
         .thenThrow(collision)
-        .thenAnswer(inv -> inv.getArgument(0));
+        .thenAnswer(inv -> saved(inv.getArgument(0)));
 
     OrderResult result = service.createOrder("merchant-abc", request);
 
@@ -272,5 +278,14 @@ class MerchantOrderServiceTest {
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  /** What the database returns for an inserted draft: the same order with an id and timestamps. */
+  private static MerchantOrder saved(MerchantOrder draft) {
+    OffsetDateTime now = OffsetDateTime.now();
+    return new MerchantOrder(UUID.randomUUID(), draft.trackingRef(), draft.merchantId(), draft.externalOrderRef(),
+        draft.sender(), draft.recipient(), draft.weightKg(), draft.size(), draft.category(), draft.description(),
+        draft.destinationType(), draft.express(), draft.notes(), draft.fee(), draft.currency(),
+        draft.estimatedDays(), draft.status(), draft.requestHash(), now, now);
   }
 }
