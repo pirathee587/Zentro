@@ -1,4 +1,4 @@
-package com.zentro.identitypartner.courier.grpc;
+package com.zentro.identitypartner.grpc.service;
 
 import com.zentro.contracts.identity.v1.CourierProfileResponse;
 import com.zentro.contracts.identity.v1.GetCourierProfileRequest;

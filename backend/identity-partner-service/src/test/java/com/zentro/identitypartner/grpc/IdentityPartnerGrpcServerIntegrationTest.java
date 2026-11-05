@@ -1,4 +1,4 @@
-package com.zentro.identitypartner.courier.grpc;
+package com.zentro.identitypartner.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,6 +12,9 @@ import com.zentro.contracts.identity.v1.IdentityPartnerServiceGrpc;
 import com.zentro.contracts.identity.v1.MerchantStatusResponse;
 import com.zentro.identitypartner.courier.dto.CourierGrpcResponse;
 import com.zentro.identitypartner.courier.service.CourierProfileService;
+import com.zentro.identitypartner.grpc.security.GrpcSecurityInterceptor;
+import com.zentro.identitypartner.grpc.server.IdentityPartnerGrpcServer;
+import com.zentro.identitypartner.grpc.service.IdentityPartnerGrpcService;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Metadata;

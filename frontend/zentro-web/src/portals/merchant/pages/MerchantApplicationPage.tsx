@@ -112,7 +112,7 @@ export function MerchantApplicationPage() {
     <label>Business name<Input required maxLength={140} value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} /></label>
     <label>Business registration number<Input maxLength={80} value={form.businessRegNo} onChange={(event) => setForm({ ...form, businessRegNo: event.target.value })} /></label>
     <label htmlFor="contact-phone">Contact phone</label>
-    <Input id="contact-phone" required type="tel" pattern="\+?[0-9]{9,15}" aria-describedby="contact-phone-help" value={form.contactPhone} onChange={(event) => setForm({ ...form, contactPhone: event.target.value })} />
+    <Input id="contact-phone" required type="tel" aria-describedby="contact-phone-help" value={form.contactPhone} onChange={(event) => setForm({ ...form, contactPhone: event.target.value })} />
     <small id="contact-phone-help">Use 9 to 15 digits, with an optional + prefix.</small>
     {formError && <ErrorState message={formError} />}
     {createApplication.isError && responseStatus(createApplication.error) !== 409 && <ErrorState message={friendlyApiError(createApplication.error, 'We could not submit your business details. Please try again.')} />}

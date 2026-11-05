@@ -1,4 +1,4 @@
-package com.zentro.identitypartner.courier.grpc;
+package com.zentro.identitypartner.grpc.security;
 
 import io.grpc.Context;
 import io.grpc.Contexts;

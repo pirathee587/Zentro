@@ -1,5 +1,7 @@
-package com.zentro.identitypartner.courier.grpc;
+package com.zentro.identitypartner.grpc.server;
 
+import com.zentro.identitypartner.grpc.security.GrpcSecurityInterceptor;
+import com.zentro.identitypartner.grpc.service.IdentityPartnerGrpcService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import jakarta.annotation.PostConstruct;

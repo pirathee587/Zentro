@@ -73,7 +73,7 @@ const server = setupServer(
     HttpResponse.json([PENDING_APP, APPROVED_APP, REJECTED_APP]),
   ),
   http.patch('*/api/v1/admin/merchants/:id', async ({ params, request }) => {
-    const body = (await request.json()) as { decision: string; rejectionReason?: string };
+    const body = (await request.clone().json()) as { decision: string; rejectionReason?: string };
     if (params['id'] === 'app-pending') {
       return HttpResponse.json({
         ...PENDING_APP,

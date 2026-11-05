@@ -1,4 +1,4 @@
-package com.zentro.identitypartner;
+package com.zentro.identitypartner.security;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
