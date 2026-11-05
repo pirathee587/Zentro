@@ -104,7 +104,7 @@ class ParcelStatusServiceTest {
     parcelIs(ParcelStatus.PICKED_UP, 0);
 
     service.updateStatus(PARCEL_ID, ParcelStatus.FAILED, "Recipient not available",
-        "Call 0771234567 at 12 Galle Road", ACTOR, "SERVICE");
+        "Call 0771234567 at 12 Galle Road", ACTOR, "DISPATCHER");
 
     ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
     verify(repository).insertOutboxEvent(any(), any(), anyString(), json.capture(), any());
@@ -267,6 +267,83 @@ class ParcelStatusServiceTest {
     JsonNode event = objectMapper.readTree(json.getValue());
     assertThat(event.get("occurredAt").asText()).isEqualTo("2026-11-03T10:15:00Z");
     assertThat(event.get("payload").get("occurredAt").asText()).isEqualTo("2026-11-03T10:15:00Z");
+  }
+
+  @Test
+  @DisplayName("SERVICE role successfully transitions OUT_FOR_DELIVERY to DELIVERED")
+  void serviceCanTransitionOutForDeliveryToDelivered() throws Exception {
+    parcelIs(ParcelStatus.OUT_FOR_DELIVERY, 3);
+
+    ParcelStatusResponse response = service.updateStatus(PARCEL_ID, ParcelStatus.DELIVERED, null, null, ACTOR, "SERVICE");
+
+    assertThat(response).isEqualTo(new ParcelStatusResponse(PARCEL_ID, TRACKING_REF, ParcelStatus.OUT_FOR_DELIVERY,
+        ParcelStatus.DELIVERED, true, NOW_MICROS));
+    verify(repository).updateStatus(PARCEL_ID, ParcelStatus.DELIVERED, 3, NOW_MICROS);
+
+    ArgumentCaptor<ParcelStatusChange> history = ArgumentCaptor.forClass(ParcelStatusChange.class);
+    verify(repository).insertHistory(history.capture());
+    assertThat(history.getValue().actorRole()).isEqualTo("SERVICE");
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(repository).insertOutboxEvent(any(), eq(PARCEL_ID), eq("parcel.status.updated"), json.capture(), eq(NOW_MICROS));
+    JsonNode event = objectMapper.readTree(json.getValue());
+    assertThat(event.get("payload").get("actorRole").asText()).isEqualTo("SERVICE");
+    assertThat(event.get("payload").get("status").asText()).isEqualTo("DELIVERED");
+  }
+
+  @Test
+  @DisplayName("SERVICE role cannot perform intermediate lifecycle transitions (PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, FAILED)")
+  void serviceCannotPerformIntermediateTransitions() {
+    parcelIs(ParcelStatus.CREATED, 0);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.PICKED_UP, null, null, ACTOR, "SERVICE"))
+        .isInstanceOfSatisfying(InvalidTransitionException.class, ex -> {
+          assertThat(ex.code()).isEqualTo(InvalidTransitionException.Code.INVALID_TRANSITION);
+          assertThat(ex.allowedNext()).isEmpty();
+        });
+
+    parcelIs(ParcelStatus.PICKED_UP, 1);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.IN_TRANSIT, null, null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.FAILED, "Broken", null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+
+    parcelIs(ParcelStatus.IN_TRANSIT, 2);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.OUT_FOR_DELIVERY, null, null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.FAILED, "Lost", null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+
+    parcelIs(ParcelStatus.OUT_FOR_DELIVERY, 3);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.FAILED, "No answer", null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+  }
+
+  @Test
+  @DisplayName("SERVICE role cannot repeat intermediate statuses, only DELIVERED")
+  void serviceCannotRepeatIntermediateStatuses() {
+    parcelIs(ParcelStatus.PICKED_UP, 1);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.PICKED_UP, null, null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+
+    parcelIs(ParcelStatus.IN_TRANSIT, 2);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.IN_TRANSIT, null, null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+
+    parcelIs(ParcelStatus.OUT_FOR_DELIVERY, 3);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.OUT_FOR_DELIVERY, null, null, ACTOR, "SERVICE"))
+        .isInstanceOf(InvalidTransitionException.class);
+  }
+
+  @Test
+  @DisplayName("COURIER role is rejected from all direct transitions and repeats")
+  void courierIsRejected() {
+    parcelIs(ParcelStatus.CREATED, 0);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.PICKED_UP, null, null, ACTOR, "COURIER"))
+        .isInstanceOf(InvalidTransitionException.class);
+
+    parcelIs(ParcelStatus.OUT_FOR_DELIVERY, 3);
+    assertThatThrownBy(() -> service.updateStatus(PARCEL_ID, ParcelStatus.DELIVERED, null, null, ACTOR, "COURIER"))
+        .isInstanceOf(InvalidTransitionException.class);
   }
 
   private static List<String> fieldNames(JsonNode node) {

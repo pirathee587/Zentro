@@ -79,9 +79,14 @@ public class ParcelStatusService {
       throw new IllegalArgumentException("A status change needs an actor subject and role.");
     }
 
+    String role = ParcelLifecycle.normalizeRole(actorRole);
+
     LockedParcel parcel = repository.lockForUpdate(parcelId).orElseThrow(() -> new ParcelNotFoundException(parcelId));
     ParcelStatus current = parcel.status();
 
+    if (!ParcelLifecycle.isRolePermitted(targetStatus, role)) {
+      throw InvalidTransitionException.notAllowed(current, targetStatus, role);
+    }
     if (current == targetStatus) {
       // Repeating the current status is accepted without recording anything.
       return new ParcelStatusResponse(parcel.id(), parcel.trackingRef(), current, current, false, null);
@@ -89,8 +94,8 @@ public class ParcelStatusService {
     if (ParcelLifecycle.isTerminal(current)) {
       throw InvalidTransitionException.terminal(current, targetStatus);
     }
-    if (!ParcelLifecycle.isAllowed(current, targetStatus)) {
-      throw InvalidTransitionException.notAllowed(current, targetStatus);
+    if (!ParcelLifecycle.isAllowed(current, targetStatus, role)) {
+      throw InvalidTransitionException.notAllowed(current, targetStatus, role);
     }
     if (targetStatus == ParcelStatus.FAILED && cleanReason == null) {
       throw new StatusFieldException("reason", "A reason is required when the status is FAILED.");
@@ -99,7 +104,7 @@ public class ParcelStatusService {
     // PostgreSQL stores microseconds, so the returned time matches the stored one exactly.
     OffsetDateTime now = OffsetDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
     ParcelStatusChange change = new ParcelStatusChange(parcel.id(), parcel.trackingRef(), current, targetStatus,
-        cleanReason, cleanNote, actorSubject, actorRole.toUpperCase(Locale.ROOT), now);
+        cleanReason, cleanNote, actorSubject, role, now);
 
     repository.updateStatus(parcel.id(), targetStatus, parcel.version(), now);
     repository.insertHistory(change);
