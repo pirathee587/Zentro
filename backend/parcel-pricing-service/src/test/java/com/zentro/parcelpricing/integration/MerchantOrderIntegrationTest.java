@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -190,5 +191,64 @@ class MerchantOrderIntegrationTest {
   private static RequestPostProcessor merchant(String subject) {
     return jwt().jwt(j -> j.subject(subject).tokenValue("integration-test-token"))
         .authorities(new SimpleGrantedAuthority("ROLE_MERCHANT"));
+  }
+
+  @Test
+  @DisplayName("A new merchant order writes one parcel.created outbox event with MERCHANT_ORDER and the merchant id")
+  void newOrderWritesOutboxEvent() throws Exception {
+    String id = createOrder("merchant-events");
+
+    List<Map<String, Object>> events = jdbc.queryForList(
+        "SELECT event_type, payload::text AS payload FROM parcel.outbox_event WHERE aggregate_id = ?::uuid", id);
+    assertThat(events).hasSize(1);
+    assertThat(events.get(0).get("event_type")).isEqualTo("parcel.created");
+    JsonNode payload = objectMapper.readTree((String) events.get(0).get("payload")).get("payload");
+    assertThat(payload.get("source").asText()).isEqualTo("MERCHANT_ORDER");
+    assertThat(payload.get("merchantId").asText()).isEqualTo("merchant-events");
+    assertThat((String) events.get(0).get("payload"))
+        .doesNotContain("Test Customer", "Test Merchant Store", "771234567", "Temple Road", "ORD-IT-001");
+  }
+
+  @Test
+  @DisplayName("A replay and a conflicting replay of a merchant order write no extra event")
+  void replayWritesNoOutboxEvent() throws Exception {
+    String id = createOrder("merchant-replay");
+
+    mvc.perform(post(URL).with(merchant("merchant-replay"))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY))
+        .andExpect(status().isOk());
+    mvc.perform(post(URL).with(merchant("merchant-replay"))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("Test Customer", "Someone Else")))
+        .andExpect(status().isConflict());
+
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid",
+        Integer.class, id)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("A status change on a merchant parcel publishes parcel.status.updated with the merchant id")
+  void statusEventCarriesMerchantId() throws Exception {
+    String id = createOrder("merchant-status");
+
+    mvc.perform(patch("/api/v1/parcels/" + id + "/status")
+            .with(jwt().jwt(j -> j.subject("dispatcher-it")).authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+            .contentType(MediaType.APPLICATION_JSON).content("{\"status\": \"PICKED_UP\"}"))
+        .andExpect(status().isOk());
+
+    String json = jdbc.queryForObject("""
+        SELECT payload::text FROM parcel.outbox_event
+         WHERE aggregate_id = ?::uuid AND event_type = 'parcel.status.updated'
+        """, String.class, id);
+    JsonNode payload = objectMapper.readTree(json).get("payload");
+    assertThat(payload.get("merchantId").asText()).isEqualTo("merchant-status");
+    assertThat(payload.get("status").asText()).isEqualTo("PICKED_UP");
+  }
+
+  private String createOrder(String merchantId) throws Exception {
+    String response = mvc.perform(post(URL).with(merchant(merchantId))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY))
+        .andExpect(status().isCreated())
+        .andReturn().getResponse().getContentAsString();
+    return objectMapper.readTree(response).get("id").asText();
   }
 }
