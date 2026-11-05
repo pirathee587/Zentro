@@ -62,13 +62,14 @@ public class WebhookDeliveryService {
   private final WebhookSigner signer;
   private final WebhookHttpSender sender;
   private final WebhookRetryPolicy policy;
+  private final WebhookMetrics metrics;
   private final Duration holdBack;
   private final Clock clock;
 
   public WebhookDeliveryService(NotificationRepository processedEvents, WebhookSubscriptionRepository subscriptions,
       WebhookDeliveryRepository deliveries, WebhookUrlValidator validator, WebhookSecretCipher cipher,
-      WebhookSigner signer, WebhookHttpSender sender, WebhookRetryPolicy policy, WebhookProperties properties,
-      Clock clock) {
+      WebhookSigner signer, WebhookHttpSender sender, WebhookRetryPolicy policy, WebhookMetrics metrics,
+      WebhookProperties properties, Clock clock) {
     this.processedEvents = processedEvents;
     this.subscriptions = subscriptions;
     this.deliveries = deliveries;
@@ -77,6 +78,7 @@ public class WebhookDeliveryService {
     this.signer = signer;
     this.sender = sender;
     this.policy = policy;
+    this.metrics = metrics;
     this.holdBack = Duration.ofMillis(properties.retry().baseDelayMs());
     this.clock = clock;
   }
@@ -90,15 +92,18 @@ public class WebhookDeliveryService {
   public Optional<UUID> handle(MerchantParcelEvent event) {
     UUID eventId = event.event().eventId();
     if (!processedEvents.markProcessed(CONSUMER, eventId)) {
+      metrics.duplicate();
       log.debug("Duplicate parcel event ignored for webhooks: eventId={}", eventId);
       return Optional.empty();
     }
     if (event.merchantId() == null) {
+      metrics.skipped();
       log.debug("No webhook for a customer parcel: eventId={}", eventId);
       return Optional.empty();
     }
     Optional<WebhookSubscription> subscription = subscriptions.findActiveByMerchant(event.merchantId());
     if (subscription.isEmpty()) {
+      metrics.skipped();
       log.debug("No active webhook endpoint: eventId={} merchantId={}", eventId, event.merchantId());
       return Optional.empty();
     }
@@ -113,6 +118,7 @@ public class WebhookDeliveryService {
   @Transactional
   public void reject(String topic, Integer partition, Long offset, String reason) {
     processedEvents.insertRejected(topic, partition, offset, CONSUMER + ": " + reason);
+    metrics.rejected();
     log.warn("Rejected malformed parcel event for webhooks at {}-{}@{}: {}", topic, partition, offset, reason);
   }
 
@@ -126,6 +132,7 @@ public class WebhookDeliveryService {
     OffsetDateTime now = OffsetDateTime.now(clock);
     if (!row.subscriptionActive()) {
       deliveries.markFailed(row.id(), row.attempts(), null, DISABLED_ERROR);
+      metrics.skipped();
       log.info("Webhook delivery closed, endpoint disabled: eventId={} merchantId={}", row.eventId(),
           row.merchantId());
       return;
@@ -166,12 +173,14 @@ public class WebhookDeliveryService {
     switch (outcome.decision()) {
       case SUCCEEDED -> {
         deliveries.markSucceeded(row.id(), attempt, result.status());
+        metrics.succeeded();
         log.info("Webhook delivered: eventId={} merchantId={} status={} attempts={}", row.eventId(),
             row.merchantId(), result.status(), attempt);
       }
       case RETRY -> {
         OffsetDateTime next = OffsetDateTime.now(clock).plus(outcome.delay());
         deliveries.markRetry(row.id(), attempt, result.status(), outcome.error(), next);
+        metrics.retried();
         log.warn("Webhook attempt failed, will retry: eventId={} merchantId={} status={} error={} attempts={}"
             + " nextTry={}", row.eventId(), row.merchantId(), result.status(), outcome.error(), attempt, next);
       }
@@ -181,6 +190,7 @@ public class WebhookDeliveryService {
 
   private void fail(DeliveryAttempt row, int attempt, Integer status, String error) {
     deliveries.markFailed(row.id(), attempt, status, error);
+    metrics.failed();
     log.error("Webhook delivery failed permanently: eventId={} merchantId={} status={} error={} attempts={}",
         row.eventId(), row.merchantId(), status, error, attempt);
   }
