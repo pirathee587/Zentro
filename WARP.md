@@ -629,6 +629,7 @@ Rules:
 
 - Authenticate users through approved identity flows.
 - Validate JWT signatures and claims.
+- Every backend microservice must independently validate JWTs; API Gateway validation does not replace service-level validation.
 - Enforce backend authorization.
 - Validate resource ownership.
 - Protect administrative operations.
@@ -676,32 +677,51 @@ Security requirements:
 
 # 12. FRONTEND DEVELOPMENT STANDARDS
 
-Technology: React + TypeScript + Vite.
-
-Recommended structure:
+Technology: React + TypeScript + Vite. The established frontend architecture is feature-oriented and role-specific. Preserve this structure unless analysis identifies a genuine architectural problem:
 
     frontend/
     |
-    +-- src/
-        |
+    +-- zentro-web/src/
         +-- app/
-        +-- assets/
-        +-- components/
-        +-- features/
-        |   +-- auth/
+        +-- portals/
         |   +-- customer/
         |   +-- merchant/
         |   +-- courier/
         |   +-- dispatcher/
-        |   +-- parcels/
-        |   +-- tracking/
-        +-- hooks/
-        +-- layouts/
-        +-- pages/
-        +-- routes/
-        +-- services/
-        +-- types/
-        +-- utils/
+        |   +-- public/
+        +-- shared/
+        |   +-- api/
+        |   +-- auth/
+        |   +-- config/
+        |   +-- domain/
+        |   +-- testing/
+        |   +-- ui/
+        +-- styles/
+
+Do not add generic top-level `components/`, `features/`, `hooks/`, `layouts/`, `pages/`, `routes/`, `services/`, `types/` or `utils/` trees that duplicate portal ownership or existing shared infrastructure. Create folders only for real responsibilities; portals do not need identical internal layouts.
+
+## Portal Ownership
+
+- `portals/customer/`: customer-facing parcel booking, history and receipt functionality.
+- `portals/merchant/`: merchant operations and order management.
+- `portals/courier/`: courier delivery workflows.
+- `portals/dispatcher/`: dispatch, administrative and operational workflows.
+- `portals/public/`: public-facing pages and functionality.
+
+Each portal owns its role-specific pages, components, hooks, API operations, schemas and types where appropriate. Do not mix business functionality between portals. Keep route-level pages separate from reusable components when that helps maintain clear responsibilities. Decompose large page modules when they combine unrelated responsibilities, API operations or substantial reusable UI.
+
+## Shared Frontend Infrastructure
+
+Use `shared/` only for functionality genuinely reusable across portals:
+
+- `shared/ui/`: reusable UI components.
+- `shared/api/`: centralized API infrastructure.
+- `shared/auth/`: authentication integration.
+- `shared/config/`: application configuration.
+- `shared/domain/`: genuinely shared domain types and contracts.
+- `shared/testing/`: shared test utilities and test configuration.
+
+Do not move portal-specific components into shared modules, introduce abstractions without a real reuse need, create empty folders, or create circular dependencies between portals and shared modules.
 
 ## Role-Based Frontend
 
@@ -723,6 +743,8 @@ Frontend restrictions:
 - Do not bypass the API Gateway.
 - Do not duplicate backend business rules.
 
+Use route guards and permission-aware UI visibility for navigation and user experience only. Backend services remain the security boundary and must enforce permissions and resource ownership.
+
 ## React and TypeScript Rules
 
 - Use functional components.
@@ -734,6 +756,46 @@ Frontend restrictions:
 - Centralize API communication.
 - Handle loading, error, empty and success states.
 - Follow accessibility and responsive design standards.
+- Prefer explicit API contract types, avoid unsafe assertions, and preserve strict TypeScript configuration.
+- Keep portal-specific types in their portal and genuinely shared types in `shared/domain/`.
+
+## API Integration and State
+
+- Use the existing centralized Axios infrastructure; do not create duplicate clients.
+- Keep API communication out of presentation components and organize portal operations in feature-specific API modules.
+- Centralize common request and response handling, preserve backend contracts, and use appropriate timeouts and error handling.
+- Keep React Query query keys and invalidation logic consistent.
+- Use local React state for component-specific state and existing Context providers for genuinely shared client state.
+- Do not duplicate server data in unrelated global stores or add another state-management library without a clear requirement.
+- Never expose client secrets or private credentials in frontend code.
+
+## Naming and Test Colocation
+
+- Components and pages: PascalCase.
+- Hooks: camelCase with a `use` prefix.
+- Services and utilities: camelCase.
+- Portal directory names: lowercase.
+- Test files: source filename followed by `.test.ts` or `.test.tsx`.
+- Follow consistent feature-specific CSS naming and existing import conventions; avoid unnecessary file renaming.
+
+Test colocation is an accepted and preferred convention. Keep component tests close to their source files (for example, `HistoryPage.tsx` and `HistoryPage.test.tsx`). Test observable user behavior with the repository's existing Vitest/Jest and React Testing Library setup. Do not create duplicate or empty tests or move tests into `__tests__/` solely for structural consistency. Use shared testing utilities only when genuinely reusable. Keep end-to-end tests in a dedicated location if an E2E framework is implemented.
+
+## Frontend Verification
+
+Before considering a frontend change complete, run applicable ESLint, TypeScript type-check, unit/component tests and production build commands defined by the actual `package.json`. Do not claim checks passed unless they were executed successfully.
+
+## Mandatory Frontend Refactoring Workflow
+
+Before changing frontend architecture:
+
+1. Inspect the existing implementation and understand component and feature responsibilities.
+2. Identify concrete structural problems; do not refactor to match a generic template.
+3. Prepare a file movement or change plan and explain the architectural reason for significant changes.
+4. Refactor only after analysis, preserving existing behavior and backend contracts.
+5. Update affected imports and tests.
+6. Verify functionality and applicable checks.
+
+Never rewrite working components without justification, unintentionally change authentication or authorization behavior, create empty folders, duplicate existing infrastructure, or over-engineer simple components.
 
 ---
 
@@ -1206,7 +1268,7 @@ Build software that is secure, scalable, testable, observable and production-rea
 
 ## 1. Reusability Principle
 
-Whenever reusable code is identified, evaluate whether it should be extracted into an appropriate `utils/` folder.
+Whenever reusable code is identified, evaluate whether it belongs in an appropriate existing shared module or a justified utility module. Do not create a utility folder automatically.
 
 Follow the DRY (Don't Repeat Yourself) principle.
 
@@ -1214,20 +1276,11 @@ Before implementing new functionality:
 - Check whether similar logic already exists.
 - Reuse existing utility functions where appropriate.
 - Avoid duplicating common helper logic.
-- Extract genuinely reusable logic into dedicated utility modules.
+- Extract genuinely reusable logic into a dedicated module only when it has a clear responsibility.
 
 ## 2. Frontend Utilities
 
-Location:
-
-`frontend/src/utils/`
-
-Examples:
-- `dateUtils.ts` – date formatting and date operations.
-- `currencyUtils.ts` – currency formatting.
-- `stringUtils.ts` – reusable string operations.
-- `validationUtils.ts` – generic validation helpers.
-- `formatUtils.ts` – reusable formatting functions.
+Do not create a frontend `utils/` folder automatically. Keep a private single-use helper close to its caller, portal-specific helpers inside their owning portal, and genuinely shared generic helpers in an appropriate existing shared module. Only add a utility module when analysis confirms reuse and a clear responsibility.
 
 ## 3. Backend Utilities
 
