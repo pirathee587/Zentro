@@ -1,6 +1,6 @@
 package com.zentro.notificationintegration.config;
 
-import com.zentro.notificationintegration.service.NotificationRepository;
+import com.zentro.notificationintegration.notification.repository.NotificationRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
