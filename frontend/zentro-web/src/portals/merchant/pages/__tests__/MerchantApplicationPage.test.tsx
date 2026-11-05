@@ -66,6 +66,7 @@ describe('MerchantApplicationPage', () => {
     vi.mocked(getMerchantApplication).mockRejectedValueOnce({ response: { status: 404 } });
     renderApplicationPage();
 
+    fireEvent.change(await screen.findByLabelText('Business name'), { target: { value: 'Good Things' } });
     fireEvent.change(await screen.findByLabelText('Contact phone'), { target: { value: '123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
 
