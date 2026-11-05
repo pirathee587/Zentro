@@ -3,6 +3,8 @@ package com.zentro.identitypartner.security;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import com.zentro.security.config.AudienceValidator;
 import com.zentro.security.config.ZentroSecurityAutoConfiguration;
@@ -21,20 +23,19 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 
 /**
  * ZeroTrustSecurityTest — verifies that every endpoint in identity-partner-service
@@ -48,7 +49,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
     AdminUserController.class,
     MerchantApplicationController.class,
 })
-@Import({ZentroSecurityAutoConfiguration.class, ZeroTrustSecurityTest.LocalJwtDecoderConfiguration.class})
+@Import(ZentroSecurityAutoConfiguration.class)
 @TestPropertySource(properties = {
     "zentro.security.issuer-uri=http://localhost:9000/realms/zentro",
     "zentro.security.audience=zentro-api"
@@ -65,18 +66,18 @@ class ZeroTrustSecurityTest {
     @MockBean UserProfileService userProfileService;
     @MockBean MerchantApplicationService merchantApplicationService;
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class LocalJwtDecoderConfiguration {
-        @Bean
-        JwtDecoder jwtDecoder() {
-            NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withPublicKey((RSAPublicKey) keyPair.getPublic())
-                .build();
-            decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(ISSUER),
-                new AudienceValidator(AUDIENCE)));
-            return decoder;
-        }
+    @MockBean JwtDecoder jwtDecoder;
+
+    @BeforeEach
+    void configureLocalJwtDecoder() {
+        NimbusJwtDecoder localDecoder = NimbusJwtDecoder
+            .withPublicKey((RSAPublicKey) keyPair.getPublic())
+            .build();
+        localDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+            JwtValidators.createDefaultWithIssuer(ISSUER),
+            new AudienceValidator(AUDIENCE)));
+        when(jwtDecoder.decode(anyString())).thenAnswer(invocation ->
+            localDecoder.decode(invocation.getArgument(0)));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
