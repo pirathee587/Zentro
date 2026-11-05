@@ -20,22 +20,35 @@ public class InvalidTransitionException extends RuntimeException {
   private final Set<ParcelStatus> allowedNext;
 
   private InvalidTransitionException(Code code, ParcelStatus currentStatus, ParcelStatus requestedStatus,
-      String message) {
+      String message, Set<ParcelStatus> allowedNext) {
     super(message);
     this.code = code;
     this.currentStatus = currentStatus;
     this.requestedStatus = requestedStatus;
-    this.allowedNext = ParcelLifecycle.allowedNext(currentStatus);
+    this.allowedNext = allowedNext;
   }
 
   public static InvalidTransitionException terminal(ParcelStatus current, ParcelStatus requested) {
     return new InvalidTransitionException(Code.PARCEL_TERMINAL, current, requested,
-        "The parcel is " + current + " and its status can no longer change.");
+        "The parcel is " + current + " and its status can no longer change.",
+        ParcelLifecycle.allowedNext(current));
   }
 
   public static InvalidTransitionException notAllowed(ParcelStatus current, ParcelStatus requested) {
     return new InvalidTransitionException(Code.INVALID_TRANSITION, current, requested,
-        "A parcel cannot move from " + current + " to " + requested + ".");
+        "A parcel cannot move from " + current + " to " + requested + ".",
+        ParcelLifecycle.allowedNext(current));
+  }
+
+  public static InvalidTransitionException notAllowed(ParcelStatus current, ParcelStatus requested, String role) {
+    Set<ParcelStatus> allowed = (role != null && !role.isBlank())
+        ? ParcelLifecycle.allowedNext(current, role)
+        : ParcelLifecycle.allowedNext(current);
+    String normalizedRole = ParcelLifecycle.normalizeRole(role);
+    String message = (!normalizedRole.isBlank())
+        ? "A " + normalizedRole + " caller cannot move a parcel from " + current + " to " + requested + "."
+        : "A parcel cannot move from " + current + " to " + requested + ".";
+    return new InvalidTransitionException(Code.INVALID_TRANSITION, current, requested, message, allowed);
   }
 
   public Code code() {

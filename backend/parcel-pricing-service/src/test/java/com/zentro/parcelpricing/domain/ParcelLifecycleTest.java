@@ -105,5 +105,103 @@ class ParcelLifecycleTest {
     assertThatThrownBy(() -> ParcelLifecycle.allowedNext(null)).isInstanceOf(NullPointerException.class);
     assertThatThrownBy(() -> ParcelLifecycle.isAllowed(ParcelStatus.CREATED, null))
         .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> ParcelLifecycle.allowedNext(null, "DISPATCHER")).isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> ParcelLifecycle.isAllowed(ParcelStatus.CREATED, null, "DISPATCHER"))
+        .isInstanceOf(NullPointerException.class);
+  }
+
+  static Stream<Arguments> allPairsForDispatcher() {
+    return allPairs();
+  }
+
+  @ParameterizedTest(name = "DISPATCHER: {0} -> {1} allowed={2}")
+  @MethodSource("allPairsForDispatcher")
+  @DisplayName("DISPATCHER has the same transitions as the approved general lifecycle table")
+  void dispatcherMatchesApprovedTable(ParcelStatus from, ParcelStatus to, boolean expected) {
+    assertThat(ParcelLifecycle.isAllowed(from, to, "DISPATCHER")).isEqualTo(expected);
+    assertThat(ParcelLifecycle.isAllowed(from, to, "ROLE_DISPATCHER")).isEqualTo(expected);
+    assertThat(ParcelLifecycle.isAllowed(from, to, "dispatcher")).isEqualTo(expected);
+    assertThat(ParcelLifecycle.allowedNext(from, "DISPATCHER").contains(to)).isEqualTo(expected);
+  }
+
+  static Stream<Arguments> allPairsForService() {
+    List<Arguments> pairs = new ArrayList<>();
+    for (ParcelStatus from : ParcelStatus.values()) {
+      for (ParcelStatus to : ParcelStatus.values()) {
+        boolean expected = (from == ParcelStatus.OUT_FOR_DELIVERY && to == ParcelStatus.DELIVERED);
+        pairs.add(Arguments.of(from, to, expected));
+      }
+    }
+    return pairs.stream();
+  }
+
+  @ParameterizedTest(name = "SERVICE: {0} -> {1} allowed={2}")
+  @MethodSource("allPairsForService")
+  @DisplayName("SERVICE is strictly narrowed to only OUT_FOR_DELIVERY -> DELIVERED")
+  void serviceMatchesApprovedTable(ParcelStatus from, ParcelStatus to, boolean expected) {
+    assertThat(ParcelLifecycle.isAllowed(from, to, "SERVICE")).isEqualTo(expected);
+    assertThat(ParcelLifecycle.isAllowed(from, to, "ROLE_SERVICE")).isEqualTo(expected);
+    assertThat(ParcelLifecycle.isAllowed(from, to, "service")).isEqualTo(expected);
+    assertThat(ParcelLifecycle.allowedNext(from, "SERVICE").contains(to)).isEqualTo(expected);
+  }
+
+  @Test
+  @DisplayName("SERVICE has exactly 1 allowed transition across all 36 pairs")
+  void servicePairCountMatches() {
+    assertThat(allPairsForService().filter(a -> (boolean) a.get()[2]).count()).isEqualTo(1);
+    assertThat(ParcelLifecycle.allowedNext(ParcelStatus.OUT_FOR_DELIVERY, "SERVICE"))
+        .containsExactly(ParcelStatus.DELIVERED);
+    assertThat(ParcelLifecycle.allowedNext(ParcelStatus.CREATED, "SERVICE")).isEmpty();
+    assertThat(ParcelLifecycle.allowedNext(ParcelStatus.PICKED_UP, "SERVICE")).isEmpty();
+    assertThat(ParcelLifecycle.allowedNext(ParcelStatus.IN_TRANSIT, "SERVICE")).isEmpty();
+  }
+
+  @ParameterizedTest
+  @EnumSource(ParcelStatus.class)
+  @DisplayName("COURIER has no allowed direct transitions on S2")
+  void courierHasNoAllowedTransitions(ParcelStatus status) {
+    assertThat(ParcelLifecycle.allowedNext(status, "COURIER")).isEmpty();
+    assertThat(ParcelLifecycle.allowedNext(status, "ROLE_COURIER")).isEmpty();
+    for (ParcelStatus target : ParcelStatus.values()) {
+      assertThat(ParcelLifecycle.isAllowed(status, target, "COURIER")).isFalse();
+    }
+  }
+
+  @Test
+  @DisplayName("Unknown or null role has no allowed transitions")
+  void unknownRoleHasNoAllowedTransitions() {
+    for (ParcelStatus status : ParcelStatus.values()) {
+      assertThat(ParcelLifecycle.allowedNext(status, null)).isEmpty();
+      assertThat(ParcelLifecycle.allowedNext(status, "")).isEmpty();
+      assertThat(ParcelLifecycle.allowedNext(status, "UNKNOWN")).isEmpty();
+      assertThat(ParcelLifecycle.allowedNext(status, "CUSTOMER")).isEmpty();
+    }
+  }
+
+  @Test
+  @DisplayName("Role target permissions check matches the approved policy")
+  void roleTargetPermissionsCheck() {
+    for (ParcelStatus status : ParcelStatus.values()) {
+      assertThat(ParcelLifecycle.isRolePermitted(status, "DISPATCHER")).isTrue();
+      assertThat(ParcelLifecycle.isRolePermitted(status, "ROLE_DISPATCHER")).isTrue();
+      assertThat(ParcelLifecycle.isRolePermitted(status, "COURIER")).isFalse();
+      assertThat(ParcelLifecycle.isRolePermitted(status, "CUSTOMER")).isFalse();
+      assertThat(ParcelLifecycle.isRolePermitted(status, null)).isFalse();
+      if (status == ParcelStatus.DELIVERED) {
+        assertThat(ParcelLifecycle.isRolePermitted(status, "SERVICE")).isTrue();
+        assertThat(ParcelLifecycle.isRolePermitted(status, "ROLE_SERVICE")).isTrue();
+      } else {
+        assertThat(ParcelLifecycle.isRolePermitted(status, "SERVICE")).isFalse();
+      }
+    }
+    assertThat(ParcelLifecycle.isRolePermitted(null, "DISPATCHER")).isFalse();
+  }
+
+  @Test
+  @DisplayName("Role normalization strips whitespace, case, and ROLE_ prefix")
+  void roleNormalization() {
+    assertThat(ParcelLifecycle.normalizeRole("  ROLE_DISPATCHER ")).isEqualTo("DISPATCHER");
+    assertThat(ParcelLifecycle.normalizeRole("service")).isEqualTo("SERVICE");
+    assertThat(ParcelLifecycle.normalizeRole(null)).isEmpty();
   }
 }
