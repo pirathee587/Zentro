@@ -15,6 +15,7 @@ import com.zentro.parcelpricing.dto.FeeEstimateResponse;
 import com.zentro.parcelpricing.dto.ParcelBookingResponse;
 import com.zentro.parcelpricing.error.IdempotencyConflictException;
 import com.zentro.parcelpricing.error.PricingUnavailableException;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -103,7 +104,8 @@ public class ParcelBookingService {
       }
     }
 
-    FeeEstimateResponse price = price(request);
+    // Price the weight exactly as entered, like the quotation does; only the stored value is rounded.
+    FeeEstimateResponse price = price(request, rawRequest.parcel().weightKg());
     ParcelBooking draft = toBooking(customerSubject, request, price, idempotencyKey, requestHash);
 
     for (int attempt = 1; ; attempt++) {
@@ -168,13 +170,13 @@ public class ParcelBookingService {
     return new BookingResult(ParcelBookingResponse.from(existing), false);
   }
 
-  private FeeEstimateResponse price(CreateParcelBookingRequest request) {
+  private FeeEstimateResponse price(CreateParcelBookingRequest request, BigDecimal weightKg) {
     FeeEstimateRequest estimate = new FeeEstimateRequest(
         request.sender().city(),
         request.recipient().city(),
         request.destinationType(),
         request.parcel().size(),
-        request.parcel().weightKg(),
+        weightKg,
         request.parcel().category(),
         request.isExpress(),
         null, null, null, null, null, null,
