@@ -74,3 +74,12 @@
   .courier-profile-grid { grid-template-columns: 1fr; }
 }
 
+.courier-delivery-list { list-style: none; padding: 0; display: grid; gap: 18px; }
+.courier-delivery-list .courier-card { display: block; }
+.courier-delivery-id, .courier-proof-fields dd { overflow-wrap: anywhere; }
+.courier-proof-fields { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); gap: 12px; }
+.courier-proof-fields dt { font-weight: 600; }
+.courier-proof-fields dd { margin: 0; white-space: pre-wrap; }
+.courier-form textarea { min-height: 100px; resize: vertical; }
+.courier-form [aria-invalid="true"] { border-color: #a33526; }
+@media (max-width: 600px) { .courier-proof-fields { grid-template-columns: 1fr; } }

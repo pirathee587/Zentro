@@ -11,8 +11,9 @@ import {
   createDelivery,
   BookingError,
   toBookingError,
+  formatMoney,
   type FeeEstimateResponse,
-  type Parcel,
+  type ParcelBookingResponse,
 } from '../services/customerApi';
 import {
   type SendParcelForm,
@@ -69,16 +70,16 @@ export const SendParcelPage: React.FC = () => {
 
   // Booking attempt state
   const [bookingLoading, setBookingLoading] = useState(false);
+  const bookingInFlightRef = useRef(false);
   const [bookingError, setBookingError] = useState<BookingError | null>(null);
-  const [bookedParcel, setBookedParcel] = useState<Parcel | null>(null);
+  const [bookedParcel, setBookedParcel] = useState<ParcelBookingResponse | null>(null);
 
   // Idempotency key is retained across retries of the same booking attempt
   const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
 
-  // Input change handler
+  // Input change handler: clears inline error, clears current quote, and rotates idempotency key
   const handleFieldChange = (name: FieldName, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
-    // Clear inline error on change
     setErrors((prev) => {
       if (!prev[name]) return prev;
       const copy = { ...prev };
@@ -86,6 +87,12 @@ export const SendParcelPage: React.FC = () => {
       return copy;
     });
     setServerErrorBanner(null);
+    setBookingError(null);
+    estimateSeqRef.current += 1;
+    setFeeEstimateResult(null);
+    setEstimateError(null);
+    setEstimating(false);
+    idempotencyKeyRef.current = generateIdempotencyKey();
   };
 
   // Field blur validation
@@ -116,8 +123,6 @@ export const SendParcelPage: React.FC = () => {
           weightKg: parsed,
           destinationType: currentForm.destinationType,
           parcelSize: currentForm.parcelSize,
-          pickupCity: currentForm.pickupAddress || 'Origin Hub',
-          deliveryCity: currentForm.dropoffAddress || 'Destination Hub',
         });
 
         // Ignore stale responses
@@ -146,7 +151,17 @@ export const SendParcelPage: React.FC = () => {
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [form.parcelSize, form.weightKg, form.destinationType, triggerEstimate]);
+  }, [
+    form.pickupAddress,
+    form.pickupPhone,
+    form.destinationType,
+    form.dropoffAddress,
+    form.recipientName,
+    form.recipientPhone,
+    form.parcelSize,
+    form.weightKg,
+    triggerEstimate,
+  ]);
 
   // Handle Step 1 -> Step 2
   const handleProceedToReview = (e: React.FormEvent) => {
@@ -157,7 +172,7 @@ export const SendParcelPage: React.FC = () => {
       return;
     }
 
-    if (!feeEstimateResult) {
+    if (!feeEstimateResult || estimating || estimateError) {
       return;
     }
 
@@ -173,8 +188,9 @@ export const SendParcelPage: React.FC = () => {
 
   // Handle Confirm Booking in Step 2
   const handleConfirmBooking = async () => {
-    if (bookingLoading) return;
+    if (bookingInFlightRef.current || bookingLoading) return;
 
+    bookingInFlightRef.current = true;
     setBookingLoading(true);
     setBookingError(null);
 
@@ -183,16 +199,21 @@ export const SendParcelPage: React.FC = () => {
         {
           sender: {
             name: 'Sender Contact',
-            phone: form.pickupPhone,
-            address: form.pickupAddress,
+            phone: form.pickupPhone.trim(),
+            address: form.pickupAddress.trim(),
           },
           recipient: {
-            name: form.recipientName,
-            phone: form.recipientPhone,
-            address: form.dropoffAddress,
+            name: form.recipientName.trim(),
+            phone: form.recipientPhone.trim(),
+            address: form.dropoffAddress.trim(),
           },
           parcel: {
-            category: form.parcelSize === 'SMALL' ? 'Small Box' : form.parcelSize === 'LARGE' ? 'Large Box' : 'Medium Box',
+            category:
+              form.parcelSize === 'SMALL'
+                ? 'Small Box'
+                : form.parcelSize === 'LARGE'
+                  ? 'Large Box'
+                  : 'Medium Box',
             weightKg: Number(form.weightKg),
             size: form.parcelSize,
           },
@@ -203,24 +224,33 @@ export const SendParcelPage: React.FC = () => {
         }
       );
 
+      idempotencyKeyRef.current = generateIdempotencyKey();
       setBookedParcel(result);
       setStep(3);
     } catch (err: unknown) {
       const bError = toBookingError(err);
       setBookingError(bError);
 
+      // On 409 conflict: rotate idempotency key so the next attempt uses a fresh key
+      if (bError.kind === 'conflict') {
+        idempotencyKeyRef.current = generateIdempotencyKey();
+      }
+
       // On 422 server validation errors: return to Step 1 and map errors
       if (bError.kind === 'validation') {
         const { fieldErrors, unmapped } = mapServerFieldErrors(bError.fieldErrors);
         setErrors(fieldErrors);
-        if (unmapped.length > 0) {
-          setServerErrorBanner(unmapped.join(', '));
+        if (unmapped.length > 0 || Object.keys(fieldErrors).length === 0) {
+          setServerErrorBanner(
+            'Some booking details are missing or invalid. Please check your details.'
+          );
         } else {
           setServerErrorBanner(bError.message || 'Please correct the highlighted fields.');
         }
         setStep(1);
       }
     } finally {
+      bookingInFlightRef.current = false;
       setBookingLoading(false);
     }
   };
@@ -236,11 +266,7 @@ export const SendParcelPage: React.FC = () => {
     setStep(1);
   };
 
-  // Can review if inputs are valid and we have an estimate for current inputs
-  // Prototype API simulation state
-  const [prototypeStatus, setPrototypeStatus] = useState<string>('NORMAL');
-
-  // Can review if inputs are valid and we have an estimate for current inputs
+  // Can review if inputs have a valid quote for the current form state
   const currentWeightNum = parseWeight(form.weightKg);
   const canProceedToReview = Boolean(
     currentWeightNum !== null &&
@@ -443,7 +469,7 @@ export const SendParcelPage: React.FC = () => {
           {/* STEP 2: Review */}
           {step === 2 && (
             <div>
-              {/* 503 / Network Error with Retry */}
+              {/* 503 / Timeout / Network Error with Retry */}
               {bookingError?.kind === 'unavailable' && (
                 <div className="sd-inline-alert sd-inline-alert-error" role="alert">
                   <CircleAlertIcon size={18} />
@@ -461,6 +487,16 @@ export const SendParcelPage: React.FC = () => {
                   >
                     Retry booking
                   </Button>
+                </div>
+              )}
+
+              {/* 400 Bad Request */}
+              {bookingError?.kind === 'bad_request' && (
+                <div className="sd-inline-alert sd-inline-alert-error" role="alert">
+                  <CircleAlertIcon size={18} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{bookingError.message}</p>
+                  </div>
                 </div>
               )}
 
@@ -490,21 +526,33 @@ export const SendParcelPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Generic Booking Error */}
+              {/* 403 Forbidden (no retry) */}
+              {bookingError?.kind === 'forbidden' && (
+                <div className="sd-inline-alert sd-inline-alert-error" role="alert">
+                  <CircleAlertIcon size={18} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{bookingError.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 409 Conflict (key rotated) */}
+              {bookingError?.kind === 'conflict' && (
+                <div className="sd-inline-alert sd-inline-alert-error" role="alert">
+                  <CircleAlertIcon size={18} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{bookingError.message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Unexpected Booking Error */}
               {bookingError?.kind === 'unknown' && (
                 <div className="sd-inline-alert sd-inline-alert-error" role="alert">
                   <CircleAlertIcon size={18} />
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0 }}>{bookingError.message}</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    onClick={handleConfirmBooking}
-                    disabled={bookingLoading}
-                  >
-                    Retry
-                  </Button>
                 </div>
               )}
 
@@ -528,26 +576,42 @@ export const SendParcelPage: React.FC = () => {
                     {SIZE_OPTIONS.find((s) => s.value === form.parcelSize)?.label} • {form.weightKg} kg
                   </span>
                 </div>
-                <div className="sd-review-row">
-                  <span className="sd-review-label">Base + Weight</span>
-                  <span className="sd-review-value">
-                    LKR {((feeEstimateResult?.breakdown.baseFee || 0) + (feeEstimateResult?.breakdown.weightFee || 0)).toLocaleString()}
-                  </span>
-                </div>
-                {Boolean(feeEstimateResult?.breakdown.distanceSurcharge) && (
-                  <div className="sd-review-row">
-                    <span className="sd-review-label">Surcharge</span>
-                    <span className="sd-review-value">
-                      LKR {(feeEstimateResult?.breakdown.distanceSurcharge || 0).toLocaleString()}
-                    </span>
-                  </div>
+                {feeEstimateResult && (
+                  <>
+                    <div className="sd-review-row">
+                      <span className="sd-review-label">Base fee</span>
+                      <span className="sd-review-value">
+                        {formatMoney(feeEstimateResult.breakdown.baseFee, feeEstimateResult.currency)}
+                      </span>
+                    </div>
+                    <div className="sd-review-row">
+                      <span className="sd-review-label">Weight charge</span>
+                      <span className="sd-review-value">
+                        {formatMoney(feeEstimateResult.breakdown.weightFee, feeEstimateResult.currency)}
+                      </span>
+                    </div>
+                    {Boolean(feeEstimateResult.breakdown.distanceSurcharge) && (
+                      <div className="sd-review-row">
+                        <span className="sd-review-label">Surcharge</span>
+                        <span className="sd-review-value">
+                          {formatMoney(
+                            feeEstimateResult.breakdown.distanceSurcharge || 0,
+                            feeEstimateResult.currency
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="sd-review-row is-total">
                   <span className="sd-review-label" style={{ fontWeight: 700, color: 'var(--ink)' }}>
                     Total
                   </span>
                   <span className="sd-review-value" style={{ fontWeight: 700, fontSize: '18px' }}>
-                    {feeEstimateResult?.formattedFee}
+                    {feeEstimateResult
+                      ? feeEstimateResult.formattedFee ||
+                        formatMoney(feeEstimateResult.fee, feeEstimateResult.currency)
+                      : ''}
                   </span>
                 </div>
               </div>
@@ -564,7 +628,11 @@ export const SendParcelPage: React.FC = () => {
                 <Button
                   variant="primary"
                   onClick={handleConfirmBooking}
-                  disabled={bookingLoading || bookingError?.kind === 'unauthorized'}
+                  disabled={
+                    bookingLoading ||
+                    bookingError?.kind === 'unauthorized' ||
+                    bookingError?.kind === 'forbidden'
+                  }
                   loading={bookingLoading}
                 >
                   {bookingLoading ? 'Booking...' : 'Confirm delivery'}
@@ -591,6 +659,25 @@ export const SendParcelPage: React.FC = () => {
               <div className="sd-booked-ref-box" aria-label="Assigned Tracking Reference">
                 {bookedParcel.trackingRef}
               </div>
+
+              {typeof bookedParcel.fee === 'number' && (
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
+                  Confirmed fee: {formatMoney(bookedParcel.fee, bookedParcel.currency)}
+                </p>
+              )}
+
+              {typeof bookedParcel.fee === 'number' &&
+                feeEstimateResult &&
+                bookedParcel.fee !== feeEstimateResult.fee && (
+                  <div className="sd-inline-alert" role="status">
+                    <CircleAlertIcon size={18} />
+                    <span>
+                      Note: The confirmed fee ({formatMoney(bookedParcel.fee, bookedParcel.currency)})
+                      differs from the earlier quote (
+                      {formatMoney(feeEstimateResult.fee, feeEstimateResult.currency)}).
+                    </span>
+                  </div>
+                )}
 
               <p style={{ margin: 0, color: 'var(--mute)', fontSize: '13px' }}>
                 Save this tracking number to follow live hub dispatch updates.
@@ -669,7 +756,7 @@ export const SendParcelPage: React.FC = () => {
                 >
                   <span style={{ color: 'var(--mute)' }}>Base fee</span>
                   <span style={{ fontWeight: 500 }}>
-                    LKR {feeEstimateResult.breakdown.baseFee.toLocaleString()}
+                    {formatMoney(feeEstimateResult.breakdown.baseFee, feeEstimateResult.currency)}
                   </span>
                 </div>
                 <div
@@ -683,7 +770,7 @@ export const SendParcelPage: React.FC = () => {
                 >
                   <span style={{ color: 'var(--mute)' }}>Weight charge</span>
                   <span style={{ fontWeight: 500 }}>
-                    LKR {feeEstimateResult.breakdown.weightFee.toLocaleString()}
+                    {formatMoney(feeEstimateResult.breakdown.weightFee, feeEstimateResult.currency)}
                   </span>
                 </div>
                 <div
@@ -697,7 +784,10 @@ export const SendParcelPage: React.FC = () => {
                 >
                   <span style={{ color: 'var(--mute)' }}>Distance surcharge</span>
                   <span style={{ fontWeight: 500 }}>
-                    LKR {(feeEstimateResult.breakdown.distanceSurcharge || 0).toLocaleString()}
+                    {formatMoney(
+                      feeEstimateResult.breakdown.distanceSurcharge || 0,
+                      feeEstimateResult.currency
+                    )}
                   </span>
                 </div>
                 <div
@@ -713,9 +803,13 @@ export const SendParcelPage: React.FC = () => {
                       letterSpacing: '-0.5px',
                     }}
                   >
-                    {feeEstimateResult.formattedFee}
+                    {feeEstimateResult.formattedFee ||
+                      formatMoney(feeEstimateResult.fee, feeEstimateResult.currency)}
                   </div>
-                  <span className="sr-only">{feeEstimateResult.formattedFee}</span>
+                  <span className="sr-only">
+                    {feeEstimateResult.formattedFee ||
+                      formatMoney(feeEstimateResult.fee, feeEstimateResult.currency)}
+                  </span>
                 </div>
               </div>
 
@@ -728,32 +822,6 @@ export const SendParcelPage: React.FC = () => {
                 }}
               >
                 The fee comes from the pricing service and is locked when you confirm.
-              </div>
-
-              <div style={{ paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
-                <label
-                  htmlFor="prototype-simulate-select"
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--mute)',
-                    display: 'block',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Prototype only: simulate API response
-                </label>
-                <BaseSelect
-                  id="prototype-simulate-select"
-                  className="sd-input sd-select"
-                  style={{ borderRadius: '9999px', padding: '10px 18px', fontSize: '13px' }}
-                  value={prototypeStatus}
-                  onChange={(e) => setPrototypeStatus(e.target.value)}
-                >
-                  <option value="NORMAL">Normal</option>
-                  <option value="ERROR_500">Server error 500</option>
-                  <option value="ERROR_429">Rate limited 429</option>
-                  <option value="ERROR_422">Validation error 422</option>
-                </BaseSelect>
               </div>
             </>
           )}

@@ -39,7 +39,10 @@ describe('portal routing', () => {
   }, 40000);
 
   it('renders the courier portal for an authenticated courier', async () => {
-    server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Zentro Courier', roles: ['COURIER'] })));
+    server.use(
+      http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Zentro Courier', roles: ['COURIER'] })),
+      http.get('*/api/v1/courier/deliveries', () => HttpResponse.json([])),
+    );
     getUser.mockResolvedValueOnce({
       expired: false,
       access_token: 'courier-token',
@@ -49,6 +52,31 @@ describe('portal routing', () => {
     render(<Providers><MemoryRouter initialEntries={['/courier']}><AppRouter /></MemoryRouter></Providers>);
     expect(await screen.findByRole('heading', { name: /Welcome/i }, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /My profile/i })).toBeInTheDocument();
+  });
+
+  it('renders protected proof detail through the courier route', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    server.use(
+      http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Courier', roles: ['COURIER'] })),
+      http.get(`*/api/v1/courier/deliveries/${id}`, () => HttpResponse.json({ parcelId: id, courierId: 'profile', assignedAt: '2026-11-04T10:00:00Z', proofId: 'proof', completionState: 'PENDING' })),
+      http.get(`*/api/v1/courier/deliveries/${id}/proof`, () => HttpResponse.json({ parcelId: id, proofId: 'proof', recipientName: 'Nimal', notes: null, proofReference: 'REF-1', submittedAt: '2026-11-04T11:00:00Z', completionState: 'PENDING', completedAt: null })),
+    );
+    getUser.mockResolvedValueOnce({ expired: false, access_token: 'courier-token',
+      profile: { sub: 'courier-id', realm_access: { roles: ['COURIER'] } },
+      state: { returnTo: `/courier/deliveries/${id}`, entryPoint: 'staff' } } as never);
+    render(<Providers><MemoryRouter initialEntries={[`/courier/deliveries/${id}`]}><AppRouter /></MemoryRouter></Providers>);
+    expect(await screen.findByRole('heading', { name: 'Saved proof' }, { timeout: 10000 })).toBeInTheDocument();
+    expect(screen.getByText('Nimal')).toBeInTheDocument();
+  });
+
+  it('blocks customer access to the courier proof route', async () => {
+    server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'customer-id', name: 'Customer', roles: ['CUSTOMER'] })));
+    getUser.mockResolvedValueOnce({ expired: false, access_token: 'customer-token',
+      profile: { sub: 'customer-id', realm_access: { roles: ['CUSTOMER'] } },
+      state: { returnTo: '/courier/deliveries/11111111-1111-4111-8111-111111111111', entryPoint: 'staff' } } as never);
+    render(<Providers><MemoryRouter initialEntries={['/courier/deliveries/11111111-1111-4111-8111-111111111111']}><AppRouter /></MemoryRouter></Providers>);
+    expect(await screen.findByRole('heading', { name: 'Forbidden' }, { timeout: 10000 })).toBeInTheDocument();
+    expect(screen.queryByText('Saved proof')).not.toBeInTheDocument();
   });
 
   it('renders courier management for an authenticated dispatcher', async () => {

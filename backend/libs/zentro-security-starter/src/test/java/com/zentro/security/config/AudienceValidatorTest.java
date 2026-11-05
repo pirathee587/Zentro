@@ -17,4 +17,9 @@ class AudienceValidatorTest {
         .audience(java.util.List.of("another-api")).issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60)).build();
     assertFalse(new AudienceValidator("zentro-api").validate(jwt).getErrors().isEmpty());
   }
+  @Test void rejectsMissingAudienceClaim() {
+    Jwt jwt = Jwt.withTokenValue("token").header("alg", "none").subject("user-1")
+        .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60)).build();
+    assertFalse(new AudienceValidator("zentro-api").validate(jwt).getErrors().isEmpty());
+  }
 }

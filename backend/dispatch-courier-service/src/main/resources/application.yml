@@ -12,6 +12,14 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
 zentro:
+  pod:
+    parcel-base-url: ${PARCEL_BASE_URL:http://localhost:8082}
+    token-uri: ${POD_TOKEN_URI:}
+    client-id: ${POD_CLIENT_ID:}
+    client-secret: ${POD_CLIENT_SECRET:}
+    worker-enabled: ${POD_WORKER_ENABLED:true}
+    poll-interval-ms: ${POD_POLL_INTERVAL_MS:2000}
+    max-attempts: ${POD_MAX_ATTEMPTS:8}
   identity:
     base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   security:

@@ -10,9 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zentro.parcelpricing.domain.ParcelStatus;
-import com.zentro.parcelpricing.dto.ParcelStatusResponse;
-import com.zentro.parcelpricing.service.ParcelStatusService;
+import com.zentro.parcelpricing.parcel.entity.ParcelStatus;
+import com.zentro.parcelpricing.parcel.dto.ParcelStatusResponse;
+import com.zentro.parcelpricing.parcel.service.ParcelStatusService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -197,14 +197,32 @@ class ParcelStatusIntegrationTest {
     assertThat(outboxCount(parcelId)).isEqualTo(4);
   }
 
+  /**
+   * ZD-25 (Decision 1A): SERVICE is restricted to OUT_FOR_DELIVERY → DELIVERED only.
+   * FAILED transitions must be performed by DISPATCHER with an explicit reason.
+   * This test verifies:
+   *   (a) DISPATCHER can record a FAILED transition with reason and note in the history/outbox.
+   *   (b) SERVICE attempting FAILED from any state is rejected with 409 INVALID_TRANSITION.
+   */
   @Test
-  @DisplayName("FAILED with a reason is recorded by an internal service and the reason is in the event")
-  void failedPathByService() throws Exception {
+  @DisplayName("FAILED with a reason is recorded by DISPATCHER; SERVICE is rejected with 409")
+  void failedPathByDispatcherAndServiceRejected() throws Exception {
+    // --- (b) SERVICE cannot record FAILED from any intermediate state ---
+    UUID parcelIdService = book();
+    move(parcelIdService, "PICKED_UP").andExpect(status().isOk());
+    move(parcelIdService, "{\"status\":\"FAILED\",\"reason\":\"Recipient not available\",\"note\":\"Gate locked\"}",
+        as("service-account-s3", "SERVICE"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"));
+    // No history or outbox entry beyond the initial PICKED_UP move
+    assertThat(historyCount(parcelIdService)).isEqualTo(1);
+    assertThat(outboxCount(parcelIdService)).isEqualTo(1);
+
+    // --- (a) DISPATCHER can record FAILED with a reason and note ---
     UUID parcelId = book();
     move(parcelId, "PICKED_UP").andExpect(status().isOk());
-
     move(parcelId, "{\"status\":\"FAILED\",\"reason\":\"Recipient not available\",\"note\":\"Gate locked\"}",
-        as("service-account-s3", "SERVICE"))
+        as(DISPATCHER, "DISPATCHER"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("FAILED"));
 
@@ -213,8 +231,8 @@ class ParcelStatusIntegrationTest {
          WHERE parcel_id = ? ORDER BY occurred_at DESC, id DESC LIMIT 1
         """, parcelId);
     assertThat(last).containsEntry("to_status", "FAILED").containsEntry("reason", "Recipient not available")
-        .containsEntry("note", "Gate locked").containsEntry("actor_subject", "service-account-s3")
-        .containsEntry("actor_role", "SERVICE");
+        .containsEntry("note", "Gate locked").containsEntry("actor_subject", DISPATCHER)
+        .containsEntry("actor_role", "DISPATCHER");
 
     String payload = jdbc.queryForObject("""
         SELECT payload::text FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.status.updated'
@@ -222,8 +240,8 @@ class ParcelStatusIntegrationTest {
         """, String.class, parcelId);
     JsonNode event = objectMapper.readTree(payload).get("payload");
     assertThat(event.get("failureReason").asText()).isEqualTo("Recipient not available");
-    assertThat(event.get("actorRole").asText()).isEqualTo("SERVICE");
-    assertThat(payload).doesNotContain("Gate locked", "service-account-s3");
+    assertThat(event.get("actorRole").asText()).isEqualTo("DISPATCHER");
+    assertThat(payload).doesNotContain("Gate locked", DISPATCHER);
   }
 
   @Test

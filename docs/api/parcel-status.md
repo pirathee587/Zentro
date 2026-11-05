@@ -20,7 +20,25 @@ Related: #58 event publishing, #60 role-specific restrictions, #59 proof of deli
 - Requesting the current status again is an idempotent success: `200` with `changed: false`, no history row and no event.
 - Every other change is rejected with `409`.
 - `FAILED` requires a reason.
-- Role-specific restrictions (for example, which statuses a courier may set) are added by #60 on top of these rules and can only narrow them.
+- Role-specific restrictions (ZD-25 / #60) are enforced on top of these rules and can only narrow them.
+
+### Role Transition Matrix (ZD-25)
+
+| Current Status | Target Status | DISPATCHER | SERVICE | COURIER | Reason / Rule |
+|---|---|---|---|---|---|
+| `CREATED` | `PICKED_UP` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Operational pickup record. |
+| `PICKED_UP` | `IN_TRANSIT` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Linehaul transit update. |
+| `PICKED_UP` | `FAILED` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Pickup failure (requires non-empty `reason`). |
+| `IN_TRANSIT` | `OUT_FOR_DELIVERY` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Local hub dispatch for delivery. |
+| `IN_TRANSIT` | `FAILED` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Transit loss/damage (requires non-empty `reason`). |
+| `OUT_FOR_DELIVERY` | `DELIVERED` | ✅ Allowed | ✅ Allowed | ❌ Denied (403) | Successful delivery. SERVICE is used by S3 POD completion worker. |
+| `OUT_FOR_DELIVERY` | `FAILED` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Delivery attempt failure (requires non-empty `reason`). |
+| Any Status | *Same Status* | ✅ Allowed (`changed: false`) | ✅ `DELIVERED` only | ❌ Denied (403) | Idempotent repeat. SERVICE may repeat `DELIVERED` only. |
+| `DELIVERED` / `FAILED` | *Any Status* | ❌ Terminal (409) | ❌ Terminal (409) | ❌ Denied (403) | Terminal states reject any further change. |
+
+- **DISPATCHER**: Authorized for all valid transitions in the parcel lifecycle.
+- **SERVICE**: Strictly narrowed to `OUT_FOR_DELIVERY -> DELIVERED` (and idempotent repeat on `DELIVERED`). Intermediate transitions (`PICKED_UP`, `IN_TRANSIT`, `OUT_FOR_DELIVERY`, `FAILED`) are rejected with `409 INVALID_TRANSITION` (empty `allowedNext`).
+- **COURIER**: Forbidden from calling S2 `PATCH /api/v1/parcels/{parcelId}/status` directly (403 Forbidden). Couriers submit Proof of Delivery to S3 (`POST /api/v1/courier/deliveries/{parcelId}/proof`), which validates assignment isolation and calls S2 using a confidential `SERVICE` token.
 
 ## Endpoint
 

@@ -1,17 +1,19 @@
-import type {
-  DashboardData,
-  FeeEstimateRequest,
-  FeeEstimateResponse,
-  CreateDeliveryRequest,
-  CreateDeliveryOptions,
-  DestinationType,
-  Parcel,
-  ListParcelsParams,
-  ListParcelsResponse,
-  Receipt,
-  AssistantResponse,
-  SupportMessagePayload,
-  SupportTicket,
+import {
+  BookingError,
+  type DashboardData,
+  type FeeEstimateRequest,
+  type FeeEstimateResponse,
+  type CreateDeliveryRequest,
+  type CreateDeliveryOptions,
+  type ParcelBookingResponse,
+  type DestinationType,
+  type Parcel,
+  type ListParcelsParams,
+  type ListParcelsResponse,
+  type Receipt,
+  type AssistantResponse,
+  type SupportMessagePayload,
+  type SupportTicket,
 } from '../services/types';
 import { formatMoney, formatDate } from '../services/formatters';
 import {
@@ -28,16 +30,51 @@ const supportTicketsStore: SupportTicket[] = [];
 // Subscribers for real-time tracking
 const parcelSubscribers = new Map<string, Set<(parcel: Parcel) => void>>();
 
-// Idempotency-Key -> parcel created for that key (mirrors server-side idempotency)
-const idempotentBookings = new Map<string, Parcel>();
+// Idempotency-Key -> normalized request signature and booking created for that key (mirrors server-side idempotency)
+const idempotentBookings = new Map<
+  string,
+  { signature: string; booking: ParcelBookingResponse }
+>();
+
+const CROCKFORD_BASE32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 function generateTrackingRef(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let rand = '';
-  for (let i = 0; i < 8; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 10; i++) {
+    rand += CROCKFORD_BASE32.charAt(Math.floor(Math.random() * CROCKFORD_BASE32.length));
   }
-  return `ZTR-SD${rand}`;
+  return `ZT-${rand}`;
+}
+
+function canonicalBookingSignature(payload: CreateDeliveryRequest): string {
+  const emptyToNull = (val?: string) => {
+    if (val === undefined || val === null) return null;
+    const t = val.trim();
+    return t.length > 0 ? t : null;
+  };
+  return JSON.stringify({
+    destinationType: payload.destinationType ?? null,
+    isExpress: Boolean(payload.isExpress),
+    notes: emptyToNull(payload.notes),
+    parcel: {
+      category: payload.parcel.category.trim(),
+      description: emptyToNull(payload.parcel.description),
+      size: payload.parcel.size ?? null,
+      weightKg: Math.round(payload.parcel.weightKg * 100) / 100,
+    },
+    recipient: {
+      address: payload.recipient.address.trim(),
+      city: emptyToNull(payload.recipient.city),
+      name: payload.recipient.name.trim(),
+      phone: payload.recipient.phone.replace(/[\s-]/g, ''),
+    },
+    sender: {
+      address: payload.sender.address.trim(),
+      city: emptyToNull(payload.sender.city),
+      name: payload.sender.name.trim(),
+      phone: payload.sender.phone.replace(/[\s-]/g, ''),
+    },
+  });
 }
 
 /** Mock "server" pricing. The UI must never replicate this; it only displays estimateFee() output. */
@@ -57,7 +94,13 @@ export const mockCustomerAdapter = {
 
   async estimateFee(payload: FeeEstimateRequest): Promise<FeeEstimateResponse> {
     await new Promise((r) => setTimeout(r, 100));
-    const q = priceQuote(payload.weightKg, payload.destinationType, payload.isExpress);
+    const defaultWeight =
+      payload.parcelSize === 'SMALL' ? 1 : payload.parcelSize === 'LARGE' ? 5 : 3;
+    const effectiveWeight =
+      typeof payload.weightKg === 'number' && payload.weightKg > 0
+        ? payload.weightKg
+        : defaultWeight;
+    const q = priceQuote(effectiveWeight, payload.destinationType, payload.isExpress);
 
     return {
       fee: q.total,
@@ -67,36 +110,88 @@ export const mockCustomerAdapter = {
       breakdown: {
         baseFee: q.baseFee,
         weightFee: q.weightFee,
-        distanceSurcharge: q.distanceSurcharge,
-        expressFee: q.expressFee > 0 ? q.expressFee : undefined,
+        ...(q.distanceSurcharge > 0 ? { distanceSurcharge: q.distanceSurcharge } : {}),
+        ...(q.expressFee > 0 ? { expressFee: q.expressFee } : {}),
       },
     };
   },
 
-  async createDelivery(payload: CreateDeliveryRequest, options?: CreateDeliveryOptions): Promise<Parcel> {
+  async createDelivery(
+    payload: CreateDeliveryRequest,
+    options?: CreateDeliveryOptions
+  ): Promise<ParcelBookingResponse> {
     await new Promise((r) => setTimeout(r, 200));
 
-    const existing = options?.idempotencyKey ? idempotentBookings.get(options.idempotencyKey) : undefined;
-    if (existing) return { ...existing };
+    const signature = canonicalBookingSignature(payload);
+    const key = options?.idempotencyKey?.trim();
+    if (key) {
+      const existing = idempotentBookings.get(key);
+      if (existing) {
+        if (existing.signature !== signature) {
+          throw new BookingError(
+            'conflict',
+            'This booking conflicts with an earlier attempt. Review your details and try again',
+            {},
+            409
+          );
+        }
+        return { ...existing.booking };
+      }
+    }
 
     const trackingRef = generateTrackingRef();
     const id = `pcl-${Date.now()}`;
     const fee = priceQuote(payload.parcel.weightKg, payload.destinationType, payload.isExpress).total;
+    const estimatedDays = payload.isExpress
+      ? 1
+      : payload.destinationType === 'OTHER_DISTRICT'
+      ? 3
+      : 2;
     const now = new Date();
-    const estDate = new Date(now.getTime() + (payload.isExpress ? 1 : 2) * 24 * 60 * 60 * 1000);
-    const senderCity = payload.sender.city || payload.sender.address;
-    const recipientCity = payload.recipient.city || payload.recipient.address;
+    const estDate = new Date(now.getTime() + estimatedDays * 24 * 60 * 60 * 1000);
+    const senderCity = payload.sender.city?.trim() || payload.sender.address.trim();
+    const recipientCity = payload.recipient.city?.trim() || payload.recipient.address.trim();
+
+    const bookingResponse: ParcelBookingResponse = {
+      trackingRef,
+      status: 'CREATED',
+      fee,
+      currency: 'LKR',
+      estimatedDays,
+      createdAt: now.toISOString(),
+      sender: {
+        name: payload.sender.name.trim(),
+        phone: payload.sender.phone.replace(/[\s-]/g, ''),
+        address: payload.sender.address.trim(),
+        ...(payload.sender.city?.trim() ? { city: payload.sender.city.trim() } : {}),
+      },
+      recipient: {
+        name: payload.recipient.name.trim(),
+        phone: payload.recipient.phone.replace(/[\s-]/g, ''),
+        address: payload.recipient.address.trim(),
+        ...(payload.recipient.city?.trim() ? { city: payload.recipient.city.trim() } : {}),
+      },
+      parcel: {
+        weightKg: Math.round(payload.parcel.weightKg * 100) / 100,
+        category: payload.parcel.category.trim(),
+        ...(payload.parcel.size ? { size: payload.parcel.size } : {}),
+        ...(payload.parcel.description?.trim()
+          ? { description: payload.parcel.description.trim() }
+          : {}),
+      },
+    };
 
     const newParcel: Parcel = {
       id,
       trackingRef,
       status: 'Created',
-      sender: { ...payload.sender, city: senderCity },
-      recipient: { ...payload.recipient, city: recipientCity },
+      sender: { ...bookingResponse.sender, city: senderCity },
+      recipient: { ...bookingResponse.recipient, city: recipientCity },
       parcel: {
         description: payload.parcel.description || payload.parcel.category,
-        weightKg: payload.parcel.weightKg,
-        category: payload.parcel.category,
+        weightKg: bookingResponse.parcel.weightKg,
+        category: bookingResponse.parcel.category,
+        size: bookingResponse.parcel.size,
       },
       fee,
       formattedFee: formatMoney(fee),
@@ -127,9 +222,11 @@ export const mockCustomerAdapter = {
     };
 
     parcelsStore = [newParcel, ...parcelsStore];
-    if (options?.idempotencyKey) idempotentBookings.set(options.idempotencyKey, newParcel);
+    if (key) {
+      idempotentBookings.set(key, { signature, booking: bookingResponse });
+    }
 
-    // Also auto-generate a receipt
+    // Also auto-generate a demo receipt in mock mode
     const newReceipt: Receipt = {
       id: `rec-${Date.now()}`,
       receiptNumber: `REC-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${parcelsStore.length.toString().padStart(2, '0')}`,
@@ -146,7 +243,7 @@ export const mockCustomerAdapter = {
     };
     receiptsStore = [newReceipt, ...receiptsStore];
 
-    return newParcel;
+    return bookingResponse;
   },
 
   async listParcels(params?: ListParcelsParams): Promise<ListParcelsResponse> {

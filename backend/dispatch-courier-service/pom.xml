@@ -9,6 +9,8 @@
   </parent>
   <artifactId>dispatch-courier-service</artifactId>
   <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.parameters>true</maven.compiler.parameters>
     <!-- Testcontainers 1.x defaults to an API older than current Docker Desktop accepts. -->
     <docker.api.version>1.44</docker.api.version>
   </properties>
@@ -76,6 +78,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+          <environmentVariables>
+            <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
+          </environmentVariables>
           <systemPropertyVariables>
             <api.version>${docker.api.version}</api.version>
           </systemPropertyVariables>

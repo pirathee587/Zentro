@@ -2,6 +2,14 @@ import type { TimelineEvent } from '../components/Timeline';
 
 export type ParcelStatus = 'Created' | 'In progress' | 'Delivered' | 'Failed';
 
+export interface ProofOfDeliverySummary {
+  signedBy?: string;
+  timestamp?: string;
+  notes?: string;
+  signatureUrl?: string;
+  photoUrl?: string;
+}
+
 export interface Parcel {
   id: string;
   trackingRef: string;
@@ -34,6 +42,7 @@ export interface Parcel {
   deliveredAt?: string;
   formattedDeliveredAt?: string;
   failureReason?: string;
+  proofOfDelivery?: ProofOfDeliverySummary;
   courier?: {
     name: string;
     initials?: string;
@@ -133,6 +142,56 @@ export interface CreateDeliveryRequest {
 export interface CreateDeliveryOptions {
   /** Sent as the Idempotency-Key header. Reuse the same key when retrying the same booking. */
   idempotencyKey: string;
+}
+
+export interface ParcelBookingResponse {
+  trackingRef: string;
+  status: 'CREATED' | string;
+  fee: number;
+  currency: string;
+  estimatedDays: number;
+  createdAt: string;
+  sender: {
+    name: string;
+    phone: string;
+    address: string;
+    city?: string;
+  };
+  recipient: {
+    name: string;
+    phone: string;
+    address: string;
+    city?: string;
+  };
+  parcel: {
+    weightKg: number;
+    category: string;
+    size?: ParcelSize | string;
+    description?: string;
+  };
+}
+
+export type BookingErrorKind =
+  | 'validation'
+  | 'bad_request'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'conflict'
+  | 'unavailable'
+  | 'unknown';
+
+/** Typed failure from createDelivery so the UI can decide between field errors, re-login and retry. */
+export class BookingError extends Error {
+  constructor(
+    public readonly kind: BookingErrorKind,
+    message: string,
+    /** Server field errors keyed by request path, e.g. "recipient.phone". */
+    public readonly fieldErrors: Record<string, string> = {},
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = 'BookingError';
+  }
 }
 
 export interface ListParcelsParams {
