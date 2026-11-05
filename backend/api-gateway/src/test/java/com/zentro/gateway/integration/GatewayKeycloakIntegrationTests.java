@@ -91,7 +91,7 @@ class GatewayKeycloakIntegrationTests {
   @LocalServerPort int port;
 
   private static Path realmExportPath() {
-    return Path.of(System.getProperty("user.dir"), "../../infra/keycloak/backups/zentro-realm-export.json")
+    return Path.of(System.getProperty("user.dir"), "../../infra/keycloak/realm-export.json")
         .toAbsolutePath().normalize();
   }
 
