@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthContext, type Auth } from '@/shared/auth/authContext';
-import { apiClient } from '@/shared/api/apiClient';
 import { CallbackPage } from '../index';
 
 function renderWithClient(ui: React.ReactElement) {
@@ -21,31 +20,25 @@ describe('staff sign in handoff', () => {
 });
 
 describe('merchant access handoff', () => {
-  it('keeps an account without MERCHANT role on the application status view', async () => {
-    vi.spyOn(apiClient, 'get').mockRejectedValueOnce({ response: { status: 404 } });
+  it('sends an account without MERCHANT role to merchant registration', async () => {
     const auth: Auth = { user: { id: 'customer', roles: ['CUSTOMER'], accessToken: 'test-token', returnTo: '/merchant' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
-    renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes><Route path="*" element={<CallbackPage />} /><Route path="/customer" element={<h1>Customer dashboard</h1>} /></Routes></AuthContext.Provider></MemoryRouter>);
-    expect(await screen.findByRole('heading', { name: /let's get/i })).toBeInTheDocument();
+    renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes><Route path="*" element={<CallbackPage />} /><Route path="/merchant/register-business" element={<h1>Merchant registration opened</h1>} /><Route path="/customer" element={<h1>Customer dashboard</h1>} /></Routes></AuthContext.Provider></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Merchant registration opened' })).toBeInTheDocument();
     expect(screen.queryByText('Merchant dashboard')).not.toBeInTheDocument();
-    vi.restoreAllMocks();
   });
 
-  it('sends an existing merchant applicant to the status route without showing the dashboard', async () => {
-    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ data: { status: 'PENDING' } });
-    const auth: Auth = { user: { id: 'customer', roles: ['CUSTOMER'], accessToken: 'test-token', returnTo: '/merchant/register-business', entryPoint: 'merchant' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+  it('sends a pending merchant applicant to the status route without showing the dashboard', async () => {
+    const auth: Auth = { user: { id: 'customer', roles: ['CUSTOMER'], accessToken: 'test-token', returnTo: '/merchant/register-business', entryPoint: 'merchant', merchantStatus: 'PENDING' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes><Route path="*" element={<CallbackPage />} /><Route path="/merchant/status" element={<h1>Merchant status opened</h1>} /></Routes></AuthContext.Provider></MemoryRouter>);
     expect(await screen.findByRole('heading', { name: 'Merchant status opened' })).toBeInTheDocument();
     expect(screen.queryByText('Merchant dashboard')).not.toBeInTheDocument();
-    vi.restoreAllMocks();
   });
 
   it('prioritizes a merchant return path over stale customer entry point state', async () => {
-    vi.spyOn(apiClient, 'get').mockRejectedValueOnce({ response: { status: 404 } });
     const auth: Auth = { user: { id: 'customer', roles: ['CUSTOMER'], accessToken: 'test-token', returnTo: '/merchant/dashboard', entryPoint: 'customer' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
-    renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes><Route path="*" element={<CallbackPage />} /><Route path="/customer" element={<h1>Customer dashboard</h1>} /></Routes></AuthContext.Provider></MemoryRouter>);
+    renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes><Route path="*" element={<CallbackPage />} /><Route path="/merchant/register-business" element={<h1>Merchant registration opened</h1>} /><Route path="/customer" element={<h1>Customer dashboard</h1>} /></Routes></AuthContext.Provider></MemoryRouter>);
 
-    expect(await screen.findByRole('heading', { name: /let's get/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Merchant registration opened' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Customer dashboard' })).not.toBeInTheDocument();
-    vi.restoreAllMocks();
   });
 });

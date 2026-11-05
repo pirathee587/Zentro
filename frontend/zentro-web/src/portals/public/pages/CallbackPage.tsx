@@ -1,7 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button, ErrorState, Spinner } from '@/shared/ui';
-import { MerchantApplicationPage } from '@/portals/merchant/pages/MerchantApplicationPage';
 
 export function CallbackPage() {
   const { user, login, logout, loading } = useAuth();
@@ -62,8 +61,7 @@ export function CallbackPage() {
     if (user.roles.includes('MERCHANT')) return <Navigate to="/merchant/dashboard" replace />;
     if (user.roles.includes('CUSTOMER')) {
       if (user.merchantStatus === 'PENDING') return <Navigate to="/merchant/status" replace />;
-      if (!isMerchantApplicationPath) return <Navigate to="/merchant/register-business" replace />;
-      return <MerchantApplicationPage />;
+      return <Navigate to="/merchant/register-business" replace />;
     }
   }
 
