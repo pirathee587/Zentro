@@ -142,6 +142,10 @@ class ParcelEventParserTest {
     assertMalformed(t, statusEvent("FAILED", null), e -> { }, "FAILED without failureReason");
     assertMalformed(t, statusEvent("FAILED", "  "), e -> { }, "FAILED without failureReason");
     assertMalformed(t, statusEvent("FAILED", "x".repeat(201)), e -> { }, "failureReason too long");
+    assertMalformed(t, statusEvent("FAILED", null), e -> payload(e).put("failureReason", 123),
+        "invalid failureReason");
+    assertMalformed(t, statusEvent("DELIVERED", null), e -> payload(e).putNull("failureReason"),
+        "failureReason is only allowed for FAILED");
     assertMalformed(t, statusEvent("DELIVERED", "Lost"), e -> { }, "failureReason is only allowed for FAILED");
   }
 

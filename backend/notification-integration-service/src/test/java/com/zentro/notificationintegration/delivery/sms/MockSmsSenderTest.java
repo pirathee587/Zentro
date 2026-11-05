@@ -23,7 +23,7 @@ class MockSmsSenderTest {
   }
 
   @Test
-  @DisplayName("none: every attempt succeeds and the log holds only id, reference and status")
+  @DisplayName("none: every attempt succeeds without logging recipient reference or message")
   void noneAlwaysSends() {
     Logger logger = (Logger) LoggerFactory.getLogger(MockSmsSender.class);
     ListAppender<ILoggingEvent> logs = new ListAppender<>();
@@ -33,8 +33,8 @@ class MockSmsSenderTest {
       MockSmsSender sender = new MockSmsSender(FailMode.NONE);
       assertThatCode(() -> sender.send(notification(1))).doesNotThrowAnyException();
       assertThat(logs.list).singleElement().satisfies(l -> {
-        assertThat(l.getFormattedMessage()).contains("ZT-ABCDEFGH12", "FAILED");
-        assertThat(l.getFormattedMessage()).doesNotContain("Gate locked", TEXT);
+        assertThat(l.getFormattedMessage()).contains("MOCK_SMS", "FAILED");
+        assertThat(l.getFormattedMessage()).doesNotContain("ZT-ABCDEFGH12", "Gate locked", TEXT);
       });
     } finally {
       logger.detachAppender(logs);

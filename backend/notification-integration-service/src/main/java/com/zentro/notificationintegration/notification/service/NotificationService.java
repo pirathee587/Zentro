@@ -5,6 +5,7 @@ import com.zentro.notificationintegration.messaging.event.ParcelEvent;
 import com.zentro.notificationintegration.notification.entity.NotificationStatus;
 import com.zentro.notificationintegration.notification.repository.NotificationRepository;
 import com.zentro.notificationintegration.notification.template.NotificationMessages;
+import com.zentro.notificationintegration.notification.template.TemplateRenderResult;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -48,21 +49,32 @@ public class NotificationService {
    */
   @Transactional
   public Optional<UUID> handle(ParcelEvent event) {
+    if (event == null) {
+      log.warn("Notification event skipped: category=null_event");
+      return Optional.empty();
+    }
     if (!repository.markProcessed(CONSUMER, event.eventId())) {
       metrics.duplicate();
-      log.debug("Duplicate parcel event {} ignored", event.eventId());
+      log.debug("Duplicate parcel event ignored");
       return Optional.empty();
     }
-    Optional<String> message = messages.messageFor(event);
-    if (message.isEmpty()) {
-      repository.insertAttempt(event, sender.channel(), SKIPPED_MESSAGE_PREFIX + event.status(),
-          NotificationStatus.SKIPPED, null);
+    TemplateRenderResult result = messages.render(event, sender.channel());
+    if (result.outcome() != TemplateRenderResult.Outcome.RENDERED) {
+      String skipMessage = result.outcome() == TemplateRenderResult.Outcome.SKIPPED
+          ? SKIPPED_MESSAGE_PREFIX + event.status() : "Notification template unavailable";
+      if (result.outcome() == TemplateRenderResult.Outcome.VALIDATION_FAILURE) {
+        log.warn("Notification template validation failed: eventType={} templateId={} variables={}",
+            event.eventType(), result.templateId(), result.invalidVariables());
+      } else if (result.outcome() == TemplateRenderResult.Outcome.UNSUPPORTED_EVENT) {
+        log.warn("Unsupported notification event: templateId={}", result.templateId());
+      }
+      repository.insertAttempt(event, sender.channel(), skipMessage, NotificationStatus.SKIPPED, null);
       metrics.skipped();
-      log.info("Notification skipped: eventId={} parcel {} status={}", event.eventId(), event.trackingRef(),
-          event.status());
+      log.info("Notification skipped: eventType={} templateId={} category={}", event.eventType(), result.templateId(),
+          result.outcome());
       return Optional.empty();
     }
-    UUID id = repository.insertAttempt(event, sender.channel(), message.get(), NotificationStatus.PENDING,
+    UUID id = repository.insertAttempt(event, sender.channel(), result.message(), NotificationStatus.PENDING,
         OffsetDateTime.now(clock));
     return Optional.of(id);
   }

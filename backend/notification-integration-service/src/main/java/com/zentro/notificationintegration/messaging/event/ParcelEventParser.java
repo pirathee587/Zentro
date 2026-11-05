@@ -33,6 +33,11 @@ public class ParcelEventParser {
     this.objectMapper = objectMapper;
   }
 
+  /** Event types accepted by the current notification consumer topics. */
+  public static Set<String> supportedEventTypes() {
+    return Set.copyOf(TOPIC_EVENT_TYPES.values());
+  }
+
   public ParcelEvent parse(String topic, String message) {
     if (message == null || message.isBlank()) {
       throw new MalformedEventException("empty message");
@@ -76,15 +81,22 @@ public class ParcelEventParser {
     }
 
     JsonNode reasonNode = payload.get("failureReason");
-    String failureReason = reasonNode == null || reasonNode.isNull() ? null : reasonNode.asText();
+    String failureReason = null;
     if ("FAILED".equals(status)) {
-      if (failureReason == null || failureReason.isBlank()) {
+      if (reasonNode == null) {
         throw new MalformedEventException("FAILED without failureReason");
       }
-      if (failureReason.length() > MAX_FAILURE_REASON) {
+      if (!reasonNode.isTextual()) {
+        throw new MalformedEventException("invalid failureReason");
+      }
+      failureReason = reasonNode.asText();
+      if (failureReason.isBlank()) {
+        throw new MalformedEventException("FAILED without failureReason");
+      }
+      if (failureReason.codePointCount(0, failureReason.length()) > MAX_FAILURE_REASON) {
         throw new MalformedEventException("failureReason too long");
       }
-    } else if (failureReason != null) {
+    } else if (reasonNode != null) {
       throw new MalformedEventException("failureReason is only allowed for FAILED");
     }
 
