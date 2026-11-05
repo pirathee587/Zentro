@@ -74,15 +74,15 @@ export function MerchantApplicationPage() {
   }
 
   if (application.isLoading) {
-    return <section className="auth-card"><Spinner /><p>Checking your business status...</p></section>;
+    return <section className="auth-card merchant-application-card"><Spinner /><p>Checking your business status...</p></section>;
   }
 
   if (application.isError && !isNotFound) {
-    return <section className="auth-card"><ErrorState message={friendlyApiError(application.error, 'We could not load your business status. Please try again.')} /></section>;
+    return <section className="auth-card merchant-application-card"><ErrorState message={friendlyApiError(application.error, 'We could not load your business status. Please try again.')} /></section>;
   }
 
   if (status === 'APPROVED') {
-    return <section className="auth-card">
+    return <section className="auth-card merchant-application-card">
       <h1>Your business is approved.</h1>
       <p>A dispatcher will assign merchant access to your account. Sign in again after access is enabled.</p>
       <EmptyState message="Merchant access requires the MERCHANT role." />
@@ -90,7 +90,7 @@ export function MerchantApplicationPage() {
   }
 
   if (status === 'PENDING') {
-    return <section className="auth-card">
+    return <section className="auth-card merchant-application-card">
       <span className="eyebrow">APPLICATION STATUS</span>
       <h1>Your application is <em>PENDING.</em></h1>
       <p>Your business profile is pending review. We'll update this page when a decision is made.</p>
@@ -99,14 +99,14 @@ export function MerchantApplicationPage() {
   }
 
   if (status === 'REJECTED') {
-    return <section className="auth-card">
+    return <section className="auth-card merchant-application-card">
       <h1>A little more information, please.</h1>
       <p>{application.data?.rejectionReason || 'Your application was not approved. Please contact our team for next steps.'}</p>
       <EmptyState message="Only a dispatcher can approve merchant access." />
     </section>;
   }
 
-  return <form className="auth-card" onSubmit={submit}>
+  return <form className="auth-card merchant-application-card" onSubmit={submit}>
     <span className="eyebrow">BUSINESS REGISTRATION</span>
     <h1>Let's get<br /><em>good things moving.</em></h1>
     <label>Business name<Input required maxLength={140} value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} /></label>

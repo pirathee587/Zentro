@@ -1,15 +1,16 @@
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
-COPY pom.xml ./
-COPY libs/zentro-security-starter/pom.xml libs/zentro-security-starter/pom.xml
-COPY api-gateway/pom.xml api-gateway/pom.xml
-COPY identity-partner-service/pom.xml identity-partner-service/pom.xml
-COPY parcel-pricing-service/pom.xml parcel-pricing-service/pom.xml
-COPY dispatch-courier-service/pom.xml dispatch-courier-service/pom.xml
-COPY tracking-reporting-service/pom.xml tracking-reporting-service/pom.xml
-COPY notification-integration-service/pom.xml notification-integration-service/pom.xml
-COPY . .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q -Dmaven.wagon.http.retryHandler.count=5 -pl identity-partner-service -am package -DskipTests && JAR_FILE="$(find identity-partner-service/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)" && test -n "$JAR_FILE" && cp "$JAR_FILE" /workspace/app.jar
+COPY backend/pom.xml backend/pom.xml
+COPY backend/libs/zentro-security-starter/pom.xml backend/libs/zentro-security-starter/pom.xml
+COPY backend/api-gateway/pom.xml backend/api-gateway/pom.xml
+COPY backend/identity-partner-service/pom.xml backend/identity-partner-service/pom.xml
+COPY backend/parcel-pricing-service/pom.xml backend/parcel-pricing-service/pom.xml
+COPY backend/dispatch-courier-service/pom.xml backend/dispatch-courier-service/pom.xml
+COPY backend/tracking-reporting-service/pom.xml backend/tracking-reporting-service/pom.xml
+COPY backend/notification-integration-service/pom.xml backend/notification-integration-service/pom.xml
+COPY backend/ backend/
+COPY contracts/ contracts/
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q -Dmaven.wagon.http.retryHandler.count=5 -f backend/pom.xml -pl identity-partner-service -am package -DskipTests && JAR_FILE="$(find backend/identity-partner-service/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)" && test -n "$JAR_FILE" && cp "$JAR_FILE" /workspace/app.jar
 FROM eclipse-temurin:21-jre-alpine
 ARG GIT_SHA=dev
 LABEL org.opencontainers.image.title="Zentro Identity Partner Service" org.opencontainers.image.source="https://github.com/zentro/zentro" org.opencontainers.image.revision="${GIT_SHA}"

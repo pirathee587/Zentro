@@ -8,8 +8,8 @@ services:
 
   identity-partner-service:
     build:
-      context: ./backend
-      dockerfile: identity-partner-service/Dockerfile
+      context: .
+      dockerfile: backend/identity-partner-service/Dockerfile
     container_name: zentro-identity-partner-service
     env_file:
       - ./backend/identity-partner-service/.env

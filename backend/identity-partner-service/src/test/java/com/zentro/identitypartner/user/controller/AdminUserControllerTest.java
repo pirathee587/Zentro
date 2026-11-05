@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import java.util.UUID;
@@ -127,7 +128,11 @@ class AdminUserControllerTest {
           .andExpect(jsonPath("$[0].id").value(TARGET_USER_ID.toString()))
           .andExpect(jsonPath("$[0].email").value("smith@zentro.com"))
           .andExpect(jsonPath("$[0].accountStatus").value("ACTIVE"))
-          .andExpect(jsonPath("$[0].enabled").value(true));
+          .andExpect(jsonPath("$[0].enabled").value(true))
+          .andExpect(jsonPath("$[0].password").doesNotExist())
+          .andExpect(jsonPath("$[0].passwordHash").doesNotExist())
+          .andExpect(jsonPath("$[0].accessToken").doesNotExist())
+          .andExpect(jsonPath("$[0].refreshToken").doesNotExist());
 
       verify(profiles).listUsers(eq("ACTIVE"), eq("smith"));
     }
@@ -163,7 +168,11 @@ class AdminUserControllerTest {
           .andExpect(jsonPath("$.accountStatus").value("ACTIVE"))
           .andExpect(jsonPath("$.enabled").value(true))
           .andExpect(jsonPath("$.roles[0]").value("COURIER"))
-          .andExpect(jsonPath("$.keycloak_subject").doesNotExist());
+          .andExpect(jsonPath("$.keycloak_subject").doesNotExist())
+          .andExpect(jsonPath("$.password").doesNotExist())
+          .andExpect(jsonPath("$.passwordHash").doesNotExist())
+          .andExpect(jsonPath("$.accessToken").doesNotExist())
+          .andExpect(jsonPath("$.refreshToken").doesNotExist());
 
       verify(profiles).getById(TARGET_USER_ID);
     }
@@ -224,6 +233,51 @@ class AdminUserControllerTest {
 
       verify(profiles).adminUpdate(eq(TARGET_USER_ID), any(), any(AdminUpdateUserRequest.class));
     }
+
+    @Test
+    void malformedUserIdReturns400WithoutCallingService() throws Exception {
+      mvc.perform(get("/api/v1/admin/users/not-a-uuid")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
+
+    @Test
+    void missingUpdateBodyReturns400WithoutCallingService() throws Exception {
+      mvc.perform(patch("/api/v1/admin/users/" + TARGET_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json"))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
+
+    @Test
+    void oversizedUpdateFieldsReturn400WithoutCallingService() throws Exception {
+      mvc.perform(patch("/api/v1/admin/users/" + TARGET_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"name\":\"" + "A".repeat(201) + "\"}"))
+          .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(profiles);
+    }
+
+    @Test
+    void errorResponsesDoNotExposeSensitiveFields() throws Exception {
+      when(profiles.getById(TARGET_USER_ID))
+          .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+      var result = mvc.perform(get("/api/v1/admin/users/" + TARGET_USER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isNotFound())
+          .andReturn();
+
+      String body = result.getResponse().getContentAsString();
+      assertFalse(body.contains("password"));
+      assertFalse(body.contains("accessToken"));
+      assertFalse(body.contains("refreshToken"));
+    }
   }
 }
-
