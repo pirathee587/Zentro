@@ -49,7 +49,8 @@ class NotificationKafkaIntegrationTest extends AbstractNotificationIntegrationTe
 
     assertThat(awaitRow(created, "SENT").get("message")).isEqualTo("Your SwiftDrop parcel " + ref + " has been booked.");
     assertThat(awaitRow(failed, "SENT").get("message"))
-        .isEqualTo("Delivery of parcel " + ref + " was not completed: Recipient not available.");
+        .isEqualTo("Delivery of parcel " + ref
+            + " was not completed: Recipient not available. Please contact support for help.");
   }
 
   @Test

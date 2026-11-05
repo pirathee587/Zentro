@@ -41,7 +41,7 @@ public class NotificationRetryScheduler {
       try {
         dispatcher.deliver(id);
       } catch (RuntimeException ex) {
-        log.warn("Notification {} could not be retried now: {}", id, ex.getClass().getSimpleName());
+        log.warn("Notification retry deferred: category={}", ex.getClass().getSimpleName());
       }
     }
   }

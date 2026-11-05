@@ -42,8 +42,7 @@ public class MockSmsSender implements NotificationSender {
         || (failMode == FailMode.FIRST_ATTEMPT && notification.attemptNumber() == 1)) {
       throw new NotificationSendException("mock SMS provider unavailable (fail mode " + failMode + ")");
     }
-    log.info("Mock SMS sent: eventId={} to=parcel {} status={} attempt={}",
-        notification.eventId(), notification.trackingRef(), notification.parcelStatus(),
-        notification.attemptNumber());
+    log.info("Mock SMS sent: channel={} status={} attempt={}", CHANNEL,
+        notification.parcelStatus(), notification.attemptNumber());
   }
 }

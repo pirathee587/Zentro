@@ -9,6 +9,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.zentro.notificationintegration.config.NotificationProperties.FailMode;
 import com.zentro.notificationintegration.delivery.sms.MockSmsSender;
 import com.zentro.notificationintegration.messaging.event.ParcelEvent;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -100,6 +104,26 @@ class NotificationServiceTest {
 
     verify(repository).insertRejected("parcel.status.updated", 2, 41L, "missing eventId");
     assertThat(counter(NotificationMetrics.REJECTED)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Template validation logs variable names but no event content")
+  void validationLogContainsNoPersonalOrRawValues() {
+    Logger logger = (Logger) LoggerFactory.getLogger(NotificationService.class);
+    ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    logs.start();
+    logger.addAppender(logs);
+    ParcelEvent invalid = new ParcelEvent(UUID.randomUUID(), "parcel.status.updated", UUID.randomUUID(),
+        OffsetDateTime.parse("2026-11-05T09:59:59Z"), "PRIVATE-TRACKING", "FAILED", "PRIVATE-FAILURE-REASON");
+    when(repository.markProcessed(NotificationService.CONSUMER, invalid.eventId())).thenReturn(true);
+    try {
+      service.handle(invalid);
+      String output = logs.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", (a, b) -> a + b);
+      assertThat(output).contains("trackingRef");
+      assertThat(output).doesNotContain("PRIVATE-TRACKING", "PRIVATE-FAILURE-REASON");
+    } finally {
+      logger.detachAppender(logs);
+    }
   }
 
   @Test

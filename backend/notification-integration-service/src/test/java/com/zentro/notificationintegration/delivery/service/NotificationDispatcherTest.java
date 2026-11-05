@@ -81,7 +81,7 @@ class NotificationDispatcherTest {
 
   private void assertNoMessageTextInLogs() {
     assertThat(logs.list).extracting(ILoggingEvent::getFormattedMessage)
-        .noneMatch(m -> m.contains("Gate locked") || m.contains(TEXT));
+        .noneMatch(m -> m.contains("Gate locked") || m.contains(TEXT) || m.contains("ZT-ABCDEFGH12"));
   }
 
   @Test
@@ -136,7 +136,7 @@ class NotificationDispatcherTest {
     assertThat(registry.get(NotificationMetrics.FAILED).counter().count()).isEqualTo(1);
     assertThat(logs.list).anySatisfy(l -> {
       assertThat(l.getLevel()).isEqualTo(Level.ERROR);
-      assertThat(l.getFormattedMessage()).contains("5 attempts", "ZT-ABCDEFGH12");
+      assertThat(l.getFormattedMessage()).contains("attempts=5");
     });
     assertNoMessageTextInLogs();
   }

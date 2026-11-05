@@ -121,6 +121,24 @@ class ParcelEventConsumerTest {
   }
 
   @Test
+  @DisplayName("Malformed event is acknowledged and does not prevent the next valid event")
+  void malformedEventDoesNotBlockNextValidEvent() {
+    ParcelEvent event = validEvent();
+    UUID notificationId = UUID.randomUUID();
+    when(parser.parse(TOPIC, "bad-json")).thenThrow(new MalformedEventException("not valid JSON"));
+    when(parser.parse(TOPIC, PAYLOAD)).thenReturn(event);
+    when(service.handle(event)).thenReturn(Optional.of(notificationId));
+
+    assertThatCode(() -> consumer.onParcelEvent(record("bad-json"), ack)).doesNotThrowAnyException();
+    assertThatCode(() -> consumer.onParcelEvent(record(PAYLOAD), ack)).doesNotThrowAnyException();
+
+    verify(service).reject(TOPIC, 1, 42L, "not valid JSON");
+    verify(service).handle(event);
+    verify(ack, org.mockito.Mockito.times(2)).acknowledge();
+    verify(dispatcher).deliver(notificationId);
+  }
+
+  @Test
   @DisplayName("Database error while storing event is rethrown before acknowledging so Kafka redelivers")
   void storageFailureIsNotAcknowledged() {
     ParcelEvent event = validEvent();

@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Makes one delivery attempt for a stored notification: SENT on success; otherwise RETRY with exponential
- * back-off and a short error, or FAILED once the attempt limit is reached. Logs carry the event id, tracking
- * reference, status and attempt count only, never the message text.
+ * back-off and a short error, or FAILED once the attempt limit is reached. Logs contain delivery categories only,
+ * never recipient or rendered message data.
  */
 @Service
 public class NotificationDispatcher {
@@ -56,14 +56,14 @@ public class NotificationDispatcher {
       if (attempt >= retry.maxAttempts()) {
         repository.markFailed(row.id(), attempt, error);
         metrics.failed();
-        log.error("Notification failed after {} attempts: eventId={} parcel {} status={}",
-            attempt, row.eventId(), row.trackingRef(), row.parcelStatus());
+        log.error("Notification delivery exhausted retries: channel={} status={} attempts={}",
+            row.channel(), row.parcelStatus(), attempt);
       } else {
         OffsetDateTime next = OffsetDateTime.now(clock).plus(retry.delayAfter(attempt));
         repository.markRetry(row.id(), attempt, error, next);
         metrics.retried();
-        log.warn("Notification attempt {} failed: eventId={} parcel {} status={}; next try at {}",
-            attempt, row.eventId(), row.trackingRef(), row.parcelStatus(), next);
+        log.warn("Notification delivery attempt failed: channel={} status={} category={} nextTry={}",
+            row.channel(), row.parcelStatus(), ex.getClass().getSimpleName(), next);
       }
     }
   }

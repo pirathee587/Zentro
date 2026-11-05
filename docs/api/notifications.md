@@ -21,7 +21,8 @@ S5 turns parcel lifecycle events into customer notifications and records every o
 
 ## Which statuses notify (D2)
 
-Messages are simple fixed texts; template management is #64.
+The current templates are constants in `NotificationMessages` with a purpose-built renderer. Only the existing
+`MOCK_SMS` sender is supported; this service has no email sender, so there are no email subject or HTML parts.
 
 | Event / status | Outcome | Message |
 |---|---|---|
@@ -30,7 +31,23 @@ Messages are simple fixed texts; template management is #64.
 | `IN_TRANSIT` | **SKIPPED** (recorded, nothing sent) | none |
 | `OUT_FOR_DELIVERY` | Sent | `Your parcel <ref> is out for delivery.` |
 | `DELIVERED` | Sent | `Your parcel <ref> has been delivered.` |
-| `FAILED` | Sent | `Delivery of parcel <ref> was not completed: <failureReason>.` |
+| `FAILED` | Sent | `Delivery of parcel <ref> was not completed: <failureReason>. Please contact support for help.` |
+
+Template ids are `parcel.created.mock-sms.v1` and `parcel.status.updated.mock-sms.v1`. The status-updated template
+selects the wording above from the validated `status` field. Variables are:
+
+| Template | Required | Optional | Validation / fallback |
+|---|---|---|---|
+| `parcel.created.mock-sms.v1` | `trackingRef` | none | Must match the producer contract's `ZT-` plus 10 Crockford Base32 characters. |
+| `parcel.status.updated.mock-sms.v1` | `trackingRef`; `failureReason` when status is `FAILED` | none | Tracking reference uses the same contract format; failed reason must be nonblank and at most 200 Unicode code points. Display is capped at 140 code points with an ellipsis. |
+
+There are no optional template variables in the current event payloads, so no fallback text is needed. SMS output removes
+control, bidi and zero-width format characters from variable text. User values are inserted literally and are never
+evaluated as template expressions or turned into links. Missing or invalid variables return a typed validation result;
+the consumer stores a safe `SKIPPED` outcome and acknowledges the event. Unsupported event types also produce a safe
+skip result. The existing parser rejects malformed Kafka payloads and acknowledges them once recorded, preserving the
+consumer's existing no-retry behavior for bad messages. Logs contain template/event categories and failure field
+names only, not tracking references or rendered content.
 
 **Recipient (D1).** Parcel events carry no contact details, so each notification is addressed by tracking reference only (`to=parcel ZT-...`). S5 stores and logs no names, phone numbers or addresses. Sending to a real person needs a contact lookup in S2; that is a follow-up (owner @14Jannan).
 
