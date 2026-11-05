@@ -4,7 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.zentro.security.ZentroSecurityAutoConfiguration;
+import com.zentro.security.config.ZentroSecurityAutoConfiguration;
 import com.zentro.identitypartner.merchant.controller.MerchantApplicationController;
 import com.zentro.identitypartner.merchant.service.MerchantApplicationService;
 import com.zentro.identitypartner.user.controller.AdminUserController;
@@ -219,4 +219,3 @@ class ZeroTrustSecurityTest {
             .andExpect(status().isUnauthorized());
     }
 }
-
