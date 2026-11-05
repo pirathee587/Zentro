@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "parcel.created",
-  "description": "Published by S2 Parcel & Pricing once per new booking (not for idempotent replays). Kafka topic parcel.created, key = parcel id (aggregateId). Delivery is at-least-once; consumers de-duplicate on eventId. Contains no names, phone numbers, addresses or user ids.",
+  "description": "Published by S2 Parcel & Pricing once per new booking (not for idempotent replays). Kafka topic parcel.created, key = parcel id (aggregateId). Delivery is at-least-once; consumers de-duplicate on eventId. Contains no names, phone numbers, addresses or customer ids; merchantId (merchant parcels only) is the merchant account id.",
   "allOf": [{"$ref": "event-envelope.schema.json"}],
   "properties": {
     "eventType": {"const": "parcel.created"},
@@ -12,11 +12,17 @@
         "trackingRef": {"type": "string", "pattern": "^ZT-[0-9A-HJKMNP-TV-Z]{10}$"},
         "status": {"const": "CREATED"},
         "source": {
-          "description": "How the parcel was created. CUSTOMER_BOOKING is published today; MERCHANT_ORDER is reserved for merchant orders.",
+          "description": "How the parcel was created: CUSTOMER_BOOKING for customer bookings, MERCHANT_ORDER for merchant orders.",
           "type": "string",
           "enum": ["CUSTOMER_BOOKING", "MERCHANT_ORDER"]
         },
-        "occurredAt": {"type": "string", "format": "date-time"}
+        "occurredAt": {"type": "string", "format": "date-time"},
+        "merchantId": {
+          "description": "Merchant account id (the merchant's Keycloak subject). Present only for merchant parcels; absent for customer bookings. Optional, added for merchant webhooks (#32).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
       },
       "additionalProperties": false
     }
