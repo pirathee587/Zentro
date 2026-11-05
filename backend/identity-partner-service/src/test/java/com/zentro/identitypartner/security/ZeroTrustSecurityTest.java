@@ -118,7 +118,7 @@ class ZeroTrustSecurityTest {
 
     @Test
     void noToken_merchantApply_returns401() throws Exception {
-        mockMvc.perform(post("/api/v1/merchants/apply")
+        mockMvc.perform(post("/api/v1/merchants")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"businessName\":\"Acme\",\"businessRegNo\":\"BR-1\",\"contactPhone\":\"+94771234567\"}"))
             .andExpect(status().isUnauthorized());
@@ -163,7 +163,7 @@ class ZeroTrustSecurityTest {
 
     @Test
     void customerToken_merchantApply_returns2xx() throws Exception {
-        mockMvc.perform(post("/api/v1/merchants/apply")
+        mockMvc.perform(post("/api/v1/merchants")
                 .header("Authorization", "Bearer " + jwt("CUSTOMER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"businessName\":\"Acme\",\"businessRegNo\":\"BR-1\",\"contactPhone\":\"+94771234567\"}"))
@@ -176,7 +176,7 @@ class ZeroTrustSecurityTest {
 
     @Test
     void dispatcherToken_merchantApply_returns403() throws Exception {
-        mockMvc.perform(post("/api/v1/merchants/apply")
+        mockMvc.perform(post("/api/v1/merchants")
                 .header("Authorization", "Bearer " + jwt("DISPATCHER"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"businessName\":\"Acme\",\"businessRegNo\":\"BR-1\",\"contactPhone\":\"+94771234567\"}"))
