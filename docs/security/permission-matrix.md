@@ -137,12 +137,12 @@ mvn --batch-mode test package
 
 **Actual Reactor Results:**
 - Reactor Summary: `BUILD SUCCESS [ 05:26 min ]` (all 8 modules packaged)
-- Total tests executed across reactor: `1338 run, 0 failures, 0 errors, 15 skipped`
+- Total tests executed across reactor: `1345 run, 0 failures, 0 errors, 15 skipped` (summed from the generated Surefire XML reports)
 - Breakdown by module:
-  - `api-gateway`: 20 unit/route tests passed; 146 integration tests passed (1 skipped: `@Disabled` known problem detail shape mismatch in upstream 5xx sanitizer)
+  - `api-gateway`: 37 unit/route tests passed; 146 integration tests, 1 skipped (`@Disabled` known problem detail shape mismatch in upstream 5xx sanitizer)
   - `identity-partner-service`: 175 tests passed (14 skipped in `CourierPostgresTestcontainersIntegrationTest` due to Testcontainers 1.20.4 API version 1.32 vs Docker 29.8.0 min API version 1.40 requirement; test aborted cleanly via `assumeTrue(isDockerAvailable())`)
-  - `parcel-pricing-service`: 536 tests run, 0 failures, 0 skipped with Docker running
-  - `dispatch-courier-service`: 57 tests run, 0 failures, 0 skipped
+  - `parcel-pricing-service`: 547 tests run, 0 failures, 0 skipped with Docker running
+  - `dispatch-courier-service`: 144 tests run, 0 failures, 0 skipped
   - `tracking-reporting-service`: 31 tests run, 0 failures, 0 skipped with Docker running
   - `notification-integration-service`: 258 tests run, 0 failures, 0 skipped
 
@@ -163,8 +163,8 @@ Focused regression cases:
 | Inspect default/privileged role assignment and SERVICE model | Role assignment section; D1-D2 follow-ups. |
 | Fix only proven gaps with negative tests | F1-F4 fixes and listed tests. |
 | No ADMIN role, authentication rebuild, gateway bypass, or contract change | No role/contract changes; internal service-to-service calls (S2 status update) and JWT setup retained. |
-| Run service and full backend tests with environment/results | Per-module & reactor build success verified: 1338 run, 0 failures, 15 skipped. |
-| Obtain independent @14Jannan review; keep issue Todo / UNVERIFIED | Reviewer assigned; audit status remains unverified pending review. |
+| Run service and full backend tests with environment/results | Per-module & reactor build success verified: 1345 run, 0 failures, 15 skipped. |
+| Obtain independent @14Jannan review; keep issue Todo / UNVERIFIED | Review is pending; issue remains Todo / UNVERIFIED until @14Jannan approves. |
 | Record exact merged commit SHA | To be recorded after merge; no SHA invented. |
 
 | Evidence item | Value |
