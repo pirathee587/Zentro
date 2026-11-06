@@ -41,6 +41,22 @@
 .merchant-outline-link,.merchant-primary-link { display: inline-flex; align-items: center; justify-content: center; gap: 10px; flex: 0 0 auto; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--espresso); font-size: 12px; font-weight: 700; text-decoration: none; }
 .merchant-outline-link:hover,.merchant-primary-link:hover { border-color: var(--gold); }
 .merchant-loading { display: grid; min-height: 220px; place-items: center; }
+.merchant-orders { display: grid; gap: 16px; }
+.merchant-section-note { color: var(--muted); font-size: 11px; }
+.merchant-orders-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 20px; background: var(--paper); }
+.merchant-orders-table { width: 100%; border-collapse: collapse; min-width: 680px; }
+.merchant-orders-table th,.merchant-orders-table td { padding: 17px 20px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; text-align: left; white-space: nowrap; }
+.merchant-orders-table thead th { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
+.merchant-orders-table tbody tr:last-child th,.merchant-orders-table tbody tr:last-child td { border-bottom: 0; }
+.merchant-orders-table tbody th { color: var(--espresso); font-weight: 700; }
+.merchant-order-status { display: inline-flex; padding: 6px 9px; border-radius: 999px; background: #f6f2ed; color: var(--muted); font-size: 11px; font-weight: 700; }
+.merchant-order-status.is-delivered { background: #edf5ee; color: #39764a; }
+.merchant-order-status.is-failed { background: #fbeceb; color: #a44f47; }
+.merchant-orders-state { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 118px; padding: 24px; border: 1px dashed var(--line); border-radius: 20px; background: rgba(255,255,255,.35); color: var(--muted); font-size: 13px; }
+.merchant-orders-state p { margin: 0; color: var(--espresso); font-weight: 700; }
+.merchant-orders-state span { line-height: 1.6; }
+.merchant-orders-error { justify-content: space-between; border-style: solid; }
+.merchant-orders-error [role="alert"] { margin: 0; }
 .merchant-card { max-width: 680px; margin: 50px auto; padding: clamp(28px,5vw,48px); border: 1px solid var(--line); border-radius: 24px; background: var(--paper); }
 .merchant-card h1,.merchant-page-heading h1 { margin: 12px 0; font-size: clamp(36px,5vw,54px); letter-spacing: -1.8px; line-height: 1.06; }
 .merchant-card p,.merchant-page-heading p { color: var(--muted); font-size: 14px; line-height: 1.7; }

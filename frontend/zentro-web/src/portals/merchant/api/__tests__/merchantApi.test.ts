@@ -4,6 +4,7 @@ import {
   createMerchantApplication,
   getMerchantApiKey,
   getMerchantApplication,
+  getMerchantOrders,
   issueMerchantApiKey,
   revokeMerchantApiKey,
 } from '../merchantApi';
@@ -91,5 +92,18 @@ describe('merchant API', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/api/v1/merchants/api-key', expect.any(Object));
     expect(apiClient.post).toHaveBeenCalledWith('/api/v1/merchants/api-key', undefined, expect.any(Object));
     expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/merchants/api-key', expect.any(Object));
+  });
+
+  it('loads only the authenticated merchant order list through the scoped endpoint', async () => {
+    const orders = [{ id: 'order-1', merchantId: 'merchant-1', status: 'DELIVERED' }];
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: orders } as never);
+
+    await expect(getMerchantOrders(auth)).resolves.toEqual(orders);
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/merchant/orders', expect.objectContaining({
+      params: { limit: 50 },
+    }));
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/merchant/orders', expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: expect.any(String) }),
+    }));
   });
 });

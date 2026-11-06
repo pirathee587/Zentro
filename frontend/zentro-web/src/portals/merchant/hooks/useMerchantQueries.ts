@@ -3,6 +3,7 @@ import { useAuth } from '@/shared/auth/useAuth';
 import {
   getMerchantApiKey,
   getMerchantApplication,
+  getMerchantOrders,
   issueMerchantApiKey,
   revokeMerchantApiKey,
 } from '../api/merchantApi';
@@ -10,6 +11,7 @@ import {
 export const merchantQueryKeys = {
   application: (userId?: string) => ['merchant', userId, 'application'] as const,
   apiKey: (userId?: string) => ['merchant', userId, 'api-key'] as const,
+  orders: (userId?: string) => ['merchant', userId, 'orders'] as const,
 };
 
 export function useMerchantApplicationQuery(enabled = true) {
@@ -34,6 +36,20 @@ export function useMerchantApiKeyQuery(enabled = true) {
     enabled: Boolean(user?.accessToken) && enabled,
     retry: false,
     queryFn: () => getMerchantApiKey({
+      accessToken: user?.accessToken,
+      refreshAccessToken,
+    }),
+  });
+}
+
+export function useMerchantOrdersQuery(enabled = true) {
+  const { user, refreshAccessToken } = useAuth();
+
+  return useQuery({
+    queryKey: merchantQueryKeys.orders(user?.id),
+    enabled: Boolean(user?.accessToken) && enabled,
+    retry: false,
+    queryFn: () => getMerchantOrders({
       accessToken: user?.accessToken,
       refreshAccessToken,
     }),
