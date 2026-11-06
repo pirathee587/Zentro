@@ -33,6 +33,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -288,6 +290,41 @@ class ParcelBookingServiceTest {
   }
 
   @Test
+  void sameKeyWithDifferentUnroundedWeightsConflicts() {
+    stubPrice("1072.00", 3);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+    CreateParcelBookingRequest base = request("0771234567");
+    CreateParcelBookingRequest firstRequest = new CreateParcelBookingRequest(
+        base.sender(), base.recipient(), new CreateParcelBookingRequest.ParcelDetails(
+            new BigDecimal("2.551"), base.parcel().category(), base.parcel().size(), base.parcel().description()),
+        base.destinationType(), base.isExpress(), base.notes());
+    CreateParcelBookingRequest retryRequest = new CreateParcelBookingRequest(
+        base.sender(), base.recipient(), new CreateParcelBookingRequest.ParcelDetails(
+            new BigDecimal("2.554"), base.parcel().category(), base.parcel().size(), base.parcel().description()),
+        base.destinationType(), base.isExpress(), base.notes());
+
+    assertThat(service.book(CUSTOMER, firstRequest, "precision-key").created()).isTrue();
+    ArgumentCaptor<ParcelBooking> stored = ArgumentCaptor.forClass(ParcelBooking.class);
+    verify(repository).insert(stored.capture());
+    when(repository.findByCustomerAndIdempotencyKey(CUSTOMER, "precision-key"))
+        .thenReturn(Optional.of(saved(stored.getValue())));
+
+    Throwable conflict = org.assertj.core.api.Assertions.catchThrowable(
+        () -> service.book(CUSTOMER, retryRequest, "precision-key"));
+
+    // Verify side effects even when the expected conflict assertion fails on current code.
+    verify(repository, times(1)).insert(any());
+    verify(eventRepository, times(1)).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+    ArgumentCaptor<FeeEstimateRequest> priced = ArgumentCaptor.forClass(FeeEstimateRequest.class);
+    verify(pricingService, times(1)).estimateFee(priced.capture());
+    assertThat(priced.getValue().weightKg()).isEqualByComparingTo("2.551");
+    assertThat(stored.getValue().weightKg()).isEqualByComparingTo("2.55");
+    assertThat(conflict).as("different price-affecting weights must not replay the same key")
+        .isInstanceOf(IdempotencyConflictException.class);
+  }
+
+  @Test
   @DisplayName("Concurrent duplicate with the same key replays the winning booking")
   void concurrentDuplicateIsReplayed() {
     stubPrice("550.00", 2);
@@ -329,6 +366,86 @@ class ParcelBookingServiceTest {
         new FeeEstimateResponse.Breakdown(new BigDecimal("550.00"), BigDecimal.ZERO, null, null)));
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"2.550", "2.55"})
+  void numericallyEquivalentWeightsReplay(String firstWeight) {
+    stubPrice("1072.00", 3);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+    service.book(CUSTOMER, weightedRequest(firstWeight), "equivalent-key");
+    ArgumentCaptor<ParcelBooking> inserted = ArgumentCaptor.forClass(ParcelBooking.class);
+    verify(repository).insert(inserted.capture());
+    assertThat(inserted.getValue().fingerprintVersion()).isEqualTo(2);
+    ParcelBooking original = saved(inserted.getValue());
+    when(repository.findByCustomerAndIdempotencyKey(CUSTOMER, "equivalent-key")).thenReturn(Optional.of(original));
+    String retryWeight = firstWeight.equals("2.550") ? "2.55" : "2.550";
+    assertThat(service.book(CUSTOMER, weightedRequest(retryWeight), "equivalent-key").booking())
+        .isEqualTo(com.zentro.parcelpricing.parcel.dto.ParcelBookingResponse.from(original));
+    verify(repository, times(1)).insert(any());
+    verify(pricingService, times(1)).estimateFee(any());
+    verify(eventRepository, times(1)).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+  }
+
+  @Test
+  void historicalV1RetainsLegacyReplayAndChangedContentConflict() throws Exception {
+    ParcelBooking original = withFingerprint(saved(draft("unused", "legacy-key")), legacyWeightHash(), 1);
+    when(repository.findByCustomerAndIdempotencyKey(CUSTOMER, "legacy-key")).thenReturn(Optional.of(original));
+    // Historical data cannot recover whether the original input was 2.551 or 2.554.
+    assertThat(service.book(CUSTOMER, weightedRequest("2.554"), "legacy-key").created()).isFalse();
+    assertThatThrownBy(() -> service.book(CUSTOMER, weightedRequest("3.00"), "legacy-key"))
+        .isInstanceOf(IdempotencyConflictException.class);
+    org.mockito.Mockito.verifyNoInteractions(pricingService, eventRepository, trackingReferenceGenerator);
+    verify(repository, never()).insert(any());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {1, 2})
+  void concurrentDuplicateRecoveryUsesStoredWinnerVersion(int winnerVersion) throws Exception {
+    stubPrice("1072.00", 3);
+    when(trackingReferenceGenerator.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+    service.book(CUSTOMER, weightedRequest("2.551"), "race-key");
+    ArgumentCaptor<ParcelBooking> inserted = ArgumentCaptor.forClass(ParcelBooking.class);
+    verify(repository).insert(inserted.capture());
+    ParcelBooking winner = withFingerprint(saved(inserted.getValue()),
+        winnerVersion == 1 ? legacyWeightHash() : inserted.getValue().requestHash(), winnerVersion);
+    when(repository.findByCustomerAndIdempotencyKey(CUSTOMER, "race-key"))
+        .thenReturn(Optional.empty(), Optional.of(winner));
+    org.mockito.Mockito.doThrow(new DuplicateKeyException(
+        "duplicate key value violates unique constraint \"uq_parcel_customer_idempotency\""))
+        .when(repository).insert(any());
+    if (winnerVersion == 1) {
+      assertThat(service.book(CUSTOMER, weightedRequest("2.554"), "race-key").created()).isFalse();
+    } else {
+      assertThatThrownBy(() -> service.book(CUSTOMER, weightedRequest("2.554"), "race-key"))
+          .isInstanceOf(IdempotencyConflictException.class);
+    }
+    verify(eventRepository, times(1)).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+  }
+
+  private static CreateParcelBookingRequest weightedRequest(String weight) {
+    var base = request("0771234567");
+    return new CreateParcelBookingRequest(base.sender(), base.recipient(),
+        new CreateParcelBookingRequest.ParcelDetails(new BigDecimal(weight), base.parcel().category(),
+            base.parcel().size(), base.parcel().description()), base.destinationType(), base.isExpress(), base.notes());
+  }
+
+  private static ParcelBooking withFingerprint(ParcelBooking b, String hash, int version) {
+    return new ParcelBooking(b.id(), b.trackingRef(), b.customerSubject(), b.sender(), b.recipient(),
+        b.weightKg(), b.size(), b.category(), b.description(), b.destinationType(), b.express(), b.notes(),
+        b.fee(), b.currency(), b.estimatedDays(), b.status(), b.idempotencyKey(), hash, version, b.createdAt(), b.updatedAt());
+  }
+
+  private static String legacyWeightHash() throws Exception {
+    // Frozen v1 canonical JSON, independent of the current fingerprint implementation.
+    String canonical = "{\"destinationType\":\"OTHER_DISTRICT\",\"isExpress\":false,\"notes\":null,"
+        + "\"parcel\":{\"category\":\"Small Box\",\"description\":null,\"size\":\"SMALL\",\"weightKg\":2.55},"
+        + "\"recipient\":{\"address\":\"45 Temple Street, Kandy\",\"city\":\"Kandy\",\"name\":\"Kamala Silva\",\"phone\":\"+94771234567\"},"
+        + "\"sender\":{\"address\":\"12 Galle Road, Colombo 03\",\"city\":\"Colombo\",\"name\":\"Nimal Perera\",\"phone\":\"0771234567\"}}";
+    return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+        .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+  }
+
   private static DuplicateKeyException trackingRefCollision() {
     return new DuplicateKeyException("duplicate key value violates unique constraint \"uq_parcel_tracking_ref\"");
   }
@@ -348,7 +465,7 @@ class ParcelBookingServiceTest {
         new ParcelBooking.Contact("A", "0771234567", "12 Galle Road", null),
         new ParcelBooking.Contact("B", "0771234567", "45 Temple Street", null),
         new BigDecimal("2.00"), ParcelSize.SMALL, "Small Box", null, DestinationType.SAME_CITY, false, null,
-        new BigDecimal("670.00"), "LKR", 2, ParcelStatus.CREATED, idempotencyKey, requestHash, null, null);
+        new BigDecimal("670.00"), "LKR", 2, ParcelStatus.CREATED, idempotencyKey, requestHash, 1, null, null);
   }
 
   private static ParcelBooking saved(ParcelBooking draft) {
@@ -356,6 +473,6 @@ class ParcelBookingServiceTest {
     return new ParcelBooking(UUID.randomUUID(), draft.trackingRef(), draft.customerSubject(), draft.sender(),
         draft.recipient(), draft.weightKg(), draft.size(), draft.category(), draft.description(),
         draft.destinationType(), draft.express(), draft.notes(), draft.fee(), draft.currency(),
-        draft.estimatedDays(), draft.status(), draft.idempotencyKey(), draft.requestHash(), now, now);
+        draft.estimatedDays(), draft.status(), draft.idempotencyKey(), draft.requestHash(), draft.fingerprintVersion(), now, now);
   }
 }

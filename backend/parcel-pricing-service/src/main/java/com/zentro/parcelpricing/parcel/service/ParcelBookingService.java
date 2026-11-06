@@ -97,12 +97,12 @@ public class ParcelBookingService {
 
   public BookingResult book(String customerSubject, CreateParcelBookingRequest rawRequest, String idempotencyKey) {
     CreateParcelBookingRequest request = normalize(rawRequest);
-    String requestHash = idempotencyKey == null ? null : hash(request);
+    String requestHash = idempotencyKey == null ? null : fingerprint(rawRequest, 2);
 
     if (idempotencyKey != null) {
       Optional<ParcelBooking> existing = repository.findByCustomerAndIdempotencyKey(customerSubject, idempotencyKey);
       if (existing.isPresent()) {
-        return replay(existing.get(), requestHash);
+        return replay(existing.get(), rawRequest);
       }
     }
 
@@ -125,7 +125,7 @@ public class ParcelBookingService {
         if (idempotencyKey != null && ParcelBookingRepository.isIdempotencyKeyDuplicate(ex)) {
           // A concurrent request with the same key won the race; return its booking instead.
           return repository.findByCustomerAndIdempotencyKey(customerSubject, idempotencyKey)
-              .map(winner -> replay(winner, requestHash))
+              .map(winner -> replay(winner, rawRequest))
               .orElseThrow(() -> ex);
         }
         if (!ParcelBookingRepository.isTrackingRefCollision(ex) || attempt >= MAX_TRACKING_REF_ATTEMPTS) {
@@ -165,8 +165,8 @@ public class ParcelBookingService {
     }
   }
 
-  private BookingResult replay(ParcelBooking existing, String requestHash) {
-    if (!existing.requestHash().equals(requestHash)) {
+  private BookingResult replay(ParcelBooking existing, CreateParcelBookingRequest rawRequest) {
+    if (!existing.requestHash().equals(fingerprint(rawRequest, existing.fingerprintVersion()))) {
       throw new IdempotencyConflictException();
     }
     return new BookingResult(ParcelBookingResponse.from(existing), false);
@@ -218,6 +218,7 @@ public class ParcelBookingService {
         ParcelStatus.CREATED,
         idempotencyKey,
         requestHash,
+        idempotencyKey == null ? 1 : 2,
         null,
         null);
   }
@@ -258,7 +259,17 @@ public class ParcelBookingService {
     return trimmed.isEmpty() ? null : trimmed;
   }
 
-  private String hash(CreateParcelBookingRequest request) {
+  private String fingerprint(CreateParcelBookingRequest rawRequest, int version) {
+    CreateParcelBookingRequest request = normalize(rawRequest);
+    if (version == 2) {
+      var parcel = request.parcel();
+      request = new CreateParcelBookingRequest(request.sender(), request.recipient(),
+          new CreateParcelBookingRequest.ParcelDetails(rawRequest.parcel().weightKg().stripTrailingZeros(),
+              parcel.category(), parcel.size(), parcel.description()),
+          request.destinationType(), request.isExpress(), request.notes());
+    } else if (version != 1) {
+      throw new IllegalStateException("Unsupported booking fingerprint version: " + version);
+    }
     try {
       byte[] json = canonicalMapper.writeValueAsBytes(request);
       byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);

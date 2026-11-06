@@ -126,6 +126,30 @@ class BookingDuplicateSubmissionIntegrationTest {
   }
 
   @Test
+  void sameKeyDifferentPriceAffectingPrecisionReturns409() throws Exception {
+    String subject = "precision-" + UUID.randomUUID();
+    String key = UUID.randomUUID().toString();
+    MockHttpServletResponse first = book(subject, key, BODY.replace("2.0", "2.551"));
+    assertThat(first.getStatus()).isEqualTo(201);
+    UUID parcelId = UUID.fromString(json(first).get("id").asText());
+    var original = jdbc.queryForMap("SELECT * FROM parcel.parcel WHERE id = ?", parcelId);
+    var originalEvent = jdbc.queryForMap(
+        "SELECT * FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.created'", parcelId);
+
+    MockHttpServletResponse second = book(subject, key, BODY.replace("2.0", "2.554"));
+
+    // Check persistence before the regression assertion, so the failing run still verifies no overwrite.
+    assertThat(parcelRows(subject)).isEqualTo(1);
+    assertThat(createdEvents(subject)).isEqualTo(1);
+    assertThat(jdbc.queryForMap("SELECT * FROM parcel.parcel WHERE id = ?", parcelId)).isEqualTo(original);
+    assertThat(jdbc.queryForMap(
+        "SELECT * FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.created'", parcelId))
+        .isEqualTo(originalEvent);
+    assertThat(second.getStatus()).as("changed price-affecting precision must conflict rather than replay")
+        .isEqualTo(409);
+  }
+
+  @Test
   @DisplayName("Five parallel requests with one key create exactly one booking and one event")
   void parallelRequestsCreateOneBooking() throws Exception {
     String key = UUID.randomUUID().toString();
@@ -158,6 +182,113 @@ class BookingDuplicateSubmissionIntegrationTest {
     }
     assertThat(parcelRows("dup-c")).isEqualTo(1);
     assertThat(createdEvents("dup-c")).isEqualTo(1);
+  }
+
+  @Test
+  void numericEquivalenceReplaysWithoutRewritingV2Fingerprint() throws Exception {
+    String subject = "equivalent-" + UUID.randomUUID();
+    String key = UUID.randomUUID().toString();
+    assertThat(book(subject, key, BODY.replace("2.0", "2.550")).getStatus()).isEqualTo(201);
+    var original = jdbc.queryForMap("SELECT * FROM parcel.parcel WHERE customer_subject = ?", subject);
+    assertThat(((Number) original.get("fingerprint_version")).intValue()).isEqualTo(2);
+    assertThat(book(subject, key, BODY.replace("2.0", "2.55")).getStatus()).isEqualTo(200);
+    assertThat(jdbc.queryForMap("SELECT * FROM parcel.parcel WHERE customer_subject = ?", subject)).isEqualTo(original);
+    assertThat(createdEvents(subject)).isEqualTo(1);
+  }
+
+  @Test
+  void migrationPreservesHistoricalFingerprintAndDefaultsItsVersionToV1() {
+    try (PostgreSQLContainer<?> historical = new PostgreSQLContainer<>("postgres:16-alpine")) {
+      historical.start();
+      var flyway = org.flywaydb.core.Flyway.configure()
+          .dataSource(historical.getJdbcUrl(), historical.getUsername(), historical.getPassword())
+          .target("7").load();
+      flyway.migrate();
+      var database = new JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
+          historical.getJdbcUrl(), historical.getUsername(), historical.getPassword()));
+      String hash = "a".repeat(64);
+      database.update("""
+          INSERT INTO parcel.parcel (tracking_ref, customer_subject, sender_name, sender_phone, sender_address,
+            recipient_name, recipient_phone, recipient_address, weight_kg, category, fee, currency,
+            estimated_days, idempotency_key, request_hash)
+          VALUES ('ZT-UPGRADE123', 'historical', 'Sender', '0771234567', 'Colombo',
+            'Recipient', '0712345678', 'Kandy', 2.55, 'Small Box', 1072, 'LKR', 3, 'old-key', ?)
+          """, hash);
+      var original = database.queryForMap("SELECT * FROM parcel.parcel WHERE customer_subject = 'historical'");
+      org.flywaydb.core.Flyway.configure()
+          .dataSource(historical.getJdbcUrl(), historical.getUsername(), historical.getPassword()).load().migrate();
+      var upgraded = database.queryForMap("SELECT * FROM parcel.parcel WHERE customer_subject = 'historical'");
+      assertThat(((Number) upgraded.remove("fingerprint_version")).intValue()).isEqualTo(1);
+      assertThat(upgraded).isEqualTo(original);
+    }
+  }
+
+  @Test
+  void historicalV1FingerprintReplaysAndRejectsChangedContent() throws Exception {
+    String subject = "legacy-" + UUID.randomUUID();
+    String key = UUID.randomUUID().toString();
+    // Frozen pre-v2 serialization, independent of the current fingerprint implementation.
+    String canonical = """
+        {"destinationType":"OTHER_DISTRICT","isExpress":false,"notes":null,"parcel":{"category":"Small Box","description":null,"size":"SMALL","weightKg":2.55},"recipient":{"address":"45 Temple Street, Kandy","city":null,"name":"Dup Recipient","phone":"0712345678"},"sender":{"address":"12 Galle Road, Colombo 03","city":null,"name":"Dup Sender","phone":"0771234567"}}
+        """.strip();
+    String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+        .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    jdbc.update("""
+        INSERT INTO parcel.parcel (tracking_ref, customer_subject, sender_name, sender_phone, sender_address,
+          recipient_name, recipient_phone, recipient_address, weight_kg, size, category, destination_type,
+          fee, currency, estimated_days, idempotency_key, request_hash)
+        VALUES (?, ?, 'Dup Sender', '0771234567', '12 Galle Road, Colombo 03',
+          'Dup Recipient', '0712345678', '45 Temple Street, Kandy', 2.55, 'SMALL', 'Small Box',
+          'OTHER_DISTRICT', 1072.00, 'LKR', 3, ?, ?)
+        """, "ZT-LEGACY1234", subject, key, hash);
+    var original = jdbc.queryForMap("SELECT * FROM parcel.parcel WHERE customer_subject = ?", subject);
+    assertThat(((Number) original.get("fingerprint_version")).intValue()).isEqualTo(1);
+    assertThat(book(subject, key, BODY.replace("2.0", "2.554")).getStatus()).isEqualTo(200);
+    assertThat(book(subject, key, BODY.replace("2.0", "3.0")).getStatus()).isEqualTo(409);
+    assertThat(jdbc.queryForMap("SELECT * FROM parcel.parcel WHERE customer_subject = ?", subject)).isEqualTo(original);
+    assertThat(createdEvents(subject)).isZero();
+  }
+
+  @Test
+  void concurrentPrecisionConflictCreatesOnlyWinningBooking() throws Exception {
+    String subject = "conflicting-" + UUID.randomUUID();
+    String key = UUID.randomUUID().toString();
+    CountDownLatch start = new CountDownLatch(1);
+    ExecutorService pool = Executors.newFixedThreadPool(2);
+    try {
+      Future<MockHttpServletResponse> first = pool.submit(() -> {
+        start.await();
+        return book(subject, key, BODY.replace("2.0", "2.551"));
+      });
+      Future<MockHttpServletResponse> second = pool.submit(() -> {
+        start.await();
+        return book(subject, key, BODY.replace("2.0", "2.554"));
+      });
+      start.countDown();
+      var a = first.get(30, java.util.concurrent.TimeUnit.SECONDS);
+      var b = second.get(30, java.util.concurrent.TimeUnit.SECONDS);
+      assertThat(List.of(a.getStatus(), b.getStatus())).containsExactlyInAnyOrder(201, 409);
+      String winnerWeight = a.getStatus() == 201 ? "2.551" : "2.554";
+      assertThat(book(subject, key, BODY.replace("2.0", winnerWeight)).getStatus()).isEqualTo(200);
+    } finally {
+      pool.shutdownNow();
+    }
+    assertThat(parcelRows(subject)).isEqualTo(1);
+    assertThat(createdEvents(subject)).isEqualTo(1);
+  }
+
+  @Test
+  void differentKeysKeepPrecisionDistinctBookingsIndependent() throws Exception {
+    String subject = "distinct-" + UUID.randomUUID();
+    var first = book(subject, "first", BODY.replace("2.0", "2.551"));
+    var second = book(subject, "second", BODY.replace("2.0", "2.554"));
+    assertThat(first.getStatus()).isEqualTo(201);
+    assertThat(second.getStatus()).isEqualTo(201);
+    assertThat(json(first).get("id")).isNotEqualTo(json(second).get("id"));
+    assertThat(jdbc.queryForList("SELECT request_hash FROM parcel.parcel WHERE customer_subject = ?", String.class, subject))
+        .doesNotHaveDuplicates().hasSize(2);
+    assertThat(parcelRows(subject)).isEqualTo(2);
+    assertThat(createdEvents(subject)).isEqualTo(2);
   }
 
   @Test

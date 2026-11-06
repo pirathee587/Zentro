@@ -27,6 +27,7 @@ public record ParcelBooking(
     ParcelStatus status,
     String idempotencyKey,
     String requestHash,
+    int fingerprintVersion,
     OffsetDateTime createdAt,
     OffsetDateTime updatedAt
 ) {
@@ -35,6 +36,6 @@ public record ParcelBooking(
   public ParcelBooking withTrackingRef(String newTrackingRef) {
     return new ParcelBooking(id, newTrackingRef, customerSubject, sender, recipient, weightKg, size, category,
         description, destinationType, express, notes, fee, currency, estimatedDays, status, idempotencyKey,
-        requestHash, createdAt, updatedAt);
+        requestHash, fingerprintVersion, createdAt, updatedAt);
   }
 }

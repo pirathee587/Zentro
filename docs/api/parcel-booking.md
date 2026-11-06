@@ -104,11 +104,15 @@ Example 422:
 ## Idempotency
 
 - The key is unique per customer: `UNIQUE (customer_subject, idempotency_key)`.
-- The server stores a SHA-256 hash of the normalised request. Text is trimmed, phone separators are removed and the weight is rounded to 2 decimals.
+- The server stores a SHA-256 hash of deterministic canonical JSON and its internal fingerprint version. Text is trimmed and phone separators are removed.
+- New keyed bookings use v2: the fingerprint retains full numeric weight precision, with trailing zeros removed. `2.550` and `2.55` replay identically; `2.551` and `2.554` conflict. Pricing still receives the original weight, and stored parcel weight remains rounded to 2 decimals.
+- Historical bookings retain v1: weight is rounded to 2 decimals for comparison. Their original precision cannot be recovered, so historical keys keep that compatibility behavior. Replays never rewrite hashes or versions.
 - Same key and same body: the original booking is returned with `200`, and nothing new is priced or saved.
 - Same key and a different body: `409`.
 - No header: every request creates a new booking.
-- Two concurrent requests with the same key: the second insert hits the unique constraint, and the service returns the winning booking.
+- Two concurrent requests with the same key: the second insert hits the unique constraint; comparison uses the winning booking's stored version and returns its booking or `409` for conflicting content.
+
+Migration `V8__add_booking_fingerprint_version.sql` adds internal version metadata, defaulting existing rows and no-key/merchant inserts to v1. The customer/key unique constraint is unchanged. No public request or response field is added. Deploy the migration before the new service and drain old S2 writers before enabling v2 writes: old binaries cannot interpret v2 hashes. Downgrading to an old binary after v2 writes requires an explicit compatibility plan; do not rehash existing rows.
 
 ## Pricing dependency
 
