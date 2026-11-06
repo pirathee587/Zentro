@@ -32,11 +32,12 @@ This does not cover unpublished/private work.
 - New `dispatch`-owned Flyway `V1__dispatch_assignments.sql` (the first S3
   migration; no existing migration changed). Stores parcel, canonical courier
   profile/user UUIDs, assigning JWT subject and database-generated timestamp.
-- `AssignmentRepository` performs a transaction with `INSERT ... ON CONFLICT
-  (parcel_id) DO NOTHING RETURNING`. The database primary key arbitrates competing
-  requests even across different service instances. A losing request returns 409;
-  it never overwrites the winner. This initial-assignment scope has no release or
-  reassignment operation.
+- `AssignmentRepository` performs a transaction that takes a PostgreSQL
+  transaction-scoped advisory lock for the parcel before
+  `INSERT ... ON CONFLICT (parcel_id) DO NOTHING RETURNING`. The database
+  primary key remains the final arbiter across different service instances.
+  A losing request returns 409; it never overwrites the winner. This
+  initial-assignment scope has no release or reassignment operation.
 - Dispatcher-only GET `/api/v1/dispatch/queue` (alias `/unassigned`), GET
   `/api/v1/dispatch/eligible-couriers?parcelId=<uuid>`, POST
   `/api/v1/dispatch/assignments` with `{parcelId,courierId}`. Input validation,
