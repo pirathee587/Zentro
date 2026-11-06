@@ -325,4 +325,110 @@ class ParcelStatusIntegrationTest {
     move(parcelId, "{\"status\":\"PICKED_UP\"}", as("it-customer-1", "CUSTOMER")).andExpect(status().isForbidden());
     assertThat(parcelRow(parcelId)).containsEntry("status", "CREATED");
   }
+
+  @Test
+  @DisplayName("SERVICE role successfully delivers parcel from OUT_FOR_DELIVERY and repeats idempotently")
+  void serviceRoleSuccessfulDeliveryAndRepeat() throws Exception {
+    UUID parcelId = book();
+    // Advance to OUT_FOR_DELIVERY via DISPATCHER
+    move(parcelId, "PICKED_UP").andExpect(status().isOk());
+    move(parcelId, "IN_TRANSIT").andExpect(status().isOk());
+    move(parcelId, "OUT_FOR_DELIVERY").andExpect(status().isOk());
+
+    int historyBeforeDelivery = historyCount(parcelId);
+    int outboxBeforeDelivery = outboxCount(parcelId);
+
+    // A. SERVICE role completes transition to DELIVERED
+    move(parcelId, "{\"status\":\"DELIVERED\"}", as("service-account-s3", "SERVICE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("DELIVERED"))
+        .andExpect(jsonPath("$.previousStatus").value("OUT_FOR_DELIVERY"))
+        .andExpect(jsonPath("$.changed").value(true));
+
+    // Verify parcel status in DB is DELIVERED
+    assertThat(parcelRow(parcelId))
+        .containsEntry("status", "DELIVERED")
+        .containsEntry("version", 4L);
+
+    // Verify status history actor_role is SERVICE
+    Map<String, Object> lastHistory = jdbc.queryForMap("""
+        SELECT from_status, to_status, actor_role, actor_subject FROM parcel.parcel_status_history
+         WHERE parcel_id = ? ORDER BY occurred_at DESC, id DESC LIMIT 1
+        """, parcelId);
+    assertThat(lastHistory)
+        .containsEntry("from_status", "OUT_FOR_DELIVERY")
+        .containsEntry("to_status", "DELIVERED")
+        .containsEntry("actor_role", "SERVICE")
+        .containsEntry("actor_subject", "service-account-s3");
+    assertThat(historyCount(parcelId)).isEqualTo(historyBeforeDelivery + 1);
+
+    // Verify parcel.status.updated outbox payload actorRole is SERVICE
+    String latestOutbox = jdbc.queryForObject("""
+        SELECT payload::text FROM parcel.outbox_event
+         WHERE aggregate_id = ? AND event_type = 'parcel.status.updated'
+         ORDER BY occurred_at DESC LIMIT 1
+        """, String.class, parcelId);
+    JsonNode eventPayload = objectMapper.readTree(latestOutbox).get("payload");
+    assertThat(eventPayload.get("status").asText()).isEqualTo("DELIVERED");
+    assertThat(eventPayload.get("previousStatus").asText()).isEqualTo("OUT_FOR_DELIVERY");
+    assertThat(eventPayload.get("actorRole").asText()).isEqualTo("SERVICE");
+    assertThat(outboxCount(parcelId)).isEqualTo(outboxBeforeDelivery + 1);
+
+    // B. SERVICE role idempotent repeat
+    move(parcelId, "{\"status\":\"DELIVERED\"}", as("service-account-s3", "SERVICE"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("DELIVERED"))
+        .andExpect(jsonPath("$.changed").value(false));
+
+    // Verify no additional status history row and no duplicate outbox event
+    assertThat(historyCount(parcelId)).isEqualTo(historyBeforeDelivery + 1);
+    assertThat(outboxCount(parcelId)).isEqualTo(outboxBeforeDelivery + 1);
+    assertThat(parcelRow(parcelId)).containsEntry("status", "DELIVERED").containsEntry("version", 4L);
+  }
+
+  @Test
+  @DisplayName("SERVICE role is rejected with 409 INVALID_TRANSITION on intermediate transitions")
+  void serviceRoleForbiddenIntermediateTransitions() throws Exception {
+    UUID parcelId = book(); // Initial state: CREATED, version 0
+
+    // Test PICKED_UP attempt as SERVICE
+    move(parcelId, "{\"status\":\"PICKED_UP\"}", as("service-account-s3", "SERVICE"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"))
+        .andExpect(jsonPath("$.currentStatus").value("CREATED"))
+        .andExpect(jsonPath("$.requestedStatus").value("PICKED_UP"));
+    assertThat(parcelRow(parcelId)).containsEntry("status", "CREATED").containsEntry("version", 0L);
+    assertThat(historyCount(parcelId)).isZero();
+    assertThat(outboxCount(parcelId)).isZero();
+
+    // Advance to PICKED_UP as DISPATCHER
+    move(parcelId, "PICKED_UP").andExpect(status().isOk());
+    assertThat(historyCount(parcelId)).isEqualTo(1);
+    assertThat(outboxCount(parcelId)).isEqualTo(1);
+
+    // Test IN_TRANSIT attempt as SERVICE
+    move(parcelId, "{\"status\":\"IN_TRANSIT\"}", as("service-account-s3", "SERVICE"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"))
+        .andExpect(jsonPath("$.currentStatus").value("PICKED_UP"))
+        .andExpect(jsonPath("$.requestedStatus").value("IN_TRANSIT"));
+    assertThat(parcelRow(parcelId)).containsEntry("status", "PICKED_UP").containsEntry("version", 1L);
+    assertThat(historyCount(parcelId)).isEqualTo(1);
+    assertThat(outboxCount(parcelId)).isEqualTo(1);
+
+    // Advance to IN_TRANSIT as DISPATCHER
+    move(parcelId, "IN_TRANSIT").andExpect(status().isOk());
+    assertThat(historyCount(parcelId)).isEqualTo(2);
+    assertThat(outboxCount(parcelId)).isEqualTo(2);
+
+    // Test OUT_FOR_DELIVERY attempt as SERVICE
+    move(parcelId, "{\"status\":\"OUT_FOR_DELIVERY\"}", as("service-account-s3", "SERVICE"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"))
+        .andExpect(jsonPath("$.currentStatus").value("IN_TRANSIT"))
+        .andExpect(jsonPath("$.requestedStatus").value("OUT_FOR_DELIVERY"));
+    assertThat(parcelRow(parcelId)).containsEntry("status", "IN_TRANSIT").containsEntry("version", 2L);
+    assertThat(historyCount(parcelId)).isEqualTo(2);
+    assertThat(outboxCount(parcelId)).isEqualTo(2);
+  }
 }
