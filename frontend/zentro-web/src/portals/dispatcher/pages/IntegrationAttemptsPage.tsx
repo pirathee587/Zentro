@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiClient, friendlyApiError } from '@/shared/api/apiClient';
+import { friendlyApiError } from '@/shared/api/apiClient';
 import { getIntegrationAttempts, type IntegrationAttempt } from '../api/integrationAttemptsApi';
 
 function date(value: string) {
