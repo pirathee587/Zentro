@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 /**
  * Stand-in for an SMS provider. "Sending" writes one INFO log line with the event id, tracking reference and
  * status only (never the message text). The fail mode makes it fail on purpose to test retries locally:
- * none (default), always, or first-attempt.
+ * none (default), always, first-attempt, timeout, throttled, or permanent.
  */
 @Component
 public class MockSmsSender implements NotificationSender {
@@ -38,9 +38,18 @@ public class MockSmsSender implements NotificationSender {
 
   @Override
   public void send(OutgoingNotification notification) throws NotificationSendException {
-    if (failMode == FailMode.ALWAYS
-        || (failMode == FailMode.FIRST_ATTEMPT && notification.attemptNumber() == 1)) {
-      throw new NotificationSendException("mock SMS provider unavailable (fail mode " + failMode + ")");
+    switch (failMode) {
+      case ALWAYS, PERMANENT -> throw new NotificationSendException(
+          "mock SMS provider permanent failure (fail mode " + failMode + ")");
+      case FIRST_ATTEMPT -> {
+        if (notification.attemptNumber() == 1) {
+          throw new NotificationSendException("mock SMS provider unavailable (fail mode FIRST_ATTEMPT)");
+        }
+      }
+      case TIMEOUT -> throw new NotificationSendException("mock SMS provider timeout");
+      case THROTTLED -> throw new NotificationSendException("mock SMS provider throttled");
+      case NONE -> {
+      }
     }
     log.info("Mock SMS sent: channel={} status={} attempt={}", CHANNEL,
         notification.parcelStatus(), notification.attemptNumber());

@@ -59,6 +59,25 @@ class MockSmsSenderTest {
   }
 
   @Test
+  @DisplayName("timeout and throttling failures remain identifiable for retry classification")
+  void providerFailuresAreObservable() {
+    assertThatThrownBy(() -> new MockSmsSender(FailMode.TIMEOUT).send(notification(1)))
+        .isInstanceOfSatisfying(NotificationSendException.class,
+            ex -> assertThat(ex).hasMessage("mock SMS provider timeout"));
+    assertThatThrownBy(() -> new MockSmsSender(FailMode.THROTTLED).send(notification(1)))
+        .isInstanceOfSatisfying(NotificationSendException.class,
+            ex -> assertThat(ex).hasMessage("mock SMS provider throttled"));
+  }
+
+  @Test
+  @DisplayName("permanent failure fails every attempt")
+  void permanentFailureAlwaysFails() {
+    MockSmsSender sender = new MockSmsSender(FailMode.PERMANENT);
+    assertThatThrownBy(() -> sender.send(notification(1))).isInstanceOf(NotificationSendException.class);
+    assertThatThrownBy(() -> sender.send(notification(5))).isInstanceOf(NotificationSendException.class);
+  }
+
+  @Test
   @DisplayName("Channel is MOCK_SMS")
   void channel() {
     assertThat(new MockSmsSender(FailMode.NONE).channel()).isEqualTo("MOCK_SMS");

@@ -127,7 +127,7 @@ Values come from environment variables. Names, with no real values, are listed i
 | `NOTIFICATION_RETRY_POLL_MS` | `5000` | Pause between retry rounds |
 | `NOTIFICATION_RETRY_BASE_DELAY_MS` | `5000` | First retry delay (doubles per attempt) |
 | `NOTIFICATION_RETRY_MAX_DELAY_MS` | `600000` | Retry delay limit (10 minutes) |
-| `NOTIFICATION_MOCK_FAIL_MODE` | `none` | `none`, `always` or `first-attempt`. Only for testing retries locally. |
+| `NOTIFICATION_MOCK_FAIL_MODE` | `none` | `none`, `always`, `first-attempt`, `timeout`, `throttled` or `permanent`. Only for testing provider recovery locally. `timeout` and `throttled` are retryable provider failures; `permanent` remains observable as `FAILED` after the configured attempt limit. |
 | `NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES` | `60` | FAILED notifications in this window turn health DOWN |
 | `NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES` | `10` | Waiting longer than this turns health DOWN |
 

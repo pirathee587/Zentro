@@ -40,7 +40,7 @@ zentro:
       base-delay-ms: ${NOTIFICATION_RETRY_BASE_DELAY_MS:5000}
       max-delay-ms: ${NOTIFICATION_RETRY_MAX_DELAY_MS:600000}
     mock:
-      # none | always | first-attempt (only for testing retries locally)
+      # none | always | first-attempt | timeout | throttled | permanent (only for testing retries locally)
       fail-mode: ${NOTIFICATION_MOCK_FAIL_MODE:none}
     health:
       failed-window-minutes: ${NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES:60}

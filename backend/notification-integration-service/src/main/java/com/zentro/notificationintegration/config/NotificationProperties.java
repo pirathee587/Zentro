@@ -57,6 +57,9 @@ public record NotificationProperties(
   public enum FailMode {
     NONE,
     ALWAYS,
-    FIRST_ATTEMPT
+    FIRST_ATTEMPT,
+    TIMEOUT,
+    THROTTLED,
+    PERMANENT
   }
 }
