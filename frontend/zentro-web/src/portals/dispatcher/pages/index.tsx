@@ -158,8 +158,4 @@ export const ReportsPage = () => (
   </section>
 );
 
-export const ZonesPricingPage = () => (
-  <section className="staff-main">
-    <div className="staff-panel staff-empty">Zone and pricing tools are not connected yet.</div>
-  </section>
-);
+export { ZonesPricingPage } from './ZonesPricingPage';
