@@ -146,6 +146,14 @@ class ZeroTrustJwtSecurityTest {
   }
 
   @Test
+  @DisplayName("ADMIN is not a supported role for delivery zones")
+  void rejectsAdminRoleOnZones() throws Exception {
+    mockMvc.perform(get("/api/v1/zones").header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken("ADMIN")))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(zoneService);
+  }
+
+  @Test
   @DisplayName("Invalid JWT signature signed by untrusted key is rejected with 401")
   void rejectsInvalidSignature() throws Exception {
     String token = signToken(

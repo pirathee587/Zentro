@@ -260,6 +260,15 @@ class ZeroTrustJwtSecurityTest {
   }
 
   @Test
+  @DisplayName("SERVICE-only token cannot access public tracking through the service directly")
+  void serviceOnlyTokenIsRejectedFromPublicTracking() throws Exception {
+    mockMvc.perform(get("/api/v1/tracking/{ref}", "ZT-7K3QX9M2PA")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken("service-client", "SERVICE")))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(trackingService);
+  }
+
+  @Test
   @DisplayName("Unknown non-public tracking path still requires authentication")
   void nonPublicPathRequiresAuthentication() throws Exception {
     mockMvc.perform(get("/api/v1/tracking/" + UUID.randomUUID() + "/internal/history"))

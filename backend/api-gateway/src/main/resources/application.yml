@@ -18,7 +18,7 @@ spring:
             - id: identity
               uri: ${S1_URI:http://localhost:8081}
               predicates:
-                - Path=/api/v1/users/**,/api/v1/merchants/**,/api/v1/admin/merchants/**,/api/v1/admin/users/**,/api/v1/admin/couriers/**
+                - Path=/api/v1/users/**,/api/v1/merchants/**,/api/v1/admin/merchants/**,/api/v1/admin/users/**,/api/v1/admin/couriers/**,/api/v1/courier/profile/**
             - id: parcel
               uri: ${S2_URI:http://localhost:8082}
               predicates:

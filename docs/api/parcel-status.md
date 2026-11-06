@@ -52,7 +52,7 @@ Related: #58 event publishing, #60 role-specific restrictions, #59 proof of deli
 | Content type | `application/json` |
 | Actor | The token `sub` and role. The body cannot set the actor. A token with both roles is recorded as `DISPATCHER`. |
 
-Dispatchers call it through the gateway (`/api/v1/parcels/**` allows `ROLE_DISPATCHER`).
+Dispatchers call it through the gateway (`PATCH /api/v1/parcels/{parcelId}/status` allows `ROLE_DISPATCHER`). SERVICE calls S2 directly with its client-credentials token.
 The gateway only accepts tokens that have a human role, so internal services call S2 directly on port 8082 with a `SERVICE` token (see "S3 integration").
 
 ### Request

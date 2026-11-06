@@ -29,7 +29,8 @@ In accordance with the Zentro project architecture:
 | List pending merchant applications (`GET /api/v1/admin/merchants`) | ❌ Denied | ❌ Denied | ❌ Denied | ✅ Yes |
 | Access merchant API keys (`/api/v1/merchants/api-key`) | ❌ Denied | ✅ Approved only | ❌ Denied | ❌ Denied |
 | Read/Update own profile (`GET/PATCH /api/v1/users/me`) | ✅ Own only | ✅ Own only | ✅ Own only | ✅ Own only |
-| Create personal parcels (`/api/v1/parcels/**`) | ✅ Yes | ❌ Denied | ❌ Denied | ✅ Yes |
+| Create personal parcels (`POST /api/v1/parcels`) | ✅ Yes | ❌ Denied | ❌ Denied | ❌ Denied |
+| Estimate parcel price (`POST /api/v1/parcels/estimate`) | ✅ Yes | ❌ Denied | ❌ Denied | ✅ Yes |
 | View/Update assigned deliveries (`/api/v1/courier/**`) | ❌ Denied | ❌ Denied | ✅ Assigned only | ❌ Denied |
 | Assign deliveries & manage dispatch (`/api/v1/dispatch/**`) | ❌ Denied | ❌ Denied | ❌ Denied | ✅ Yes |
 | View operational / audit reports (`/api/v1/reports/**`) | ❌ Denied | ❌ Denied | ❌ Denied | ✅ Yes |
