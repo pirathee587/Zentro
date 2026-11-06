@@ -16,6 +16,10 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class DispatchService {
   public record Queue(List<ParcelSource.Parcel> items, Long total, Long matchingTotal, boolean complete) {}
+  public record Workload(List<CourierWorkload> items, long total, boolean overloadConfigured) {}
+  public record CourierWorkload(UUID courierId, UUID userId, String name, boolean active,
+                               String accountStatus, long assignmentCount, Availability availability) {}
+  public enum Availability { AVAILABLE, UNAVAILABLE }
   private final ParcelSource parcels;
   private final AssignmentRepository assignments;
   private final IdentityCourierClient identity;
@@ -69,6 +73,31 @@ public class DispatchService {
       if (parcel == null || !parcelId.equals(parcel.parcelId())) throw invalidSource();
       return identity.listEligible(token);
     });
+  }
+
+  public Workload workload(String token, String search, String availability) {
+    if (search.length() > 200 || !(availability.isBlank() || "available".equals(availability)
+        || "unavailable".equals(availability))) {
+      throw new DispatchException(HttpStatus.BAD_REQUEST, "INVALID_WORKLOAD_FILTER",
+          "Check search length and availability.");
+    }
+    var counts = assignments.assignmentCounts();
+    String term = search.trim().toLowerCase(Locale.ROOT);
+    var items = identity.listAll(token).stream()
+        .map(courier -> new CourierWorkload(courier.id(), courier.userId(), courier.name(),
+            Boolean.TRUE.equals(courier.active()), courier.accountStatus(),
+            counts.getOrDefault(courier.id(), 0L),
+            eligible(courier) ? Availability.AVAILABLE : Availability.UNAVAILABLE))
+        .filter(courier -> term.isEmpty() || safe(courier.name()).toLowerCase(Locale.ROOT).contains(term))
+        .filter(courier -> availability.isBlank() || availability.equalsIgnoreCase(courier.availability().name()))
+        .sorted(Comparator.comparing(CourierWorkload::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+            .thenComparing(CourierWorkload::courierId))
+        .toList();
+    return new Workload(items, items.size(), false);
+  }
+
+  private static boolean eligible(IdentityCourierClient.Courier courier) {
+    return Boolean.TRUE.equals(courier.active()) && "ACTIVE".equalsIgnoreCase(courier.accountStatus());
   }
 
   public AssignmentRepository.Assignment assign(UUID parcelId, UUID courierId, String subject, String token) {

@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,11 +33,36 @@ class DispatchServiceTest {
 
   @BeforeEach void setup() {
     when(assignments.assignedIds(any())).thenReturn(Set.of());
+    when(assignments.assignmentCounts()).thenReturn(Map.of());
     when(source.eligibleParcels("token")).thenReturn(new ParcelSource.Snapshot(List.of(parcel), true));
     doAnswer(call -> {
       Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
       return action.apply(parcel);
     }).when(source).withEligibleParcel(eq(parcelId), eq("token"), any());
+  }
+
+  @Test void workloadUsesAssignmentCountsAndIdentityAvailability() {
+    var unavailable = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(),
+        "Unavailable", false, "ACTIVE");
+    when(identity.listAll("token")).thenReturn(List.of(courier, unavailable));
+    when(assignments.assignmentCounts()).thenReturn(Map.of(courierId, 3L));
+
+    var result = service.workload("token", "", "");
+
+    assertThat(result.total()).isEqualTo(2);
+    assertThat(result.overloadConfigured()).isFalse();
+    assertThat(result.items()).extracting(DispatchService.CourierWorkload::assignmentCount)
+        .containsExactly(3L, 0L);
+    assertThat(result.items()).extracting(DispatchService.CourierWorkload::availability)
+        .containsExactly(DispatchService.Availability.AVAILABLE, DispatchService.Availability.UNAVAILABLE);
+  }
+
+  @Test void workloadFiltersByAvailabilityAndRejectsInvalidFilters() {
+    when(identity.listAll("token")).thenReturn(List.of(courier));
+    assertThat(service.workload("token", "", "available").items()).hasSize(1);
+    assertThat(service.workload("token", "", "unavailable").items()).isEmpty();
+    assertCode(() -> service.workload("token", "", "unknown"), "INVALID_WORKLOAD_FILTER");
+    assertCode(() -> service.workload("token", "x".repeat(201), ""), "INVALID_WORKLOAD_FILTER");
   }
 
   @Test void excludesAuthoritativeAssignmentsAndAppliesSearchAndUtcDates() {
@@ -115,4 +141,3 @@ class DispatchServiceTest {
         ex -> assertThat(ex.code()).isEqualTo(code));
   }
 }
-

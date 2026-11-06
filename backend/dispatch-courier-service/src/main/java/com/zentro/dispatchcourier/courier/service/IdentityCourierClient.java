@@ -63,6 +63,21 @@ public class IdentityCourierClient {
     }
   }
 
+  public List<Courier> listAll(String bearerToken) {
+    try {
+      List<Courier> couriers = client.get()
+          .uri("/api/v1/admin/couriers")
+          .headers(headers -> headers.setBearerAuth(bearerToken))
+          .retrieve().body(new ParameterizedTypeReference<List<Courier>>() {});
+      if (couriers == null || couriers.stream().anyMatch(courier -> !valid(courier))) {
+        throw unavailable();
+      }
+      return couriers;
+    } catch (RestClientException ex) {
+      throw translate(ex);
+    }
+  }
+
   /** Call immediately before assignment persistence; returns Identity's canonical profile UUID. */
   public Courier requireEligible(UUID courierId, String bearerToken) {
     if (courierId == null) {

@@ -57,10 +57,17 @@ class DispatchQueueControllerTest {
     mvc.perform(get("/api/v1/dispatch/queue")).andExpect(status().isUnauthorized());
   }
 
+  @Test void anonymousCannotAccessWorkload() throws Exception {
+    mvc.perform(get("/api/v1/dispatch/workload")).andExpect(status().isUnauthorized());
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"CUSTOMER", "MERCHANT", "COURIER"})
   void otherRolesCannotAccessQueue(String role) throws Exception {
     mvc.perform(get("/api/v1/dispatch/queue").with(jwt()
+        .authorities(new SimpleGrantedAuthority("ROLE_" + role))))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/dispatch/workload").with(jwt()
         .authorities(new SimpleGrantedAuthority("ROLE_" + role))))
         .andExpect(status().isForbidden());
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
@@ -70,6 +77,21 @@ class DispatchQueueControllerTest {
         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role))))
         .andExpect(status().isForbidden());
     verifyNoInteractions(assignments, identity, source);
+  }
+
+  @Test void dispatcherCanReadWorkloadWithAssignmentCounts() throws Exception {
+    var courier = new IdentityCourierClient.Courier(java.util.UUID.fromString(COURIER),
+        java.util.UUID.randomUUID(), "Courier", true, "ACTIVE");
+    when(assignments.assignmentCounts()).thenReturn(java.util.Map.of(courier.id(), 2L));
+    when(identity.listAll(anyString())).thenReturn(java.util.List.of(courier));
+
+    mvc.perform(get("/api/v1/dispatch/workload").with(jwt()
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].courierId").value(COURIER))
+        .andExpect(jsonPath("$.items[0].assignmentCount").value(2))
+        .andExpect(jsonPath("$.items[0].availability").value("AVAILABLE"))
+        .andExpect(jsonPath("$.overloadConfigured").value(false));
   }
 
   @Test void dispatcherGetsExplicitUnavailabilityWithoutFabricatedTotal() throws Exception {
@@ -135,4 +157,3 @@ class DispatchQueueControllerTest {
         .andExpect(jsonPath("$.assignedBy").value("dispatcher-subject"));
   }
 }
-

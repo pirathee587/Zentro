@@ -42,6 +42,13 @@ public class DispatchQueueController {
     return service.couriers(parcelId, jwt.getTokenValue());
   }
 
+  @GetMapping("/workload")
+  public DispatchService.Workload workload(@AuthenticationPrincipal Jwt jwt,
+      @RequestParam(name = "search", defaultValue = "") String search,
+      @RequestParam(name = "availability", defaultValue = "") String availability) {
+    return service.workload(jwt.getTokenValue(), search, availability);
+  }
+
   public record AssignRequest(@NotNull UUID parcelId, @NotNull UUID courierId) {}
 
   @PostMapping("/assignments")
