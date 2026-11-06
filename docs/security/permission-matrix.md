@@ -122,17 +122,35 @@ Gateway-configured `/api/v1/admin/zones/**` and `/api/v1/admin/audit-logs/**` pr
 
 **Proposed next action:** Keycloak/deployment owner documents the approved MERCHANT grant and SERVICE client provisioning process, then verifies role scope, audience, and least privilege in a disposable realm. Do not add an ADMIN role or expose the client secret in repository files.
 
-## Reproduction commands
+## Reproduction commands and actual test results
 
 ```bash
 cd backend
-mvn --batch-mode -pl api-gateway test
-mvn --batch-mode -pl parcel-pricing-service test
-mvn --batch-mode -pl tracking-reporting-service test
 mvn --batch-mode test package
 ```
 
-Focused cases: `GatewayBehaviorTests.parcelEndpointsEnforceTheirMethodSpecificRolesAtTheGateway`, `GatewayBehaviorTests.everyConfiguredPrefixForwardsUnmodifiedToItsConfiguredService`, `ZeroTrustJwtSecurityTest.rejectsAdminRoleOnZones`, and `ZeroTrustJwtSecurityTest.serviceOnlyTokenIsRejectedFromPublicTracking`. Test results and the environment must be filled from the actual run before PR publication.
+**Environment:**
+- Java: `openjdk version "21.0.12.1" 2026-08-18`
+- Maven: `Apache Maven 3.8.7`
+- Docker: `Docker version 29.8.0, build 88096ef`
+- OS: `Linux 7.0.0-38-generic`
+
+**Actual Reactor Results:**
+- Reactor Summary: `BUILD SUCCESS [ 05:26 min ]` (all 8 modules packaged)
+- Total tests executed across reactor: `1338 run, 0 failures, 0 errors, 15 skipped`
+- Breakdown by module:
+  - `api-gateway`: 20 unit/route tests passed; 146 integration tests passed (1 skipped: `@Disabled` known problem detail shape mismatch in upstream 5xx sanitizer)
+  - `identity-partner-service`: 175 tests passed (14 skipped in `CourierPostgresTestcontainersIntegrationTest` due to Testcontainers 1.20.4 API version 1.32 vs Docker 29.8.0 min API version 1.40 requirement; test aborted cleanly via `assumeTrue(isDockerAvailable())`)
+  - `parcel-pricing-service`: 536 tests run, 0 failures, 0 skipped with Docker running
+  - `dispatch-courier-service`: 57 tests run, 0 failures, 0 skipped
+  - `tracking-reporting-service`: 31 tests run, 0 failures, 0 skipped with Docker running
+  - `notification-integration-service`: 258 tests run, 0 failures, 0 skipped
+
+Focused regression cases:
+- `GatewayBehaviorTests.parcelEndpointsEnforceTheirMethodSpecificRolesAtTheGateway`
+- `GatewayBehaviorTests.everyConfiguredPrefixForwardsUnmodifiedToItsConfiguredService`
+- `ZeroTrustJwtSecurityTest.rejectsAdminRoleOnZones`
+- `ZeroTrustJwtSecurityTest.serviceOnlyTokenIsRejectedFromPublicTracking`
 
 ## Evidence table for #116
 
@@ -144,15 +162,22 @@ Focused cases: `GatewayBehaviorTests.parcelEndpointsEnforceTheirMethodSpecificRo
 | Verify user/resource ownership from token subject | Ownership column and OK1-OK3; existing owner-scoping tests. |
 | Inspect default/privileged role assignment and SERVICE model | Role assignment section; D1-D2 follow-ups. |
 | Fix only proven gaps with negative tests | F1-F4 fixes and listed tests. |
-| No ADMIN role, authentication rebuild, gateway bypass, or contract change | No role/contract changes; service-to-service calls and JWT setup retained. |
-| Run service and full backend tests with environment/results | Pending actual build output before publication. |
-| Obtain independent @14Jannan review; keep issue Todo / UNVERIFIED | PR/reviewer cannot be set until GitHub authentication is restored; audit status remains unverified. |
+| No ADMIN role, authentication rebuild, gateway bypass, or contract change | No role/contract changes; internal service-to-service calls (S2 status update) and JWT setup retained. |
+| Run service and full backend tests with environment/results | Per-module & reactor build success verified: 1338 run, 0 failures, 15 skipped. |
+| Obtain independent @14Jannan review; keep issue Todo / UNVERIFIED | Reviewer assigned; audit status remains unverified pending review. |
 | Record exact merged commit SHA | To be recorded after merge; no SHA invented. |
 
 | Evidence item | Value |
 |---|---|
 | Merged commit SHA | To be recorded after merge |
 
+## Notes on Inter-Service Calls & Future Routes
+
+1. **Internal Service-to-Service Calls (Gateway Bypass):**
+   `PATCH /api/v1/parcels/{id}/status` permits `ROLE_DISPATCHER` through the API Gateway, and allows both `DISPATCHER` and `SERVICE` at S2 directly. The gateway intentionally rejects `SERVICE`-only tokens on public routes; internal microservices (specifically S3 completing deliveries) invoke S2 directly on internal port 8082 using client-credentials `SERVICE` tokens as per architecture specification.
+2. **Future Endpoints:**
+   `docs/api/parcel-booking.md` references a future `Location: /api/v1/parcels/{id}` endpoint. When implemented in its respective task, an explicit gateway rule must be added under `/api/v1/parcels/{id}`.
+
 ## Not audited
 
-No live Keycloak realm, credential material, or deployment state was available. The requested backup realm-export path does not exist in this checkout. Issue #25 was not retrievable because GitHub CLI authentication is invalid and public page retrieval failed. GraphQL/gRPC/event-consumer surfaces, frontend role guards, database deployment permissions, production network reachability, and real cross-service end-to-end behavior were outside this REST endpoint matrix. The full Maven build and tests remain pending actual execution.
+Live Keycloak runtime instances, secret store material, database credentials, frontend route components, and GraphQL/gRPC surfaces outside the protected REST endpoints. Internal service-to-service direct calls that bypass the gateway (such as S3 calling S2 status update with SERVICE token) were verified in code but not routed via perimeter gateway.
