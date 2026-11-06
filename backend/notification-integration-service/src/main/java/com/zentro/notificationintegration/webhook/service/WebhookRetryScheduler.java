@@ -1,6 +1,8 @@
 package com.zentro.notificationintegration.webhook.service;
 
 import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository;
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -23,17 +25,19 @@ public class WebhookRetryScheduler {
 
   private final WebhookDeliveryRepository repository;
   private final WebhookDeliveryService service;
+  private final Clock clock;
 
-  public WebhookRetryScheduler(WebhookDeliveryRepository repository, WebhookDeliveryService service) {
+  public WebhookRetryScheduler(WebhookDeliveryRepository repository, WebhookDeliveryService service, Clock clock) {
     this.repository = repository;
     this.service = service;
+    this.clock = clock;
   }
 
   @Scheduled(fixedDelayString = "${zentro.webhooks.retry.poll-interval-ms:5000}")
   public void retryDue() {
     List<UUID> due;
     try {
-      due = repository.findDue(BATCH_SIZE);
+      due = repository.findDue(BATCH_SIZE, OffsetDateTime.now(clock));
     } catch (RuntimeException ex) {
       log.warn("Webhook retry round skipped: {}", ex.getClass().getSimpleName());
       return;

@@ -9,6 +9,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -32,7 +35,8 @@ public class TrackingSecurityConfig {
         .authorizeHttpRequests(registry -> registry
             .requestMatchers("/actuator/health/**", "/v3/api-docs/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/tracking/mine").hasAnyRole("CUSTOMER", "MERCHANT")
-            .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*", "/api/v1/tracking/*/events", "/api/v1/tracking/*/stream").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*", "/api/v1/tracking/*/events", "/api/v1/tracking/*/stream")
+                .access((authentication, context) -> new AuthorizationDecision(!serviceOnly(authentication.get())))
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth -> oauth
             .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(converter))
@@ -40,6 +44,19 @@ public class TrackingSecurityConfig {
         .exceptionHandling(errors -> errors
             .accessDeniedHandler(ProblemDetailsSecurityHandlers.accessDeniedHandler(mapper)))
         .build();
+  }
+
+  private static boolean serviceOnly(Authentication authentication) {
+    if (authentication == null) return false;
+    boolean hasService = false;
+    boolean hasHumanRole = false;
+    for (GrantedAuthority authority : authentication.getAuthorities()) {
+      String role = authority.getAuthority();
+      if ("ROLE_SERVICE".equals(role)) hasService = true;
+      if (java.util.Set.of("ROLE_CUSTOMER", "ROLE_MERCHANT", "ROLE_COURIER", "ROLE_DISPATCHER").contains(role))
+        hasHumanRole = true;
+    }
+    return hasService && !hasHumanRole;
   }
 }
 

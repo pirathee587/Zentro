@@ -20,15 +20,18 @@ Role claims come from `realm_access.roles`; only `CUSTOMER`, `MERCHANT`, `COURIE
 | `/api/v1/admin/**` | DISPATCHER | S1/S2/S5 per path |
 | `/api/v1/dispatch/**`, `/api/v1/reports/**` | DISPATCHER | S3/S4 |
 | `/api/v1/courier/**` | COURIER | S3 |
+| `/api/v1/courier/profile/**` | COURIER | S1 (more specific identity route) |
 | `/api/v1/merchant/**` | MERCHANT | S2 orders; S5 webhooks |
-| `/api/v1/parcels/**` | CUSTOMER, DISPATCHER | S2 |
+| `POST /api/v1/parcels` | CUSTOMER | S2 |
+| `POST /api/v1/parcels/estimate[(-fee)]` | CUSTOMER, DISPATCHER | S2 |
+| `PATCH /api/v1/parcels/{id}/status` | DISPATCHER (SERVICE calls S2 directly) | S2 |
 | `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/zones/**` | CUSTOMER, MERCHANT, COURIER, DISPATCHER | S1/S2 |
 | Unknown `/api/v1/**` | Safe 404 problem+json | — |
 | Non-API paths | 404 problem+json | — |
 
 | Route ID | Path predicates | Service |
 |---|---|---|
-| identity | `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/admin/merchants/**`, `/api/v1/admin/users/**`, `/api/v1/admin/couriers/**` | S1 |
+| identity | `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/admin/merchants/**`, `/api/v1/admin/users/**`, `/api/v1/admin/couriers/**`, `/api/v1/courier/profile/**` | S1 |
 | parcel | `/api/v1/zones/**`, `/api/v1/parcels/**`, `/api/v1/merchant/orders/**`, `/api/v1/admin/zones/**`, `/api/v1/admin/pricing-rules/**` | S2 |
 | dispatch | `/api/v1/dispatch/**`, `/api/v1/courier/**` | S3 |
 | tracking | `/api/v1/tracking/**`, `/api/v1/reports/**` | S4 |

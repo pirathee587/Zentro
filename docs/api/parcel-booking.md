@@ -15,7 +15,7 @@ Issue: #18. Pricing dependency: #20 (ZD-05).
 | Optional header | `Idempotency-Key`: 1 to 100 characters |
 | Booking owner | The token `sub` claim. The body cannot set the customer. |
 
-The gateway already routes `/api/v1/parcels/**` to S2 and allows `ROLE_CUSTOMER` and `ROLE_DISPATCHER`. S2 then accepts only `CUSTOMER` on this endpoint.
+The gateway routes `/api/v1/parcels/**` to S2. `POST /api/v1/parcels` requires `ROLE_CUSTOMER` at both gateway and S2; dispatcher access is not allowed for booking.
 
 ## Request
 

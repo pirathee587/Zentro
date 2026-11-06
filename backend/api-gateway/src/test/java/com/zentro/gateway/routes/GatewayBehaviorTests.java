@@ -80,6 +80,7 @@ class GatewayBehaviorTests {
         new RouteTarget("/api/v1/admin/merchants/17", "S1", "ROLE_DISPATCHER", false),
         new RouteTarget("/api/v1/admin/users/17", "S1", "ROLE_DISPATCHER", false),
         new RouteTarget("/api/v1/admin/couriers/17", "S1", "ROLE_DISPATCHER", false),
+        new RouteTarget("/api/v1/courier/profile", "S1", "ROLE_COURIER", false),
         new RouteTarget("/api/v1/zones", "S2", "ROLE_CUSTOMER", false),
         new RouteTarget("/api/v1/parcels/estimate", "S2", "ROLE_CUSTOMER", false),
         new RouteTarget("/api/v1/merchant/orders/17", "S2", "ROLE_MERCHANT", false),
@@ -95,7 +96,8 @@ class GatewayBehaviorTests {
     int index = 0;
     for (RouteTarget route : routes) {
       String query = "?probe=route-" + index + "&mode=preserve";
-      HttpMethod method = route.publicRoute() ? HttpMethod.GET : HttpMethod.PATCH;
+      HttpMethod method = route.publicRoute() ? HttpMethod.GET
+          : route.path().equals("/api/v1/parcels/estimate") ? HttpMethod.POST : HttpMethod.PATCH;
       WebTestClient.RequestBodySpec request = client.method(method)
           .uri(URI.create("http://localhost:" + port + route.path() + query))
           .header("X-Forwarded-For", "198.51.100." + (index + 1))
@@ -144,6 +146,33 @@ class GatewayBehaviorTests {
     client.get().uri("/api/v1/admin/users").header("Authorization", "Bearer test.ROLE_ADMIN")
         .exchange().expectStatus().isForbidden();
     client.post().uri("/api/v1/tracking/ZTR-1234567890/events").exchange().expectStatus().isUnauthorized();
+  }
+
+  @Test
+  void parcelEndpointsEnforceTheirMethodSpecificRolesAtTheGateway() throws Exception {
+    clearRecordedRequests();
+    client.post().uri("/api/v1/parcels").header("Authorization", "Bearer test.ROLE_DISPATCHER")
+        .bodyValue(REQUEST_BODY).exchange().expectStatus().isForbidden();
+    assertThat(upstreams.get("S2").takeRequest(10, TimeUnit.MILLISECONDS)).isNull();
+
+    client.post().uri("/api/v1/parcels").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .bodyValue(REQUEST_BODY).exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("S2");
+    RecordedRequest booking = upstreams.get("S2").takeRequest(2, TimeUnit.SECONDS);
+    assertThat(booking).isNotNull();
+    assertThat(booking.getMethod()).isEqualTo("POST");
+    assertThat(booking.getPath()).isEqualTo("/api/v1/parcels");
+
+    client.patch().uri("/api/v1/parcels/550e8400-e29b-41d4-a716-446655440000/status")
+        .header("Authorization", "Bearer test.ROLE_CUSTOMER").bodyValue(REQUEST_BODY)
+        .exchange().expectStatus().isForbidden();
+    assertThat(upstreams.get("S2").takeRequest(10, TimeUnit.MILLISECONDS)).isNull();
+
+    client.patch().uri("/api/v1/parcels/550e8400-e29b-41d4-a716-446655440000/status")
+        .header("Authorization", "Bearer test.ROLE_DISPATCHER").bodyValue(REQUEST_BODY)
+        .exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("S2");
+    RecordedRequest statusUpdate = upstreams.get("S2").takeRequest(2, TimeUnit.SECONDS);
+    assertThat(statusUpdate).isNotNull();
+    assertThat(statusUpdate.getMethod()).isEqualTo("PATCH");
   }
 
   @Test

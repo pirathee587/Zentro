@@ -309,17 +309,17 @@ class GatewayKeycloakIntegrationTests {
   void emptyPostAndMalformedJsonAreForwardedUnchanged() throws Exception {
     String token = accessToken("CUSTOMER");
     clearRequests();
-    client.post().uri("/api/v1/parcels/empty?probe=empty").header("Authorization", "Bearer " + token)
+    client.post().uri("/api/v1/parcels/estimate?probe=empty").header("Authorization", "Bearer " + token)
         .exchange().expectStatus().isOk();
     RecordedRequest empty = UPSTREAMS.get("S2").takeRequest(2, TimeUnit.SECONDS);
     assertThat(empty).isNotNull();
     assertThat(empty.getMethod()).isEqualTo("POST");
-    assertThat(empty.getPath()).isEqualTo("/api/v1/parcels/empty?probe=empty");
+    assertThat(empty.getPath()).isEqualTo("/api/v1/parcels/estimate?probe=empty");
     assertThat(empty.getBody().readUtf8()).isEmpty();
 
     clearRequests();
     String invalidJson = "{not-json";
-    client.post().uri("/api/v1/parcels/invalid-json").header("Authorization", "Bearer " + token)
+    client.post().uri("/api/v1/parcels/estimate").header("Authorization", "Bearer " + token)
         .contentType(MediaType.APPLICATION_JSON).bodyValue(invalidJson).exchange().expectStatus().isOk();
     RecordedRequest malformed = UPSTREAMS.get("S2").takeRequest(2, TimeUnit.SECONDS);
     assertThat(malformed).isNotNull();

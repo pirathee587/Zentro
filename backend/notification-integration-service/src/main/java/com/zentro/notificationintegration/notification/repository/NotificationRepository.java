@@ -68,13 +68,13 @@ public class NotificationRepository {
   }
 
   /** Ids of notifications whose next attempt is due, oldest first. */
-  public List<UUID> findDue(int limit) {
+  public List<UUID> findDue(int limit, OffsetDateTime now) {
     return jdbc.queryForList("""
         SELECT id FROM notification.notification_attempt
-         WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= now()
+         WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= ?
          ORDER BY next_attempt_at
          LIMIT ?
-        """, UUID.class, limit);
+        """, UUID.class, now, limit);
   }
 
   public void markSent(UUID id, int attempts) {
