@@ -131,6 +131,31 @@ public class NotificationRepository {
         OffsetDateTime.class));
   }
 
+  public List<AttemptHistoryRow> listHistory(int limit, long offset) {
+    return jdbc.query("""
+        SELECT id, event_id, parcel_id, event_type, tracking_ref, parcel_status, channel, status, attempts,
+               last_error, next_attempt_at, created_at, updated_at
+          FROM notification.notification_attempt
+         ORDER BY created_at DESC, id
+         LIMIT ? OFFSET ?
+        """, (rs, n) -> new AttemptHistoryRow(
+        rs.getObject("id", UUID.class), rs.getObject("event_id", UUID.class),
+        rs.getObject("parcel_id", UUID.class), rs.getString("event_type"),
+        rs.getString("tracking_ref"), rs.getString("parcel_status"), rs.getString("channel"),
+        rs.getString("status"), rs.getInt("attempts"), rs.getString("last_error"),
+        rs.getObject("next_attempt_at", OffsetDateTime.class),
+        rs.getObject("created_at", OffsetDateTime.class), rs.getObject("updated_at", OffsetDateTime.class)),
+        limit, offset);
+  }
+
+  public long countHistory() {
+    return count("SELECT COUNT(*) FROM notification.notification_attempt");
+  }
+
+  public record AttemptHistoryRow(UUID id, UUID eventId, UUID parcelId, String eventType, String trackingRef,
+      String parcelStatus, String channel, String status, int attempts, String lastError,
+      OffsetDateTime nextAttemptAt, OffsetDateTime createdAt, OffsetDateTime updatedAt) {}
+
   private long count(String sql) {
     Long n = jdbc.queryForObject(sql, Long.class);
     return n == null ? 0 : n;

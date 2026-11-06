@@ -36,7 +36,7 @@ spring:
             - id: notification
               uri: ${S5_URI:http://localhost:8085}
               predicates:
-                - Path=/api/v1/merchant/webhooks/**,/api/v1/admin/audit-logs/**
+                - Path=/api/v1/merchant/webhooks/**,/api/v1/admin/audit-logs/**,/api/v1/admin/notification-attempts/**,/api/v1/admin/webhook-deliveries/**
   security:
     oauth2:
       resourceserver:
