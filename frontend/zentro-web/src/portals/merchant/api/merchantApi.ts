@@ -26,6 +26,26 @@ export type MerchantApiKeyMetadata = {
   active: boolean;
 };
 
+export type MerchantOrderStatus =
+  | 'CREATED'
+  | 'PICKED_UP'
+  | 'IN_TRANSIT'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'FAILED';
+
+export type MerchantOrder = {
+  id: string;
+  trackingRef: string;
+  externalOrderRef: string;
+  merchantId: string;
+  status: MerchantOrderStatus;
+  fee: number;
+  currency: string;
+  estimatedDays: number;
+  createdAt: string;
+};
+
 export type IssuedMerchantApiKey = {
   secret: string;
   credential: MerchantApiKeyMetadata;
@@ -39,6 +59,7 @@ export type MerchantApiAuth = {
 const MERCHANT_APPLICATION_PATH = '/api/v1/merchants/me';
 const MERCHANTS_PATH = '/api/v1/merchants';
 const MERCHANT_API_KEY_PATH = '/api/v1/merchants/api-key';
+const MERCHANT_ORDERS_PATH = '/api/v1/merchant/orders';
 
 async function withMerchantAuth<T>(
   auth: MerchantApiAuth,
@@ -71,6 +92,15 @@ function authorization(accessToken: string) {
 export function getMerchantApplication(auth: MerchantApiAuth) {
   return withMerchantAuth(auth, async (token) =>
     (await apiClient.get<MerchantApplication>(MERCHANT_APPLICATION_PATH, authorization(token))).data,
+  );
+}
+
+export function getMerchantOrders(auth: MerchantApiAuth, limit = 50) {
+  return withMerchantAuth(auth, async (token) =>
+    (await apiClient.get<MerchantOrder[]>(MERCHANT_ORDERS_PATH, {
+      ...authorization(token),
+      params: { limit },
+    })).data,
   );
 }
 

@@ -2,7 +2,25 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { Button, ErrorState, Spinner } from '@/shared/ui';
-import { useMerchantApiKeyQuery, useMerchantApplicationQuery } from '../hooks/useMerchantQueries';
+import { useMerchantApiKeyQuery, useMerchantApplicationQuery, useMerchantOrdersQuery } from '../hooks/useMerchantQueries';
+import type { MerchantOrderStatus } from '../api/merchantApi';
+
+const orderStatusLabels: Record<MerchantOrderStatus, string> = {
+  CREATED: 'Created',
+  PICKED_UP: 'Picked up',
+  IN_TRANSIT: 'In transit',
+  OUT_FOR_DELIVERY: 'Out for delivery',
+  DELIVERED: 'Delivered',
+  FAILED: 'Failed',
+};
+
+function formatOrderStatus(status: MerchantOrderStatus) {
+  return orderStatusLabels[status] || status;
+}
+
+function formatOrderDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+}
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -11,6 +29,7 @@ export function DashboardPage() {
   const pendingReview = user?.roles.includes('CUSTOMER') === true && (user.merchantStatus === 'PENDING' || navigationMerchantStatus === 'PENDING');
   const application = useMerchantApplicationQuery(!pendingReview);
   const key = useMerchantApiKeyQuery(!pendingReview);
+  const orders = useMerchantOrdersQuery(!pendingReview);
   const firstName = user?.name?.trim().split(/\s+/)[0];
 
   if (pendingReview) return <main className="merchant-main merchant-dashboard">
@@ -42,5 +61,27 @@ export function DashboardPage() {
     </div>
 
     <section className="merchant-setup-card"><div><span className="merchant-eyebrow">NEXT STEP</span><h2>Connect your system</h2><p>Create an API key, store it in your server environment, and never expose it in a browser app or source code.</p></div><Link className="merchant-outline-link" to="/merchant/dashboard/api-credentials">Open API credentials <span aria-hidden="true">→</span></Link></section>
+
+    <section className="merchant-orders" aria-labelledby="merchant-orders-title">
+      <div className="merchant-section-heading">
+        <div><span className="merchant-eyebrow">DELIVERY ACTIVITY</span><h2 id="merchant-orders-title">Your orders</h2></div>
+        <span className="merchant-section-note">Only your orders are shown</span>
+      </div>
+      {orders.isLoading && <div className="merchant-orders-state" role="status"><Spinner label="Loading your orders" /><span>Loading your orders…</span></div>}
+      {orders.isError && <div className="merchant-orders-state merchant-orders-error" role="alert"><ErrorState message={friendlyApiError(orders.error, 'We could not load your orders. Please try again.')} /><Button variant="secondary" type="button" onClick={() => void orders.refetch()}>Retry</Button></div>}
+      {!orders.isLoading && !orders.isError && orders.data?.length === 0 && <div className="merchant-orders-state"><p>No orders yet.</p><span>Orders created through your merchant integration will appear here.</span></div>}
+      {!orders.isLoading && !orders.isError && orders.data && orders.data.length > 0 && <div className="merchant-orders-table-wrap">
+        <table className="merchant-orders-table">
+          <thead><tr><th>Order</th><th>Tracking</th><th>Placed</th><th>Status</th><th>Fee</th></tr></thead>
+          <tbody>{orders.data.map((order) => <tr key={order.id}>
+            <th scope="row">{order.externalOrderRef}</th>
+            <td>{order.trackingRef}</td>
+            <td>{formatOrderDate(order.createdAt)}</td>
+            <td><span className={`merchant-order-status is-${order.status.toLowerCase().replaceAll('_', '-')}`}>{formatOrderStatus(order.status)}</span></td>
+            <td>{order.currency} {order.fee.toFixed(2)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+    </section>
   </main>;
 }
