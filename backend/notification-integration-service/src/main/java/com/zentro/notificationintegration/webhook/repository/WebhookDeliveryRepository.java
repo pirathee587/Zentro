@@ -113,13 +113,13 @@ public class WebhookDeliveryRepository {
   }
 
   /** Ids of open deliveries whose next attempt is due, oldest first. */
-  public List<UUID> findDue(int limit) {
+  public List<UUID> findDue(int limit, OffsetDateTime now) {
     return jdbc.queryForList("""
         SELECT id FROM notification.webhook_delivery
-         WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= now()
+         WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= ?
          ORDER BY next_attempt_at
          LIMIT ?
-        """, UUID.class, limit);
+        """, UUID.class, now, limit);
   }
 
   /** Moves the next attempt to {@code nextAttemptAt} without counting an attempt (held back for ordering). */

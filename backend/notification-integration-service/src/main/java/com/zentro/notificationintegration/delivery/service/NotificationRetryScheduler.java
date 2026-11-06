@@ -1,6 +1,8 @@
 package com.zentro.notificationintegration.delivery.service;
 
 import com.zentro.notificationintegration.notification.repository.NotificationRepository;
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -22,17 +24,19 @@ public class NotificationRetryScheduler {
 
   private final NotificationRepository repository;
   private final NotificationDispatcher dispatcher;
+  private final Clock clock;
 
-  public NotificationRetryScheduler(NotificationRepository repository, NotificationDispatcher dispatcher) {
+  public NotificationRetryScheduler(NotificationRepository repository, NotificationDispatcher dispatcher, Clock clock) {
     this.repository = repository;
     this.dispatcher = dispatcher;
+    this.clock = clock;
   }
 
   @Scheduled(fixedDelayString = "${zentro.notifications.retry.poll-interval-ms:5000}")
   public void retryDue() {
     List<UUID> due;
     try {
-      due = repository.findDue(BATCH_SIZE);
+      due = repository.findDue(BATCH_SIZE, OffsetDateTime.now(clock));
     } catch (RuntimeException ex) {
       log.warn("Notification retry round skipped: {}", ex.getClass().getSimpleName());
       return;

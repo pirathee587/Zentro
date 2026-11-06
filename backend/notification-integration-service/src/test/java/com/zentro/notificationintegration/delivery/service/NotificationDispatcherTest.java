@@ -187,12 +187,15 @@ class NotificationDispatcherTest {
   @DisplayName("The retry scheduler sends every due notification and survives a failing one")
   void schedulerSendsDue() {
     UUID other = UUID.randomUUID();
-    when(repository.findDue(NotificationRetryScheduler.BATCH_SIZE)).thenReturn(List.of(other, ID));
+    Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+    OffsetDateTime now = OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC);
+    when(repository.findDue(NotificationRetryScheduler.BATCH_SIZE, now)).thenReturn(List.of(other, ID));
     when(repository.lockForDelivery(other)).thenThrow(new org.springframework.dao.QueryTimeoutException("db"));
     row(1);
 
-    new NotificationRetryScheduler(repository, dispatcher(FailMode.NONE, 5)).retryDue();
+    new NotificationRetryScheduler(repository, dispatcher(FailMode.NONE, 5), clock).retryDue();
 
+    verify(repository).findDue(NotificationRetryScheduler.BATCH_SIZE, now);
     verify(repository).markSent(ID, 2);
   }
 

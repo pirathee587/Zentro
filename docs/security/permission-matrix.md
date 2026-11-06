@@ -136,15 +136,17 @@ mvn --batch-mode test package
 - OS: `Linux 7.0.0-38-generic`
 
 **Actual Reactor Results:**
-- Reactor Summary: `BUILD SUCCESS [ 05:26 min ]` (all 8 modules packaged)
-- Total tests executed across reactor: `1345 run, 0 failures, 0 errors, 15 skipped` (summed from the generated Surefire XML reports)
+- Reactor Summary: `BUILD SUCCESS [ 05:35 min ]` (all 8 modules packaged)
+- Total tests executed across reactor: `1346 run, 0 failures, 0 errors, 15 skipped` (summed from the generated Surefire XML reports)
 - Breakdown by module:
   - `api-gateway`: 37 unit/route tests passed; 146 integration tests, 1 skipped (`@Disabled` known problem detail shape mismatch in upstream 5xx sanitizer)
   - `identity-partner-service`: 175 tests passed (14 skipped in `CourierPostgresTestcontainersIntegrationTest` due to Testcontainers 1.20.4 API version 1.32 vs Docker 29.8.0 min API version 1.40 requirement; test aborted cleanly via `assumeTrue(isDockerAvailable())`)
   - `parcel-pricing-service`: 547 tests run, 0 failures, 0 skipped with Docker running
   - `dispatch-courier-service`: 144 tests run, 0 failures, 0 skipped
   - `tracking-reporting-service`: 31 tests run, 0 failures, 0 skipped with Docker running
-  - `notification-integration-service`: 258 tests run, 0 failures, 0 skipped
+  - `notification-integration-service`: 259 tests run, 0 failures, 0 skipped
+
+The CI failure supplied with this branch showed a webhook retry firing before its logged `nextTry`. Retry timestamps were generated from the application clock, while due rows were queried against PostgreSQL `now()`, so clock skew could make a future retry appear due. Both notification and webhook retry schedulers now use the same injected application clock as the timestamp writers.
 
 Focused regression cases:
 - `GatewayBehaviorTests.parcelEndpointsEnforceTheirMethodSpecificRolesAtTheGateway`
@@ -163,7 +165,7 @@ Focused regression cases:
 | Inspect default/privileged role assignment and SERVICE model | Role assignment section; D1-D2 follow-ups. |
 | Fix only proven gaps with negative tests | F1-F4 fixes and listed tests. |
 | No ADMIN role, authentication rebuild, gateway bypass, or contract change | No role/contract changes; internal service-to-service calls (S2 status update) and JWT setup retained. |
-| Run service and full backend tests with environment/results | Per-module & reactor build success verified: 1345 run, 0 failures, 15 skipped. |
+| Run service and full backend tests with environment/results | Per-module & reactor build success verified: 1346 run, 0 failures, 15 skipped. |
 | Obtain independent @14Jannan review; keep issue Todo / UNVERIFIED | Review is pending; issue remains Todo / UNVERIFIED until @14Jannan approves. |
 | Record exact merged commit SHA | To be recorded after merge; no SHA invented. |
 
