@@ -187,3 +187,39 @@
   .staff-courier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* ─── Zones & pricing (ZD-19) ──────────────────────────────────── */
+.staff-field-error { color: #a83d30; font-size: 11px; font-weight: 600; }
+.staff-field input[aria-invalid="true"], .staff-field select[aria-invalid="true"] { border-color: #a83d30; }
+.staff-pricing-meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-bottom: 18px; color: var(--muted); font-size: 12px; }
+.staff-pricing-meta strong { color: var(--espresso); }
+.staff-pricing-form { display: grid; gap: 18px; }
+.staff-pricing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 18px; align-items: start; }
+.staff-pricing-check { align-self: end; min-height: 42px; }
+.staff-pricing-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
+.staff-pricing-actions .staff-muted { margin-right: auto; font-size: 12px; }
+.staff-pricing-changes, .staff-pricing-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.staff-pricing-changes th, .staff-pricing-changes td, .staff-pricing-table th, .staff-pricing-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.staff-pricing-changes thead th, .staff-pricing-table thead th { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.staff-pricing-changes td, .staff-pricing-changes thead th:not(:first-child) { text-align: right; }
+.staff-pricing-table code { font-size: 12px; color: var(--umber); }
+.staff-pricing-zones .staff-field-hint { margin: 14px 0 0; }
+.staff-pricing-result-region { margin-top: 18px; }
+.staff-pricing-result { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 22px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--cream); }
+.staff-pricing-total { display: flex; flex-direction: column; gap: 6px; }
+.staff-pricing-total span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.staff-pricing-total strong { font-size: 28px; letter-spacing: -.8px; color: var(--espresso); }
+.staff-pricing-total small { color: var(--muted); font-size: 12px; }
+.staff-pricing-breakdown { display: grid; gap: 8px; margin: 0; }
+.staff-pricing-breakdown div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.staff-pricing-breakdown dt { color: var(--muted); }
+.staff-pricing-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; }
+.staff-pricing-breakdown-total { padding-top: 8px; border-top: 1px solid var(--line); font-weight: 700; }
+.staff-pricing-breakdown-total dt { color: var(--espresso); }
+@media (max-width: 900px) {
+  .staff-pricing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .staff-pricing-grid, .staff-pricing-result { grid-template-columns: minmax(0, 1fr); }
+  .staff-pricing-actions { justify-content: stretch; }
+  .staff-pricing-actions .staff-muted { width: 100%; }
+}

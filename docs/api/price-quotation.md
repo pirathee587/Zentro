@@ -140,3 +140,20 @@ All error responses use `application/problem+json` without stack traces, interna
 }
 ```
 
+---
+
+## 6. Consumers: Dispatcher "Zones & pricing" page (ZD-19, #34)
+
+Screen: `/dispatcher/zones-pricing` in the Dispatcher portal (`frontend/zentro-web/src/portals/dispatcher/pages/ZonesPricingPage.tsx`). Only the `DISPATCHER` route guard lets users in; the backend still checks the role on every call.
+
+| Section | API | What the page does |
+|---|---|---|
+| Pricing rule | `GET /api/v1/admin/pricing-rules`, `PUT /api/v1/admin/pricing-rules` | Shows the live rule and lets a dispatcher edit the six amounts. Each amount is required, `>= 0` and has at most 2 decimals. Save shows a confirmation with the old and new values. On `400` the `invalidFields` messages appear next to the fields; `401`/`403`, `503` and network errors show a message and keep the typed values. The currency is shown read-only and sent back unchanged. |
+| Quotation preview | `POST /api/v1/parcels/estimate` | Sends destination type, parcel size, weight (0.1-20 kg, the customer booking range), express and optional origin/destination zones. Shows the fee, estimated days and each breakdown line the API returns. The page never calculates a price. |
+| Delivery zones | `GET /api/v1/zones` | Read-only table (code, name, description, status). |
+
+**Money format:** every amount is shown with two decimals and the currency from the API, for example `LKR 1,072.00`, using `fee` and the breakdown numbers. `formattedFee` is not used because it drops the decimals.
+
+**Current limits:**
+- Zones cannot be added or edited: `/api/v1/admin/zones/**` is routed by the gateway but has no backend endpoint (owner @Jathuja).
+- When the pricing database cannot be read, `GET /api/v1/admin/pricing-rules` returns the default rule, so the page cannot tell defaults from saved values (owner @Jathuja).
