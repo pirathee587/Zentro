@@ -175,6 +175,13 @@ class ParcelStatusControllerTest {
   }
 
   @Test
+  @DisplayName("Unsupported role ADMIN returns 403 Forbidden")
+  void unsupportedRoleAdminReturns403() throws Exception {
+    send(as("admin-1", "ADMIN"), URL, "{\"status\":\"PICKED_UP\"}").andExpect(status().isForbidden());
+    verifyNoInteractions(statusService);
+  }
+
+  @Test
   @DisplayName("Malformed JSON returns 400 MALFORMED_REQUEST")
   void malformedJsonReturns400() throws Exception {
     send(as("dispatcher-1", "DISPATCHER"), URL, "{\"status\": ")

@@ -83,17 +83,22 @@ class ParcelEventContractTest {
 
   /** Runs the real status service with a mocked repository and returns the event JSON it wrote. */
   private static String statusEvent(ParcelStatus from, ParcelStatus to, String reason) {
-    return statusEvent(from, to, reason, null);
+    return statusEvent(from, to, reason, null, "DISPATCHER");
   }
 
   /** Same as above for a parcel owned by {@code merchantId} (null = customer booking). */
   private static String statusEvent(ParcelStatus from, ParcelStatus to, String reason, String merchantId) {
+    return statusEvent(from, to, reason, merchantId, "DISPATCHER");
+  }
+
+  /** Same as above with configurable actorRole. */
+  private static String statusEvent(ParcelStatus from, ParcelStatus to, String reason, String merchantId, String actorRole) {
     ParcelStatusRepository repository = mock(ParcelStatusRepository.class);
     when(repository.lockForUpdate(PARCEL_ID))
         .thenReturn(Optional.of(new LockedParcel(PARCEL_ID, TRACKING_REF, from, 3, merchantId)));
     when(repository.updateStatus(any(), any(), anyLong(), any())).thenReturn(4L);
     new ParcelStatusService(repository, MAPPER)
-        .updateStatus(PARCEL_ID, to, reason, "Left at the gate", "dispatcher-sub-9", "DISPATCHER");
+        .updateStatus(PARCEL_ID, to, reason, "Left at the gate", "dispatcher-sub-9", actorRole);
     ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
     verify(repository).insertOutboxEvent(any(), eq(PARCEL_ID), eq("parcel.status.updated"), json.capture(), any());
     return json.getValue();
@@ -141,6 +146,19 @@ class ParcelEventContractTest {
     String json = statusEvent(from, to, reason);
 
     assertThat(errors(statusSchema, MAPPER.readTree(json))).isEmpty();
+    assertThat(PERSONAL_DATA).noneMatch(json::contains);
+  }
+
+  @Test
+  @DisplayName("A parcel.status.updated event produced by SERVICE role matches the schema and carries actorRole SERVICE")
+  void serviceStatusEventMatchesSchema() throws Exception {
+    String json = statusEvent(ParcelStatus.OUT_FOR_DELIVERY, ParcelStatus.DELIVERED, null, null, "SERVICE");
+    JsonNode event = MAPPER.readTree(json);
+
+    assertThat(errors(statusSchema, event)).isEmpty();
+    assertThat(event.get("payload").get("actorRole").asText()).isEqualTo("SERVICE");
+    assertThat(event.get("payload").get("status").asText()).isEqualTo("DELIVERED");
+    assertThat(event.get("payload").get("previousStatus").asText()).isEqualTo("OUT_FOR_DELIVERY");
     assertThat(PERSONAL_DATA).noneMatch(json::contains);
   }
 
