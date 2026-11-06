@@ -153,3 +153,4 @@ export const ReportsPage = () => (
 );
 
 export { ZonesPricingPage } from './ZonesPricingPage';
+export { IntegrationAttemptsPage } from './IntegrationAttemptsPage';

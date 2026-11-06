@@ -19,6 +19,7 @@ export function DispatcherLayout() {
         <NavLink to="/dispatcher/merchant-approvals">Merchant applications</NavLink>
         <NavLink to="/dispatcher/zones-pricing">Zones &amp; pricing</NavLink>
           <NavLink to="/dispatcher/users">Users</NavLink>
+          <NavLink to="/dispatcher/integration-attempts">Integration attempts</NavLink>
       </nav>
       <div className="staff-account">
         <span>{user?.name || 'Dispatcher'}</span>

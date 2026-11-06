@@ -177,6 +177,20 @@ public class WebhookDeliveryRepository {
     return n == null ? 0 : n;
   }
 
+  public List<WebhookDelivery> listHistory(int limit, long offset) {
+    return jdbc.query("""
+        SELECT id, subscription_id, event_id, event_type, parcel_id, status, attempts,
+               response_status, last_error, next_attempt_at, created_at, updated_at
+          FROM notification.webhook_delivery
+         ORDER BY created_at DESC, id
+         LIMIT ? OFFSET ?
+        """, ROW_MAPPER, limit, offset);
+  }
+
+  public long countHistory() {
+    return count("SELECT COUNT(*) FROM notification.webhook_delivery", null);
+  }
+
   /** Deliveries still waiting to be sent (PENDING or RETRY). */
   public long countOpen() {
     return count("SELECT COUNT(*) FROM notification.webhook_delivery WHERE status IN ('PENDING', 'RETRY')", null);

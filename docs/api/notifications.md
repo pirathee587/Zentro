@@ -95,6 +95,16 @@ It is part of `/actuator/health` but not of the Kubernetes liveness/readiness gr
 
 ## Inspecting outcomes
 
+Dispatcher read models are available through the gateway:
+
+- `GET /api/v1/admin/notification-attempts?page=0&size=25`
+- `GET /api/v1/admin/webhook-deliveries?page=0&size=25`
+
+Both require a valid `DISPATCHER` token. They return outcome metadata only (event and parcel identifiers,
+status, attempt count, error category, retry time and timestamps); notification content, webhook payloads,
+URLs and signing secrets are never returned. The dispatcher UI uses these read models to show loading,
+empty, retry/error and terminal `FAILED` states.
+
 ```sql
 -- Latest notifications
 SELECT tracking_ref, parcel_status, status, attempts, last_error, next_attempt_at, created_at
