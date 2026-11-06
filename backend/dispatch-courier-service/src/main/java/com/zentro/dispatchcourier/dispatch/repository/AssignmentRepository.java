@@ -65,6 +65,10 @@ public class AssignmentRepository {
   /** Unique parcel key is the arbiter even when two independent requests race. */
   public Assignment insert(UUID parcelId, IdentityCourierClient.Courier courier, String subject) {
     return transactions.execute(status -> {
+      jdbc.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended(CAST(? AS text), 0))",
+          preparedStatement -> preparedStatement.setString(1, parcelId.toString()),
+          resultSet -> null);
       List<Assignment> inserted = jdbc.query("""
           INSERT INTO dispatch.delivery_assignment
             (parcel_id, courier_profile_id, courier_user_id, assigned_by_subject)
