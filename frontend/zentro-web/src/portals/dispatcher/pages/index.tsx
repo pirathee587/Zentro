@@ -142,13 +142,7 @@ export { MerchantApprovalsPage } from './MerchantApprovalsPage';
 export { UsersPage } from './UsersPage';
 export { CouriersPage } from './CouriersPage';
 
-export const WorkloadPage = () => (
-  <section className="staff-main">
-    <div className="staff-panel staff-empty">
-      Courier workload data will appear when the dispatch service is available.
-    </div>
-  </section>
-);
+export { WorkloadPage } from './WorkloadPage';
 
 export const ReportsPage = () => (
   <section className="staff-main">

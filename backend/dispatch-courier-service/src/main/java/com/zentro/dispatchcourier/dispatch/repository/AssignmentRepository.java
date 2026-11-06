@@ -52,6 +52,16 @@ public class AssignmentRepository {
     return result;
   }
 
+  public Map<UUID, Long> assignmentCounts() {
+    return jdbc.query("""
+        SELECT courier_profile_id, COUNT(*) AS assignment_count
+          FROM dispatch.delivery_assignment
+         GROUP BY courier_profile_id
+        """, (row, index) -> Map.entry(
+        row.getObject("courier_profile_id", UUID.class), row.getLong("assignment_count")))
+        .stream().collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   /** Unique parcel key is the arbiter even when two independent requests race. */
   public Assignment insert(UUID parcelId, IdentityCourierClient.Courier courier, String subject) {
     return transactions.execute(status -> {
