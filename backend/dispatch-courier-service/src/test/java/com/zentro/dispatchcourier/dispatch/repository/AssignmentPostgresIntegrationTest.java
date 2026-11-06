@@ -94,5 +94,45 @@ class AssignmentPostgresIntegrationTest {
     try { service.assign(parcelId, courier.id(), dispatcher, "token"); return "created"; }
     catch (DispatchException error) { return error.code(); }
   }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+  void parcelAdvisoryLockBlocksInsertUntilCommitOrRollback(boolean commit) throws Exception {
+    try (var holder = jdbc.getDataSource().getConnection();
+         var threads = Executors.newSingleThreadExecutor()) {
+      holder.setAutoCommit(false);
+      try (var lock = holder.prepareStatement(
+          "SELECT pg_advisory_xact_lock(hashtextextended(CAST(? AS text), 0))")) {
+        lock.setString(1, parcelId.toString());
+        lock.execute();
+      }
+      var pending = threads.submit(() -> repository.insert(parcelId, courier, "waiting-dispatcher"));
+      try {
+        // Observe PostgreSQL's actual waiter, rather than guessing from a sleep/future timeout.
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        boolean waiting = false;
+        while (System.nanoTime() < deadline) {
+          waiting = Boolean.TRUE.equals(jdbc.queryForObject("""
+              SELECT EXISTS(SELECT 1 FROM pg_locks
+                WHERE locktype = 'advisory' AND NOT granted AND database =
+                  (SELECT oid FROM pg_database WHERE datname = current_database()))
+              """, Boolean.class));
+          if (waiting) break;
+          Thread.sleep(20);
+        }
+        assertThat(waiting).as("repository must wait on the advisory lock before INSERT").isTrue();
+        assertThat(pending.isDone()).isFalse();
+        assertThat(repository.exists(parcelId)).isFalse();
+      } finally {
+        // Always release before executor.close(), including assertion failures.
+        if (commit) holder.commit(); else holder.rollback();
+      }
+      assertThat(pending.get(5, TimeUnit.SECONDS).parcelId()).isEqualTo(parcelId);
+      assertThat(jdbc.queryForObject("""
+          SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND database =
+          (SELECT oid FROM pg_database WHERE datname = current_database())
+          """, Integer.class)).isZero();
+    }
+  }
 }
 
