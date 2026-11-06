@@ -115,6 +115,37 @@ class NotificationDispatcherTest {
   }
 
   @Test
+  @DisplayName("Provider timeout and throttling are retried with exponential back-off")
+  void providerFailuresAreRetried() {
+    row(1);
+    dispatcher(FailMode.TIMEOUT, 5).deliver(ID);
+
+    ArgumentCaptor<String> timeoutError = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<OffsetDateTime> timeoutNext = ArgumentCaptor.forClass(OffsetDateTime.class);
+    verify(repository).markRetry(eq(ID), eq(2), timeoutError.capture(), timeoutNext.capture());
+    assertThat(timeoutError.getValue()).contains("timeout");
+    assertThat(timeoutNext.getValue().toInstant()).isEqualTo(NOW.plusSeconds(10));
+
+    org.mockito.Mockito.clearInvocations(repository);
+    row(2);
+    dispatcher(FailMode.THROTTLED, 5).deliver(ID);
+    ArgumentCaptor<String> throttledError = ArgumentCaptor.forClass(String.class);
+    verify(repository).markRetry(eq(ID), eq(3), throttledError.capture(), any());
+    assertThat(throttledError.getValue()).contains("throttled");
+  }
+
+  @Test
+  @DisplayName("Permanent provider failure becomes terminal and is observable")
+  void permanentProviderFailureIsTerminal() {
+    row(4);
+    dispatcher(FailMode.PERMANENT, 5).deliver(ID);
+
+    verify(repository).markFailed(eq(ID), eq(5), anyString());
+    verify(repository, never()).markRetry(any(), anyInt(), anyString(), any());
+    assertThat(registry.get(NotificationMetrics.FAILED).counter().count()).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("A retry after recovery is SENT (first-attempt fail mode)")
   void retryAfterRecoveryIsSent() {
     row(1);
