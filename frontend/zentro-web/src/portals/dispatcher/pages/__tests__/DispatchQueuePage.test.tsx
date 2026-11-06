@@ -7,6 +7,7 @@ import { AuthContext } from '@/shared/auth/authContext';
 import { DispatchQueuePage } from '../DispatchQueuePage';
 import { DispatchQueueCard } from '../DispatchQueueCard';
 import type { DispatchQueue } from '../../api/dispatchApi';
+import { courierWorkloadKey } from '../../api/workloadApi';
 
 const parcelId = '11111111-1111-4111-8111-111111111111';
 const courierId = '22222222-2222-4222-8222-222222222222';
@@ -15,8 +16,8 @@ const courier = { id: courierId, userId: '33333333-3333-4333-8333-333333333333',
 let queue: DispatchQueue;
 let couriers: typeof courier[];
 
-function mount(card = false) {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
+function mount(card = false, client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })) {
+  return render(<QueryClientProvider client={client}>
     <AuthContext.Provider value={{ user: { id: 'dispatcher', accessToken: 'test' }, loading: false } as never}>
       <MemoryRouter>{card && <DispatchQueueCard />}<DispatchQueuePage /></MemoryRouter>
     </AuthContext.Provider>
@@ -119,8 +120,10 @@ describe('Dispatch Queue (mocked HTTP, real React Query)', () => {
 
   it('requires explicit selection, prevents duplicate submits and refreshes rows/counts after success', async () => {
     let finish!: () => void;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
     const post = vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise(resolve => { finish = () => { queue = { items: [], total: 0, matchingTotal: 0, complete: true }; resolve({ data: {} }); }; }));
-    mount(true); await openDialog();
+    mount(true, client); await openDialog();
     expect(screen.getByRole('button', { name: 'Confirm assignment' })).toBeDisabled();
     await chooseCourier();
     const confirm = screen.getByRole('button', { name: 'Confirm assignment' });
@@ -132,6 +135,7 @@ describe('Dispatch Queue (mocked HTTP, real React Query)', () => {
     expect(await screen.findByText('Delivery assigned successfully.')).toBeInTheDocument();
     expect(await screen.findByText('The dispatch queue is empty.')).toBeInTheDocument();
     expect(screen.queryByText('TRACK-ONE')).not.toBeInTheDocument();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: courierWorkloadKey });
     expect(post).toHaveBeenCalledWith('/api/v1/dispatch/assignments', { parcelId, courierId }, { headers: { Authorization: 'Bearer test' } });
   });
 

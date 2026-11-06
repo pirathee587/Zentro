@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { apiClient } from '@/shared/api/apiClient';
 
+export const courierWorkloadKey = ['dispatcher', 'workload'] as const;
+
 const workloadSchema = z.object({
   courierId: z.string().uuid(),
   userId: z.string().uuid(),
