@@ -533,4 +533,79 @@ class ParcelPricingAuthorizationAndEndpointTests {
             """))
         .andExpect(status().isOk());
   }
+
+  @Test
+  @DisplayName("Destination zone provided without origin zone returns 400 Bad Request with fieldErrors.originZone")
+  void destinationZoneWithoutOriginZoneReturnsBadRequest() throws Exception {
+    when(zoneService.isValidZone("ZONE_COLOMBO_METRO")).thenReturn(true);
+
+    mvc.perform(post("/api/v1/parcels/estimate")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+        .contentType("application/json")
+        .content("{\"weightKg\": 1.0, \"destinationZone\": \"ZONE_COLOMBO_METRO\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.fieldErrors.originZone").value("Origin zone is required when destination zone is provided."));
+
+    verifyNoInteractions(pricingService);
+  }
+
+  @Test
+  @DisplayName("Origin zone provided without destination zone returns 400 Bad Request with fieldErrors.destinationZone")
+  void originZoneWithoutDestinationZoneReturnsBadRequest() throws Exception {
+    when(zoneService.isValidZone("ZONE_COLOMBO_METRO")).thenReturn(true);
+
+    mvc.perform(post("/api/v1/parcels/estimate")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+        .contentType("application/json")
+        .content("{\"weightKg\": 1.0, \"originZone\": \"ZONE_COLOMBO_METRO\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.fieldErrors.destinationZone").value("Destination zone is required when origin zone is provided."));
+
+    verifyNoInteractions(pricingService);
+  }
+
+  @Test
+  @DisplayName("Case-insensitive currency parameter is accepted via API and normalized to rule currency")
+  void caseInsensitiveCurrencyAcceptedViaApi() throws Exception {
+    when(zoneService.isValidZone(any())).thenReturn(true);
+    when(pricingService.estimateFee(any(FeeEstimateRequest.class)))
+        .thenAnswer(inv -> ENGINE.calculate(inv.getArgument(0), DEFAULT_RULE));
+
+    mvc.perform(post("/api/v1/parcels/estimate")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+        .contentType("application/json")
+        .content("{\"weightKg\": 1.0, \"currency\": \"lkr\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.currency").value("LKR"))
+        .andExpect(jsonPath("$.fee").value(550.00));
+  }
+
+  @Test
+  @DisplayName("Volumetric weight exactly at 100 kg ceiling is permitted and succeeds")
+  void volumetricWeightExactlyAtCeiling100KgAllowed() throws Exception {
+    when(zoneService.isValidZone(any())).thenReturn(true);
+    when(pricingService.estimateFee(any(FeeEstimateRequest.class)))
+        .thenAnswer(inv -> ENGINE.calculate(inv.getArgument(0), DEFAULT_RULE));
+
+    // 500 cm x 100 cm x 10 cm = 500,000 / 5,000 = 100.00 kg volumetric weight
+    mvc.perform(post("/api/v1/parcels/estimate")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+        .contentType("application/json")
+        .content("{\"lengthCm\": 500.00, \"widthCm\": 100.00, \"heightCm\": 10.00}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.fee").value(12430.00));
+  }
+
+  @Test
+  @DisplayName("Fee estimate alias endpoint with invalid input returns 400 Bad Request Problem Details")
+  void feeEstimateAliasEndpointWithInvalidInputReturnsBadRequest() throws Exception {
+    mvc.perform(post("/api/v1/parcels/estimate-fee")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+        .contentType("application/json")
+        .content("{\"weightKg\": -5.0}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.fieldErrors.weightKg").exists());
+
+    verifyNoInteractions(pricingService);
+  }
 }
