@@ -109,7 +109,7 @@ public class ParcelStatusService {
     repository.updateStatus(parcel.id(), targetStatus, parcel.version(), now);
     repository.insertHistory(change);
     UUID eventId = UUID.randomUUID();
-    repository.insertOutboxEvent(eventId, parcel.id(), EVENT_TYPE, eventJson(eventId, change), now);
+    repository.insertOutboxEvent(eventId, parcel.id(), EVENT_TYPE, eventJson(eventId, change, parcel.merchantId()), now);
 
     log.info("Parcel status changed: parcelId={} {} -> {} by {}", parcel.id(), current, targetStatus,
         change.actorRole());
@@ -118,10 +118,12 @@ public class ParcelStatusService {
 
   /**
    * Event envelope (eventId, eventType, occurredAt, aggregateId, payload). The payload holds only the tracking
-   * reference, statuses, actor role, time and failure reason: never names, phone numbers, addresses, notes or
-   * the actor subject.
+   * reference, statuses, actor role, time, failure reason and, for merchant parcels, the merchant account id:
+   * never names, phone numbers, addresses, notes or the actor subject.
+   *
+   * @param merchantId the parcel's merchant account id, or null for customer bookings (then the field is absent)
    */
-  String eventJson(UUID eventId, ParcelStatusChange change) {
+  String eventJson(UUID eventId, ParcelStatusChange change, String merchantId) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("trackingRef", change.trackingRef());
     payload.put("previousStatus", change.previousStatus().name());
@@ -132,6 +134,9 @@ public class ParcelStatusService {
     payload.put("occurredAt", occurredAt);
     if (change.status() == ParcelStatus.FAILED) {
       payload.put("failureReason", change.reason());
+    }
+    if (merchantId != null) {
+      payload.put("merchantId", merchantId);
     }
 
     Map<String, Object> envelope = new LinkedHashMap<>();

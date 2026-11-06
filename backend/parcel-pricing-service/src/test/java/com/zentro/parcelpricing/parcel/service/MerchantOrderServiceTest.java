@@ -3,11 +3,15 @@ package com.zentro.parcelpricing.parcel.service;
 import com.zentro.parcelpricing.pricing.service.PricingService;
 
 import com.zentro.parcelpricing.parcel.repository.MerchantOrderRepository;
+import com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,11 +38,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.support.TransactionOperations;
 
 class MerchantOrderServiceTest {
   private PricingService pricingService;
   private MerchantOrderRepository repository;
   private TrackingReferenceGenerator trackingGen;
+  private ParcelStatusRepository eventRepository;
   private MerchantOrderService service;
 
   @BeforeEach
@@ -46,7 +52,9 @@ class MerchantOrderServiceTest {
     pricingService = mock(PricingService.class);
     repository = mock(MerchantOrderRepository.class);
     trackingGen = mock(TrackingReferenceGenerator.class);
-    service = new MerchantOrderService(pricingService, repository, trackingGen);
+    eventRepository = mock(ParcelStatusRepository.class);
+    service = new MerchantOrderService(pricingService, repository, trackingGen, eventRepository,
+        new ObjectMapper(), TransactionOperations.withoutTransaction());
   }
 
   @Test
@@ -148,7 +156,7 @@ class MerchantOrderServiceTest {
     when(pricingService.estimateFee(any())).thenReturn(new FeeEstimateResponse(new BigDecimal("500.00"), "LKR 500", "LKR", 1, null));
     when(trackingGen.next()).thenReturn("ZT-REF1", "ZT-REF2");
     when(repository.findByMerchantAndExternalRef(any(), eq("ORD-SHARED"))).thenReturn(Optional.empty());
-    when(repository.insert(any())).thenAnswer(inv -> inv.getArgument(0));
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
 
     OrderResult result1 = service.createOrder("merchant-1", request);
     OrderResult result2 = service.createOrder("merchant-2", request);
@@ -169,7 +177,7 @@ class MerchantOrderServiceTest {
     DuplicateKeyException collision = new DuplicateKeyException("Pretend duplicate " + MerchantOrderRepository.TRACKING_REF_CONSTRAINT);
     when(repository.insert(any()))
         .thenThrow(collision)
-        .thenAnswer(inv -> inv.getArgument(0));
+        .thenAnswer(inv -> saved(inv.getArgument(0)));
 
     OrderResult result = service.createOrder("merchant-abc", request);
 
@@ -272,5 +280,64 @@ class MerchantOrderServiceTest {
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  /** What the database returns for an inserted draft: the same order with an id and timestamps. */
+  private static MerchantOrder saved(MerchantOrder draft) {
+    OffsetDateTime now = OffsetDateTime.now();
+    return new MerchantOrder(UUID.randomUUID(), draft.trackingRef(), draft.merchantId(), draft.externalOrderRef(),
+        draft.sender(), draft.recipient(), draft.weightKg(), draft.size(), draft.category(), draft.description(),
+        draft.destinationType(), draft.express(), draft.notes(), draft.fee(), draft.currency(),
+        draft.estimatedDays(), draft.status(), draft.requestHash(), now, now);
+  }
+
+  @Test
+  @DisplayName("A new order writes one parcel.created event with source MERCHANT_ORDER and the merchant id")
+  void newOrderWritesCreatedEvent() throws Exception {
+    when(pricingService.estimateFee(any())).thenReturn(new FeeEstimateResponse(new BigDecimal("500.00"), "LKR 500", "LKR", 1, null));
+    when(trackingGen.next()).thenReturn("ZT-ABCDEFGH12");
+    when(repository.findByMerchantAndExternalRef(any(), any())).thenReturn(Optional.empty());
+    when(repository.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+
+    OrderResult result = service.createOrder("merchant-evt", sampleRequest("ORD-EVT"));
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(eventRepository).insertOutboxEvent(any(), eq(result.order().id()), eq("parcel.created"), json.capture(), any());
+    var payload = new ObjectMapper().readTree(json.getValue()).get("payload");
+    assertThat(payload.get("source").asText()).isEqualTo("MERCHANT_ORDER");
+    assertThat(payload.get("merchantId").asText()).isEqualTo("merchant-evt");
+    assertThat(payload.get("trackingRef").asText()).isEqualTo("ZT-ABCDEFGH12");
+  }
+
+  @Test
+  @DisplayName("Replaying the same order and a conflicting replay write no event")
+  void replayWritesNoEvent() {
+    CreateMerchantOrderRequest request = sampleRequest("ORD-REPLAY");
+    when(pricingService.estimateFee(any())).thenReturn(new FeeEstimateResponse(new BigDecimal("500.00"), "LKR 500", "LKR", 1, null));
+    when(trackingGen.next()).thenReturn("ZT-ABCDEFGH12");
+    MerchantOrder stored = saved(storedDraft(request));
+    when(repository.findByMerchantAndExternalRef("merchant-replay", "ORD-REPLAY")).thenReturn(Optional.of(stored));
+    CreateMerchantOrderRequest conflicting = new CreateMerchantOrderRequest(request.externalOrderRef(),
+        request.sender(), request.recipient(), request.parcel(), request.destinationType(), request.isExpress(),
+        "different notes");
+
+    OrderResult replay = service.createOrder("merchant-replay", request);
+
+    assertThat(replay.created()).isFalse();
+    assertThatThrownBy(() -> service.createOrder("merchant-replay", conflicting))
+        .isInstanceOf(DuplicateExternalReferenceException.class);
+    verify(eventRepository, never()).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+  }
+
+  /** The draft the service would store for this request (including its request hash), via a throw-away service. */
+  private MerchantOrder storedDraft(CreateMerchantOrderRequest request) {
+    MerchantOrderRepository scratch = mock(MerchantOrderRepository.class);
+    when(scratch.findByMerchantAndExternalRef(any(), any())).thenReturn(Optional.empty());
+    when(scratch.insert(any())).thenAnswer(inv -> saved(inv.getArgument(0)));
+    new MerchantOrderService(pricingService, scratch, trackingGen, mock(ParcelStatusRepository.class),
+        new ObjectMapper(), TransactionOperations.withoutTransaction()).createOrder("merchant-replay", request);
+    ArgumentCaptor<MerchantOrder> draft = ArgumentCaptor.forClass(MerchantOrder.class);
+    verify(scratch).insert(draft.capture());
+    return draft.getValue();
   }
 }

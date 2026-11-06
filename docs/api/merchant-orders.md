@@ -131,6 +131,10 @@ When the same merchant submits the same `externalOrderRef` with identical order 
 - **Conflict:** If a merchant submits an existing `externalOrderRef` with different details, the API returns `409 Conflict`.
 - **Concurrency:** Concurrent requests with the same reference are arbitrated by the database unique constraint; the second insert fails safely and replays the winner.
 
+### 4.1 Events (#32)
+
+A new order (`201 Created`) writes one `parcel.created` outbox event in the same transaction as the order, with `source: MERCHANT_ORDER` and the merchant account id in `payload.merchantId`. Replays (`200 OK`) and conflicts (`409`) write no event. Later status changes of the parcel carry the same `merchantId` in `parcel.status.updated`. No names, phone numbers, addresses or the external order reference are put in events. See [parcel-events.md](parcel-events.md) and [merchant-webhooks.md](merchant-webhooks.md).
+
 ---
 
 ## 5. Security & Merchant Approval Enforcement

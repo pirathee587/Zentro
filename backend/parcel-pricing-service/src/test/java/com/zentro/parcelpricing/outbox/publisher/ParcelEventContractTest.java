@@ -26,6 +26,10 @@ import com.zentro.parcelpricing.parcel.dto.CreateParcelBookingRequest;
 import com.zentro.parcelpricing.pricing.dto.FeeEstimateResponse;
 import com.zentro.parcelpricing.parcel.repository.ParcelBookingRepository;
 import com.zentro.parcelpricing.parcel.service.ParcelBookingService;
+import com.zentro.parcelpricing.parcel.dto.CreateMerchantOrderRequest;
+import com.zentro.parcelpricing.parcel.entity.MerchantOrder;
+import com.zentro.parcelpricing.parcel.repository.MerchantOrderRepository;
+import com.zentro.parcelpricing.parcel.service.MerchantOrderService;
 import com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository;
 import com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository.LockedParcel;
 import com.zentro.parcelpricing.parcel.service.ParcelStatusService;
@@ -79,8 +83,14 @@ class ParcelEventContractTest {
 
   /** Runs the real status service with a mocked repository and returns the event JSON it wrote. */
   private static String statusEvent(ParcelStatus from, ParcelStatus to, String reason) {
+    return statusEvent(from, to, reason, null);
+  }
+
+  /** Same as above for a parcel owned by {@code merchantId} (null = customer booking). */
+  private static String statusEvent(ParcelStatus from, ParcelStatus to, String reason, String merchantId) {
     ParcelStatusRepository repository = mock(ParcelStatusRepository.class);
-    when(repository.lockForUpdate(PARCEL_ID)).thenReturn(Optional.of(new LockedParcel(PARCEL_ID, TRACKING_REF, from, 3)));
+    when(repository.lockForUpdate(PARCEL_ID))
+        .thenReturn(Optional.of(new LockedParcel(PARCEL_ID, TRACKING_REF, from, 3, merchantId)));
     when(repository.updateStatus(any(), any(), anyLong(), any())).thenReturn(4L);
     new ParcelStatusService(repository, MAPPER)
         .updateStatus(PARCEL_ID, to, reason, "Left at the gate", "dispatcher-sub-9", "DISPATCHER");
@@ -209,5 +219,95 @@ class ParcelEventContractTest {
     MAPPER.readTree(createdEvent(OffsetDateTime.parse("2026-11-03T10:15:30Z")))
         .get("payload").fieldNames().forEachRemaining(createdFields::add);
     assertThat(createdFields).containsExactlyInAnyOrder("trackingRef", "status", "source", "occurredAt");
+  }
+
+  private static final String MERCHANT_ID = "6f2d0c1a-3b4e-4f5a-8b9c-0d1e2f3a4b5c";
+
+  /** Runs the real merchant order service with mocked collaborators and returns the parcel.created event JSON. */
+  private static String merchantCreatedEvent() {
+    PricingService pricing = mock(PricingService.class);
+    MerchantOrderRepository orders = mock(MerchantOrderRepository.class);
+    TrackingReferenceGenerator refs = mock(TrackingReferenceGenerator.class);
+    ParcelStatusRepository events = mock(ParcelStatusRepository.class);
+    OffsetDateTime createdAt = OffsetDateTime.parse("2026-11-03T10:15:00Z");
+    when(pricing.estimateFee(any())).thenReturn(new FeeEstimateResponse(new BigDecimal("850.00"), "LKR 850", "LKR", 2, null));
+    when(refs.next()).thenReturn(TRACKING_REF);
+    when(orders.findByMerchantAndExternalRef(any(), any())).thenReturn(Optional.empty());
+    when(orders.insert(any())).thenAnswer(inv -> {
+      MerchantOrder d = inv.getArgument(0);
+      return new MerchantOrder(PARCEL_ID, d.trackingRef(), d.merchantId(), d.externalOrderRef(), d.sender(),
+          d.recipient(), d.weightKg(), d.size(), d.category(), d.description(), d.destinationType(), d.express(),
+          d.notes(), d.fee(), d.currency(), d.estimatedDays(), d.status(), d.requestHash(), createdAt, createdAt);
+    });
+
+    new MerchantOrderService(pricing, orders, refs, events, MAPPER, mock(PlatformTransactionManager.class))
+        .createOrder(MERCHANT_ID, new CreateMerchantOrderRequest("ORD-CONTRACT-1",
+            new CreateParcelBookingRequest.Contact("Nimal Perera", "0771234567", "12 Galle Road, Colombo 03", "Colombo"),
+            new CreateParcelBookingRequest.Contact("Kamala Silva", "+94712345678", "45 Temple Street, Kandy", "Kandy"),
+            new CreateParcelBookingRequest.ParcelDetails(new BigDecimal("2"), "Small Box", ParcelSize.SMALL, "Books"),
+            DestinationType.OTHER_DISTRICT, false, "Call before delivery"));
+
+    ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+    verify(events).insertOutboxEvent(any(), eq(PARCEL_ID), eq("parcel.created"), json.capture(), any());
+    return json.getValue();
+  }
+
+  @Test
+  @DisplayName("A merchant order's parcel.created event matches the schema and adds only source and merchantId")
+  void merchantCreatedEventMatchesSchema() throws Exception {
+    String json = merchantCreatedEvent();
+    JsonNode event = MAPPER.readTree(json);
+
+    assertThat(errors(createdSchema, event)).isEmpty();
+    assertThat(event.get("payload").get("source").asText()).isEqualTo("MERCHANT_ORDER");
+    assertThat(event.get("payload").get("merchantId").asText()).isEqualTo(MERCHANT_ID);
+    assertThat(PERSONAL_DATA).noneMatch(json::contains);
+    assertThat(json).doesNotContain("ORD-CONTRACT-1", "Books", "Call before delivery");
+    List<String> fields = new ArrayList<>();
+    event.get("payload").fieldNames().forEachRemaining(fields::add);
+    assertThat(fields).containsExactlyInAnyOrder("trackingRef", "status", "source", "occurredAt", "merchantId");
+  }
+
+  @ParameterizedTest(name = "{0} -> {1}")
+  @CsvSource({
+      "CREATED, PICKED_UP, ",
+      "OUT_FOR_DELIVERY, DELIVERED, ",
+      "PICKED_UP, FAILED, Recipient not available"
+  })
+  @DisplayName("Status events for a merchant parcel carry merchantId and match the schema")
+  void merchantStatusEventsMatchSchema(ParcelStatus from, ParcelStatus to, String reason) throws Exception {
+    JsonNode event = MAPPER.readTree(statusEvent(from, to, reason, MERCHANT_ID));
+
+    assertThat(errors(statusSchema, event)).isEmpty();
+    assertThat(event.get("payload").get("merchantId").asText()).isEqualTo(MERCHANT_ID);
+  }
+
+  @Test
+  @DisplayName("Status events for a customer booking have no merchantId")
+  void customerStatusEventHasNoMerchantId() throws Exception {
+    JsonNode event = MAPPER.readTree(statusEvent(ParcelStatus.CREATED, ParcelStatus.PICKED_UP, null));
+
+    assertThat(event.get("payload").has("merchantId")).isFalse();
+  }
+
+  @Test
+  @DisplayName("Schema rejects an empty, too long or non-string merchantId")
+  void schemaRejectsInvalidMerchantId() throws Exception {
+    String valid = statusEvent(ParcelStatus.CREATED, ParcelStatus.PICKED_UP, null, MERCHANT_ID);
+    assertThat(errors(statusSchema, MAPPER.readTree(valid))).isEmpty();
+
+    ObjectNode empty = (ObjectNode) MAPPER.readTree(valid);
+    ((ObjectNode) empty.get("payload")).put("merchantId", "");
+    ObjectNode tooLong = (ObjectNode) MAPPER.readTree(valid);
+    ((ObjectNode) tooLong.get("payload")).put("merchantId", "m".repeat(256));
+    ObjectNode number = (ObjectNode) MAPPER.readTree(valid);
+    ((ObjectNode) number.get("payload")).put("merchantId", 42);
+    ObjectNode createdEmpty = (ObjectNode) MAPPER.readTree(merchantCreatedEvent());
+    ((ObjectNode) createdEmpty.get("payload")).put("merchantId", "");
+
+    for (ObjectNode event : List.of(empty, tooLong, number)) {
+      assertThat(errors(statusSchema, event)).as(event.toString()).isNotEmpty();
+    }
+    assertThat(errors(createdSchema, createdEmpty)).isNotEmpty();
   }
 }

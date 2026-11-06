@@ -20,8 +20,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(propagation = Propagation.MANDATORY)
 public class ParcelStatusRepository {
 
-  /** The parts of a parcel row needed to change its status, read under a row lock. */
-  public record LockedParcel(UUID id, String trackingRef, ParcelStatus status, long version) {}
+  /**
+   * The parts of a parcel row needed to change its status, read under a row lock.
+   *
+   * @param merchantId the merchant account id for merchant parcels, null for customer bookings
+   */
+  public record LockedParcel(UUID id, String trackingRef, ParcelStatus status, long version, String merchantId) {
+    /** A parcel without a merchant (customer booking). */
+    public LockedParcel(UUID id, String trackingRef, ParcelStatus status, long version) {
+      this(id, trackingRef, status, version, null);
+    }
+  }
 
   private final JdbcTemplate jdbc;
 
@@ -32,12 +41,13 @@ public class ParcelStatusRepository {
   /** Reads the parcel and locks its row until the transaction ends; empty when it does not exist. */
   public Optional<LockedParcel> lockForUpdate(UUID parcelId) {
     List<LockedParcel> rows = jdbc.query(
-        "SELECT id, tracking_ref, status, version FROM parcel.parcel WHERE id = ? FOR UPDATE",
+        "SELECT id, tracking_ref, status, version, merchant_id FROM parcel.parcel WHERE id = ? FOR UPDATE",
         (rs, rowNum) -> new LockedParcel(
             rs.getObject("id", UUID.class),
             rs.getString("tracking_ref"),
             ParcelStatus.valueOf(rs.getString("status")),
-            rs.getLong("version")),
+            rs.getLong("version"),
+            rs.getString("merchant_id")),
         parcelId);
     return rows.stream().findFirst();
   }

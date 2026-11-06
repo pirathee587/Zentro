@@ -1,0 +1,206 @@
+package com.zentro.notificationintegration.webhook.service;
+
+import com.zentro.notificationintegration.notification.repository.NotificationRepository;
+import com.zentro.notificationintegration.webhook.client.WebhookHttpSender;
+import com.zentro.notificationintegration.webhook.client.WebhookHttpSender.SignedRequest;
+import com.zentro.notificationintegration.webhook.client.WebhookSendResult;
+import com.zentro.notificationintegration.webhook.config.WebhookProperties;
+import com.zentro.notificationintegration.webhook.entity.WebhookSubscription;
+import com.zentro.notificationintegration.webhook.event.MerchantParcelEvent;
+import com.zentro.notificationintegration.webhook.exception.InvalidWebhookUrlException;
+import com.zentro.notificationintegration.webhook.exception.UnresolvableWebhookHostException;
+import com.zentro.notificationintegration.webhook.exception.WebhookSecretException;
+import com.zentro.notificationintegration.webhook.exception.WebhooksUnavailableException;
+import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository;
+import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository.DeliveryAttempt;
+import com.zentro.notificationintegration.webhook.repository.WebhookSubscriptionRepository;
+import com.zentro.notificationintegration.webhook.security.WebhookSecretCipher;
+import com.zentro.notificationintegration.webhook.security.WebhookSigner;
+import com.zentro.notificationintegration.webhook.service.WebhookRetryPolicy.Outcome;
+import com.zentro.notificationintegration.webhook.validation.WebhookUrlValidator;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.HexFormat;
+import java.util.Optional;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Merchant webhook delivery.
+ * <ul>
+ *   <li>{@link #handle}: one transaction per event. Marks the event as processed for consumer
+ *       {@value #CONSUMER} (a duplicate stops here), skips events without a merchant or without an active
+ *       subscription, otherwise stores a PENDING delivery with the envelope exactly as received.</li>
+ *   <li>{@link #attempt}: one attempt under a row lock (SKIP LOCKED, so instances never send the same delivery
+ *       twice at once). Checks the endpoint again, signs, sends, and records the response code and outcome.
+ *       A later event for the same parcel waits while an earlier one is still open.</li>
+ * </ul>
+ * Logs carry the event id, merchant id and status code only: never the secret, the signature or the payload.
+ */
+@Service
+public class WebhookDeliveryService {
+  public static final String CONSUMER = "merchant-webhooks";
+  /** last_error of deliveries closed because the merchant disabled the endpoint (not a delivery failure). */
+  public static final String DISABLED_ERROR = "Subscription disabled";
+
+  private static final Logger log = LoggerFactory.getLogger(WebhookDeliveryService.class);
+
+  private final NotificationRepository processedEvents;
+  private final WebhookSubscriptionRepository subscriptions;
+  private final WebhookDeliveryRepository deliveries;
+  private final WebhookUrlValidator validator;
+  private final WebhookSecretCipher cipher;
+  private final WebhookSigner signer;
+  private final WebhookHttpSender sender;
+  private final WebhookRetryPolicy policy;
+  private final WebhookMetrics metrics;
+  private final Duration holdBack;
+  private final Clock clock;
+
+  public WebhookDeliveryService(NotificationRepository processedEvents, WebhookSubscriptionRepository subscriptions,
+      WebhookDeliveryRepository deliveries, WebhookUrlValidator validator, WebhookSecretCipher cipher,
+      WebhookSigner signer, WebhookHttpSender sender, WebhookRetryPolicy policy, WebhookMetrics metrics,
+      WebhookProperties properties, Clock clock) {
+    this.processedEvents = processedEvents;
+    this.subscriptions = subscriptions;
+    this.deliveries = deliveries;
+    this.validator = validator;
+    this.cipher = cipher;
+    this.signer = signer;
+    this.sender = sender;
+    this.policy = policy;
+    this.metrics = metrics;
+    this.holdBack = Duration.ofMillis(properties.retry().baseDelayMs());
+    this.clock = clock;
+  }
+
+  /**
+   * Stores the delivery for one valid event.
+   *
+   * @return the id of a new PENDING delivery to attempt now; empty for duplicates and skipped events
+   */
+  @Transactional
+  public Optional<UUID> handle(MerchantParcelEvent event) {
+    UUID eventId = event.event().eventId();
+    if (!processedEvents.markProcessed(CONSUMER, eventId)) {
+      metrics.duplicate();
+      log.debug("Duplicate parcel event ignored for webhooks: eventId={}", eventId);
+      return Optional.empty();
+    }
+    if (event.merchantId() == null) {
+      metrics.skipped();
+      log.debug("No webhook for a customer parcel: eventId={}", eventId);
+      return Optional.empty();
+    }
+    Optional<WebhookSubscription> subscription = subscriptions.findActiveByMerchant(event.merchantId());
+    if (subscription.isEmpty()) {
+      metrics.skipped();
+      log.debug("No active webhook endpoint: eventId={} merchantId={}", eventId, event.merchantId());
+      return Optional.empty();
+    }
+    Optional<UUID> id = deliveries.insertPending(subscription.get().id(), eventId, event.event().eventType(),
+        event.event().parcelId(), event.rawEnvelope(), sha256(event.rawEnvelope()), OffsetDateTime.now(clock));
+    id.ifPresent(d -> log.info("Webhook delivery queued: eventId={} merchantId={} deliveryId={}", eventId,
+        event.merchantId(), d));
+    return id;
+  }
+
+  /** Records a malformed message by its position and a short reason; the content is never stored or logged. */
+  @Transactional
+  public void reject(String topic, Integer partition, Long offset, String reason) {
+    processedEvents.insertRejected(topic, partition, offset, CONSUMER + ": " + reason);
+    metrics.rejected();
+    log.warn("Rejected malformed parcel event for webhooks at {}-{}@{}: {}", topic, partition, offset, reason);
+  }
+
+  /** Makes one attempt. Does nothing when the delivery is already final or being sent by another instance. */
+  @Transactional
+  public void attempt(UUID deliveryId) {
+    DeliveryAttempt row = deliveries.lockForAttempt(deliveryId).orElse(null);
+    if (row == null) {
+      return;
+    }
+    OffsetDateTime now = OffsetDateTime.now(clock);
+    if (!row.subscriptionActive()) {
+      deliveries.markFailed(row.id(), row.attempts(), null, DISABLED_ERROR);
+      metrics.skipped();
+      log.info("Webhook delivery closed, endpoint disabled: eventId={} merchantId={}", row.eventId(),
+          row.merchantId());
+      return;
+    }
+    if (deliveries.hasEarlierOpen(row.subscriptionId(), row.parcelId(), row.createdAt(), row.id())) {
+      deliveries.postpone(row.id(), now.plus(holdBack));
+      log.debug("Webhook delivery held back for parcel order: eventId={}", row.eventId());
+      return;
+    }
+
+    int attempt = row.attempts() + 1;
+    URI url;
+    try {
+      url = validator.validate(row.url());
+    } catch (UnresolvableWebhookHostException ex) {
+      record(row, attempt, WebhookSendResult.networkError("host cannot be resolved"));
+      return;
+    } catch (InvalidWebhookUrlException ex) {
+      fail(row, attempt, null, "Endpoint not allowed: " + ex.getMessage());
+      return;
+    }
+    String secret;
+    try {
+      secret = cipher.decrypt(row.secretCiphertext(), row.merchantId());
+    } catch (WebhookSecretException | WebhooksUnavailableException ex) {
+      fail(row, attempt, null, "Signing secret unavailable");
+      return;
+    }
+
+    long timestamp = Instant.now(clock).getEpochSecond();
+    WebhookSendResult result = sender.send(new SignedRequest(url, row.eventId().toString(), row.eventType(),
+        timestamp, signer.sign(secret, timestamp, row.payload()), row.payload()));
+    record(row, attempt, result);
+  }
+
+  private void record(DeliveryAttempt row, int attempt, WebhookSendResult result) {
+    Outcome outcome = policy.classify(result, attempt);
+    switch (outcome.decision()) {
+      case SUCCEEDED -> {
+        deliveries.markSucceeded(row.id(), attempt, result.status());
+        metrics.succeeded();
+        log.info("Webhook delivered: eventId={} merchantId={} status={} attempts={}", row.eventId(),
+            row.merchantId(), result.status(), attempt);
+      }
+      case RETRY -> {
+        OffsetDateTime next = OffsetDateTime.now(clock).plus(outcome.delay());
+        deliveries.markRetry(row.id(), attempt, result.status(), outcome.error(), next);
+        metrics.retried();
+        log.warn("Webhook attempt failed, will retry: eventId={} merchantId={} status={} error={} attempts={}"
+            + " nextTry={}", row.eventId(), row.merchantId(), result.status(), outcome.error(), attempt, next);
+      }
+      case FAILED -> fail(row, attempt, result.status(), outcome.error());
+    }
+  }
+
+  private void fail(DeliveryAttempt row, int attempt, Integer status, String error) {
+    deliveries.markFailed(row.id(), attempt, status, error);
+    metrics.failed();
+    log.error("Webhook delivery failed permanently: eventId={} merchantId={} status={} error={} attempts={}",
+        row.eventId(), row.merchantId(), status, error, attempt);
+  }
+
+  static String sha256(String value) {
+    try {
+      return HexFormat.of().formatHex(
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException ex) {
+      throw new IllegalStateException("SHA-256 is not available", ex);
+    }
+  }
+}

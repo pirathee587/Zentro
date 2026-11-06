@@ -27,6 +27,9 @@ zentro:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
     jwks-uri: ${JWT_JWKS_URI:}
+  identity:
+    # S1 Identity, used to check that a merchant is approved before it registers a webhook endpoint.
+    base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   notifications:
     consumer:
       # Off by default so tests and environments without a broker never connect to Kafka.
@@ -42,6 +45,25 @@ zentro:
     health:
       failed-window-minutes: ${NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES:60}
       stuck-pending-minutes: ${NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES:10}
+  webhooks:
+    # Merchant webhook delivery (Kafka listener + retry scheduler). Off by default.
+    enabled: ${WEBHOOKS_ENABLED:false}
+    # DEVELOPMENT ONLY: also accept http://localhost endpoints. Keep false everywhere else.
+    allow-insecure-local: ${WEBHOOKS_ALLOW_INSECURE_LOCAL:false}
+    # base64 of 32 random bytes; encrypts stored signing secrets. Required when enabled. Never commit a real key.
+    secret-key: ${WEBHOOK_SECRET_KEY:}
+    consumer-group: ${WEBHOOK_CONSUMER_GROUP:merchant-webhooks}
+    retry:
+      max-attempts: ${WEBHOOK_MAX_ATTEMPTS:8}
+      poll-interval-ms: ${WEBHOOK_RETRY_POLL_MS:5000}
+      base-delay-ms: ${WEBHOOK_RETRY_BASE_DELAY_MS:10000}
+      max-delay-ms: ${WEBHOOK_RETRY_MAX_DELAY_MS:1800000}
+    http:
+      connect-timeout-ms: ${WEBHOOK_CONNECT_TIMEOUT_MS:2000}
+      read-timeout-ms: ${WEBHOOK_READ_TIMEOUT_MS:5000}
+    health:
+      failed-window-minutes: ${WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES:60}
+      stuck-minutes: ${WEBHOOK_HEALTH_STUCK_MINUTES:10}
 management:
   endpoint:
     health:
