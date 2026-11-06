@@ -27,7 +27,7 @@ public class ParcelBookingRepository {
       sender_name, sender_phone, sender_address, sender_city,
       recipient_name, recipient_phone, recipient_address, recipient_city,
       weight_kg, size, category, description, destination_type, is_express, notes,
-      fee, currency, estimated_days, status, idempotency_key, request_hash, created_at, updated_at
+      fee, currency, estimated_days, status, idempotency_key, request_hash, fingerprint_version, created_at, updated_at
       """;
 
   private static final RowMapper<ParcelBooking> ROW_MAPPER = ParcelBookingRepository::mapRow;
@@ -51,8 +51,8 @@ public class ParcelBookingRepository {
             sender_name, sender_phone, sender_address, sender_city,
             recipient_name, recipient_phone, recipient_address, recipient_city,
             weight_kg, size, category, description, destination_type, is_express, notes,
-            fee, currency, estimated_days, status, idempotency_key, request_hash
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            fee, currency, estimated_days, status, idempotency_key, request_hash, fingerprint_version
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING """ + " " + COLUMNS,
         ROW_MAPPER,
         booking.trackingRef(),
@@ -77,7 +77,7 @@ public class ParcelBookingRepository {
         booking.estimatedDays(),
         booking.status().name(),
         booking.idempotencyKey(),
-        booking.requestHash());
+        booking.requestHash(), booking.fingerprintVersion());
   }
 
   public Optional<ParcelBooking> findByCustomerAndIdempotencyKey(String customerSubject, String idempotencyKey) {
@@ -139,6 +139,7 @@ public class ParcelBookingRepository {
         ParcelStatus.valueOf(rs.getString("status")),
         rs.getString("idempotency_key"),
         rs.getString("request_hash"),
+        rs.getInt("fingerprint_version"),
         rs.getObject("created_at", OffsetDateTime.class),
         rs.getObject("updated_at", OffsetDateTime.class));
   }

@@ -117,7 +117,7 @@ class ParcelEventContractTest {
       ParcelBooking d = inv.getArgument(0);
       return new ParcelBooking(PARCEL_ID, d.trackingRef(), d.customerSubject(), d.sender(), d.recipient(), d.weightKg(),
           d.size(), d.category(), d.description(), d.destinationType(), d.express(), d.notes(), d.fee(), d.currency(),
-          d.estimatedDays(), d.status(), d.idempotencyKey(), d.requestHash(), createdAt, createdAt);
+          d.estimatedDays(), d.status(), d.idempotencyKey(), d.requestHash(), d.fingerprintVersion(), createdAt, createdAt);
     });
 
     new ParcelBookingService(pricing, bookings, refs, events, MAPPER, mock(PlatformTransactionManager.class))
