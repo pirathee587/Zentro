@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
-import { getCourierWorkload, type CourierWorkload } from '../api/workloadApi';
+import { courierWorkloadKey, getCourierWorkload, type CourierWorkload } from '../api/workloadApi';
 
 type AvailabilityFilter = 'ALL' | 'AVAILABLE' | 'UNAVAILABLE';
 
@@ -49,7 +49,7 @@ export function WorkloadPage() {
     availability: availability === 'ALL' ? undefined : availability.toLowerCase() as 'available' | 'unavailable',
   };
   const workload = useQuery({
-    queryKey: ['dispatcher', 'workload', params],
+    queryKey: [...courierWorkloadKey, params],
     enabled: Boolean(user?.accessToken),
     queryFn: () => getCourierWorkload(params, user?.accessToken),
     retry: false,
