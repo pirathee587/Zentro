@@ -2,6 +2,7 @@ package com.zentro.identitypartner.courier.service;
 
 
 import com.zentro.identitypartner.courier.dto.CourierProfile;
+import com.zentro.identitypartner.courier.dto.UpdateCourierProfileRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -171,5 +174,86 @@ class CourierPostgresTestcontainersIntegrationTest {
 
     List<CourierProfile> couriers = courierProfileService.listCouriers(null, null, null, "Only");
     assertThat(couriers).extracting(CourierProfile::userId).contains(courierId).doesNotContain(customerId);
+  }
+
+  @Test
+  void availabilityDisableAndReEnableArePersistedAndVisibleToFreshReads() {
+    CourierProfile fixture = availabilityFixture(true, "ACTIVE");
+    for (boolean active : new boolean[] {false, true}) {
+      CourierProfile updated = courierProfileService.updateCourierProfile(fixture.id(),
+          new UpdateCourierProfileRequest(active, null, null, null, null));
+      assertThat(updated.active()).isEqualTo(active);
+      assertThat(rawAvailability(fixture.userId())).isEqualTo(active);
+      assertEligibilityViews(fixture, "ACTIVE", active);
+    }
+  }
+
+  @Test
+  void omittedActivePreservesInactiveFlagWhileUpdatingOtherProfileFields() {
+    CourierProfile fixture = availabilityFixture(false, "ACTIVE");
+    CourierProfile updated = courierProfileService.updateCourierProfile(fixture.id(),
+        new UpdateCourierProfileRequest(null, "Kandy", "VAN", null, null));
+    assertThat(updated.assignedZone()).isEqualTo("Kandy");
+    assertThat(updated.vehicleType()).isEqualTo("VAN");
+    assertThat(rawAvailability(fixture.userId())).isFalse();
+    assertEligibilityViews(fixture, "ACTIVE", false);
+  }
+
+  @ParameterizedTest(name = "profile active={0}, account={1}, eligible={2}")
+  @CsvSource({"true,ACTIVE,true", "false,ACTIVE,false", "true,DISABLED,false",
+      "false,DISABLED,false", "true,SUSPENDED,false", "false,SUSPENDED,false"})
+  void effectiveEligibilityUsesBothPersistedFlags(boolean active, String accountStatus, boolean eligible) {
+    CourierProfile fixture = availabilityFixture(active, accountStatus);
+    assertThat(rawAvailability(fixture.userId())).isEqualTo(active);
+    assertEligibilityViews(fixture, accountStatus, eligible);
+  }
+
+  @Test
+  void accountStatusTransitionsAffectEligibilityWithoutChangingRawAvailability() {
+    CourierProfile fixture = availabilityFixture(true, "ACTIVE");
+    for (String status : List.of("ACTIVE", "DISABLED", "SUSPENDED", "ACTIVE")) {
+      // Fixture setup only: account-management API behavior is outside this test.
+      jdbcTemplate.update("UPDATE identity.app_user SET account_status = ? WHERE id = ?", status, fixture.userId());
+      assertThat(rawAvailability(fixture.userId())).isTrue();
+      assertEligibilityViews(fixture, status, "ACTIVE".equals(status));
+    }
+  }
+
+  private CourierProfile availabilityFixture(boolean active, String status) {
+    UUID userId = UUID.randomUUID();
+    String marker = "availability-" + userId;
+    jdbcTemplate.update("""
+        INSERT INTO identity.app_user(id, keycloak_subject, email, display_name, account_status)
+        VALUES (?, ?, ?, ?, ?)
+        """, userId, "kc-" + userId, marker + "@example.test", marker, status);
+    jdbcTemplate.update("INSERT INTO identity.courier_profile(app_user_id, is_active) VALUES (?, ?)", userId, active);
+    return courierProfileService.getByCourierId(userId);
+  }
+
+  private boolean rawAvailability(UUID userId) {
+    return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+        "SELECT is_active FROM identity.courier_profile WHERE app_user_id = ?", Boolean.class, userId));
+  }
+
+  private void assertEligibilityViews(CourierProfile fixture, String status, boolean eligible) {
+    for (UUID id : List.of(fixture.id(), fixture.userId())) {
+      CourierProfile detail = courierProfileService.getByCourierId(id);
+      assertThat(detail.active()).isEqualTo(eligible);
+      assertThat(detail.accountStatus()).isEqualTo(status);
+      assertThat(courierProfileService.isCourierActive(id)).isEqualTo(eligible);
+    }
+    // Unique marker isolates this fixture from all other rows in the shared test container.
+    String search = fixture.name();
+    assertThat(courierProfileService.listCouriers(null, null, null, search))
+        .extracting(CourierProfile::id).containsExactly(fixture.id());
+    assertThat(courierProfileService.listCouriers(status, null, null, search))
+        .extracting(CourierProfile::id).containsExactly(fixture.id());
+    assertThat(courierProfileService.listCouriers(null, eligible, null, search))
+        .extracting(CourierProfile::id).containsExactly(fixture.id());
+    assertThat(courierProfileService.listCouriers(null, !eligible, null, search)).isEmpty();
+    for (String otherStatus : List.of("ACTIVE", "DISABLED", "SUSPENDED")) {
+      if (!otherStatus.equals(status))
+        assertThat(courierProfileService.listCouriers(otherStatus, null, null, search)).isEmpty();
+    }
   }
 }

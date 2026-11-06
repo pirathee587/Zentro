@@ -21,6 +21,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -50,6 +52,42 @@ class AdminCourierControllerTest {
   @Nested
   @DisplayName("Authentication & Authorization")
   class SecurityTests {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CUSTOMER", "MERCHANT"})
+    void customerAndMerchantCannotUpdateAvailability(String role) throws Exception {
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role)))
+          .contentType("application/json")
+          .content("{\"active\":false}"))
+          .andExpect(status().isForbidden());
+      verifyNoInteractions(courierService);
+    }
+
+    @Test
+    void serviceCannotListReadOrUpdateCourierAvailability() throws Exception {
+      mvc.perform(get("/api/v1/admin/couriers")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE"))))
+          .andExpect(status().isForbidden());
+      mvc.perform(get("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE"))))
+          .andExpect(status().isForbidden());
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE")))
+          .contentType("application/json")
+          .content("{\"active\":false}"))
+          .andExpect(status().isForbidden());
+      verifyNoInteractions(courierService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CUSTOMER", "MERCHANT", "COURIER"})
+    void nonDispatcherCannotReadDispatcherCourierDetail(String role) throws Exception {
+      mvc.perform(get("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role))))
+          .andExpect(status().isForbidden());
+      verifyNoInteractions(courierService);
+    }
 
     @Test
     void unauthenticatedCallersReceive401() throws Exception {
