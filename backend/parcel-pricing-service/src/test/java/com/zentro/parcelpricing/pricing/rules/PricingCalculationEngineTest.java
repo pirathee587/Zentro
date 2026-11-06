@@ -190,6 +190,144 @@ class PricingCalculationEngineTest {
       assertEquals(res1.breakdown().distanceSurcharge(), res2.breakdown().distanceSurcharge());
       assertEquals(res1.breakdown().expressFee(), res2.breakdown().expressFee());
     }
+
+    @Test
+    @DisplayName("Actual weight wins when it exceeds volumetric weight")
+    void actualWeightWinsOverVolumetric() {
+      // 10 × 10 × 5 cm = 500 cm³ / 5000 = 0.1 kg volumetric; actual = 10.0 kg → chargeable = 10.0
+      // billable extra = 9.0 kg → 9 × 120 = 1080; total = 550 + 1080 = 1630
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("10.00"), null, false, null,
+          new BigDecimal("10.00"), new BigDecimal("10.00"), new BigDecimal("5.00"),
+          null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertEquals(new BigDecimal("1630.00"), res.fee());
+      assertEquals(new BigDecimal("1080.00"), res.breakdown().weightFee());
+    }
+
+    @Test
+    @DisplayName("Dimensions-only request with no weightKg and no parcelSize uses volumetric weight")
+    void dimensionsOnlyWithNoWeight() {
+      // 20 × 25 × 10 cm = 5000 cm³ / 5000 = 1.0 kg volumetric → no extra weight fee
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          null, null, false, null,
+          new BigDecimal("20.00"), new BigDecimal("25.00"), new BigDecimal("10.00"),
+          null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertEquals(new BigDecimal("550.00"), res.fee());
+      assertEquals(new BigDecimal("0.00"), res.breakdown().weightFee());
+      assertEquals(2, res.estimatedDays());
+    }
+
+    @Test
+    @DisplayName("Per-km rate applies when destinationType is not OTHER_DISTRICT and perKmRate > 0")
+    void perKmRateAppliesForSameCityWithDistance() {
+      PricingRule perKmRule = new PricingRule(
+          defaultRule.id(), "PER_KM", new BigDecimal("550.00"), new BigDecimal("1.00"),
+          new BigDecimal("120.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+          new BigDecimal("10.00"), "LKR", true, null
+      );
+      // 1.0 kg → no extra weight fee; distanceKm=5 × perKmRate=10 = 50 distance surcharge
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("1.00"), null, false, new BigDecimal("5.00"),
+          null, null, null, null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, perKmRule);
+      assertEquals(new BigDecimal("600.00"), res.fee());
+      assertEquals(new BigDecimal("50.00"), res.breakdown().distanceSurcharge());
+      assertEquals(2, res.estimatedDays());
+    }
+
+    @Test
+    @DisplayName("Volumetric weight exactly equals actual weight (tie) uses the common weight")
+    void volumetricWeightEqualsActualWeightTie() {
+      // 50 × 40 × 25 cm = 50000 cm³ / 5000 = 10.0 kg volumetric; actual = 10.0 kg → chargeable = 10.0
+      // billable extra = 9.0 kg → 9 × 120 = 1080; total = 550 + 1080 = 1630
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("10.00"), null, false, null,
+          new BigDecimal("50.00"), new BigDecimal("40.00"), new BigDecimal("25.00"),
+          null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertEquals(new BigDecimal("1630.00"), res.fee());
+      assertEquals(new BigDecimal("1080.00"), res.breakdown().weightFee());
+    }
+
+    @Test
+    @DisplayName("Same origin and destination zone incurs zero distance surcharge and 2 days ETA")
+    void sameOriginAndDestinationZoneIncursZeroSurcharge() {
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, null, null,
+          new BigDecimal("1.00"), null, false, null, null, null, null,
+          "ZONE_COLOMBO_METRO", "ZONE_COLOMBO_METRO", "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertEquals(new BigDecimal("550.00"), res.fee());
+      assertNull(res.breakdown().distanceSurcharge());
+      assertEquals(2, res.estimatedDays());
+    }
+
+    @Test
+    @DisplayName("Case-insensitive and whitespace-padded zone matching detects same zone correctly")
+    void caseInsensitiveAndWhitespacePaddedZoneMatching() {
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, null, null,
+          new BigDecimal("1.00"), null, false, null, null, null, null,
+          "  zone_colombo_metro  ", "ZONE_COLOMBO_METRO  ", "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertEquals(new BigDecimal("550.00"), res.fee());
+      assertNull(res.breakdown().distanceSurcharge());
+      assertEquals(2, res.estimatedDays());
+    }
+
+    @Test
+    @DisplayName("Express delivery overrides cross-zone ETA to 1 day while preserving distance surcharge")
+    void expressOverridesCrossZoneEstimatedDays() {
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, null, null,
+          new BigDecimal("1.00"), null, true, null, null, null, null,
+          "ZONE_COLOMBO_METRO", "ZONE_CENTRAL", "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      // 550 base + 402 distance + 300 express = 1252
+      assertEquals(new BigDecimal("1252.00"), res.fee());
+      assertEquals(new BigDecimal("402.00"), res.breakdown().distanceSurcharge());
+      assertEquals(new BigDecimal("300.00"), res.breakdown().expressFee());
+      assertEquals(1, res.estimatedDays());
+    }
+
+    @Test
+    @DisplayName("Null isExpress is treated as non-express standard delivery")
+    void nullExpressTreatedAsStandard() {
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("1.00"), null, null, null, null, null, null,
+          null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertNull(res.breakdown().expressFee());
+      assertEquals(2, res.estimatedDays());
+    }
+
+    @Test
+    @DisplayName("Null currency in request defaults to rule currency")
+    void nullCurrencyUsesRuleCurrency() {
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("1.00"), null, false, null, null, null, null,
+          null, null, null
+      );
+      FeeEstimateResponse res = engine.calculate(request, defaultRule);
+      assertEquals("LKR", res.currency());
+      assertEquals(new BigDecimal("550.00"), res.fee());
+    }
   }
 
   @Nested
@@ -303,6 +441,67 @@ class PricingCalculationEngineTest {
       assertEquals(new BigDecimal("62.78"), res.breakdown().weightFee());
       assertEquals(new BigDecimal("612.78"), res.fee());
     }
+
+    @Test
+    @DisplayName("Custom rule with zero additional weight rate incurs zero weight fee for heavy parcel")
+    void customRuleWithZeroAdditionalWeightRate() {
+      PricingRule freeWeightRule = new PricingRule(
+          defaultRule.id(), "FREE_WEIGHT", new BigDecimal("550.00"), new BigDecimal("1.00"),
+          BigDecimal.ZERO, new BigDecimal("402.00"), new BigDecimal("300.00"),
+          BigDecimal.ZERO, "LKR", true, null
+      );
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("50.00"), null, false, null, null, null, null, null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, freeWeightRule);
+      assertEquals(new BigDecimal("0.00"), res.breakdown().weightFee());
+      assertEquals(new BigDecimal("550.00"), res.fee());
+    }
+
+    @Test
+    @DisplayName("Custom rule with higher included weight (5.0 kg) charges extra only above threshold")
+    void customRuleWithHigherIncludedWeight() {
+      PricingRule bulkRule = new PricingRule(
+          defaultRule.id(), "BULK_5KG", new BigDecimal("750.00"), new BigDecimal("5.00"),
+          new BigDecimal("100.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+          BigDecimal.ZERO, "LKR", true, null
+      );
+      // Case 1: 4.5 kg -> within 5.0 kg threshold -> weight fee = 0
+      FeeEstimateRequest req1 = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("4.50"), null, false, null, null, null, null, null, null, "LKR"
+      );
+      FeeEstimateResponse res1 = engine.calculate(req1, bulkRule);
+      assertEquals(new BigDecimal("0.00"), res1.breakdown().weightFee());
+      assertEquals(new BigDecimal("750.00"), res1.fee());
+
+      // Case 2: 7.0 kg -> 2.0 kg extra -> 2.0 * 100 = 200
+      FeeEstimateRequest req2 = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("7.00"), null, false, null, null, null, null, null, null, "LKR"
+      );
+      FeeEstimateResponse res2 = engine.calculate(req2, bulkRule);
+      assertEquals(new BigDecimal("200.00"), res2.breakdown().weightFee());
+      assertEquals(new BigDecimal("950.00"), res2.fee());
+    }
+
+    @Test
+    @DisplayName("Zero distance with active perKmRate produces zero distance surcharge")
+    void zeroDistanceWithPerKmRateProducesZeroSurcharge() {
+      PricingRule perKmRule = new PricingRule(
+          defaultRule.id(), "PER_KM", new BigDecimal("550.00"), new BigDecimal("1.00"),
+          new BigDecimal("120.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+          new BigDecimal("25.00"), "LKR", true, null
+      );
+      FeeEstimateRequest request = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null,
+          new BigDecimal("1.00"), null, false, BigDecimal.ZERO, null, null, null, null, null, "LKR"
+      );
+      FeeEstimateResponse res = engine.calculate(request, perKmRule);
+      assertNull(res.breakdown().distanceSurcharge());
+      assertEquals(new BigDecimal("550.00"), res.fee());
+    }
   }
 
   @Nested
@@ -342,6 +541,18 @@ class PricingCalculationEngineTest {
       FeeEstimateRequest req = new FeeEstimateRequest(
           null, null, DestinationType.SAME_CITY, null, null, null, false, null,
           new BigDecimal("-10.00"), new BigDecimal("10.00"), new BigDecimal("10.00"),
+          null, null, "LKR"
+      );
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> engine.calculate(req, defaultRule));
+      assertTrue(ex.getMessage().contains("positive"));
+    }
+
+    @Test
+    @DisplayName("Zero dimensions throw IllegalArgumentException")
+    void zeroDimensionsThrows() {
+      FeeEstimateRequest req = new FeeEstimateRequest(
+          null, null, DestinationType.SAME_CITY, null, null, null, false, null,
+          BigDecimal.ZERO, new BigDecimal("10.00"), new BigDecimal("10.00"),
           null, null, "LKR"
       );
       IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> engine.calculate(req, defaultRule));

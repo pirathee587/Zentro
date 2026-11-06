@@ -138,4 +138,104 @@ class PricingServiceTest {
 
     assertThrows(PricingUnavailableException.class, () -> pricingService.estimateFee(req));
   }
+
+  @Test
+  @DisplayName("getActiveRule falls back to standard default when database returns empty list")
+  void fallsBackToStandardDefaultWhenNoActiveRuleInDatabase() {
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of());
+
+    PricingRule rule = pricingService.getActiveRule();
+
+    assertEquals("STANDARD_DEFAULT", rule.ruleName());
+    assertEquals(new BigDecimal("550.00"), rule.baseFee());
+  }
+
+  @Test
+  @DisplayName("estimateFee throws PricingUnavailableException when active rule is not active")
+  void estimateFeeThrowsWhenActiveRuleIsInactive() {
+    PricingRule inactiveRule = new PricingRule(
+        null, "INACTIVE", new BigDecimal("550.00"), new BigDecimal("1.00"),
+        new BigDecimal("120.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+        BigDecimal.ZERO, "LKR", false, null
+    );
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of(inactiveRule));
+
+    FeeEstimateRequest req = new FeeEstimateRequest(
+        "Colombo", "Colombo", DestinationType.SAME_CITY, null,
+        new BigDecimal("2.00"), null, false, null, null, null, null, null, null, "LKR"
+    );
+
+    assertThrows(PricingUnavailableException.class, () -> pricingService.estimateFee(req));
+  }
+
+  @Test
+  @DisplayName("estimateFee throws PricingUnavailableException when active rule has blank or null currency")
+  void estimateFeeThrowsWhenActiveRuleCurrencyIsInvalid() {
+    PricingRule noCurrencyRule = new PricingRule(
+        null, "NO_CURRENCY", new BigDecimal("550.00"), new BigDecimal("1.00"),
+        new BigDecimal("120.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+        BigDecimal.ZERO, "   ", true, null
+    );
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of(noCurrencyRule));
+
+    FeeEstimateRequest req = new FeeEstimateRequest(
+        "Colombo", "Colombo", DestinationType.SAME_CITY, null,
+        new BigDecimal("2.00"), null, false, null, null, null, null, null, null, "LKR"
+    );
+
+    assertThrows(PricingUnavailableException.class, () -> pricingService.estimateFee(req));
+  }
+
+  @Test
+  @DisplayName("estimateFee throws PricingUnavailableException when active rule has negative rates")
+  void estimateFeeThrowsWhenActiveRuleHasNegativeRates() {
+    PricingRule negativeRateRule = new PricingRule(
+        null, "NEGATIVE_RATE", new BigDecimal("550.00"), new BigDecimal("1.00"),
+        new BigDecimal("-10.00"), new BigDecimal("402.00"), new BigDecimal("300.00"),
+        BigDecimal.ZERO, "LKR", true, null
+    );
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of(negativeRateRule));
+
+    FeeEstimateRequest req = new FeeEstimateRequest(
+        "Colombo", "Colombo", DestinationType.SAME_CITY, null,
+        new BigDecimal("2.00"), null, false, null, null, null, null, null, null, "LKR"
+    );
+
+    assertThrows(PricingUnavailableException.class, () -> pricingService.estimateFee(req));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule throws IllegalArgumentException when update request is null")
+  void updateStandardRuleThrowsWhenRequestIsNull() {
+    assertThrows(IllegalArgumentException.class, () -> pricingService.updateStandardRule(null));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule defaults currency to LKR when omitted or blank")
+  void updateStandardRuleDefaultsCurrencyToLkrWhenOmitted() {
+    when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of(PricingRule.defaultStandard()));
+
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        new BigDecimal("580.00"),
+        new BigDecimal("1.00"),
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "   "
+    );
+
+    PricingRule updated = pricingService.updateStandardRule(update);
+    assertNotNull(updated);
+    verify(jdbc).update(anyString(),
+        eq(new BigDecimal("580.00")),
+        eq(new BigDecimal("1.00")),
+        eq(new BigDecimal("130.00")),
+        eq(new BigDecimal("420.00")),
+        eq(new BigDecimal("320.00")),
+        eq(new BigDecimal("15.00")),
+        eq("LKR")
+    );
+  }
 }
