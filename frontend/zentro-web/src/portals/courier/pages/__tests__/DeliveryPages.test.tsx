@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse, delay } from 'msw';
 import { AuthContext } from '@/shared/auth/authContext';
+import type { Auth } from '@/shared/auth/authContext';
+import { ProtectedRoute } from '@/shared/auth/ProtectedRoute';
 import { server } from '@/shared/testing/mocks/server';
 import { TodayDeliveriesPage } from '../TodayDeliveriesPage';
 import { DeliveryDetailPage } from '../DeliveryDetailPage';
@@ -34,6 +36,22 @@ function fillForm() {
   fireEvent.change(screen.getByLabelText(/Recipient Name/), { target: { value: ' Nimal ' } });
   fireEvent.change(screen.getByLabelText(/Proof Reference/), { target: { value: ' REF-1 ' } });
 }
+
+// Keep the same router and query cache while changing the authenticated account.
+function renderSession(path = '/courier') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const initial = auth as unknown as Auth;
+  function tree(session: Auth) {
+    return <QueryClientProvider client={client}><AuthContext.Provider value={session}>
+      <MemoryRouter initialEntries={[path]}><Routes><Route element={<ProtectedRoute />}>
+        <Route path="/courier" element={<TodayDeliveriesPage />} />
+        <Route path="/courier/deliveries/:deliveryId" element={<DeliveryDetailPage />} />
+      </Route></Routes></MemoryRouter>
+    </AuthContext.Provider></QueryClientProvider>;
+  }
+  const view = render(tree(initial));
+  return { change: (user: Auth['user']) => view.rerender(tree({ ...initial, user })) };
+}
 beforeEach(() => {
   currentProof = null; requests = 0; submitted = undefined;
   server.use(
@@ -48,6 +66,60 @@ beforeEach(() => {
   );
 });
 describe('courier delivery pages', () => {
+  it('does not show courier A delayed list response after switching to courier B', async () => {
+    let release!: () => void;
+    let started!: () => void;
+    let finished!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const requested = new Promise<void>(resolve => { started = resolve; });
+    const responded = new Promise<void>(resolve => { finished = resolve; });
+    const otherId = '22222222-2222-4222-8222-222222222222';
+    server.use(http.get(root, async ({ request }) => {
+      if (request.headers.get('Authorization') === 'Bearer courier-test-token') {
+        started(); await gate; finished(); return HttpResponse.json([summary]);
+      }
+      return HttpResponse.json([{ ...summary, parcelId: otherId }]);
+    }));
+    const session = renderSession();
+    await requested;
+    session.change({ ...auth.user, id: 'courier-b', accessToken: 'token-b' } as Auth['user']);
+    expect(await screen.findByText(otherId)).toBeInTheDocument();
+    await act(async () => { release(); await responded; });
+    expect(screen.queryByText(parcelId)).not.toBeInTheDocument();
+  });
+  it('unmounts saved evidence and requests sign-in on logout', async () => {
+    currentProof = { ...savedProof, completionState: 'COMPLETED' };
+    const session = renderSession(`/courier/deliveries/${parcelId}`);
+    await screen.findByText('Nimal');
+    session.change(null);
+    expect(await screen.findByText('Redirecting to sign in...')).toBeInTheDocument();
+    expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
+    expect(auth.login).toHaveBeenCalledWith(`/courier/deliveries/${parcelId}`, undefined, 'staff');
+  });
+  it('clears unsaved evidence when the account changes on the same delivery route', async () => {
+    const session = renderSession(`/courier/deliveries/${parcelId}`);
+    await screen.findByLabelText(/Recipient Name/); fillForm();
+    session.change({ ...auth.user, id: 'courier-b', accessToken: 'token-b' } as Auth['user']);
+    // The server will normally deny B. Even while it is pending, A's draft must disappear.
+    await waitFor(() => expect(screen.queryByDisplayValue(' Nimal ')).not.toBeInTheDocument());
+  });
+  it.each(['COMPLETED', 'REJECTED', 'BLOCKED'] as const)('polls PENDING proof to %s', async state => {
+    currentProof = savedProof;
+    renderPages();
+    await screen.findByText('Proof recorded. Delivery completion is pending confirmation.');
+    currentProof = { ...savedProof, completionState: state, completedAt: state === 'COMPLETED' ? '2026-11-04T11:01:00Z' : null };
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(
+      state === 'COMPLETED' ? 'Delivery completed' : 'Contact dispatch'), { timeout: 4500 });
+    expect(screen.getByText('Nimal')).toBeInTheDocument();
+  });
+  it('hides previously displayed proof when a refresh is denied', async () => {
+    currentProof = savedProof;
+    renderPages(); await screen.findByText('Nimal');
+    server.use(http.get(`${root}/${parcelId}/proof`, () => HttpResponse.json({}, { status: 403 })));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh completion state' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('permission');
+    expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
+  });
   it('lists authorized deliveries and navigates to details', async () => {
     renderPages('/courier');
     fireEvent.click(await screen.findByRole('link', { name: 'View delivery' }));

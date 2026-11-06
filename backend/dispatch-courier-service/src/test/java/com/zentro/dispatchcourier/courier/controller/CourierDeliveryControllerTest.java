@@ -92,6 +92,34 @@ class CourierDeliveryControllerTest {
     mvc.perform(get(ROOT + "/" + PARCEL).with(courier())).andExpect(status().isNotFound());
     mvc.perform(get(ROOT + "/bad").with(courier())).andExpect(status().isBadRequest());
   }
+  @ParameterizedTest @ValueSource(strings = {"CUSTOMER", "MERCHANT", "DISPATCHER", "SERVICE"})
+  void wrongRoleCannotListOrReadDeliveryDetail(String role) throws Exception {
+    var auth = jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role));
+    mvc.perform(get(ROOT).with(auth)).andExpect(status().isForbidden());
+    mvc.perform(get(ROOT + "/" + PARCEL).with(auth)).andExpect(status().isForbidden());
+    verifyNoInteractions(identity, assignments, proofs);
+  }
+  @Test void anonymousCannotListOrReadDeliveryDetail() throws Exception {
+    mvc.perform(get(ROOT)).andExpect(status().isUnauthorized());
+    mvc.perform(get(ROOT + "/" + PARCEL)).andExpect(status().isUnauthorized());
+    verifyNoInteractions(identity, assignments, proofs);
+  }
+  @ParameterizedTest @ValueSource(booleans = {true, false})
+  void eachCanonicalOwnershipIdIsRequiredForDetail(boolean wrongProfile) throws Exception {
+    when(assignments.find(PARCEL)).thenReturn(Optional.of(new AssignmentRepository.Assignment(
+        PARCEL, wrongProfile ? UUID.randomUUID() : PROFILE,
+        wrongProfile ? USER : UUID.randomUUID(), "dispatcher", Instant.now())));
+    mvc.perform(get(ROOT + "/" + PARCEL).with(courier())).andExpect(status().isForbidden());
+    verifyNoInteractions(proofs);
+  }
+  @Test void matchingProfileWithWrongAppUserCannotReadOrSubmitProof() throws Exception {
+    when(assignments.find(PARCEL)).thenReturn(Optional.of(new AssignmentRepository.Assignment(
+        PARCEL, PROFILE, UUID.randomUUID(), "dispatcher", Instant.now())));
+    mvc.perform(get(PROOF).with(courier())).andExpect(status().isForbidden());
+    mvc.perform(post(PROOF).with(courier()).contentType("application/json").content(BODY))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(proofs);
+  }
   @Test void identityFailureFailsClosed() throws Exception {
     when(identity.currentCourier(anyString())).thenThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
     mvc.perform(get(PROOF).with(courier())).andExpect(status().isServiceUnavailable());
