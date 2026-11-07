@@ -63,7 +63,7 @@ Existing endpoint guides remain useful for workflows and detailed operational be
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| API-2 | Medium | All five services currently permit anonymous `/v3/api-docs/**` in either the shared S1/S2/S5 security starter or S3/S4 security configuration, but no springdoc dependency or handler exists. Exposure tests check each service: `/v3/api-docs` returns 404 in S1/S2/S3/S5 and a generic 500 Problem Details response in S4; `/swagger-ui/index.html` returns 401 in all five. No spec content is served. Options: keep runtime docs absent (no docs surface, but no service-hosted specs), or serve docs only behind an authorized role (convenient for maintainers, but adds an access-controlled endpoint that must not expose internal operations publicly). | Needs decision |
+| API-2 | Medium | All five services currently permit anonymous `/v3/api-docs/**` in either the shared S1/S2/S5 security starter or S3/S4 security configuration, but no springdoc dependency or handler exists. Exposure tests check each service: `/v3/api-docs` returns 404 in S1/S2/S3/S5 and a generic 500 Problem Details response in S4; `/swagger-ui/index.html` returns 401 in all five. No spec content is served. Decision recorded: keep runtime docs absent; revisit protection if a handler is proposed later. | Decision recorded; no runtime change |
 | API-3 | Medium | Gateway sanitization of an upstream 5xx response omits ProblemDetail `instance`; a gateway test is skipped for this known shape mismatch. | Follow-up issue |
 | API-4 | Low | `docs/api/notifications.md` said S5 had no HTTP endpoints while listing its HTTP routes in the same document. | Fixed |
 
