@@ -8,7 +8,7 @@ Related: #28 parcel status management, #58 event publishing, #61 delivery histor
 
 ## Overview
 
-The Tracking History service provides real-time parcel tracking queries and chronological milestone history for both public inquiries (privacy-preserving) and authenticated customers (`/mine`). It consumes domain events (`parcel.created`, `parcel.status.updated`) asynchronously from Kafka while providing local/direct fallback backfill from `parcel.parcel` for development and testing environments.
+The Tracking History service provides real-time parcel tracking queries and chronological milestone history for both public inquiries (privacy-preserving) and authenticated customers (`/mine`). It consumes domain events (`parcel.created`, `parcel.status.updated`) asynchronously from Kafka, persisting tracking milestones into its own service-owned database (`tracking_reporting_db`). S4 queries strictly its own tracking data; no direct cross-service database access or SQL backfill is performed.
 
 ---
 
