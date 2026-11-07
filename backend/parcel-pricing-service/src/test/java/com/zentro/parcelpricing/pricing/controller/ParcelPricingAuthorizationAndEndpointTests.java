@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zentro.parcelpricing.parcel.entity.DestinationType;
 import com.zentro.parcelpricing.parcel.entity.ParcelSize;
 import com.zentro.parcelpricing.pricing.rules.PricingRule;
+import com.zentro.parcelpricing.api.OpenApiResponseAssertions;
 import com.zentro.parcelpricing.pricing.dto.FeeEstimateRequest;
 import com.zentro.parcelpricing.pricing.dto.FeeEstimateResponse;
 import com.zentro.parcelpricing.pricing.dto.PricingRuleUpdateRequest;
@@ -79,11 +80,13 @@ class ParcelPricingAuthorizationAndEndpointTests {
   @Test
   @DisplayName("Fee estimate requires authentication (401 when token is missing)")
   void feeEstimateRequiresAuthentication() throws Exception {
-    mvc.perform(post("/api/v1/parcels/estimate")
+    var result = mvc.perform(post("/api/v1/parcels/estimate")
         .contentType("application/json")
         .content("{\"weightKg\": 2.0}"))
         .andExpect(status().isUnauthorized())
-        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches("/api/v1/parcels/estimate", "post", result);
     verifyNoInteractions(pricingService);
   }
 
@@ -93,12 +96,14 @@ class ParcelPricingAuthorizationAndEndpointTests {
     when(jwtDecoder.decode("expired-or-invalid-token"))
         .thenThrow(new BadJwtException("Jwt expired"));
 
-    mvc.perform(post("/api/v1/parcels/estimate")
+    var result = mvc.perform(post("/api/v1/parcels/estimate")
         .header("Authorization", "Bearer expired-or-invalid-token")
         .contentType("application/json")
         .content("{\"weightKg\": 2.0}"))
         .andExpect(status().isUnauthorized())
-        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches("/api/v1/parcels/estimate", "post", result);
     verifyNoInteractions(pricingService);
   }
 
@@ -112,7 +117,7 @@ class ParcelPricingAuthorizationAndEndpointTests {
             new FeeEstimateResponse.Breakdown(new BigDecimal("550.00"), new BigDecimal("120.00"), null, null)
         ));
 
-    mvc.perform(post("/api/v1/parcels/estimate")
+    var result = mvc.perform(post("/api/v1/parcels/estimate")
         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
         .contentType("application/json")
         .content("{\"weightKg\": 2.0, \"destinationType\": \"SAME_CITY\"}"))
@@ -120,7 +125,9 @@ class ParcelPricingAuthorizationAndEndpointTests {
         .andExpect(jsonPath("$.fee").value(670.00))
         .andExpect(jsonPath("$.formattedFee").value("LKR 670"))
         .andExpect(jsonPath("$.currency").value("LKR"))
-        .andExpect(jsonPath("$.estimatedDays").value(2));
+        .andExpect(jsonPath("$.estimatedDays").value(2))
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches("/api/v1/parcels/estimate", "post", result);
 
     verify(pricingService).estimateFee(any(FeeEstimateRequest.class));
   }
@@ -168,12 +175,14 @@ class ParcelPricingAuthorizationAndEndpointTests {
   @ValueSource(strings = {"ROLE_COURIER", "ROLE_MERCHANT", "ROLE_SERVICE"})
   @DisplayName("Wrong roles receive 403 Forbidden Problem Details")
   void wrongRolesReturn403(String role) throws Exception {
-    mvc.perform(post("/api/v1/parcels/estimate")
+    var result = mvc.perform(post("/api/v1/parcels/estimate")
         .with(jwt().authorities(new SimpleGrantedAuthority(role)))
         .contentType("application/json")
         .content("{\"weightKg\": 1.0}"))
         .andExpect(status().isForbidden())
-        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches("/api/v1/parcels/estimate", "post", result);
     verifyNoInteractions(pricingService);
   }
 
@@ -278,14 +287,16 @@ class ParcelPricingAuthorizationAndEndpointTests {
   @Test
   @DisplayName("Invalid negative weight returns 400 Bad Request Problem Details with fieldErrors")
   void negativeWeightReturnsBadRequest() throws Exception {
-    mvc.perform(post("/api/v1/parcels/estimate")
+    var result = mvc.perform(post("/api/v1/parcels/estimate")
         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
         .contentType("application/json")
         .content("{\"weightKg\": -5.0}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.title").value("Bad Request"))
         .andExpect(jsonPath("$.fieldErrors.weightKg").exists())
-        .andExpect(jsonPath("$.invalidFields.weightKg").exists());
+        .andExpect(jsonPath("$.invalidFields.weightKg").exists())
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches("/api/v1/parcels/estimate", "post", result);
   }
 
   @ParameterizedTest(name = "Invalid payload {0} -> 400 on field {1}")

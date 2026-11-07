@@ -33,6 +33,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | PATCH `/api/v1/admin/merchants/{applicationId}` | S1 | D → D | application ID; D reviews (APPROVED/REJECTED/SUSPENDED from PENDING) | D | D |
 | PATCH `/api/v1/admin/merchants/{applicationId}/suspend` | S1 | D → D | suspend APPROVED merchant; suspension reason required | D | D |
 | PATCH `/api/v1/admin/merchants/{applicationId}/reinstate` | S1 | D → D | reinstate SUSPENDED merchant back to APPROVED | D | D |
+| GET `/api/v1/admin/merchants/{applicationId}/api-key` | S1 | D → D | application ID; D reads key metadata | D | D |
+| DELETE `/api/v1/admin/merchants/{applicationId}/api-key` | S1 | D → D | application ID; D revokes key | D | D |
 | GET `/api/v1/admin/users` | S1 | D → D | platform user list | D | D |
 | GET `/api/v1/admin/users/{userId}` | S1 | D → D | user ID; D user management | D | D |
 | PATCH `/api/v1/admin/users/{userId}` | S1 | D → D | user ID; D user management | D | D |

@@ -91,7 +91,7 @@ The health component reports `pending`, `failedRecently` and `oldestPendingAgeSe
 
 It is part of `/actuator/health` but not of the Kubernetes liveness/readiness groups. Health details are hidden by the existing settings; for local checks, set `MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always`.
 
-**No HTTP endpoint (D3).** S5 adds no API. Only `/actuator/health` is public, and every other path requires a token. Outcomes are inspected with SQL, metrics, health and logs. A reports UI is #74.
+**HTTP endpoints.** S5 has no notification-content API, but it does expose two DISPATCHER-only operational history endpoints through the gateway: `GET /api/v1/admin/notification-attempts` and `GET /api/v1/admin/webhook-deliveries`. They return outcome metadata and do not expose message bodies or webhook payloads. See the [REST API index](README.md) and [S5 OpenAPI contract](openapi/notifications.openapi.json). Only `/actuator/health` is public; business operations require their documented bearer role. A richer reports UI is #74.
 
 ## Inspecting outcomes
 

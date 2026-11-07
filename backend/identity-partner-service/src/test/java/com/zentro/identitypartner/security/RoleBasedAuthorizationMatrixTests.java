@@ -72,6 +72,13 @@ class RoleBasedAuthorizationMatrixTests {
   @MockBean private MerchantApiKeyService apiKeys;
   @MockBean private JwtDecoder jwtDecoder;
 
+  @Test
+  @DisplayName("Anonymous requests cannot retrieve runtime OpenAPI or Swagger UI documents")
+  void runtimeApiDocsAreNotExposedAnonymously() throws Exception {
+    mvc.perform(get("/v3/api-docs")).andExpect(status().isNotFound());
+    mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+  }
+
   private static final UUID TEST_APP_ID = UUID.randomUUID();
   private static final UUID TEST_USER_ID = UUID.randomUUID();
 

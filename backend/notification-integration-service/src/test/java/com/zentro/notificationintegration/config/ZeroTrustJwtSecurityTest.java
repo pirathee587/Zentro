@@ -94,6 +94,13 @@ class ZeroTrustJwtSecurityTest {
   @Autowired
   private MockMvc mockMvc;
 
+  @Test
+  @DisplayName("Anonymous requests cannot retrieve runtime OpenAPI or Swagger UI documents")
+  void runtimeApiDocsAreNotExposedAnonymously() throws Exception {
+    mockMvc.perform(get("/v3/api-docs")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+  }
+
   @AfterAll
   static void stopJwksServer() {
     if (jwksServer != null) {

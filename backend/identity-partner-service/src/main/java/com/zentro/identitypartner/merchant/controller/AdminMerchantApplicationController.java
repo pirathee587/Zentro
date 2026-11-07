@@ -1,8 +1,10 @@
 package com.zentro.identitypartner.merchant.controller;
 
+import com.zentro.identitypartner.merchant.dto.MerchantApiKeyMetadata;
 import com.zentro.identitypartner.merchant.dto.MerchantApplication;
 import com.zentro.identitypartner.merchant.dto.ReviewMerchantApplicationRequest;
 import com.zentro.identitypartner.merchant.dto.SuspendMerchantRequest;
+import com.zentro.identitypartner.merchant.service.MerchantApiKeyService;
 import com.zentro.identitypartner.merchant.service.MerchantApplicationService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -10,6 +12,7 @@ import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +22,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Dispatcher-only endpoints for managing the merchant application approval lifecycle.
+ * Dispatcher-only endpoints for managing the merchant application approval lifecycle
+ * and merchant API keys.
  *
  * <p>All endpoints require {@code ROLE_DISPATCHER}. The service layer enforces state
  * preconditions independently of this controller to maintain defense-in-depth.
@@ -36,9 +40,13 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasRole('DISPATCHER')")
 public class AdminMerchantApplicationController {
   private final MerchantApplicationService applications;
+  private final MerchantApiKeyService keys;
 
-  public AdminMerchantApplicationController(MerchantApplicationService applications) {
+  public AdminMerchantApplicationController(
+      MerchantApplicationService applications,
+      MerchantApiKeyService keys) {
     this.applications = applications;
+    this.keys = keys;
   }
 
   /**
@@ -85,5 +93,17 @@ public class AdminMerchantApplicationController {
       @PathVariable("applicationId") UUID applicationId,
       @AuthenticationPrincipal Jwt reviewer) {
     return applications.reinstate(applicationId, reviewer);
+  }
+
+  /** Returns the API key metadata for a merchant's application (Dispatcher read). */
+  @GetMapping("/{applicationId}/api-key")
+  public MerchantApiKeyMetadata getMerchantApiKey(@PathVariable("applicationId") UUID applicationId) {
+    return keys.getByApplicationId(applicationId);
+  }
+
+  /** Revokes the API key for a merchant's application (Dispatcher action). */
+  @DeleteMapping("/{applicationId}/api-key")
+  public MerchantApiKeyMetadata revokeMerchantApiKey(@PathVariable("applicationId") UUID applicationId) {
+    return keys.revokeByApplicationId(applicationId);
   }
 }
