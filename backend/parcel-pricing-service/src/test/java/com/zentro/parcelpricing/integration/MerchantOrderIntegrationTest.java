@@ -101,6 +101,13 @@ class MerchantOrderIntegrationTest {
           .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("2.0", weight)))
           .andExpect(status().isUnprocessableEntity());
     }
+    for (String address : List.of("short", " ".repeat(20), "synthetic\naddress", "synthetic\u200Baddress", "x".repeat(100000))) {
+      var invalid = (com.fasterxml.jackson.databind.node.ObjectNode)objectMapper.readTree(BODY);
+      ((com.fasterxml.jackson.databind.node.ObjectNode)invalid.get("sender")).put("address", address);
+      mvc.perform(post(URL).with(merchant("synthetic-invalid-124"))
+          .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(invalid)))
+          .andExpect(status().isUnprocessableEntity());
+    }
     assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.parcel", Long.class)).isZero();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event", Long.class)).isEqualTo(events);
   }

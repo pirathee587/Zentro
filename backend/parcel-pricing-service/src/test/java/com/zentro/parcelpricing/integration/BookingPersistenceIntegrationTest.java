@@ -100,6 +100,14 @@ class BookingPersistenceIntegrationTest {
           .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("2.555", weight)))
           .andExpect(status().isUnprocessableEntity());
     }
+    for (String address : List.of("short", " ".repeat(20), "synthetic\naddress", "synthetic\u202Eaddress", "x".repeat(100000))) {
+      var invalid = (com.fasterxml.jackson.databind.node.ObjectNode)objectMapper.readTree(BODY);
+      ((com.fasterxml.jackson.databind.node.ObjectNode)invalid.get("recipient")).put("address", address);
+      mvc.perform(post("/api/v1/parcels").with(customer("synthetic-invalid-124"))
+          .header("Idempotency-Key", "synthetic-invalid-address")
+          .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(invalid)))
+          .andExpect(status().isUnprocessableEntity());
+    }
     assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.parcel", Long.class)).isEqualTo(parcels);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event", Long.class)).isEqualTo(events);
     // Idempotency is stored on the parcel row, rather than in a separate table.

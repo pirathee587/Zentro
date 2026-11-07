@@ -47,6 +47,38 @@ class S2ValidationConsistencyTest {
   }
 
   @org.junit.jupiter.api.Test
+  void httpTextBoundaryMatrixForBothContactEndpointsAndQuoteAliases() throws Exception {
+    org.mockito.Mockito.when(bookings.book(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.nullable(String.class)))
+        .thenReturn(new ParcelBookingService.BookingResult(null, false));
+    org.mockito.Mockito.when(orders.createOrder(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(new MerchantOrderService.OrderResult(null, false));
+    org.mockito.Mockito.when(pricing.estimateFee(org.mockito.ArgumentMatchers.any())).thenAnswer(inv ->
+        new com.zentro.parcelpricing.pricing.rules.PricingCalculationEngine().calculate(inv.getArgument(0), com.zentro.parcelpricing.pricing.rules.PricingRule.defaultStandard()));
+    org.mockito.Mockito.when(zones.isValidZone(org.mockito.ArgumentMatchers.any())).thenReturn(true);
+    for (String path : new String[]{"/api/v1/parcels", "/api/v1/merchant/orders", "/api/v1/parcels/estimate", "/api/v1/parcels/estimate-fee"}) {
+      boolean estimate = path.contains("estimate");
+      String[] fields = estimate ? new String[]{"pickupCity", "deliveryCity", "parcelCategory"}
+          : new String[]{"sender.name", "recipient.name", "sender.address", "recipient.address", "sender.city", "recipient.city", "parcel.category", "parcel.description", "notes", "externalOrderRef"};
+      for (String field : fields) {
+        if (field.equals("externalOrderRef") && !path.contains("merchant")) continue;
+        int max = field.endsWith("address") || field.endsWith("description") ? 255 : field.equals("notes") ? 500 : field.equals("parcel.category") ? 40 : 100;
+        int min = field.endsWith("address") ? 8 : field.endsWith("name") || field.equals("parcel.category") || field.equals("externalOrderRef") ? 1 : 0;
+        for (int length : new int[]{Math.max(0, min - 1), min, min + 1, max - 1, max, max + 1}) {
+          ObjectNode request = estimate ? mapper.createObjectNode().put("weightKg", 1) : body();
+          String[] parts = field.split("\\.");
+          ObjectNode parent = parts.length == 1 ? request : (ObjectNode)request.get(parts[0]);
+          parent.put(parts[parts.length - 1], "😀".repeat(length));
+          int expected = length >= min && length <= max ? 200 : estimate ? 400 : 422;
+          var response = mvc.perform(post(path).with(jwt().jwt(j -> j.subject("synthetic-124")).authorities(new SimpleGrantedAuthority(path.contains("merchant") ? "ROLE_MERCHANT" : "ROLE_CUSTOMER")))
+              .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
+              .andExpect(status().is(expected));
+          if (expected != 200) response.andExpect(jsonPath("$.fieldErrors['" + field + "']").exists());
+        }
+      }
+    }
+  }
+
+  @org.junit.jupiter.api.Test
   void missingAndNullRequiredFieldsAreReportedTogetherInStableOrder() throws Exception {
     for (String path : new String[]{"/api/v1/parcels", "/api/v1/merchant/orders"}) {
       for (String input : new String[]{"{}", "{\"sender\":null,\"recipient\":null,\"parcel\":null}"}) {
