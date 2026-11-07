@@ -81,7 +81,8 @@ Customer sendParcelForm.ts and dispatcher pricingValidation.ts already constrain
 
 | Evidence | Value |
 |---|---|
-| Merged commit SHA | to be recorded after merge |
+| #124 implementation merge SHA (#302) | 0ae0cf61ef2054fd330e55452c2010912f24a4a1 |
+| Follow-up documentation merge SHA | to be recorded after merge |
 
 Follow-ups: [#300 frontend validation sync](https://github.com/pirathee587/Zentro/issues/300), owner @pirathee587, align client rules and refresh the old message fixture; [#301 price integrity, same-location and dimension-booking decisions](https://github.com/pirathee587/Zentro/issues/301), pricing owner @Jathuja, booking owner @14Jannan, coordinator/product decision @pirathee587; decide server-derived destination classification first in a separate task.
 
@@ -134,3 +135,5 @@ mvn --batch-mode -pl parcel-pricing-service -am test -Dtest=S2ValidationConsiste
 ```
 
 Final changed-module verification: `cd backend && mvn --batch-mode -pl parcel-pricing-service -am test package` completed **BUILD SUCCESS**, 02:13 min, with **628 S2 tests, 0 failures, 0 errors, 0 skipped**, plus 7 shared security starter tests with 0 failures/errors/skips. This run includes the latest HTTP boundary matrix and merchant strict-text annotations; PostgreSQL/Kafka tests ran. It supersedes earlier S2 counts. The preceding full-backend run reported S2 627 before the final HTTP matrix addition; the final changed module was tested and packaged again afterward.
+
+Follow-up verification: PR #302 was already merged at `0ae0cf61ef2054fd330e55452c2010912f24a4a1` before the price-integrity follow-up update. The new findings are documentation-only; they do not establish completion of the recorded R2 coverage gap or policy decisions. The default-rule price comparison above was executed with JShell against compiled S2 classes, yielding `SAME_CITY fee=550.00` and `OTHER_DISTRICT fee=952.00`. No backend/frontend behavior was changed and no full build was repeated for this documentation-only update; the preceding 628-test S2 and full-backend results remain the recorded implementation evidence.
