@@ -53,7 +53,7 @@ describe('shared API client', () => {
 
   it('passes AbortSignal through and exposes cancellation as a normalized error', async () => {
     apiClient.defaults.adapter = (config) => new Promise((_, reject) => {
-      config.signal?.addEventListener('abort', () => reject(new axios.CanceledError('canceled', config)));
+      (config.signal as AbortSignal | undefined)?.addEventListener('abort', () => reject(new axios.CanceledError('canceled', config)));
     });
     const controller = new AbortController();
     const pending = apiClient.get('/test', { signal: controller.signal }).catch((error: unknown) => error);

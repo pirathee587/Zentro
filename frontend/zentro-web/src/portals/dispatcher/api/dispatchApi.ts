@@ -25,18 +25,19 @@ export type EligibleCourier = z.infer<typeof courierSchema>;
 
 export function useDispatchQueue(filters = defaultQueueFilters) {
   const { user } = useAuth();
+  const params = { search: filters.search, from: filters.from || undefined, to: filters.to || undefined, sort: filters.sort };
   return useQuery({
     queryKey: queryKeys.dispatcher.queue(filters, principalCacheScope(user?.id)), enabled: Boolean(user?.accessToken),
     queryFn: async ({ signal }) => queueSchema.parse((await apiClient.get('/api/v1/dispatch/queue', {
-      ...withBearerToken(user!.accessToken!), params: { search: filters.search, from: filters.from || undefined, to: filters.to || undefined, sort: filters.sort },
-      signal,
+      ...withBearerToken(user!.accessToken!, { params, signal }),
     })).data),
   });
 }
 
 export async function eligibleCouriers(parcelId: string, token: string, signal?: AbortSignal) {
+  const params = { parcelId };
   return z.array(courierSchema).parse((await apiClient.get('/api/v1/dispatch/eligible-couriers', {
-    ...withBearerToken(token), params: { parcelId }, signal,
+    ...withBearerToken(token, { params, signal }),
   })).data);
 }
 

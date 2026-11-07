@@ -62,7 +62,10 @@ apiClient.interceptors.response.use(
     : error),
 );
 
-export function withBearerToken(tokenValue: string | undefined, config: AxiosRequestConfig = {}): AxiosRequestConfig {
+export function withBearerToken<D = unknown, P = unknown>(
+  tokenValue: string | undefined,
+  config: AxiosRequestConfig<D, P> = {},
+): AxiosRequestConfig<D, P> {
   if (!tokenValue) return config;
   return { ...config, headers: { ...config.headers, Authorization: `Bearer ${tokenValue}` } };
 }
