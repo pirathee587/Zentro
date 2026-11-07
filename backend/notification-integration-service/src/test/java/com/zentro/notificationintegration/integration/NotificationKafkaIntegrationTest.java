@@ -85,6 +85,43 @@ class NotificationKafkaIntegrationTest extends AbstractNotificationIntegrationTe
   }
 
   @Test
+  @DisplayName("Event replay across multiple rounds preserves single-row idempotency and produces no duplicate attempts")
+  void eventReplayPreservesIdempotency() throws Exception {
+    UUID eventId = UUID.randomUUID();
+    UUID parcelId = UUID.randomUUID();
+    String ref = newTrackingRef();
+    String event = statusEvent(eventId, parcelId, ref, "DELIVERED", null);
+
+    send(STATUS_TOPIC, parcelId, event);
+    awaitRow(eventId, "SENT");
+
+    assertThat(rowsFor(eventId)).hasSize(1);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM notification.processed_event WHERE consumer = 'notification-integration-service' AND event_id = ?",
+        Integer.class, eventId)).isEqualTo(1);
+
+    double before = registry.counter("zentro.notifications.duplicates").count();
+
+    // Replay the same event twice
+    send(STATUS_TOPIC, parcelId, event);
+    send(STATUS_TOPIC, parcelId, event);
+
+    // Send a distinct marker event on the same partition to ensure replay records are consumed
+    UUID markerEventId = UUID.randomUUID();
+    send(STATUS_TOPIC, parcelId, statusEvent(markerEventId, parcelId, ref, "FAILED", "Customer refused"));
+    awaitRow(markerEventId, "SENT");
+
+    await().atMost(Duration.ofSeconds(30))
+        .until(() -> registry.counter("zentro.notifications.duplicates").count() >= before + 2);
+
+    // Assert that the replayed event has strictly 1 attempt and 1 processed_event record
+    assertThat(rowsFor(eventId)).hasSize(1);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM notification.processed_event WHERE consumer = 'notification-integration-service' AND event_id = ?",
+        Integer.class, eventId)).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("A malformed message is recorded as rejected and the next valid event is still processed")
   void malformedIsRejectedAndDoesNotBlock() throws Exception {
     UUID parcelId = UUID.randomUUID();

@@ -166,6 +166,25 @@ S4 listens to Kafka topics published by S2 Parcel & Pricing:
 - Incoming events are checked against `tracking.processed_event` using `(consumer_name, event_id)`.
 - If an event with the same ID was previously processed, it is safely acknowledged and discarded.
 
+### Error Handling, Bounded Retries & Dead-Letter Pattern
+
+S4 uses a Spring Kafka `DefaultErrorHandler` with bounded `FixedBackOff` retries for transient errors (e.g., transient database failures). Two exception types are classified as **non-retryable** and cause the record to be discarded immediately without retry:
+
+| Non-retryable exception | Reason |
+|---|---|
+| `JsonProcessingException` | Malformed JSON envelope cannot be fixed by retrying |
+| `IllegalArgumentException` | Invalid field value (e.g., non-UUID event ID) cannot be fixed by retrying |
+
+**No Kafka `.DLT` broker topics are used.** All dead-letter handling is DB-backed and service-owned:
+- Transient failures (DB down, timeout): retried with configurable backoff via `FixedBackOff`.
+- Permanent consumer failures: the record is discarded after exhausting `maxAttempts`; the tracking milestone is not inserted. Because the `processed_event` row is written in the same transaction as the milestone, a rolled-back transaction allows safe replay.
+- Replay dead events by re-publishing to the topic (e.g., from the S2 outbox reset), or by consuming directly from the offset. `tracking.processed_event` ensures at-most-one milestone insertion per event.
+
+**Defensive validation in the listener** (before any DB write):
+- Non-object JSON envelopes are rejected immediately (non-retryable).
+- Missing or non-UUID `eventId` causes the record to be discarded (non-retryable).
+- Malformed `aggregateId` or `occurredAt` are logged as warnings and processing continues with graceful fallback values.
+
 ---
 
 ## Errors

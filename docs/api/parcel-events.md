@@ -85,6 +85,54 @@ The publisher is off unless `OUTBOX_PUBLISHER_ENABLED=true`, so no broker is nee
 - **Consumers must de-duplicate on `eventId`.** For example, keep a table `processed_events(consumer, event_id, processed_at)` with a primary key on `(consumer, event_id)`. Insert into it in the same transaction as the consumer's own change, and skip the event if the row already exists. `OutboxKafkaIntegrationTest` shows the pattern with a duplicate delivery.
 - **Several S2 instances can run safely.** Rows are claimed with `FOR UPDATE SKIP LOCKED`, so two instances never send the same row at the same time.
 
+## Consumer-side idempotency and error handling (S4 and S5)
+
+Both S4 and S5 implement a consistent pattern for idempotent, resilient Kafka consumption.
+
+### Idempotency table
+
+Each service owns a `processed_event` table with a composite PK on `(consumer, event_id)`:
+
+| Service | Table | Consumer name |
+|---|---|---|
+| S4 Tracking | `tracking.processed_event` | `tracking-reporting-service` |
+| S5 Notifications | `notification.processed_event` | `notification-integration-service` |
+| S5 Webhooks | `notification.processed_event` | `merchant-webhooks` |
+
+The `markProcessed` insert uses `ON CONFLICT DO NOTHING`. If the row already exists, the consumer skips the event without side effects. The insert runs in the same transaction as the consumer's own write, so a rolled-back transaction never marks the event processed, allowing safe replay.
+
+### Dead-letter handling (no Kafka .DLT topics)
+
+Zentro does **not** use Kafka `.DLT` broker topics. Dead-letter and rejection handling is fully DB-backed and service-owned:
+
+| Failure type | S4 (Tracking) | S5 (Notifications / Webhooks) |
+|---|---|---|
+| Malformed JSON / missing fields | Non-retryable: record discarded, `tracking.processed_event` row **not** written (replay allowed) | Inserted into `notification.rejected_event` with `reason`; event acknowledged |
+| Transient DB error | Retried with bounded `FixedBackOff` (configurable `intervalMs`, `maxAttempts`) | Not acknowledged; error handler redelivers |
+| Permanent outbound failure (webhooks) | n/a | `notification.webhook_delivery.status = 'FAILED'`; logged at ERROR |
+| Permanent notification send failure | n/a | `notification.notification_attempt.status = 'FAILED'`; logged at ERROR |
+
+### S4 non-retryable exceptions
+
+The `DefaultErrorHandler` in S4 (`KafkaConsumerConfig`) classifies the following as non-retryable (immediate discard, no retry):
+- `JsonProcessingException` — malformed JSON envelope
+- `IllegalArgumentException` — invalid field value (e.g., non-UUID event ID)
+
+### Operational replay
+
+**S4 (tracking):** Replay a missed or discarded event by re-publishing it from the S2 outbox reset (see `parcel-events.md`) or by producing the event directly. If `tracking.processed_event` has no row for `(consumer_name, event_id)`, the event is processed normally.
+
+**S5 (webhook FAILED deliveries):** Use the documented SQL reset to retry permanently failed webhook deliveries after fixing the endpoint:
+
+```sql
+UPDATE notification.webhook_delivery
+   SET status = 'RETRY', attempts = 0, next_attempt_at = now(), updated_at = now()
+ WHERE status = 'FAILED' AND last_error IS DISTINCT FROM 'Subscription disabled'
+   AND subscription_id = (SELECT id FROM notification.webhook_subscription WHERE merchant_id = '<merchant id>');
+```
+
+This resets the delivery row in-place. No new `processed_event` row is inserted (the original is retained), and no new `webhook_delivery` row is created — the same row is retried.
+
 ## Failures and retries
 
 - **A failed send** (broker down, timeout, unknown topic) increases `attempts` and stores a short `last_error` (never the payload). It also sets `next_attempt_at` to an exponential back-off: `OUTBOX_RETRY_BASE_DELAY_MS * 2^attempts`, capped at `OUTBOX_RETRY_MAX_DELAY_MS`.

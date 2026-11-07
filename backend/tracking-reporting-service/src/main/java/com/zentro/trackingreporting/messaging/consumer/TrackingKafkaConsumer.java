@@ -47,8 +47,19 @@ public class TrackingKafkaConsumer {
 
     try {
       JsonNode envelope = objectMapper.readTree(message);
+      if (envelope == null || !envelope.isObject()) {
+        log.warn("Discarding malformed envelope (not an object): {}", message);
+        return;
+      }
+
       String eventIdStr = envelope.has("eventId") ? envelope.get("eventId").asText() : headerEventId;
-      UUID eventId = (eventIdStr != null && !eventIdStr.isBlank()) ? UUID.fromString(eventIdStr) : UUID.randomUUID();
+      UUID eventId;
+      try {
+        eventId = (eventIdStr != null && !eventIdStr.isBlank()) ? UUID.fromString(eventIdStr) : UUID.randomUUID();
+      } catch (IllegalArgumentException ex) {
+        log.warn("Discarding event with invalid eventId: {}", eventIdStr);
+        return;
+      }
 
       // De-duplicate on eventId
       if (processedEventRepository.existsByConsumerNameAndEventId(CONSUMER_NAME, eventId)) {
@@ -58,10 +69,22 @@ public class TrackingKafkaConsumer {
 
       String eventType = envelope.has("eventType") ? envelope.get("eventType").asText() : topic;
       String aggregateIdStr = envelope.has("aggregateId") ? envelope.get("aggregateId").asText() : null;
-      UUID parcelId = (aggregateIdStr != null && !aggregateIdStr.isBlank()) ? UUID.fromString(aggregateIdStr) : null;
-      Instant occurredAt = envelope.has("occurredAt")
-          ? Instant.parse(envelope.get("occurredAt").asText())
-          : Instant.now();
+      UUID parcelId = null;
+      if (aggregateIdStr != null && !aggregateIdStr.isBlank()) {
+        try {
+          parcelId = UUID.fromString(aggregateIdStr);
+        } catch (IllegalArgumentException ex) {
+          log.warn("Malformed aggregateId in event {}: {}", eventId, aggregateIdStr);
+        }
+      }
+      Instant occurredAt = Instant.now();
+      if (envelope.has("occurredAt")) {
+        try {
+          occurredAt = Instant.parse(envelope.get("occurredAt").asText());
+        } catch (Exception ex) {
+          log.warn("Malformed occurredAt in event {}: {}", eventId, envelope.get("occurredAt").asText());
+        }
+      }
 
       JsonNode payload = envelope.get("payload");
       if (payload == null) {
