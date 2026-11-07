@@ -43,9 +43,9 @@ Customer booking (`POST /api/v1/parcels`) and merchant order (`POST /api/v1/merc
 
 | Field | Type | Rule |
 |---|---|---|
-| `weightKg` | `number` | Optional when `parcelSize` or full `lengthCm`/`widthCm`/`heightCm` dimensions are provided. Range: `0.01` to `100.00` kg. |
+| `weightKg` | `number` | Optional when `parcelSize` or full `lengthCm`/`widthCm`/`heightCm` dimensions are provided. Range: `0.1` to `20` kg, at most four decimal places. |
 | `parcelSize` | `string` | Optional: `SMALL` (default 1.0 kg), `MEDIUM` (default 3.0 kg), `LARGE` (default 5.0 kg). Used when `weightKg` and dimensions are omitted. |
-| `lengthCm`, `widthCm`, `heightCm` | `number` | Optional parcel dimensions in cm. Range: `0.01` to `500.00` cm each. If any dimension is provided, all three must be provided. Volumetric weight (`L * W * H / 5000`) cannot exceed `100.00` kg. |
+| `lengthCm`, `widthCm`, `heightCm` | `number` | Optional parcel dimensions in cm. Range: `0.01` to `500.00` cm each. If any dimension is provided, all three must be provided. Volumetric weight (`L * W * H / 5000`) cannot exceed `20` kg. |
 | `destinationType` | `string` | Optional: `SAME_CITY`, `OTHER_DISTRICT`. Cannot be `SAME_CITY` when `originZone` and `destinationZone` are different zones. |
 | `originZone`, `destinationZone` | `string` | Optional active delivery zone codes (`ZONE_COLOMBO_METRO`, `ZONE_WESTERN`, `ZONE_CENTRAL`, `ZONE_SOUTHERN`, `ZONE_NORTHERN`). If one is provided, both must be provided and non-blank. |
 | `isExpress` | `boolean` | Optional (default `false`). Adds the express surcharge and sets `estimatedDays` to `1`. |
@@ -120,10 +120,10 @@ All error responses use `application/problem+json` without stack traces, interna
   "detail": "Validation failed for request.",
   "instance": "/api/v1/parcels/estimate",
   "fieldErrors": {
-    "weightKg": "Weight cannot exceed 100 kg"
+    "weightKg": "Weight must be between 0.1 and 20 kg with at most 4 decimal places."
   },
   "invalidFields": {
-    "weightKg": "Weight cannot exceed 100 kg"
+    "weightKg": "Weight must be between 0.1 and 20 kg with at most 4 decimal places."
   }
 }
 ```
@@ -157,3 +157,9 @@ Screen: `/dispatcher/zones-pricing` in the Dispatcher portal (`frontend/zentro-w
 **Current limits:**
 - Zones cannot be added or edited: `/api/v1/admin/zones/**` is routed by the gateway but has no backend endpoint (owner @Jathuja).
 - When the pricing database cannot be read, `GET /api/v1/admin/pricing-rules` returns the default rule, so the page cannot tell defaults from saved values (owner @Jathuja).
+
+## Validation hardening (#124): deliberate contract tightening
+
+The actual-weight range changes from 0.01–100 kg to **0.1–20 kg** on both aliases, sharing the booking/merchant validator. Decimal JSON numbers allow at most four decimal places; numeric strings and exponent notation return safe 400 errors. Dimensions and distance allow at most four decimal places. The existing volumetric ceiling changes from 100 to 20 kg, checked before rounding; exceeding it sets errors on `lengthCm`, `widthCm`, and `heightCm`. No price formula changed.
+
+Dimension-based quotes are informational: neither booking nor merchant order DTO accepts dimensions, and unknown booking fields are ignored. A dimension quote cannot currently be carried into booking with the same dimensions. See the shared [validation rules and evidence](s2-validation.md). Error status remains 400 with flat `fieldErrors` and `invalidFields`; booking/order remain 422 with request-path keys. Zero distance remains valid under the existing contract.
