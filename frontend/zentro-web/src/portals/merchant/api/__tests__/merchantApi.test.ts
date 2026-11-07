@@ -35,7 +35,6 @@ describe('merchant API', () => {
 
   it('does not retry a 401 with a refreshed token', async () => {
     const refreshAccessToken = vi.fn(async (force = false) => force ? 'fresh-token' : 'expired-token');
-    const application = { businessName: 'Good Things', status: 'APPROVED' as const };
     const unauthorized = Object.assign(new Error('Unauthorized'), {
       isAxiosError: true,
       response: { status: 401 },
