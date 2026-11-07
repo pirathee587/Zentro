@@ -1,6 +1,7 @@
 -- ZD-050 (#125): add SUSPENDED to the merchant application approval lifecycle.
 -- A suspended merchant cannot perform approved-merchant operations (API keys, orders, webhooks).
 -- Only a DISPATCHER can suspend an approved merchant or reinstate a suspended one.
+-- (Renumbered from V7 to V8 — V7 is taken by V7__index_merchant_api_key_hash.sql)
 
 -- 1. Extend the status check to include SUSPENDED.
 ALTER TABLE identity.merchant_application
