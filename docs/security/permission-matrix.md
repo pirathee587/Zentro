@@ -31,6 +31,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | DELETE `/api/v1/merchants/api-key` | S1 | human → M | JWT `sub`; own merchant key | M | M |
 | GET `/api/v1/admin/merchants` | S1 | D → D | Dispatcher review queue | D | D |
 | PATCH `/api/v1/admin/merchants/{applicationId}` | S1 | D → D | application ID; D reviews | D | D |
+| GET `/api/v1/admin/merchants/{applicationId}/api-key` | S1 | D → D | application ID; D reads key metadata | D | D |
+| DELETE `/api/v1/admin/merchants/{applicationId}/api-key` | S1 | D → D | application ID; D revokes key | D | D |
 | GET `/api/v1/admin/users` | S1 | D → D | platform user list | D | D |
 | GET `/api/v1/admin/users/{userId}` | S1 | D → D | user ID; D user management | D | D |
 | PATCH `/api/v1/admin/users/{userId}` | S1 | D → D | user ID; D user management | D | D |
