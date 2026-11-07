@@ -65,7 +65,7 @@ class IdentityAuthorizationTests {
     UUID appUserId = UUID.randomUUID();
     UUID applicationId = UUID.randomUUID();
     when(applications.createOrReapply(any(), any(CreateMerchantApplicationRequest.class)))
-        .thenReturn(new MerchantApplication(applicationId, appUserId, "Example Shop", "BR-100", "0771234567", "PENDING", null, OffsetDateTime.now(), null));
+        .thenReturn(new MerchantApplication(applicationId, appUserId, "Example Shop", "BR-100", "0771234567", "PENDING", null, null, OffsetDateTime.now(), null));
 
     mvc.perform(post("/api/v1/merchants")
         .with(jwt().jwt(token -> token.claim("sub", "customer-subject"))

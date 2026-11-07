@@ -29,8 +29,10 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | GET `/api/v1/merchants/api-key` | S1 | human → M | JWT `sub`; own merchant key | M | M |
 | POST `/api/v1/merchants/api-key` | S1 | human → M | JWT `sub`; approved and active account required | M (approved/active) | M (approved/active) |
 | DELETE `/api/v1/merchants/api-key` | S1 | human → M | JWT `sub`; own merchant key | M | M |
-| GET `/api/v1/admin/merchants` | S1 | D → D | Dispatcher review queue | D | D |
-| PATCH `/api/v1/admin/merchants/{applicationId}` | S1 | D → D | application ID; D reviews | D | D |
+| GET `/api/v1/admin/merchants` | S1 | D → D | Dispatcher review queue; optional `?status=` filter | D | D |
+| PATCH `/api/v1/admin/merchants/{applicationId}` | S1 | D → D | application ID; D reviews (APPROVED/REJECTED/SUSPENDED from PENDING) | D | D |
+| PATCH `/api/v1/admin/merchants/{applicationId}/suspend` | S1 | D → D | suspend APPROVED merchant; suspension reason required | D | D |
+| PATCH `/api/v1/admin/merchants/{applicationId}/reinstate` | S1 | D → D | reinstate SUSPENDED merchant back to APPROVED | D | D |
 | GET `/api/v1/admin/users` | S1 | D → D | platform user list | D | D |
 | GET `/api/v1/admin/users/{userId}` | S1 | D → D | user ID; D user management | D | D |
 | PATCH `/api/v1/admin/users/{userId}` | S1 | D → D | user ID; D user management | D | D |
@@ -43,9 +45,9 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | GET `/api/v1/zones` | S2 | any human → C,M,CO,D | Shared active zone list | C,M,CO,D; ADMIN now denied | C,M,CO,D |
 | GET `/api/v1/admin/pricing-rules` | S2 | D → D | Shared active pricing rule | D | D |
 | PUT `/api/v1/admin/pricing-rules` | S2 | D → D | Shared pricing configuration | D | D |
-| POST `/api/v1/merchant/orders` | S2 | M → M + approved/active check | merchant ID derived from JWT `sub` | M (approved/active) | M (approved/active) |
-| GET `/api/v1/merchant/orders` | S2 | M → M + approved/active check | list filtered by JWT `sub` | M (approved/active) | M (approved/active) |
-| GET `/api/v1/merchant/orders/{id}` | S2 | M → M + approved/active check | lookup constrained by JWT `sub`; other merchant's order is 404 | M (approved/active, own order) | same |
+| POST `/api/v1/merchant/orders` | S2 | M → M + approved/active check | merchant ID derived from JWT `sub`; PENDING, REJECTED, SUSPENDED return 403 | M (approved/active) | M (approved/active) |
+| GET `/api/v1/merchant/orders` | S2 | M → M + approved/active check | list filtered by JWT `sub`; PENDING, REJECTED, SUSPENDED return 403 | M (approved/active) | M (approved/active) |
+| GET `/api/v1/merchant/orders/{id}` | S2 | M → M + approved/active check | lookup constrained by JWT `sub`; other merchant's order is 404; SUSPENDED returns 403 | M (approved/active, own order) | same |
 | GET `/api/v1/dispatch/queue`, `/api/v1/dispatch/unassigned` | S3 | D → D | platform dispatch queue | D | D |
 | GET `/api/v1/dispatch/eligible-couriers?parcelId=…` | S3 | D → D | operational data | D | D |
 | GET `/api/v1/dispatch/workload` | S3 | D → D | platform workload | D | D |

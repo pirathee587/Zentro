@@ -54,8 +54,13 @@ Role checks alone are insufficient to guarantee security. Fine-grained ownership
 2. **No Cross-Merchant Access:**
    - Merchant API keys (`/api/v1/merchants/api-key`) are strictly linked to `app_user.id` resolved from `jwt.getSubject()`. A merchant cannot read, rotate, or revoke keys belonging to another merchant.
    - Merchant applications are keyed by `app_user_id`. Calling `/api/v1/merchants/me` returns only the caller's application.
-3. **Approval Lifecycle Enforcement:**
-   - A merchant with `ROLE_MERCHANT` cannot issue or rotate an API key unless their merchant application status in the database is explicitly `APPROVED` and their user account is `ACTIVE`. If pending, rejected, or inactive, the service returns `403 Forbidden`.
+3. **Approval Lifecycle Enforcement (ZD-050):**
+   - A merchant's application can be in one of four states: `PENDING`, `APPROVED`, `REJECTED`, or `SUSPENDED`.
+   - Only `APPROVED` merchants may issue/rotate API keys, create orders, or manage webhooks. Any other state returns `403 Forbidden`.
+   - Dispatchers can review pending applications (`PATCH /api/v1/admin/merchants/{id}`), suspend approved merchants (`PATCH /api/v1/admin/merchants/{id}/suspend`), and reinstate suspended merchants (`PATCH /api/v1/admin/merchants/{id}/reinstate`).
+   - Permitted state transitions: `PENDING → APPROVED`, `PENDING → REJECTED`, `PENDING → SUSPENDED`, `APPROVED → SUSPENDED`, `SUSPENDED → APPROVED`, `REJECTED → PENDING` (merchant re-applies).
+   - Suspension and rejection require a non-blank reason for auditability.
+   - The gRPC `getMerchantStatus` RPC queries the actual `merchant_application` table (previously returned a hardcoded `ACTIVE` stub).
 4. **Courier Assignment Isolation:**
    - Courier endpoints require that status updates and delivery job views only access parcels assigned to that courier's identifier.
 
@@ -75,7 +80,7 @@ Security errors return standardized RFC 7807 `application/problem+json` payloads
 - **`404 Not Found`**:
   - Returned when a requested resource does not exist, or non-API routes are targeted.
 - **`409 Conflict`**:
-  - Returned when an operation violates state constraints (e.g., submitting a merchant application when one is already pending/approved, or reviewing an application that is not in `PENDING` state).
+  - Returned when an operation violates state constraints (e.g., submitting a merchant application when one is already pending/approved, reviewing an application that is not in `PENDING` state, or attempting to suspend a merchant who is not in `APPROVED` state).
 - **`400 Bad Request`**:
   - Returned when request validation fails (e.g. rejection without reason, invalid phone format).
 
@@ -103,8 +108,9 @@ Security errors return standardized RFC 7807 `application/problem+json` payloads
 The authorization architecture is verified by automated test suites:
 1. **`RoleBasedAuthorizationMatrixTests`** (`identity-partner-service`):
    - Unauthenticated access returns 401 across all endpoints.
-   - Non-dispatchers receive 403 on admin merchant review endpoints.
-   - Dispatchers receive 200 on admin merchant review endpoints.
+   - Non-dispatchers receive 403 on admin merchant review, suspend, and reinstate endpoints.
+   - Dispatchers receive 200 on admin merchant review, suspend, and reinstate endpoints.
+   - Dispatcher can list all applications without filter, or filter by PENDING/APPROVED/REJECTED/SUSPENDED.
    - Non-merchants receive 403 on API key endpoints.
    - Non-customers receive 403 on merchant application submission.
    - All human roles can read/update their own profile.
@@ -113,7 +119,13 @@ The authorization architecture is verified by automated test suites:
    - Unapproved or pending merchants receive 403 Forbidden.
    - Revocation marks key inactive and sets timestamp.
    - Strict `app_user_id` query scoping prevents cross-merchant data leaks.
-3. **`ProblemDetailsSecurityHandlersTest`** (`zentro-security-starter`):
+3. **`MerchantLifecycleServiceTest`** (`identity-partner-service`):
+   - Review from PENDING to APPROVED, REJECTED, SUSPENDED — including reason validation.
+   - Suspend approved merchant (APPROVED → SUSPENDED): requires reason, state enforcement.
+   - Reinstate suspended merchant (SUSPENDED → APPROVED): state enforcement.
+   - Invalid transitions return 409 Conflict; non-existent applications return 404 Not Found.
+   - Status filter validation in `list()` (valid values / invalid / case-insensitive).
+4. **`ProblemDetailsSecurityHandlersTest`** (`zentro-security-starter`):
    - Verifies RFC 7807 compliance for 401 and 403 errors.
-4. **`GatewayBehaviorTests`** (`api-gateway`):
+5. **`GatewayBehaviorTests`** (`api-gateway`):
    - Verifies edge route protection, public tracking lookup, and bearer token validation.
