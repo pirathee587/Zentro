@@ -42,6 +42,16 @@ class CustomerTrackingControllerTest {
   @MockBean private JwtDecoder jwtDecoder;
 
   @Test
+  @DisplayName("Anonymous API docs remain absent and Swagger UI requires authentication")
+  void runtimeApiDocsAreNotExposedAnonymously() throws Exception {
+    mockMvc.perform(get("/v3/api-docs"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.title").value("Internal Server Error"))
+        .andExpect(jsonPath("$.detail").value("An unexpected error occurred while retrieving tracking information."));
+    mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
   @DisplayName("GET /api/v1/tracking/mine rejects unauthenticated request with 401")
   void getMyDeliveriesUnauthenticated() throws Exception {
     mockMvc.perform(get("/api/v1/tracking/mine")
