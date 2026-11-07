@@ -2,6 +2,14 @@
 
 Status: Todo / UNVERIFIED. Assisting @Deadsecnote1; reviewer @kirusigan03. Base: `1727c47291373adf1e3f89c453d185dc83b859e5`. No frontend changes, authentication changes, gateway changes, fee formula changes, or cross-service database access.
 
+## Priority finding: client-controlled destination type can underprice a booking
+
+**Needs decision — price integrity first, [#301](https://github.com/pirathee587/Zentro/issues/301).** With the default rule, a 1 kg Colombo → Jaffna request costs **LKR 550.00 with SAME_CITY versus LKR 952.00 with OTHER_DISTRICT**. The LKR 402 surcharge depends on the client-supplied classification. Booking forwards that classification without zones; the pricing engine does not compare city strings. Reproduce with two otherwise identical POST `/api/v1/parcels` requests (synthetic contacts, weightKg 1, SMALL, isExpress false), changing only destinationType. The fee comparison was executed against the compiled engine using JShell; booking forwarding was inspected in source. No authenticated HTTP or production booking was performed.
+
+Decisions, in priority order: (1) derive destination classification server-side from controlled city/zone identifiers, then ignore or validate the client value with an explicitly agreed API/frontend contract; (2) reject, warn on, or allow identical normalized pickup/drop-off addresses; (3) temporarily reject quote dimensions or add booked dimensions with explicit persistence/idempotency design. A 50×40×30 cm, 1 kg parcel has a 12 kg volumetric quote, but booking cannot submit its dimensions and prices actual weight only. Existing zone data is available, but there is no canonical city-to-zone mapping yet; same city and same zone also need defined semantics.
+
+Pricing owner **@Jathuja** is confirmed by #20 and git history; booking owner **@14Jannan** by #18 and git history; coordinator/product decision owner **@pirathee587**. The requested history command returned 58 commits by Jannan Harichandran, 11 by pirathee587 and 6 by Jathuja. These three findings remain needs decision in #301. This follow-up does not change destinationType handling, same-address policy or the dimension behavior already established by the approved #124 work.
+
 ## Endpoint comparison and shared validation rules
 
 B = POST `/api/v1/parcels`; M = POST `/api/v1/merchant/orders`; E = POST `/api/v1/parcels/estimate` and `/estimate-fee`.
@@ -43,14 +51,14 @@ All use problem+json and framework instance paths. Constraint error fields and d
 
 | ID | Finding | Status / owner / next action |
 |---|---|---|
+| P1 | Client-controlled destinationType can avoid the cross-district surcharge; LKR 550 vs 952 reproduction above | Needs decision, #301; @Jathuja pricing, @14Jannan booking, @pirathee587 coordinator; decide server derivation first |
+| P2 | Identical normalized pickup/drop-off addresses accepted | Needs decision, #301; reject exact equality, warn, or permit legitimate exceptions |
+| P3 | Volumetric quote versus actual-weight-only booking can underbill bulky/light parcels | Needs decision, #301; temporarily reject quote dimensions or design booking dimension support |
 | F1 | Quote/booking actual-weight and volumetric ceiling mismatch | Fixed with explicit user approval; shared range and docs |
 | F2 | SMALL 15 kg accepted | Preserve by decision; test pins actual-weight charge; no tier-based underpricing found |
 | F3 | Unsafe controls/format characters and UTF-16 address bounds | Fixed; AddressValidator |
 | F4 | Numeric coercion, exponent syntax, unbounded scale | Fixed for actual weight, estimate dimensions/distance; strict decimal decoder |
 | F5 | Zone/currency input echoed in errors | Fixed; static messages |
-| D1 | Identical pickup/drop-off addresses accepted | Needs business decision; owner to be assigned; decide whether legitimate same-location delivery is permitted |
-| D2 | SAME_CITY with different city strings accepted (unless zones conflict) | Needs business decision; owner to be assigned; city spelling/aliases make string inequality insufficient |
-| R1 | Dimension quotes cannot transmit dimensions into bookings | Follow-up, owner to be assigned; define booking dimension contract before extending DTO/persistence |
 | R2 | Requested exhaustive every-field HTTP and persistence boundary matrix | Remaining evidence gap; Draft until completed, owner @Deadsecnote1 |
 
 ## Tests and reproduction
@@ -75,7 +83,7 @@ Customer sendParcelForm.ts and dispatcher pricingValidation.ts already constrain
 |---|---|
 | Merged commit SHA | to be recorded after merge |
 
-Follow-ups: [#300 frontend validation sync](https://github.com/pirathee587/Zentro/issues/300), owner @pirathee587, align client rules and refresh the old message fixture; [#301 business policy and dimension-booking contract](https://github.com/pirathee587/Zentro/issues/301), owner to be assigned, assign policy ownership and decide the unchanged questions before implementing new restrictions.
+Follow-ups: [#300 frontend validation sync](https://github.com/pirathee587/Zentro/issues/300), owner @pirathee587, align client rules and refresh the old message fixture; [#301 price integrity, same-location and dimension-booking decisions](https://github.com/pirathee587/Zentro/issues/301), pricing owner @Jathuja, booking owner @14Jannan, coordinator/product decision @pirathee587; decide server-derived destination classification first in a separate task.
 
 Additional controller inventory: PUT `/api/v1/admin/pricing-rules` accepts PricingRuleUpdateRequest, with six required nonnegative BigDecimal pricing coefficients (including includedWeightKg) and an unconstrained currency string. These are dispatcher configuration coefficients, not submitted parcel weight/dimensions; this task does not change them. The 100 kg configuration limit found in the dispatcher frontend is a client rule, not a backend annotation. GET zone/pricing/order reads and PATCH parcel status do not accept parcel address/weight/dimensions.
 
