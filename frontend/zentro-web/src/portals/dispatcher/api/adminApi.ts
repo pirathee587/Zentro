@@ -32,8 +32,6 @@ export type AdminUpdateUserRequest = {
   phone?: string;
   /** Must be ACTIVE, DISABLED, or SUSPENDED. Backend enforces this. */
   accountStatus?: 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
-  /** Optional reason for the change (at most 500 characters), stored in identity.user_admin_audit. */
-  reason?: string;
 };
 
 export type ListUsersParams = {
@@ -50,8 +48,8 @@ export async function listUsers(params: ListUsersParams = {}, signal?: AbortSign
   return (await apiClient.get<AdminUserProfile[]>(url, { signal })).data;
 }
 
-export async function getUser(userId: string, signal?: AbortSignal): Promise<AdminUserProfile> {
-  return (await apiClient.get<AdminUserProfile>(`/api/v1/admin/users/${userId}`, { signal })).data;
+export async function getUser(userId: string): Promise<AdminUserProfile> {
+  return (await apiClient.get<AdminUserProfile>(`/api/v1/admin/users/${userId}`)).data;
 }
 
 export async function updateUser(
