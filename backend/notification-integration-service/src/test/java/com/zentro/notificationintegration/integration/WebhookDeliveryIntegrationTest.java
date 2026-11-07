@@ -7,12 +7,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpServer;
 import com.zentro.notificationintegration.webhook.client.IdentityMerchantClient;
+import com.zentro.notificationintegration.webhook.security.WebhookSignatureVerifier;
+import com.zentro.notificationintegration.webhook.security.WebhookSigner;
 import com.zentro.notificationintegration.webhook.service.WebhookSubscriptionService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HexFormat;
@@ -407,5 +410,48 @@ class WebhookDeliveryIntegrationTest {
     assertThat(jdbc.queryForObject(
         "SELECT COUNT(*) FROM notification.rejected_event WHERE reason = 'merchant-webhooks: invalid merchantId'",
         Integer.class)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Every attempt, including retries after a 503 and a timeout, verifies with the published contract (ZD-052)")
+  void everyAttemptVerifiesWithThePublishedContract() throws Exception {
+    String[] merchant = newMerchant(503, SLOW); // 503, then a timeout, then 200
+    UUID eventId = UUID.randomUUID();
+    UUID parcelId = UUID.randomUUID();
+    String message = createdEvent(eventId, parcelId, merchant[0]);
+
+    send(CREATED_TOPIC, parcelId, message);
+
+    assertThat(awaitDelivery(eventId, "SUCCEEDED")).containsEntry("attempts", 3);
+    List<Received> attempts = receivedAt(merchant[1]);
+    assertThat(attempts).hasSize(3);
+    WebhookSignatureVerifier verifier = new WebhookSignatureVerifier(new WebhookSigner());
+    Instant now = Instant.now();
+    long previousTimestamp = Long.MIN_VALUE;
+    for (Received attempt : attempts) {
+      String timestamp = attempt.headers().get("x-swiftdrop-timestamp");
+      String signature = attempt.headers().get("x-swiftdrop-signature");
+      byte[] rawBody = attempt.body().getBytes(StandardCharsets.UTF_8);
+
+      assertThat(verifier.verify(merchant[2], timestamp, signature, rawBody, now))
+          .as("attempt signed at %s", timestamp).isEqualTo(WebhookSignatureVerifier.Result.VALID);
+      assertThat(attempt.body()).isEqualTo(message);
+      assertThat(attempt.headers()).containsEntry("x-swiftdrop-event-id", eventId.toString());
+      assertThat(Long.parseLong(timestamp)).as("each retry is signed with a newer timestamp").isGreaterThan(previousTimestamp);
+      previousTimestamp = Long.parseLong(timestamp);
+    }
+    assertThat(attempts).extracting(r -> r.headers().get("x-swiftdrop-signature")).doesNotHaveDuplicates();
+
+    Received first = attempts.get(0);
+    String firstTimestamp = first.headers().get("x-swiftdrop-timestamp");
+    String firstSignature = first.headers().get("x-swiftdrop-signature");
+    assertThat(verifier.verify("whsec_wrong-secret", firstTimestamp, firstSignature,
+        first.body().getBytes(StandardCharsets.UTF_8), now)).isEqualTo(WebhookSignatureVerifier.Result.SIGNATURE_MISMATCH);
+    assertThat(verifier.verify(merchant[2], firstTimestamp, firstSignature,
+        first.body().replace("CREATED", "DELIVERED").getBytes(StandardCharsets.UTF_8), now))
+        .isEqualTo(WebhookSignatureVerifier.Result.SIGNATURE_MISMATCH);
+    assertThat(verifier.verify(merchant[2], firstTimestamp, firstSignature,
+        first.body().getBytes(StandardCharsets.UTF_8), now.plusSeconds(301)))
+        .isEqualTo(WebhookSignatureVerifier.Result.TIMESTAMP_TOO_OLD);
   }
 }
