@@ -204,9 +204,13 @@ export function UsersPage() {
     queryFn: () => listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }),
   });
 
-  function handleSearchSubmit(e: FormEvent) {
+  function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLiveSearch(search.trim());
+    const submittedSearch =
+      (e.currentTarget.elements.namedItem('user-search-input') as HTMLInputElement | null)?.value ??
+      search;
+    setSearch(submittedSearch);
+    setLiveSearch(submittedSearch.trim());
   }
 
   return (
