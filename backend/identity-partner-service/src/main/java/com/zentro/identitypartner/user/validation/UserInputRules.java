@@ -60,7 +60,8 @@ public final class UserInputRules {
   public static String accountStatus(String raw, String field) {
     String value = raw == null ? "" : raw.strip().toUpperCase(Locale.ROOT);
     if (!ACCOUNT_STATUSES.contains(value)) {
-      throw new InvalidUserInputException(field, field + " must be ACTIVE, DISABLED or SUSPENDED.");
+      String label = "accountStatus".equals(field) ? "account status" : field;
+      throw new InvalidUserInputException(field, "Invalid " + label + ": must be ACTIVE, DISABLED or SUSPENDED.");
     }
     return value;
   }

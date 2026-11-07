@@ -5,6 +5,7 @@ import com.zentro.identitypartner.user.dto.UserProfile;
 
 import com.zentro.identitypartner.user.dto.AdminUpdateUserRequest;
 import com.zentro.identitypartner.user.dto.UpdateUserProfileRequest;
+import com.zentro.identitypartner.user.repository.UserAdminAuditRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 class UserProfileServiceTest {
 
   @Mock private JdbcTemplate jdbc;
+  @Mock private UserAdminAuditRepository audit;
   private UserProfileService service;
 
   private static final UUID USER_A_ID = UUID.randomUUID();
@@ -44,7 +46,7 @@ class UserProfileServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new UserProfileService(jdbc);
+    service = new UserProfileService(jdbc, audit);
   }
 
   private Jwt mockJwt(String subject, String role) {
