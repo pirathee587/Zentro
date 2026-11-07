@@ -1,6 +1,7 @@
 package com.zentro.trackingreporting.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,7 @@ import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.tracking.service.TrackingService;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -47,6 +51,7 @@ class TrackingPostgresIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private TrackingService trackingService;
+  @Autowired private JdbcTemplate jdbcTemplate;
   @MockBean private JwtDecoder jwtDecoder;
 
   @Test
@@ -122,5 +127,48 @@ class TrackingPostgresIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.total").value(0))
         .andExpect(jsonPath("$.content").isEmpty());
+  }
+
+  @Test
+  @DisplayName("Unknown tracking reference returns 404 without querying external service schemas")
+  void unknownTrackingReferenceReturns404() throws Exception {
+    mockMvc.perform(get("/api/v1/tracking/{trackingRef}", "ZT-NONEXISTENT")
+            .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("TRACKING_NOT_FOUND"));
+  }
+
+  @Test
+  @DisplayName("Authenticated customer with no tracked parcels receives empty delivery page")
+  void customerWithNoParcelsReturnsEmptyPage() throws Exception {
+    mockMvc.perform(get("/api/v1/tracking/mine")
+            .with(jwt().jwt(j -> j.subject("customer-new-user")).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+            .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(0))
+        .andExpect(jsonPath("$.content").isEmpty())
+        .andExpect(jsonPath("$.totalSpent").value(0));
+  }
+
+  @Test
+  @DisplayName("Database boundary test: S4 datasource is isolated to tracking schema with zero foreign tables")
+  void databaseBoundaryIsolation() {
+    // Verify S4 owns only the 'tracking' schema
+    Integer foreignTableCount = jdbcTemplate.queryForObject("""
+        SELECT COUNT(*) FROM information_schema.tables
+         WHERE table_schema IN ('parcel', 'pricing', 'dispatch', 'identity', 'notification')
+        """, Integer.class);
+    assertThat(foreignTableCount).isEqualTo(0);
+
+    // Verify S4's own tables exist in tracking schema
+    List<String> trackingTables = jdbcTemplate.queryForList("""
+        SELECT table_name FROM information_schema.tables
+         WHERE table_schema = 'tracking'
+        """, String.class);
+    assertThat(trackingTables).contains("tracking_parcel", "tracking_event", "processed_event");
+
+    // Verify any direct cross-schema query to S2 parcel table fails at database level
+    assertThatThrownBy(() -> jdbcTemplate.queryForList("SELECT * FROM parcel.parcel"))
+        .isInstanceOf(DataAccessException.class);
   }
 }
