@@ -167,8 +167,8 @@ class MerchantOrderControllerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER", "ROLE_SERVICE"})
-  @DisplayName("Non-merchant roles return 403 Forbidden")
+  @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER", "ROLE_SERVICE", "ROLE_ADMIN"})
+  @DisplayName("Non-merchant roles including ADMIN return 403 Forbidden")
   void nonMerchantRolesReturn403(String role) throws Exception {
     mvc.perform(post(URL).with(jwt().jwt(j -> j.subject("someone")).authorities(new SimpleGrantedAuthority(role)))
             .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
@@ -176,6 +176,18 @@ class MerchantOrderControllerTest {
 
     verifyNoInteractions(orderService);
     verifyNoInteractions(identityClient);
+  }
+
+  @Test
+  @DisplayName("Identity verification service outage returns 503 Service Unavailable")
+  void identityServiceOutageReturns503() throws Exception {
+    doThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Identity verification service is unavailable."))
+        .when(identityClient).requireApprovedMerchant(any());
+
+    mvc.perform(post(URL).with(merchant("merchant-123")).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isServiceUnavailable());
+
+    verifyNoInteractions(orderService);
   }
 
   @Test

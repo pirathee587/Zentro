@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.zentro.identitypartner.user.dto.UserProfile;
 import com.zentro.identitypartner.user.service.UserProfileService;
+import com.zentro.identitypartner.user.repository.UserAdminAuditRepository;
 import java.util.List;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
@@ -73,7 +74,7 @@ class CourierPostgresTestcontainersIntegrationTest {
     flyway.migrate();
 
     jdbcTemplate = new JdbcTemplate(dataSource);
-    userProfileService = new UserProfileService(jdbcTemplate);
+    userProfileService = new UserProfileService(jdbcTemplate, new UserAdminAuditRepository(jdbcTemplate));
     courierProfileService = new CourierProfileService(jdbcTemplate, userProfileService);
   }
 

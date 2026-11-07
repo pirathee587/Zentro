@@ -18,6 +18,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -250,5 +252,109 @@ class MerchantOrderIntegrationTest {
         .andExpect(status().isCreated())
         .andReturn().getResponse().getContentAsString();
     return objectMapper.readTree(response).get("id").asText();
+  }
+
+  @Test
+  @DisplayName("Anonymous request without bearer token returns 401 Unauthorized")
+  void anonymousReturns401() throws Exception {
+    mvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(BODY))
+        .andExpect(status().isUnauthorized());
+
+    Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM parcel.parcel", Integer.class);
+    assertThat(count).isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"CUSTOMER", "COURIER", "DISPATCHER", "ADMIN"})
+  @DisplayName("Unauthorized roles return 403 Forbidden")
+  void unauthorizedRolesReturn403(String role) throws Exception {
+    mvc.perform(post(URL).with(jwt().jwt(j -> j.subject("user-other")).authorities(new SimpleGrantedAuthority("ROLE_" + role)))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY))
+        .andExpect(status().isForbidden());
+
+    Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM parcel.parcel", Integer.class);
+    assertThat(count).isZero();
+  }
+
+  @Test
+  @DisplayName("GET /api/v1/merchant/orders lists only orders belonging to authenticated merchant")
+  void listOrdersScopedToAuthenticatedMerchant() throws Exception {
+    mvc.perform(post(URL).with(merchant("merchant-alpha"))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("ORD-IT-001", "ORD-ALPHA-1")))
+        .andExpect(status().isCreated());
+    mvc.perform(post(URL).with(merchant("merchant-alpha"))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("ORD-IT-001", "ORD-ALPHA-2")))
+        .andExpect(status().isCreated());
+
+    mvc.perform(post(URL).with(merchant("merchant-beta"))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("ORD-IT-001", "ORD-BETA-1")))
+        .andExpect(status().isCreated());
+
+    mvc.perform(get(URL).with(merchant("merchant-alpha")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].merchantId").value("merchant-alpha"))
+        .andExpect(jsonPath("$[1].merchantId").value("merchant-alpha"));
+
+    mvc.perform(get(URL).with(merchant("merchant-beta")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].merchantId").value("merchant-beta"))
+        .andExpect(jsonPath("$[0].externalOrderRef").value("ORD-BETA-1"));
+  }
+
+  @Test
+  @DisplayName("Invalid order payload returns 422 with validation errors and stores nothing")
+  void invalidPayloadReturns422() throws Exception {
+    String invalidBody = """
+        {
+          "externalOrderRef": "",
+          "sender": {"name": "", "phone": "123", "address": "short"},
+          "recipient": {"name": "Bob", "phone": "0771234567", "address": "Valid Address 123"},
+          "parcel": {"weightKg": -1.0, "category": ""}
+        }
+        """;
+
+    mvc.perform(post(URL).with(merchant("merchant-val"))
+            .contentType(MediaType.APPLICATION_JSON).content(invalidBody))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.title").value("Validation failed"))
+        .andExpect(jsonPath("$.fieldErrors").isMap())
+        .andExpect(jsonPath("$.fieldErrors.externalOrderRef").exists());
+
+    Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM parcel.parcel", Integer.class);
+    assertThat(count).isZero();
+    Integer outboxCount = jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event", Integer.class);
+    assertThat(outboxCount).isZero();
+  }
+
+  @Test
+  @DisplayName("If outbox event insertion fails, the parcel creation is rolled back atomically")
+  void outboxFailureRollsBackOrder() throws Exception {
+    jdbc.execute("""
+        CREATE FUNCTION parcel.test_reject_merchant_outbox() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'outbox unavailable (test)'; END; $$
+        """);
+    jdbc.execute("""
+        CREATE TRIGGER test_reject_merchant_outbox BEFORE INSERT ON parcel.outbox_event
+        FOR EACH ROW EXECUTE FUNCTION parcel.test_reject_merchant_outbox()
+        """);
+    try {
+      mvc.perform(post(URL).with(merchant("merchant-rollback"))
+              .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("ORD-IT-001", "ORD-RB-001")))
+          .andExpect(status().isServiceUnavailable())
+          .andExpect(jsonPath("$.title").value("Order storage unavailable"));
+    } finally {
+      jdbc.execute("DROP TRIGGER test_reject_merchant_outbox ON parcel.outbox_event");
+      jdbc.execute("DROP FUNCTION parcel.test_reject_merchant_outbox()");
+    }
+
+    Integer parcelCount = jdbc.queryForObject(
+        "SELECT COUNT(*) FROM parcel.parcel WHERE external_order_ref = 'ORD-RB-001'", Integer.class);
+    assertThat(parcelCount).isZero();
+    Integer outboxCount = jdbc.queryForObject(
+        "SELECT COUNT(*) FROM parcel.outbox_event WHERE event_type = 'parcel.created' AND payload::text LIKE '%ORD-RB-001%'",
+        Integer.class);
+    assertThat(outboxCount).isZero();
   }
 }

@@ -198,6 +198,20 @@ class MerchantOrderServiceTest {
   }
 
   @Test
+  @DisplayName("Pricing rejected with IllegalArgumentException aborts order and leaves no trace")
+  void pricingRejectedAborts() {
+    CreateMerchantOrderRequest request = sampleRequest("ORD-REJECT");
+    when(pricingService.estimateFee(any())).thenThrow(new IllegalArgumentException("Unsupported zone"));
+
+    assertThatThrownBy(() -> service.createOrder("merchant-abc", request))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Unsupported zone");
+
+    verify(repository, never()).insert(any());
+    verify(eventRepository, never()).insertOutboxEvent(any(), any(), anyString(), anyString(), any());
+  }
+
+  @Test
   @DisplayName("Normalizer cleans whitespaces, trims fields, and strips phone separators")
   void normalizerCleansFields() {
     CreateMerchantOrderRequest request = new CreateMerchantOrderRequest(
