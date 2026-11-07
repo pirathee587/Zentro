@@ -22,9 +22,9 @@ public final class UserInputRules {
 
   private static final Pattern PHONE = Pattern.compile("^(\\+94|0)\\d{9}$");
   private static final Pattern PHONE_SEPARATORS = Pattern.compile("[\\s-]");
-  /** Control characters (C0, DEL, C1) and line/paragraph separators. */
-  private static final Pattern CONTROL = Pattern.compile("[\\p{Cntrl}\\u2028\\u2029]");
-  private static final Pattern CONTROL_EXCEPT_NEWLINE_TAB = Pattern.compile("[\\p{Cntrl}&&[^\\n\\t]]|[\\u2028\\u2029]");
+  /** Control characters (C0, DEL, C1: Unicode category Cc) and line/paragraph separators. */
+  private static final Pattern CONTROL = Pattern.compile("[\\p{Cc}\\u2028\\u2029]");
+  private static final Pattern CONTROL_EXCEPT_NEWLINE_TAB = Pattern.compile("[\\p{Cc}&&[^\\n\\t]]|[\\u2028\\u2029]");
 
   private UserInputRules() {
   }
