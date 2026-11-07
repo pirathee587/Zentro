@@ -33,7 +33,7 @@ public class PricingCalculationEngine {
     // Currency check
     if (request.currency() != null && !request.currency().isBlank()
         && !request.currency().equalsIgnoreCase(rule.currency())) {
-      throw new IllegalArgumentException("Unsupported currency '" + request.currency() + "'. Expected '" + rule.currency() + "'.");
+      throw new IllegalArgumentException("Unsupported currency. Choose the supported pricing currency.");
     }
 
     // Determine chargeable weight

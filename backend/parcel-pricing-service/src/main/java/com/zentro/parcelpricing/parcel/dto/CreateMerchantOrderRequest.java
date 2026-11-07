@@ -8,7 +8,7 @@ import com.zentro.parcelpricing.parcel.dto.CreateParcelBookingRequest.ParcelDeta
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import com.zentro.parcelpricing.validation.CodePointSize;
 
 /**
  * Body of POST /api/v1/merchant/orders.
@@ -18,7 +18,7 @@ public record CreateMerchantOrderRequest(
     @JsonAlias({"external_order_ref", "externalOrderRef"})
     @JsonProperty("externalOrderRef")
     @NotBlank(message = "External order reference is required.")
-    @Size(max = 100, message = "External order reference must be at most 100 characters.")
+    @CodePointSize(max = 100, message = "External order reference must be at most 100 characters.")
     String externalOrderRef,
 
     @NotNull(message = "Sender details are required.") @Valid Contact sender,
@@ -26,7 +26,7 @@ public record CreateMerchantOrderRequest(
     @NotNull(message = "Parcel details are required.") @Valid ParcelDetails parcel,
     DestinationType destinationType,
     Boolean isExpress,
-    @Size(max = 500, message = "Notes must be at most 500 characters.") String notes
+    @CodePointSize(max = 500, message = "Notes must be at most 500 characters.") String notes
 ) {
   public CreateParcelBookingRequest toBookingRequest() {
     return new CreateParcelBookingRequest(sender, recipient, parcel, destinationType, isExpress, notes);

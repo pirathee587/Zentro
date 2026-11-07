@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.zentro.parcelpricing.parcel.entity.DestinationType;
 import com.zentro.parcelpricing.parcel.entity.ParcelSize;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -27,8 +26,8 @@ public class GlobalPricingExceptionHandler {
   public ProblemDetail handleValidationException(MethodArgumentNotValidException ex) {
     ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed for request.");
     problem.setTitle("Bad Request");
-    Map<String, String> errors = new LinkedHashMap<>();
-    for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+    Map<String, String> errors = new java.util.TreeMap<>();
+    for (FieldError error : ex.getBindingResult().getFieldErrors().stream().sorted(java.util.Comparator.comparing(FieldError::getField).thenComparing(e -> String.valueOf(e.getDefaultMessage()))).toList()) {
       errors.putIfAbsent(error.getField(), error.getDefaultMessage());
     }
     problem.setProperty("fieldErrors", errors);

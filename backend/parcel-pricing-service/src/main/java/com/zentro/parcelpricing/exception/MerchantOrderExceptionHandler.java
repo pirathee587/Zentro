@@ -1,7 +1,6 @@
 package com.zentro.parcelpricing.exception;
 
 import com.zentro.parcelpricing.parcel.controller.MerchantOrderController;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,8 +27,8 @@ public class MerchantOrderExceptionHandler {
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
-    Map<String, String> fieldErrors = new LinkedHashMap<>();
-    for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+    Map<String, String> fieldErrors = new java.util.TreeMap<>();
+    for (FieldError error : ex.getBindingResult().getFieldErrors().stream().sorted(java.util.Comparator.comparing(FieldError::getField).thenComparing(e -> String.valueOf(e.getDefaultMessage()))).toList()) {
       fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage());
     }
     ProblemDetail problem = problem(HttpStatus.UNPROCESSABLE_ENTITY, "Validation failed",
