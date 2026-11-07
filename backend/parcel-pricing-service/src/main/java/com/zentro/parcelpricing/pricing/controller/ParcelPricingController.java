@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAnyRole('CUSTOMER', 'DISPATCHER')")
 public class ParcelPricingController {
   private static final BigDecimal VOLUMETRIC_DIVISOR = new BigDecimal("5000");
-  private static final BigDecimal MAX_WEIGHT_KG = new BigDecimal("100.00");
+  private static final BigDecimal MAX_WEIGHT_KG = new BigDecimal(com.zentro.parcelpricing.validation.ParcelWeight.MAX);
 
   private final PricingService pricingService;
   private final ZoneService zoneService;
@@ -90,9 +90,12 @@ public class ParcelPricingController {
         BigDecimal volumetricWeight = request.lengthCm()
             .multiply(request.widthCm())
             .multiply(request.heightCm())
-            .divide(VOLUMETRIC_DIVISOR, 4, RoundingMode.HALF_UP);
+            .divide(VOLUMETRIC_DIVISOR);
         if (volumetricWeight.compareTo(MAX_WEIGHT_KG) > 0) {
-          fieldErrors.put("weightKg", "Volumetric weight cannot exceed 100 kg.");
+          for (String field : new String[]{"lengthCm", "widthCm", "heightCm"}) {
+            fieldErrors.put(field, "These dimensions exceed the maximum chargeable weight of "
+                + com.zentro.parcelpricing.validation.ParcelWeight.MAX + " kg.");
+          }
         }
       }
     }
@@ -107,7 +110,7 @@ public class ParcelPricingController {
         if (request.originZone().isBlank()) {
           fieldErrors.put("originZone", "Origin zone cannot be blank.");
         } else if (!zoneService.isValidZone(request.originZone())) {
-          fieldErrors.put("originZone", "Unsupported origin zone: " + request.originZone().trim());
+          fieldErrors.put("originZone", "Choose a supported origin zone.");
         } else {
           originValid = true;
         }
@@ -116,7 +119,7 @@ public class ParcelPricingController {
         if (request.destinationZone().isBlank()) {
           fieldErrors.put("destinationZone", "Destination zone cannot be blank.");
         } else if (!zoneService.isValidZone(request.destinationZone())) {
-          fieldErrors.put("destinationZone", "Unsupported destination zone: " + request.destinationZone().trim());
+          fieldErrors.put("destinationZone", "Choose a supported destination zone.");
         } else {
           destinationValid = true;
         }

@@ -39,9 +39,9 @@ PROBLEM = obj({
     "currentStatus": STR, "requestedStatus": STR, "allowedNext": arr(STR),
 }, ("title", "status", "detail"))
 
-CONTACT = obj({"name": field(maxLength=100), "phone": field(pattern=r"^[\s-]*(\+94|0)([\s-]*\d){9}[\s-]*$"),
-               "address": field(minLength=8, maxLength=255), "city": {"type": ["string", "null"], "maxLength": 100}}, ("name", "phone", "address"))
-PARCEL = obj({"weightKg": field("number", minimum=0.1, maximum=20), "category": field(minLength=1, maxLength=40),
+CONTACT = obj({"name": field(maxLength=100), "phone": field(description="Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."),
+               "address": field(minLength=8, maxLength=255, description="Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."), "city": {"type": ["string", "null"], "maxLength": 100}}, ("name", "phone", "address"))
+PARCEL = obj({"weightKg": field("number", minimum=0.1, maximum=20, multipleOf=0.0001), "category": field(minLength=1, maxLength=40),
               "size": {"type": ["string", "null"], "enum": ["SMALL", "MEDIUM", "LARGE", None]},
               "description": {"type": ["string", "null"], "maxLength": 255}}, ("weightKg", "category"))
 BOOKING_REQUEST = obj({"sender": CONTACT, "recipient": CONTACT, "parcel": PARCEL,
@@ -116,10 +116,10 @@ SCHEMAS = {
         "FeeEstimateRequest": obj({"pickupCity": {"type": ["string", "null"], "maxLength": 100}, "deliveryCity": {"type": ["string", "null"], "maxLength": 100},
             "destinationType": {"type": ["string", "null"], "enum": ["SAME_CITY", "OTHER_DISTRICT", None]},
             "parcelSize": {"type": ["string", "null"], "enum": ["SMALL", "MEDIUM", "LARGE", None]},
-            "weightKg": {"type": ["number", "null"], "minimum": 0.01, "maximum": 100}, "parcelCategory": {"type": ["string", "null"], "maxLength": 100},
-            "isExpress": {"type": ["boolean", "null"]}, "distanceKm": {"type": ["number", "null"], "minimum": 0, "maximum": 2000},
-            "lengthCm": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 500}, "widthCm": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 500},
-            "heightCm": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 500}, "originZone": {"type": ["string", "null"], "maxLength": 64},
+            "weightKg": {"type": ["number", "null"], "minimum": 0.1, "maximum": 20, "multipleOf": 0.0001}, "parcelCategory": {"type": ["string", "null"], "maxLength": 100},
+            "isExpress": {"type": ["boolean", "null"]}, "distanceKm": {"type": ["number", "null"], "minimum": 0, "maximum": 2000, "multipleOf": 0.0001},
+            "lengthCm": {"type": ["number", "null"], "minimum": 0.01, "maximum": 500, "multipleOf": 0.0001}, "widthCm": {"type": ["number", "null"], "minimum": 0.01, "maximum": 500, "multipleOf": 0.0001},
+            "heightCm": {"type": ["number", "null"], "minimum": 0.01, "maximum": 500, "multipleOf": 0.0001}, "originZone": {"type": ["string", "null"], "maxLength": 64},
             "destinationZone": {"type": ["string", "null"], "maxLength": 64}, "currency": {"type": ["string", "null"], "maxLength": 10}}),
         "FeeEstimateResponse": obj({"fee": DEC, "formattedFee": STR, "currency": STR, "estimatedDays": INT,
                                      "breakdown": obj({"baseFee": DEC, "weightFee": DEC, "distanceSurcharge": DEC, "expressFee": DEC})}),

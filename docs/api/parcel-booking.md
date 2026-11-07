@@ -135,3 +135,7 @@ Migration `V2__create_parcel_booking.sql` creates schema `parcel` and table `par
 `frontend/zentro-web/src/portals/customer/services/customerApi.ts` posts bookings to
 `${VITE_CUSTOMER_API_BASE_URL or /api/v1/customer}/deliveries`. The gateway does not route `/api/v1/customer/**`, and it denies all `/api/v1/**` paths it does not list.
 The frontend must post to `/api/v1/parcels`. It must also map the response: `status` is `CREATED` (not `Created`), and there is no `formattedFee` or `timeline`.
+
+## Validation hardening (#124)
+
+See the shared [validation rules and boundary evidence](s2-validation.md). Addresses use 8–255 Unicode code points after trimming and reject controls/format characters before trimming. Text is otherwise preserved (including HTML-looking content); output encoding is the consumer's responsibility. Weight accepts decimal JSON numbers with at most four decimal places; strings and exponent notation return safe 400 errors. Stored weight remains rounded to two decimals and existing idempotency fingerprint behavior is unchanged. A size label is not a validated weight tier: 15 kg SMALL is permitted and charged for 15 kg.
