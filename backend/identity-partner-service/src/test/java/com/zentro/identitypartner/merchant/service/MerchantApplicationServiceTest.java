@@ -1,8 +1,6 @@
 package com.zentro.identitypartner.merchant.service;
 
 import com.zentro.identitypartner.merchant.dto.MerchantApplication;
-
-
 import com.zentro.identitypartner.merchant.dto.CreateMerchantApplicationRequest;
 import com.zentro.identitypartner.merchant.dto.ReviewMerchantApplicationRequest;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -79,10 +77,25 @@ class MerchantApplicationServiceTest {
   }
 
   @Test
+  void suspensionRequiresAReasonBeforeWritingToDatabase() {
+    ReviewMerchantApplicationRequest request =
+        new ReviewMerchantApplicationRequest(ReviewMerchantApplicationRequest.MerchantDecision.SUSPENDED, "  ");
+
+    assertThatThrownBy(() -> service.review(UUID.randomUUID(), jwt, request))
+        .isInstanceOf(ResponseStatusException.class)
+        .satisfies(error -> {
+          ResponseStatusException response = (ResponseStatusException) error;
+          org.assertj.core.api.Assertions.assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        });
+
+    verifyNoInteractions(jdbc);
+  }
+
+  @Test
   void approvedReviewReturnsPersistedApprovedApplication() {
     UUID applicationId = UUID.randomUUID();
     MerchantApplication approved = new MerchantApplication(
-        applicationId, userId, "Example Shop", "BR-100", "0771234567", "APPROVED", null,
+        applicationId, userId, "Example Shop", "BR-100", "0771234567", "APPROVED", null, null,
         OffsetDateTime.now(), OffsetDateTime.now());
     when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of(approved));
 
@@ -91,6 +104,7 @@ class MerchantApplicationServiceTest {
 
     org.assertj.core.api.Assertions.assertThat(result.status()).isEqualTo("APPROVED");
     org.assertj.core.api.Assertions.assertThat(result.rejectionReason()).isNull();
+    org.assertj.core.api.Assertions.assertThat(result.suspensionReason()).isNull();
   }
 
   @Test

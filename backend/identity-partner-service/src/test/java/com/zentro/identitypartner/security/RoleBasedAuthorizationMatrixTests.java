@@ -24,6 +24,8 @@ import com.zentro.identitypartner.merchant.dto.MerchantApplication;
 import com.zentro.identitypartner.merchant.controller.MerchantApplicationController;
 import com.zentro.identitypartner.merchant.service.MerchantApplicationService;
 import com.zentro.identitypartner.merchant.dto.ReviewMerchantApplicationRequest;
+import com.zentro.identitypartner.merchant.dto.SuspendMerchantRequest;
+import com.zentro.identitypartner.user.controller.AdminUserController;
 import com.zentro.identitypartner.user.dto.UpdateUserProfileRequest;
 import com.zentro.identitypartner.user.dto.UserProfile;
 import com.zentro.identitypartner.user.controller.UserProfileController;
@@ -54,7 +56,8 @@ import org.springframework.test.web.servlet.MockMvc;
     UserProfileController.class,
     MerchantApplicationController.class,
     MerchantApiKeyController.class,
-    AdminMerchantApplicationController.class
+    AdminMerchantApplicationController.class,
+    AdminUserController.class
 })
 @Import(com.zentro.security.config.ZentroSecurityAutoConfiguration.class)
 @TestPropertySource(properties = {
@@ -186,22 +189,37 @@ class RoleBasedAuthorizationMatrixTests {
 
     @Test
     void dispatcherCanListPendingMerchantApplications() throws Exception {
-      when(applications.listPending()).thenReturn(List.of(
-          new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "PENDING", null, OffsetDateTime.now(), null)
+      when(applications.list("PENDING")).thenReturn(List.of(
+          new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "PENDING", null, null, OffsetDateTime.now(), null)
+      ));
+
+      mvc.perform(get("/api/v1/admin/merchants").param("status", "PENDING")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$[0].businessName").value("Tech Store"));
+
+      verify(applications).list("PENDING");
+    }
+
+    @Test
+    void dispatcherCanListAllMerchantApplicationsWithoutFilter() throws Exception {
+      when(applications.list(null)).thenReturn(List.of(
+          new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "APPROVED", null, null, OffsetDateTime.now(), OffsetDateTime.now()),
+          new MerchantApplication(UUID.randomUUID(), UUID.randomUUID(), "Suspended Shop", "BR-999", "0770002222", "SUSPENDED", null, "Fraud", OffsetDateTime.now(), OffsetDateTime.now())
       ));
 
       mvc.perform(get("/api/v1/admin/merchants")
           .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
           .andExpect(status().isOk())
-          .andExpect(jsonPath("$[0].businessName").value("Tech Store"));
+          .andExpect(jsonPath("$.length()").value(2));
 
-      verify(applications).listPending();
+      verify(applications).list(null);
     }
 
     @Test
     void dispatcherCanReviewMerchantApplication() throws Exception {
       when(applications.review(eq(TEST_APP_ID), any(), any(ReviewMerchantApplicationRequest.class)))
-          .thenReturn(new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "APPROVED", null, OffsetDateTime.now(), OffsetDateTime.now()));
+          .thenReturn(new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "APPROVED", null, null, OffsetDateTime.now(), OffsetDateTime.now()));
 
       mvc.perform(patch("/api/v1/admin/merchants/" + TEST_APP_ID)
           .with(jwt().jwt(t -> t.subject("dispatcher-sub"))
@@ -212,6 +230,61 @@ class RoleBasedAuthorizationMatrixTests {
           .andExpect(jsonPath("$.status").value("APPROVED"));
 
       verify(applications).review(eq(TEST_APP_ID), any(), any(ReviewMerchantApplicationRequest.class));
+    }
+
+    @Test
+    void dispatcherCanSuspendApprovedMerchant() throws Exception {
+      when(applications.suspend(eq(TEST_APP_ID), any(), eq("Fraud investigation")))
+          .thenReturn(new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "SUSPENDED", null, "Fraud investigation", OffsetDateTime.now(), OffsetDateTime.now()));
+
+      mvc.perform(patch("/api/v1/admin/merchants/" + TEST_APP_ID + "/suspend")
+          .with(jwt().jwt(t -> t.subject("dispatcher-sub"))
+              .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"reason\":\"Fraud investigation\"}"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.status").value("SUSPENDED"))
+          .andExpect(jsonPath("$.suspensionReason").value("Fraud investigation"));
+
+      verify(applications).suspend(eq(TEST_APP_ID), any(), eq("Fraud investigation"));
+    }
+
+    @Test
+    void dispatcherCanReinstateSuspendedMerchant() throws Exception {
+      when(applications.reinstate(eq(TEST_APP_ID), any()))
+          .thenReturn(new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "Tech Store", "BR-101", "0770001111", "APPROVED", null, null, OffsetDateTime.now(), OffsetDateTime.now()));
+
+      mvc.perform(patch("/api/v1/admin/merchants/" + TEST_APP_ID + "/reinstate")
+          .with(jwt().jwt(t -> t.subject("dispatcher-sub"))
+              .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{}"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.status").value("APPROVED"));
+
+      verify(applications).reinstate(eq(TEST_APP_ID), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_MERCHANT", "ROLE_COURIER"})
+    void nonDispatcherRolesCannotSuspendMerchants(String role) throws Exception {
+      mvc.perform(patch("/api/v1/admin/merchants/" + TEST_APP_ID + "/suspend")
+          .with(jwt().authorities(new SimpleGrantedAuthority(role)))
+          .contentType("application/json")
+          .content("{\"reason\":\"Fraud\"}"))
+          .andExpect(status().isForbidden());
+      verifyNoInteractions(applications);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_MERCHANT", "ROLE_COURIER"})
+    void nonDispatcherRolesCannotReinstateMerchants(String role) throws Exception {
+      mvc.perform(patch("/api/v1/admin/merchants/" + TEST_APP_ID + "/reinstate")
+          .with(jwt().authorities(new SimpleGrantedAuthority(role)))
+          .contentType("application/json")
+          .content("{}"))
+          .andExpect(status().isForbidden());
+      verifyNoInteractions(applications);
     }
   }
 
@@ -317,7 +390,7 @@ class RoleBasedAuthorizationMatrixTests {
     @Test
     void customerCanSubmitMerchantApplication() throws Exception {
       when(applications.createOrReapply(any(), any(CreateMerchantApplicationRequest.class)))
-          .thenReturn(new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "My Store", null, "0771234567", "PENDING", null, OffsetDateTime.now(), null));
+          .thenReturn(new MerchantApplication(TEST_APP_ID, TEST_USER_ID, "My Store", null, "0771234567", "PENDING", null, null, OffsetDateTime.now(), null));
 
       mvc.perform(post("/api/v1/merchants")
           .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))

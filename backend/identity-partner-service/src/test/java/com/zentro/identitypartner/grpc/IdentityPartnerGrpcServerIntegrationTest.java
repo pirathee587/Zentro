@@ -2,6 +2,8 @@ package com.zentro.identitypartner.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +42,7 @@ class IdentityPartnerGrpcServerIntegrationTest {
 
   private CourierProfileService courierProfileService;
   private JwtDecoder jwtDecoder;
+  private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
   private IdentityPartnerGrpcServer server;
   private ManagedChannel channel;
 
@@ -47,8 +50,9 @@ class IdentityPartnerGrpcServerIntegrationTest {
   void setUp() throws IOException {
     courierProfileService = mock(CourierProfileService.class);
     jwtDecoder = mock(JwtDecoder.class);
+    jdbcTemplate = mock(org.springframework.jdbc.core.JdbcTemplate.class);
 
-    IdentityPartnerGrpcService grpcService = new IdentityPartnerGrpcService(courierProfileService);
+    IdentityPartnerGrpcService grpcService = new IdentityPartnerGrpcService(courierProfileService, jdbcTemplate);
     GrpcSecurityInterceptor securityInterceptor = new GrpcSecurityInterceptor(INTERNAL_SECRET, jwtDecoder);
 
     // Port 0 binds to a free ephemeral port on localhost
@@ -218,8 +222,14 @@ class IdentityPartnerGrpcServerIntegrationTest {
   }
 
   @Test
-  @DisplayName("Merchant status RPC is callable with internal credentials")
-  void getMerchantStatusSucceeds() {
+  @DisplayName("Merchant status RPC returns APPROVED for an approved merchant")
+  void getMerchantStatusReturnsApproved() {
+    when(jdbcTemplate.queryForObject(
+        anyString(),
+        eq(String.class),
+        eq("merchant-approved-subject")))
+        .thenReturn("APPROVED");
+
     Metadata headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
 
@@ -228,13 +238,65 @@ class IdentityPartnerGrpcServerIntegrationTest {
             .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers));
 
     GetMerchantStatusRequest request = GetMerchantStatusRequest.newBuilder()
-        .setMerchantId("merchant-123")
+        .setMerchantId("merchant-approved-subject")
         .build();
 
     MerchantStatusResponse response = stub.getMerchantStatus(request);
 
     assertThat(response).isNotNull();
-    assertThat(response.getMerchantId()).isEqualTo("merchant-123");
-    assertThat(response.getStatus()).isEqualTo("ACTIVE");
+    assertThat(response.getMerchantId()).isEqualTo("merchant-approved-subject");
+    assertThat(response.getStatus()).isEqualTo("APPROVED");
+  }
+
+  @Test
+  @DisplayName("Merchant status RPC returns SUSPENDED for a suspended merchant")
+  void getMerchantStatusReturnsSuspended() {
+    when(jdbcTemplate.queryForObject(
+        anyString(),
+        eq(String.class),
+        eq("merchant-suspended-subject")))
+        .thenReturn("SUSPENDED");
+
+    Metadata headers = new Metadata();
+    headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
+
+    IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub =
+        IdentityPartnerServiceGrpc.newBlockingStub(channel)
+            .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers));
+
+    GetMerchantStatusRequest request = GetMerchantStatusRequest.newBuilder()
+        .setMerchantId("merchant-suspended-subject")
+        .build();
+
+    MerchantStatusResponse response = stub.getMerchantStatus(request);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getStatus()).isEqualTo("SUSPENDED");
+  }
+
+  @Test
+  @DisplayName("Merchant status RPC returns NOT_FOUND when no application exists")
+  void getMerchantStatusReturnsNotFoundForUnknownMerchant() {
+    when(jdbcTemplate.queryForObject(
+        anyString(),
+        eq(String.class),
+        eq("unknown-subject")))
+        .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
+
+    Metadata headers = new Metadata();
+    headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
+
+    IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub =
+        IdentityPartnerServiceGrpc.newBlockingStub(channel)
+            .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers));
+
+    GetMerchantStatusRequest request = GetMerchantStatusRequest.newBuilder()
+        .setMerchantId("unknown-subject")
+        .build();
+
+    MerchantStatusResponse response = stub.getMerchantStatus(request);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getStatus()).isEqualTo("NOT_FOUND");
   }
 }
