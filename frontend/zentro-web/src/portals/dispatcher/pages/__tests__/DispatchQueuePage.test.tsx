@@ -96,9 +96,10 @@ describe('Dispatch Queue (mocked HTTP, real React Query)', () => {
     fireEvent.change(screen.getByLabelText('Created to (UTC)'), { target: { value: '2026-10-31' } });
     fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'oldest' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
-    await waitFor(() => expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/dispatch/queue', {
+    await waitFor(() => expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/dispatch/queue', expect.objectContaining({
       headers: { Authorization: 'Bearer test' }, params: { search: 'Kandy', from: '2026-10-31', to: '2026-10-31', sort: 'oldest' },
-    }));
+      signal: expect.anything(),
+    })));
   });
 
   it('shows no eligible couriers without enabling confirmation', async () => {

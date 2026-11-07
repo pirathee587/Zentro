@@ -157,7 +157,8 @@ describe('CouriersPage (Dispatcher Portal)', () => {
     await waitFor(() => {
       expect(listSpy).toHaveBeenCalledWith(
         expect.objectContaining({ search: 'Kamal' }),
-        'mock-dispatcher-token'
+        'mock-dispatcher-token',
+        expect.anything(),
       );
     });
   });

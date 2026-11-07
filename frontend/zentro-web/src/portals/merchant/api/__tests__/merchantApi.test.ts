@@ -15,6 +15,7 @@ vi.mock('@/shared/api/apiClient', () => ({
     post: vi.fn(),
     delete: vi.fn(),
   },
+  withBearerToken: vi.fn((token: string) => ({ headers: { Authorization: `Bearer ${token}` } })),
 }));
 
 const auth = { accessToken: 'merchant-token' };
@@ -32,23 +33,18 @@ describe('merchant API', () => {
     });
   });
 
-  it('retries a request once with a refreshed token after a 401', async () => {
+  it('does not retry a 401 with a refreshed token', async () => {
     const refreshAccessToken = vi.fn(async (force = false) => force ? 'fresh-token' : 'expired-token');
-    const application = { businessName: 'Good Things', status: 'APPROVED' as const };
     const unauthorized = Object.assign(new Error('Unauthorized'), {
       isAxiosError: true,
       response: { status: 401 },
     });
-    vi.mocked(apiClient.get)
-      .mockRejectedValueOnce(unauthorized)
-      .mockResolvedValueOnce({ data: application } as never);
+    vi.mocked(apiClient.get).mockRejectedValueOnce(unauthorized);
 
-    await expect(getMerchantApplication({ refreshAccessToken })).resolves.toEqual(application);
+    await expect(getMerchantApplication({ refreshAccessToken })).rejects.toBe(unauthorized);
     expect(refreshAccessToken).toHaveBeenNthCalledWith(1, false);
-    expect(refreshAccessToken).toHaveBeenNthCalledWith(2, true);
-    expect(apiClient.get).toHaveBeenLastCalledWith('/api/v1/merchants/me', {
-      headers: { Authorization: 'Bearer fresh-token' },
-    });
+    expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry a forbidden request', async () => {

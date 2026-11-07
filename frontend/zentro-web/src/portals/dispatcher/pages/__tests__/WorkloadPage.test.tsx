@@ -51,7 +51,7 @@ describe('WorkloadPage', () => {
     await screen.findByText('Kamal Silva');
     fireEvent.change(screen.getByLabelText('Search workload'), { target: { value: 'Kamal' } });
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(
-      { search: 'Kamal', availability: undefined }, 'token',
+      { search: 'Kamal', availability: undefined }, 'token', expect.anything(),
     ));
     fireEvent.click(await screen.findByRole('button', { name: 'Refresh workload' }));
     await waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(1));

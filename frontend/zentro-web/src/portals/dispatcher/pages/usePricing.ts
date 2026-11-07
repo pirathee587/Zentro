@@ -8,11 +8,11 @@ export const pricingKeys = {
 };
 
 export function usePricingRule() {
-  return useQuery({ queryKey: pricingKeys.rule, queryFn: getPricingRule });
+  return useQuery({ queryKey: pricingKeys.rule, queryFn: ({ signal }) => getPricingRule(signal) });
 }
 
 export function useZones() {
-  return useQuery({ queryKey: pricingKeys.zones, queryFn: getZones });
+  return useQuery({ queryKey: pricingKeys.zones, queryFn: ({ signal }) => getZones(signal) });
 }
 
 /** Saves the rule, shows the saved values at once and then reloads them from the API. */

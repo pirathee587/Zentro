@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
 import { deliveryError, listDeliveries } from '../api/deliveryApi';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 
 export function TodayDeliveriesPage() {
   const { user } = useAuth();
-  const deliveries = useQuery({ queryKey: ['courier', user?.id, 'deliveries'],
-    queryFn: () => listDeliveries(user!.accessToken), enabled: Boolean(user?.accessToken), retry: false, gcTime: 0 });
+  const deliveries = useQuery({ queryKey: queryKeys.courier.deliveries(principalCacheScope(user?.id)),
+    queryFn: ({ signal }) => listDeliveries(user!.accessToken, signal), enabled: Boolean(user?.accessToken), gcTime: 0 });
   const firstName = user?.name?.trim().split(/\s+/)[0] || 'Courier';
   return <main className="courier-main">
     <section className="staff-hero"><div><span className="staff-eyebrow">YOUR COURIER SPACE</span>

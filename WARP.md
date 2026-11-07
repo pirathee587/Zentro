@@ -765,6 +765,9 @@ Use route guards and permission-aware UI visibility for navigation and user expe
 - Keep API communication out of presentation components and organize portal operations in feature-specific API modules.
 - Centralize common request and response handling, preserve backend contracts, and use appropriate timeouts and error handling.
 - Keep React Query query keys and invalidation logic consistent.
+- Use the shared `frontend/zentro-web/src/shared/api/queryKeys.ts` factories for new or inconsistent query keys and the singleton QueryClient defaults for retry policy. Mutations must not retry automatically; use exact or domain-prefix invalidation after successful writes.
+- Pass TanStack Query's `AbortSignal` to `apiClient` for query requests. Keep real-time SSE streams on their existing stream transport.
+- See `docs/development/frontend-api.md` for the client error shape, query defaults, invalidation matrix and endpoint workflow.
 - Use local React state for component-specific state and existing Context providers for genuinely shared client state.
 - Do not duplicate server data in unrelated global stores or add another state-management library without a clear requirement.
 - Never expose client secrets or private credentials in frontend code.

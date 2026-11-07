@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import {
   getMerchantApiKey,
   getMerchantApplication,
@@ -9,9 +10,9 @@ import {
 } from '../api/merchantApi';
 
 export const merchantQueryKeys = {
-  application: (userId?: string) => ['merchant', userId, 'application'] as const,
-  apiKey: (userId?: string) => ['merchant', userId, 'api-key'] as const,
-  orders: (userId?: string) => ['merchant', userId, 'orders'] as const,
+  application: (userId?: string) => queryKeys.merchant.application(principalCacheScope(userId)),
+  apiKey: (userId?: string) => queryKeys.merchant.apiKey(principalCacheScope(userId)),
+  orders: (userId?: string) => queryKeys.merchant.orders(undefined, principalCacheScope(userId)),
 };
 
 export function useMerchantApplicationQuery(enabled = true) {
@@ -20,10 +21,10 @@ export function useMerchantApplicationQuery(enabled = true) {
   return useQuery({
     queryKey: merchantQueryKeys.application(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
-    retry: false,
-    queryFn: () => getMerchantApplication({
+    queryFn: ({ signal }) => getMerchantApplication({
       accessToken: user?.accessToken,
       refreshAccessToken,
+      signal,
     }),
   });
 }
@@ -34,10 +35,10 @@ export function useMerchantApiKeyQuery(enabled = true) {
   return useQuery({
     queryKey: merchantQueryKeys.apiKey(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
-    retry: false,
-    queryFn: () => getMerchantApiKey({
+    queryFn: ({ signal }) => getMerchantApiKey({
       accessToken: user?.accessToken,
       refreshAccessToken,
+      signal,
     }),
   });
 }
@@ -48,10 +49,10 @@ export function useMerchantOrdersQuery(enabled = true) {
   return useQuery({
     queryKey: merchantQueryKeys.orders(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
-    retry: false,
-    queryFn: () => getMerchantOrders({
+    queryFn: ({ signal }) => getMerchantOrders({
       accessToken: user?.accessToken,
       refreshAccessToken,
+      signal,
     }),
   });
 }

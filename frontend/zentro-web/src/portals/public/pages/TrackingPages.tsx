@@ -8,6 +8,7 @@ import { getTracking } from '@/shared/domain/tracking/trackingApi';
 import { useTrackingStream } from '@/shared/domain/tracking/useTrackingStream';
 import { ArrowIcon } from '../assets/ArrowIcon';
 import { normalizePublicTrackingNumber } from '../utils/trackingNumber';
+import { queryKeys } from '@/shared/api/queryKeys';
 
 const Arrow = ArrowIcon;
 
@@ -55,9 +56,8 @@ export function TrackingPage() {
   const { trackingNumber = '' } = useParams();
   const navigate = useNavigate();
   const tracking = useQuery({
-    queryKey: ['tracking', trackingNumber],
-    queryFn: async () => (await getTracking(trackingNumber)).data,
-    retry: false,
+    queryKey: queryKeys.tracking.parcel(trackingNumber),
+    queryFn: async ({ signal }) => (await getTracking(trackingNumber, signal)).data,
   });
   const refreshTracking = useCallback(() => { void tracking.refetch(); }, [tracking.refetch]);
   useTrackingStream(trackingNumber, refreshTracking);

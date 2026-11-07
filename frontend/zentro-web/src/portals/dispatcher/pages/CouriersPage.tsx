@@ -43,8 +43,7 @@ export function CouriersPage() {
   const couriersQuery = useQuery({
     queryKey: ['dispatcher', 'couriers', queryParams],
     enabled: Boolean(user?.accessToken),
-    queryFn: () => listCouriersAdmin(queryParams, user?.accessToken),
-    retry: false,
+    queryFn: ({ signal }) => listCouriersAdmin(queryParams, user?.accessToken, signal),
   });
 
   const updateMutation = useMutation({

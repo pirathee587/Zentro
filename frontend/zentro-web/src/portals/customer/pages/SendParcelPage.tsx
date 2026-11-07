@@ -28,6 +28,8 @@ import {
   parseWeight,
 } from './sendParcelForm';
 import { AuthContext } from '@/shared/auth/authContext';
+import { invalidateAfterBooking } from '@/shared/api/queryInvalidation';
+import { queryClient } from '@/shared/api/queryClient';
 
 type Step = 1 | 2 | 3;
 
@@ -225,6 +227,7 @@ export const SendParcelPage: React.FC = () => {
       );
 
       idempotencyKeyRef.current = generateIdempotencyKey();
+      await invalidateAfterBooking(queryClient);
       setBookedParcel(result);
       setStep(3);
     } catch (err: unknown) {

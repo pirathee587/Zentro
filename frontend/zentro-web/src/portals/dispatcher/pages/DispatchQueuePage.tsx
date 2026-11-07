@@ -6,7 +6,7 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
 import { defaultQueueFilters, dispatchQueueKey, useDispatchQueue, type DispatchQueue, type QueueFilters, type QueueParcel } from '../api/dispatchApi';
 import { AssignmentDialog } from './AssignmentDialog';
-import { courierWorkloadKey } from '../api/workloadApi';
+import { invalidateAfterDispatchAssignment } from '@/shared/api/queryInvalidation';
 
 export function DispatchQueuePage() {
   const { user } = useAuth();
@@ -30,8 +30,8 @@ export function DispatchQueuePage() {
     client.setQueriesData<DispatchQueue>({ queryKey: dispatchQueueKey }, data => data ? {
       ...data, items: data.items.filter(item => item.parcelId !== parcelId), total: null, matchingTotal: null, complete: false,
     } : data);
-    setSelected(null); setNotice('Delivery assigned successfully.'); heading.current?.focus(); void refresh();
-    void client.invalidateQueries({ queryKey: courierWorkloadKey });
+    setSelected(null); setNotice('Delivery assigned successfully.'); heading.current?.focus();
+    void invalidateAfterDispatchAssignment(client);
   };
   const change = (field: keyof QueueFilters, value: string) => setDraft(current => ({ ...current, [field]: value }));
   return <main className="staff-main">
