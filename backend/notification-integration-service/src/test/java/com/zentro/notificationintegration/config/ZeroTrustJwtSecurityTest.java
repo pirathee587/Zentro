@@ -50,10 +50,32 @@ class ZeroTrustJwtSecurityTest {
   private static final String ISSUER = "http://localhost:8180/realms/zentro";
   private static final String AUDIENCE = "zentro-api";
 
-  private static RSAKey trustedRsaKey;
-  private static RSAKey untrustedRsaKey;
-  private static HttpServer jwksServer;
-  private static String jwksUri;
+  private static final RSAKey trustedRsaKey;
+  private static final RSAKey untrustedRsaKey;
+  private static final HttpServer jwksServer;
+  private static final String jwksUri;
+
+  static {
+    try {
+      trustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s5-trusted-kid").generate();
+      untrustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s5-trusted-kid").generate();
+
+      byte[] jwksBytes = new JWKSet(trustedRsaKey.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
+      jwksServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+      jwksServer.createContext("/realms/zentro/protocol/openid-connect/certs", exchange -> {
+        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, jwksBytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+          os.write(jwksBytes);
+        }
+      });
+      jwksServer.start();
+      jwksUri = "http://127.0.0.1:" + jwksServer.getAddress().getPort()
+          + "/realms/zentro/protocol/openid-connect/certs";
+    } catch (Exception ex) {
+      throw new ExceptionInInitializerError(ex);
+    }
+  }
 
   @RestController
   static class ZeroTrustProbeController {
@@ -72,25 +94,6 @@ class ZeroTrustJwtSecurityTest {
   @Autowired
   private MockMvc mockMvc;
 
-  @BeforeAll
-  static void startJwksServer() throws Exception {
-    trustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s5-trusted-kid").generate();
-    untrustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s5-trusted-kid").generate();
-
-    byte[] jwksBytes = new JWKSet(trustedRsaKey.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
-    jwksServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-    jwksServer.createContext("/realms/zentro/protocol/openid-connect/certs", exchange -> {
-      exchange.getResponseHeaders().add("Content-Type", "application/json");
-      exchange.sendResponseHeaders(200, jwksBytes.length);
-      try (OutputStream os = exchange.getResponseBody()) {
-        os.write(jwksBytes);
-      }
-    });
-    jwksServer.start();
-    jwksUri = "http://127.0.0.1:" + jwksServer.getAddress().getPort()
-        + "/realms/zentro/protocol/openid-connect/certs";
-  }
-
   @AfterAll
   static void stopJwksServer() {
     if (jwksServer != null) {
@@ -103,6 +106,9 @@ class ZeroTrustJwtSecurityTest {
     registry.add("zentro.security.issuer-uri", () -> ISSUER);
     registry.add("zentro.security.audience", () -> AUDIENCE);
     registry.add("zentro.security.jwks-uri", () -> jwksUri);
+    registry.add("JWT_JWKS_URI", () -> jwksUri);
+    registry.add("JWT_ISSUER_URI", () -> ISSUER);
+    registry.add("JWT_AUDIENCE", () -> AUDIENCE);
   }
 
   private static String signToken(
