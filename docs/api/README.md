@@ -15,9 +15,10 @@ The generator inventory and guard are maintained in [`build_openapi.py`](build_o
 ```sh
 python3 docs/api/build_openapi.py --generate
 python3 docs/api/build_openapi.py --check
+mvn --batch-mode -pl parcel-pricing-service -Dtest=OpenApiArtifactValidationTest test
 ```
 
-There is no springdoc dependency or generated `/v3/api-docs` or Swagger UI in the current build. The files above are reviewed and checked in directly. `--check` uses only Python's standard library and checks JSON/OpenAPI structure, required operation metadata and responses, references, path parameters, and equality with mapped `@RestController` endpoints.
+There is no springdoc dependency or generated `/v3/api-docs` or Swagger UI in the current build. The files above are reviewed and checked in directly. `--check` uses only Python's standard library and checks JSON/OpenAPI structure, required operation metadata and responses, references, path parameters, and equality with mapped `@RestController` endpoints. The S2 test scope includes Swagger Parser and validates all five artifacts during Maven tests.
 
 ## Authentication and authorization
 
@@ -54,7 +55,7 @@ The gateway generates or forwards `X-Correlation-Id` and returns it on the respo
 
 ## Inventory and source reconciliation
 
-The generator currently inventories **51 HTTP operations/aliases**: S1 21, S2 10, S3 9, S4 4, and S5 7. It excludes controllerless gateway prefixes such as `/api/v1/admin/zones/**`, `/api/v1/admin/audit-logs/**`, and `/api/v1/reports/**`, and excludes nonexistent `GET /api/v1/parcels/{id}` despite the booking `Location` value referring to that future resource.
+The generator currently inventories **51 HTTP operations/aliases**: S1 21, S2 10, S3 9, S4 4, and S5 7. It excludes controllerless gateway prefixes such as `/api/v1/admin/zones/**`, `/api/v1/admin/audit-logs/**`, and `/api/v1/reports/**`, and excludes nonexistent `GET /api/v1/parcels/{id}` despite the booking `Location` value referring to that future resource. Inventory status: 51 documented and correct; 0 mismatches; 0 undocumented.
 
 Existing endpoint guides remain useful for workflows and detailed operational behavior. The OpenAPI files are the path, role, parameter, body, and response contract. `notifications.md` previously said S5 added no HTTP endpoints despite documenting outcome-history routes later in the same file; that contradiction is corrected here and linked from the guide.
 
@@ -62,9 +63,10 @@ Existing endpoint guides remain useful for workflows and detailed operational be
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| API-1 | High | S1 merchant API-key issuance returns the plaintext key once but does not set `Cache-Control: no-store`. The OpenAPI response does not claim the missing header; add it only after an explicitly reviewed runtime change. | Follow-up / needs owner decision |
-| API-2 | Medium | S3 and S4 service security rules permit anonymous `/v3/api-docs/**`, but no springdoc dependency or docs handler is present, so no spec is currently served there. A future springdoc addition could expose internal operations directly on service ports. | Needs decision before enabling/publishing runtime docs |
+| API-2 | Medium | All five services currently permit anonymous `/v3/api-docs/**` in either the shared S1/S2/S5 security starter or S3/S4 security configuration, but no springdoc dependency or handler exists. Exposure tests check each service: `/v3/api-docs` returns 404 in S1/S2/S3/S5 and a generic 500 Problem Details response in S4; `/swagger-ui/index.html` returns 401 in all five. No spec content is served. Options: keep runtime docs absent (no docs surface, but no service-hosted specs), or serve docs only behind an authorized role (convenient for maintainers, but adds an access-controlled endpoint that must not expose internal operations publicly). | Needs decision |
 | API-3 | Medium | Gateway sanitization of an upstream 5xx response omits ProblemDetail `instance`; a gateway test is skipped for this known shape mismatch. | Follow-up issue |
-| API-4 | Low | `docs/api/notifications.md` said S5 had no HTTP endpoints while listing its HTTP routes in the same document. | Fixed in this change |
+| API-4 | Low | `docs/api/notifications.md` said S5 had no HTTP endpoints while listing its HTTP routes in the same document. | Fixed |
+
+S1's existing `RoleBasedAuthorizationMatrixTests.merchantCanIssueOrRotateApiKey` asserts both `Cache-Control: no-store` and `Pragma: no-cache`; the corresponding operation documents both headers.
 
 Reviewers should verify issue #146 against the source and existing endpoint tests. The issue should remain Todo / UNVERIFIED until @14Jannan approves.

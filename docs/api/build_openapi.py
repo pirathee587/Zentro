@@ -40,7 +40,7 @@ PROBLEM = obj({
 }, ("title", "status", "detail"))
 
 CONTACT = obj({"name": field(maxLength=100), "phone": field(pattern=r"^[\s-]*(\+94|0)([\s-]*\d){9}[\s-]*$"),
-               "address": field(minLength=8, maxLength=255), "city": field(maxLength=100)}, ("name", "phone", "address"))
+               "address": field(minLength=8, maxLength=255), "city": {"type": ["string", "null"], "maxLength": 100}}, ("name", "phone", "address"))
 PARCEL = obj({"weightKg": field("number", minimum=0.1, maximum=20), "category": field(minLength=1, maxLength=40),
               "size": {"type": ["string", "null"], "enum": ["SMALL", "MEDIUM", "LARGE", None]},
               "description": {"type": ["string", "null"], "maxLength": 255}}, ("weightKg", "category"))
@@ -196,7 +196,7 @@ OPS = {
     ("get","/api/v1/merchants/me","getMyMerchantApplication","Read the caller's merchant application","CUSTOMER, MERCHANT, COURIER, DISPATCHER",200,"MerchantApplication","Returns the application associated with the token subject.",[],None,[],[401,403,404,503],[]),
     ("post","/api/v1/merchants","submitMerchantApplication","Submit or reapply for merchant status","CUSTOMER",200,"MerchantApplication","Applicant identity comes from the JWT subject, not the request body.",[],"CreateMerchantApplicationRequest",[],[400,401,403,409,422,503],[]),
     ("get","/api/v1/merchants/api-key","getMyMerchantApiKey","Read merchant API-key metadata","MERCHANT",200,"MerchantApiKeyMetadata","Returns metadata only; the secret is not returned by GET. Approved and active merchants only.",[],None,[],[401,403,503],[]),
-    ("post","/api/v1/merchants/api-key","issueMerchantApiKey","Issue or rotate a merchant API key","MERCHANT",200,"IssuedMerchantApiKey","The plaintext key is returned once in this response. Current implementation does not set Cache-Control: no-store (finding API-1).",[],None,[],[401,403,503],[]),
+    ("post","/api/v1/merchants/api-key","issueMerchantApiKey","Issue or rotate a merchant API key","MERCHANT",200,"IssuedMerchantApiKey","The plaintext key is returned once in this response. Response includes Cache-Control: no-store and Pragma: no-cache.",[],None,[],[401,403,503],["Cache-Control","Pragma"]),
     ("delete","/api/v1/merchants/api-key","revokeMerchantApiKey","Revoke the merchant API key","MERCHANT",200,"MerchantApiKeyMetadata","Returns metadata for the caller's key; null when no key exists. Approved and active merchants only.",[],None,[],[401,403,503],[]),
     ("get","/api/v1/admin/merchants","listMerchantApplications","List pending merchant applications","DISPATCHER",200,"MerchantApplicationList","Dispatcher-only review queue.",[],None,[],[401,403,503],[]),
     ("patch","/api/v1/admin/merchants/{applicationId}","reviewMerchantApplication","Approve or reject a merchant application","DISPATCHER",200,"MerchantApplication","Dispatcher decision; rejectionReason is required for REJECTED and must be absent for APPROVED.",[],"ReviewMerchantApplicationRequest",[],[400,401,403,404,409,422,503],[]),
@@ -313,6 +313,7 @@ def make_operation(service, row):
         for h in response_headers:
             resp["headers"][h] = {"description": "Response header emitted by the operation.", "schema": {"type": "string"}}
             if h == "Cache-Control": resp["headers"][h]["example"] = "no-store"
+            if h == "Pragma": resp["headers"][h]["example"] = "no-cache"
             if h == "Location": resp["headers"][h]["example"] = path.replace("{id}", "00000000-0000-4000-8000-000000000001")
     responses[str(success)] = resp
     if success == 201 and 200 not in (success,):
