@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
-import { apiClient } from '@/shared/api/apiClient';
+import { apiClient, withBearerToken } from '@/shared/api/apiClient';
+import { queryKeys } from '@/shared/api/queryKeys';
 import { useAuth } from '@/shared/auth/useAuth';
 
-export const dispatchQueueKey = ['dispatcher', 'dispatch-queue'] as const;
+export const dispatchQueueKey = ['dispatcher', 'queue'] as const;
 export type QueueFilters = { search: string; from: string; to: string; sort: 'newest' | 'oldest' };
 export const defaultQueueFilters: QueueFilters = { search: '', from: '', to: '', sort: 'newest' };
 const parcelSchema = z.object({
@@ -21,24 +22,24 @@ export type QueueParcel = z.infer<typeof parcelSchema>;
 export type DispatchQueue = z.infer<typeof queueSchema>;
 const courierSchema = z.object({ id: z.string().uuid(), userId: z.string().uuid(), name: z.string().nullable(), active: z.literal(true), accountStatus: z.literal('ACTIVE') });
 export type EligibleCourier = z.infer<typeof courierSchema>;
-const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 export function useDispatchQueue(filters = defaultQueueFilters) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: [...dispatchQueueKey, user?.id, filters], enabled: Boolean(user?.accessToken), retry: false,
-    queryFn: async () => queueSchema.parse((await apiClient.get('/api/v1/dispatch/queue', {
-      headers: headers(user!.accessToken!), params: { search: filters.search, from: filters.from || undefined, to: filters.to || undefined, sort: filters.sort },
+    queryKey: queryKeys.dispatcher.queue(filters), enabled: Boolean(user?.accessToken),
+    queryFn: async ({ signal }) => queueSchema.parse((await apiClient.get('/api/v1/dispatch/queue', {
+      ...withBearerToken(user!.accessToken!), params: { search: filters.search, from: filters.from || undefined, to: filters.to || undefined, sort: filters.sort },
+      signal,
     })).data),
   });
 }
 
-export async function eligibleCouriers(parcelId: string, token: string) {
+export async function eligibleCouriers(parcelId: string, token: string, signal?: AbortSignal) {
   return z.array(courierSchema).parse((await apiClient.get('/api/v1/dispatch/eligible-couriers', {
-    headers: headers(token), params: { parcelId },
+    ...withBearerToken(token), params: { parcelId }, signal,
   })).data);
 }
 
 export async function assignDelivery(parcelId: string, courierId: string, token: string) {
-  await apiClient.post('/api/v1/dispatch/assignments', { parcelId, courierId }, { headers: headers(token) });
+  await apiClient.post('/api/v1/dispatch/assignments', { parcelId, courierId }, withBearerToken(token));
 }

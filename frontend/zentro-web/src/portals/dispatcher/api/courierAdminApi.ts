@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/apiClient';
+import { apiClient, withBearerToken } from '@/shared/api/apiClient';
 import type { CourierProfile, VehicleType } from '@/portals/courier/api/courierApi';
 
 export interface ListCouriersParams {
@@ -21,12 +21,13 @@ export interface UpdateCourierAdminRequest {
  */
 export async function listCouriersAdmin(
   params?: ListCouriersParams,
-  token?: string
+  token?: string,
+  signal?: AbortSignal,
 ): Promise<CourierProfile[]> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   const res = await apiClient.get<CourierProfile[]>('/api/v1/admin/couriers', {
     params,
-    headers,
+    ...withBearerToken(token),
+    signal,
   });
   return res.data;
 }
@@ -38,9 +39,8 @@ export async function getCourierAdmin(
   courierId: string,
   token?: string
 ): Promise<CourierProfile> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   const res = await apiClient.get<CourierProfile>(`/api/v1/admin/couriers/${courierId}`, {
-    headers,
+    ...withBearerToken(token),
   });
   return res.data;
 }
@@ -53,9 +53,8 @@ export async function updateCourierAdmin(
   data: UpdateCourierAdminRequest,
   token?: string
 ): Promise<CourierProfile> {
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   const res = await apiClient.patch<CourierProfile>(`/api/v1/admin/couriers/${courierId}`, data, {
-    headers,
+    ...withBearerToken(token),
   });
   return res.data;
 }

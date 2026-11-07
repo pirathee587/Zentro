@@ -8,6 +8,7 @@ import {
   provisionCourierProfile,
   updateCourierPersonalInfo,
 } from '../api/courierApi';
+import { queryKeys } from '@/shared/api/queryKeys';
 
 export function CourierProfilePage() {
   const { user } = useAuth();
@@ -20,10 +21,9 @@ export function CourierProfilePage() {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const profileQuery = useQuery({
-    queryKey: ['courier', 'self-profile'],
+    queryKey: queryKeys.courier.profile(),
     enabled: Boolean(user?.accessToken),
-    queryFn: () => getCourierProfile(user?.accessToken),
-    retry: false,
+    queryFn: ({ signal }) => getCourierProfile(user?.accessToken, signal),
   });
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function CourierProfilePage() {
     onSuccess: async () => {
       setFeedbackSuccess('Courier profile successfully initialized.');
       setFeedbackError(null);
-      await queryClient.invalidateQueries({ queryKey: ['courier', 'self-profile'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courier.profile() });
     },
     onError: (err) => {
       setFeedbackError(friendlyApiError(err, 'Failed to initialize courier profile. Please try again.'));
@@ -51,7 +51,7 @@ export function CourierProfilePage() {
     onSuccess: async () => {
       setFeedbackSuccess('Your personal details have been updated successfully.');
       setFeedbackError(null);
-      await queryClient.invalidateQueries({ queryKey: ['courier', 'self-profile'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courier.profile() });
     },
     onError: (err) => {
       setFeedbackError(friendlyApiError(err, 'Could not save profile changes. Please try again.'));

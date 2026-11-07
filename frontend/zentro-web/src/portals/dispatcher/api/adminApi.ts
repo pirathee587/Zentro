@@ -39,13 +39,13 @@ export type ListUsersParams = {
   search?: string;
 };
 
-export async function listUsers(params: ListUsersParams = {}): Promise<AdminUserProfile[]> {
+export async function listUsers(params: ListUsersParams = {}, signal?: AbortSignal): Promise<AdminUserProfile[]> {
   const searchParams = new URLSearchParams();
   if (params.status) searchParams.set('status', params.status);
   if (params.search) searchParams.set('search', params.search);
   const query = searchParams.toString();
   const url = `/api/v1/admin/users${query ? `?${query}` : ''}`;
-  return (await apiClient.get<AdminUserProfile[]>(url)).data;
+  return (await apiClient.get<AdminUserProfile[]>(url, { signal })).data;
 }
 
 export async function getUser(userId: string): Promise<AdminUserProfile> {
@@ -80,8 +80,8 @@ export type ReviewMerchantRequest = {
   rejectionReason?: string;
 };
 
-export async function listMerchantApplications(): Promise<MerchantApplication[]> {
-  return (await apiClient.get<MerchantApplication[]>('/api/v1/admin/merchants')).data;
+export async function listMerchantApplications(signal?: AbortSignal): Promise<MerchantApplication[]> {
+  return (await apiClient.get<MerchantApplication[]>('/api/v1/admin/merchants', { signal })).data;
 }
 
 export async function reviewMerchantApplication(

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildr
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import type { User } from 'oidc-client-ts';
-import { apiClient, setAccessToken } from '@/shared/api/apiClient';
+import { apiClient, setAccessToken, withBearerToken } from '@/shared/api/apiClient';
 import { queryClient } from '@/shared/api/queryClient';
 import { ErrorState, Spinner } from '@/shared/ui';
 import { mapSupportedRoles } from '@/shared/config/roles';
@@ -138,10 +138,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const profileQuery = useQuery({
     queryKey: ['current-user', oidcUser?.profile.sub],
     enabled: Boolean(accessToken),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
         return (await apiClient.get<AppProfile>('/api/v1/users/me', {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          ...withBearerToken(accessToken),
+          signal,
         })).data;
       } catch (error) {
         // Access tokens can expire while the Keycloak session is still active.
@@ -152,11 +153,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setAccessToken(renewedUser.access_token);
         setOidcUser(renewedUser);
         return (await apiClient.get<AppProfile>('/api/v1/users/me', {
-          headers: { Authorization: `Bearer ${renewedUser.access_token}` },
+          ...withBearerToken(renewedUser.access_token),
+          signal,
         })).data;
       }
     },
-    retry: false,
   });
 
   const tokenProfile = oidcUser?.profile as OidcProfile | undefined;
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     profilePatchInFlight.current.add(profileId);
     void apiClient.patch('/api/v1/users/me', { name, phone }, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      ...withBearerToken(accessToken),
     })
       .then(() => queryClient.invalidateQueries({ queryKey: ['current-user', tokenProfile?.sub] }))
       .catch(() => profilePatchInFlight.current.delete(profileId));

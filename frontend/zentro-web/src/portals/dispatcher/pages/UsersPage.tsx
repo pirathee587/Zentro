@@ -200,8 +200,7 @@ export function UsersPage() {
   const usersQuery = useQuery({
     queryKey: usersKey(statusFilter, liveSearch),
     enabled: Boolean(currentUser?.accessToken),
-    retry: false,
-    queryFn: () => listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }),
+    queryFn: ({ signal }) => listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }, signal),
   });
 
   function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
