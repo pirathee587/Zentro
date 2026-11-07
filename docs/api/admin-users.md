@@ -133,10 +133,10 @@ SELECT action, changed_fields, old_status, new_status, reason, occurred_at
 
 - **Unchanged:** the response shape; the existing Users page requests (current name and phone plus status).
 - **New:** the optional `reason`; `400` for unknown or protected fields, which were silently ignored before; `400` for an invalid list status, which returned an empty list before; problem+json error bodies with `code` and `fieldErrors`, where 400s had no details before.
-- The Users page now sends the optional audit `reason` (up to 500 characters) with status and profile updates, displays server `detail` and inline `fieldErrors` on failure, displays roles as read-only governed by Keycloak, and presents an explicit confirmation modal before status changes (completed in ZD-084).
+- The Users page shows a generic message for every 400 today. Showing `detail`/`fieldErrors` and sending `reason` is a frontend follow-up.
 
 ## Known limits and follow-ups
 
 - **Account status is not enforced everywhere:** it is checked for couriers (S3 eligibility), merchant API keys and merchant checks in S2/S5, but not at Keycloak login or for customer endpoints in S2/S4. gRPC `GetMerchantStatus` returns a fixed `ACTIVE`. Owner: @14Jannan (S1) with the S2/S4 owners.
-- **Users page follow-ups (completed in ZD-084):** Dispatcher Users page sends optional `reason`, prompts for confirmation on account status changes, displays inline `fieldErrors` from ProblemDetails, and enforces read-only role governance.
+- **Users page follow-ups:** send `reason` and show server error details. Owner: Users page owner.
 - **Permission matrix D1/D2** (default CUSTOMER role, role assignment and SERVICE client): @pirathee587.
