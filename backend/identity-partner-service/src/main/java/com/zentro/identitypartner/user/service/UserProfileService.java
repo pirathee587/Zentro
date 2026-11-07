@@ -1,6 +1,7 @@
 package com.zentro.identitypartner.user.service;
 
 import com.zentro.identitypartner.user.dto.UserProfile;
+import com.zentro.identitypartner.user.exception.UserNotFoundException;
 
 
 import com.zentro.identitypartner.user.dto.AdminUpdateUserRequest;
@@ -80,7 +81,7 @@ public class UserProfileService {
     try {
       return jdbc.queryForObject(PROFILE_BY_ID_SQL, (rs, rowNum) -> mapRow(rs, List.of()), id);
     } catch (EmptyResultDataAccessException e) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + id);
+      throw new UserNotFoundException();
     }
   }
 
@@ -186,7 +187,7 @@ public class UserProfileService {
     try {
       return jdbc.queryForObject(PROFILE_SQL, (rs, rowNum) -> mapRow(rs, roles), subject);
     } catch (EmptyResultDataAccessException e) {
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with subject: " + subject);
+      throw new UserNotFoundException();
     }
   }
 
