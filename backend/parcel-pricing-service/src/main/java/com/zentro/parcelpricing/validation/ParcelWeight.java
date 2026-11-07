@@ -18,7 +18,7 @@ import java.lang.annotation.*;
 public @interface ParcelWeight {
   String MIN = "0.1";
   String MAX = "20";
-  String MESSAGE = "Weight must be between 0.1 and 20 kg with at most 4 decimal places.";
+  String MESSAGE = "Weight must be between " + MIN + " and " + MAX + " kg with at most 4 decimal places.";
   String message() default MESSAGE;
   Class<?>[] groups() default {};
   Class<? extends Payload>[] payload() default {};

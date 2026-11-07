@@ -93,7 +93,8 @@ public class ParcelPricingController {
             .divide(VOLUMETRIC_DIVISOR);
         if (volumetricWeight.compareTo(MAX_WEIGHT_KG) > 0) {
           for (String field : new String[]{"lengthCm", "widthCm", "heightCm"}) {
-            fieldErrors.put(field, "These dimensions exceed the maximum chargeable weight of 20 kg.");
+            fieldErrors.put(field, "These dimensions exceed the maximum chargeable weight of "
+                + com.zentro.parcelpricing.validation.ParcelWeight.MAX + " kg.");
           }
         }
       }
