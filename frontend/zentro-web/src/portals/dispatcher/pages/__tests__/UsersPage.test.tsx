@@ -213,9 +213,27 @@ describe('UsersPage', () => {
       }),
     );
     renderUsersPage();
+    await screen.findByText(/No users match the current filter/i);
     const searchInput = screen.getByPlaceholderText(/Search name or email/i);
-    fireEvent.change(searchInput, { target: { value: 'alice' } });
+    fireEvent.change(searchInput, { target: { value: '  alice  ' } });
     fireEvent.submit(screen.getByRole('search'));
-    await waitFor(() => expect(capturedUrl).toContain('search=alice'));
+    await waitFor(() => expect(new URL(capturedUrl).searchParams.get('search')).toBe('alice'));
+
+    fireEvent.change(screen.getByRole('combobox', { name: /Filter by account status/i }), {
+      target: { value: 'ACTIVE' },
+    });
+    await waitFor(() => {
+      const params = new URL(capturedUrl).searchParams;
+      expect(params.get('search')).toBe('alice');
+      expect(params.get('status')).toBe('ACTIVE');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    await waitFor(() => {
+      const params = new URL(capturedUrl).searchParams;
+      expect(params.has('search')).toBe(false);
+      expect(params.has('status')).toBe(false);
+    });
+    expect(searchInput).toHaveValue('');
   });
 });
