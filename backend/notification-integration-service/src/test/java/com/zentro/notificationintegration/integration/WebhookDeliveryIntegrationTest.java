@@ -296,6 +296,44 @@ class WebhookDeliveryIntegrationTest {
   }
 
   @Test
+  @DisplayName("Dead-letter FAILED delivery replay via operational SQL reset succeeds without duplicate delivery rows")
+  void failedDeliveryOperationalReplaySucceeds() throws Exception {
+    String[] merchant = newMerchant(400);
+    UUID eventId = UUID.randomUUID();
+    UUID parcelId = UUID.randomUUID();
+
+    send(STATUS_TOPIC, parcelId, statusEvent(eventId, parcelId, "PICKED_UP", merchant[0]));
+
+    Map<String, Object> failed = awaitDelivery(eventId, "FAILED");
+    assertThat(failed).containsEntry("attempts", 1).containsEntry("response_status", 400)
+        .containsEntry("last_error", "HTTP 400");
+    assertThat(receivedAt(merchant[1])).hasSize(1);
+
+    // Apply the operational reset documented in merchant-webhooks.md
+    int updatedRows = jdbc.update("""
+        UPDATE notification.webhook_delivery
+           SET status = 'RETRY', attempts = 0, next_attempt_at = now(), updated_at = now()
+         WHERE status = 'FAILED' AND last_error IS DISTINCT FROM 'Subscription disabled'
+           AND subscription_id = (SELECT id FROM notification.webhook_subscription WHERE merchant_id = ?)
+        """, merchant[0]);
+    assertThat(updatedRows).isEqualTo(1);
+
+    // Delivery scheduler picks up RETRY row and retries; receiver now responds 200
+    Map<String, Object> succeeded = awaitDelivery(eventId, "SUCCEEDED");
+    assertThat(succeeded).containsEntry("attempts", 1).containsEntry("response_status", 200);
+    assertThat(succeeded.get("last_error")).isNull();
+
+    // Verify 2 HTTP requests total (1 initial 400 + 1 replay 200) and no duplicate delivery records
+    assertThat(receivedAt(merchant[1])).hasSize(2);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM notification.webhook_delivery WHERE event_id = ?",
+        Integer.class, eventId)).isEqualTo(1);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM notification.processed_event WHERE consumer = 'merchant-webhooks' AND event_id = ?",
+        Integer.class, eventId)).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("A response slower than the read timeout is recorded as a timeout and retried")
   void timeoutIsRetried() throws Exception {
     String[] merchant = newMerchant(SLOW);

@@ -166,5 +166,62 @@ class TrackingKafkaConsumerTest {
     verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     verify(processedEventRepository, never()).save(any());
   }
+
+  @Test
+  @DisplayName("Discards envelope when payload is not a JSON object")
+  void discardsEnvelopeWhenNotAnObject() {
+    consumer.onParcelEvent("\"plain-string\"", "parcel.created", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Discards event when eventId string is not a valid UUID")
+  void discardsEventWithInvalidEventId() {
+    String message = """
+        {"eventId": "not-a-valid-uuid", "eventType": "parcel.created", "payload": {"trackingRef": "ZT-12345"}}
+        """;
+    consumer.onParcelEvent(message, "parcel.created", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Handles malformed aggregateId and occurredAt gracefully without throwing")
+  void handlesMalformedAggregateIdAndOccurredAtGracefully() {
+    UUID eventId = UUID.randomUUID();
+    String message = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "invalid-uuid",
+          "occurredAt": "invalid-date",
+          "payload": {
+            "trackingRef": "ZT-GRACEFUL01",
+            "status": "DELIVERED"
+          }
+        }
+        """.formatted(eventId);
+
+    when(processedEventRepository.existsByConsumerNameAndEventId("tracking-reporting-service", eventId))
+        .thenReturn(false);
+
+    consumer.onParcelEvent(message, "parcel.status.updated", null);
+
+    verify(trackingService).recordEvent(
+        eq("ZT-GRACEFUL01"),
+        eq(null),
+        eq(TrackingStatus.DELIVERED),
+        eq(null),
+        eq("SYSTEM"),
+        eq("Delivered"),
+        eq("Parcel successfully delivered to recipient"),
+        eq(null),
+        eq(null),
+        any(),
+        eq(eventId)
+    );
+    verify(processedEventRepository).save(any(ProcessedEvent.class));
+  }
 }
 
