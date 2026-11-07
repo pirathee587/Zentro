@@ -82,6 +82,30 @@ class MerchantOrderIntegrationTest {
   }
 
   @Test
+  void exactMerchantWeightBoundariesAreStored() throws Exception {
+    for (String weight : List.of("0.1", "20")) {
+      String result = mvc.perform(post(URL).with(merchant("synthetic-boundary-124-" + weight))
+          .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("2.0", weight)))
+          .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+      String id = objectMapper.readTree(result).get("id").asText();
+      assertThat(jdbc.queryForObject("SELECT weight_kg FROM parcel.parcel WHERE id = ?::uuid", java.math.BigDecimal.class, id))
+          .isEqualByComparingTo(weight);
+    }
+  }
+
+  @Test
+  void invalidWeightCreatesNoOrderOrOutboxEvent() throws Exception {
+    long events = jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event", Long.class);
+    for (String weight : List.of("0.09", "20.01", "1.12345")) {
+      mvc.perform(post(URL).with(merchant("synthetic-invalid-124"))
+          .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("2.0", weight)))
+          .andExpect(status().isUnprocessableEntity());
+    }
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.parcel", Long.class)).isZero();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event", Long.class)).isEqualTo(events);
+  }
+
+  @Test
   @DisplayName("V6 migration is applied successfully")
   void v6MigrationApplied() {
     List<String> versions = jdbc.queryForList(

@@ -91,6 +91,31 @@ class BookingPersistenceIntegrationTest {
   }
 
   @Test
+  void invalidRequestsLeaveNoParcelIdempotencyOrOutboxRows() throws Exception {
+    long parcels = jdbc.queryForObject("SELECT count(*) FROM parcel.parcel", Long.class);
+    long events = jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event", Long.class);
+    for (String weight : List.of("0", "0.09", "20.01", "1.12345")) {
+      mvc.perform(post("/api/v1/parcels").with(customer("synthetic-invalid-124"))
+          .header("Idempotency-Key", "synthetic-invalid-124-" + weight)
+          .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("2.555", weight)))
+          .andExpect(status().isUnprocessableEntity());
+    }
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.parcel", Long.class)).isEqualTo(parcels);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event", Long.class)).isEqualTo(events);
+    // Idempotency is stored on the parcel row, rather than in a separate table.
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.parcel WHERE customer_subject = 'synthetic-invalid-124'", Long.class)).isZero();
+  }
+
+  @Test
+  void exactWeightBoundariesAreStoredWithoutRoundingLoss() throws Exception {
+    for (String weight : List.of("0.1", "20")) {
+      JsonNode response = book("synthetic-boundary-124", BODY.replace("2.555", weight), "synthetic-boundary-" + weight);
+      BigDecimal stored = jdbc.queryForObject("SELECT weight_kg FROM parcel.parcel WHERE id = ?::uuid", BigDecimal.class, response.get("id").asText());
+      assertThat(stored).isEqualByComparingTo(weight);
+    }
+  }
+
+  @Test
   @DisplayName("The stored row has status CREATED, version 0, the server-side fee, the token owner and normalised fields")
   void storedRowIsComplete() throws Exception {
     JsonNode booking = book("persist-customer-1", BODY, "persist-key-1");

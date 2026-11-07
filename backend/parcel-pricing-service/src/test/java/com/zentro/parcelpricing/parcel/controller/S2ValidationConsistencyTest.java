@@ -36,6 +36,7 @@ class S2ValidationConsistencyTest {
   @MockBean PricingService pricing;
   @MockBean ZoneService zones;
   @MockBean JwtDecoder decoder;
+  @MockBean com.zentro.parcelpricing.integration.IdentityMerchantClient identity;
 
   private ObjectNode body() throws Exception {
     return (ObjectNode) mapper.readTree("""
@@ -43,6 +44,43 @@ class S2ValidationConsistencyTest {
         "recipient":{"name":"Synthetic Recipient","phone":"0710000000","address":"Synthetic Road 02"},
         "parcel":{"weightKg":1,"category":"Test","size":"SMALL"}}
         """);
+  }
+
+  @org.junit.jupiter.api.Test
+  void missingAndNullRequiredFieldsAreReportedTogetherInStableOrder() throws Exception {
+    for (String path : new String[]{"/api/v1/parcels", "/api/v1/merchant/orders"}) {
+      for (String input : new String[]{"{}", "{\"sender\":null,\"recipient\":null,\"parcel\":null}"}) {
+        String result = mvc.perform(post(path).with(jwt().authorities(new SimpleGrantedAuthority(path.contains("merchant") ? "ROLE_MERCHANT" : "ROLE_CUSTOMER")))
+            .contentType(MediaType.APPLICATION_JSON).content(input))
+            .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.fieldErrors.sender").exists())
+            .andExpect(jsonPath("$.fieldErrors.recipient").exists()).andExpect(jsonPath("$.fieldErrors.parcel").exists())
+            .andReturn().getResponse().getContentAsString();
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        mapper.readTree(result).get("fieldErrors").fieldNames().forEachRemaining(keys::add);
+        assertThat(keys).isSorted();
+      }
+    }
+  }
+
+  @org.junit.jupiter.api.Test
+  void longAndWrongTypeContactFieldsFailWithoutCallingServices() throws Exception {
+    for (String path : new String[]{"/api/v1/parcels", "/api/v1/merchant/orders"}) {
+      for (String contact : new String[]{"sender", "recipient"}) {
+        for (String field : new String[]{"name", "phone", "address", "city"}) {
+          ObjectNode request = body();
+          ((ObjectNode)request.get(contact)).put(field, "x".repeat(100000));
+          String result = mvc.perform(post(path).with(jwt().authorities(new SimpleGrantedAuthority(path.contains("merchant") ? "ROLE_MERCHANT" : "ROLE_CUSTOMER")))
+              .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request)))
+              .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.fieldErrors['" + contact + "." + field + "']").exists())
+              .andReturn().getResponse().getContentAsString();
+          assertThat(result.length()).isLessThan(2000);
+          ((ObjectNode)request.get(contact)).put(field, 123);
+          mvc.perform(post(path).with(jwt().authorities(new SimpleGrantedAuthority(path.contains("merchant") ? "ROLE_MERCHANT" : "ROLE_CUSTOMER")))
+              .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request))).andExpect(status().isBadRequest());
+        }
+      }
+    }
+    verifyNoInteractions(bookings, orders, pricing);
   }
 
   @ParameterizedTest
