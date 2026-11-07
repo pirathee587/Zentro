@@ -1519,7 +1519,7 @@
       "post": {
         "operationId": "issueMerchantApiKey",
         "summary": "Issue or rotate a merchant API key",
-        "description": "The plaintext key is returned once in this response. Current implementation does not set Cache-Control: no-store (finding API-1). Allowed roles: MERCHANT.",
+        "description": "The plaintext key is returned once in this response. Response includes Cache-Control: no-store and Pragma: no-cache. Allowed roles: MERCHANT.",
         "tags": [
           "S1"
         ],
@@ -1540,6 +1540,20 @@
                   "type": "string",
                   "format": "uuid"
                 }
+              },
+              "Cache-Control": {
+                "description": "Response header emitted by the operation.",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "no-store"
+              },
+              "Pragma": {
+                "description": "Response header emitted by the operation.",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "no-cache"
               }
             }
           },
