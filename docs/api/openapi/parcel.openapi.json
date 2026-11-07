@@ -1644,7 +1644,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -1671,7 +1674,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -1793,7 +1799,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -1820,7 +1829,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -1895,7 +1907,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -1922,7 +1937,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -2051,7 +2069,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },
@@ -2078,7 +2099,10 @@
                 "maxLength": 255
               },
               "city": {
-                "type": "string",
+                "type": [
+                  "string",
+                  "null"
+                ],
                 "maxLength": 100
               }
             },

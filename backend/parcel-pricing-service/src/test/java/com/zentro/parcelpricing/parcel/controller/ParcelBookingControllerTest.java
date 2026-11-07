@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -24,6 +25,7 @@ import com.zentro.parcelpricing.exception.IdempotencyConflictException;
 import com.zentro.parcelpricing.exception.PricingUnavailableException;
 import com.zentro.parcelpricing.parcel.service.ParcelBookingService;
 import com.zentro.parcelpricing.parcel.service.ParcelBookingService.BookingResult;
+import com.zentro.parcelpricing.api.OpenApiResponseAssertions;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -70,12 +72,19 @@ class ParcelBookingControllerTest {
   @MockBean JwtDecoder jwtDecoder;
 
   @Test
+  @DisplayName("Anonymous requests cannot retrieve runtime OpenAPI or Swagger UI documents")
+  void runtimeApiDocsAreNotExposedAnonymously() throws Exception {
+    mvc.perform(get("/v3/api-docs")).andExpect(status().isNotFound());
+    mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+  }
+
+  @Test
   @DisplayName("Customer booking returns 201, Location header and the booking body")
   void customerCanBook() throws Exception {
     ParcelBookingResponse booking = booking();
     when(bookingService.book(eq("customer-123"), any(), isNull())).thenReturn(new BookingResult(booking, true));
 
-    mvc.perform(post(URL).with(customer("customer-123")).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+    var result = mvc.perform(post(URL).with(customer("customer-123")).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", "/api/v1/parcels/" + booking.id()))
         .andExpect(jsonPath("$.id").value(booking.id().toString()))
@@ -86,7 +95,9 @@ class ParcelBookingControllerTest {
         .andExpect(jsonPath("$.estimatedDays").value(3))
         .andExpect(jsonPath("$.createdAt").exists())
         .andExpect(jsonPath("$.recipient.name").value("Kamala Silva"))
-        .andExpect(jsonPath("$.parcel.size").value("SMALL"));
+        .andExpect(jsonPath("$.parcel.size").value("SMALL"))
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches(URL, "post", result);
   }
 
   @Test
@@ -111,11 +122,13 @@ class ParcelBookingControllerTest {
   void replayReturnsOk() throws Exception {
     when(bookingService.book(eq("customer-123"), any(), eq("key-1"))).thenReturn(new BookingResult(booking(), false));
 
-    mvc.perform(post(URL).with(customer("customer-123")).header("Idempotency-Key", "key-1")
+    var result = mvc.perform(post(URL).with(customer("customer-123")).header("Idempotency-Key", "key-1")
             .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
         .andExpect(status().isOk())
         .andExpect(header().doesNotExist("Location"))
-        .andExpect(jsonPath("$.trackingRef").value("ZT-ABCDEFGH12"));
+        .andExpect(jsonPath("$.trackingRef").value("ZT-ABCDEFGH12"))
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches(URL, "post", result);
   }
 
   @ParameterizedTest(name = "{0} -> 422 on {1}")
@@ -133,10 +146,12 @@ class ParcelBookingControllerTest {
   void invalidFieldReturns422(String original, String replacement, String path) throws Exception {
     String body = VALID_BODY.replace(original, replacement);
 
-    mvc.perform(post(URL).with(customer("customer-123")).contentType(MediaType.APPLICATION_JSON).content(body))
+    var result = mvc.perform(post(URL).with(customer("customer-123")).contentType(MediaType.APPLICATION_JSON).content(body))
         .andExpect(status().isUnprocessableEntity())
         .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
-        .andExpect(jsonPath("$.fieldErrors['" + path + "']").exists());
+        .andExpect(jsonPath("$.fieldErrors['" + path + "']").exists())
+        .andReturn();
+    OpenApiResponseAssertions.assertMatches(URL, "post", result);
     verifyNoInteractions(bookingService);
   }
 
@@ -198,8 +213,9 @@ class ParcelBookingControllerTest {
   @Test
   @DisplayName("Anonymous request returns 401")
   void anonymousReturns401() throws Exception {
-    mvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
-        .andExpect(status().isUnauthorized());
+    var result = mvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+        .andExpect(status().isUnauthorized()).andReturn();
+    OpenApiResponseAssertions.assertMatches(URL, "post", result);
     verifyNoInteractions(bookingService);
   }
 
@@ -207,9 +223,10 @@ class ParcelBookingControllerTest {
   @ValueSource(strings = {"ROLE_MERCHANT", "ROLE_COURIER", "ROLE_DISPATCHER", "ROLE_SERVICE"})
   @DisplayName("Non-customer roles return 403")
   void nonCustomerRolesReturn403(String role) throws Exception {
-    mvc.perform(post(URL).with(jwt().jwt(j -> j.subject("someone")).authorities(new SimpleGrantedAuthority(role)))
+    var result = mvc.perform(post(URL).with(jwt().jwt(j -> j.subject("someone")).authorities(new SimpleGrantedAuthority(role)))
             .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isForbidden()).andReturn();
+    OpenApiResponseAssertions.assertMatches(URL, "post", result);
     verifyNoInteractions(bookingService);
   }
 
@@ -218,10 +235,11 @@ class ParcelBookingControllerTest {
   void idempotencyConflictReturns409() throws Exception {
     when(bookingService.book(any(), any(), eq("key-1"))).thenThrow(new IdempotencyConflictException());
 
-    mvc.perform(post(URL).with(customer("customer-123")).header("Idempotency-Key", "key-1")
+    var result = mvc.perform(post(URL).with(customer("customer-123")).header("Idempotency-Key", "key-1")
             .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
         .andExpect(status().isConflict())
-        .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON));
+        .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON)).andReturn();
+    OpenApiResponseAssertions.assertMatches(URL, "post", result);
   }
 
   @Test
