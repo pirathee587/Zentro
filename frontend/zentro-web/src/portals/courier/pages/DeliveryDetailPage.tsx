@@ -4,6 +4,8 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
 import { deliveryError, getDelivery, getProof, submitProof, type ProofResponse } from '../api/deliveryApi';
 import { ProofOfDeliveryForm } from './ProofOfDeliveryForm';
+import { queryKeys } from '@/shared/api/queryKeys';
+import { invalidateAfterCourierProof } from '@/shared/api/queryInvalidation';
 
 const stateMessage = {
   PENDING: 'Proof recorded. Delivery completion is pending confirmation.',
@@ -16,16 +18,15 @@ export function DeliveryDetailPage() {
   const { user } = useAuth();
   const client = useQueryClient();
   const token = user?.accessToken || '';
-  const deliveryKey = ['courier', user?.id, 'delivery', deliveryId];
-  const proofKey = ['courier', user?.id, 'proof', deliveryId];
-  const delivery = useQuery({ queryKey: deliveryKey, queryFn: () => getDelivery(deliveryId, token), enabled: Boolean(token), retry: false, gcTime: 0 });
-  const proof = useQuery({ queryKey: proofKey, queryFn: () => getProof(deliveryId, token),
-    enabled: Boolean(token && delivery.isSuccess), retry: false, gcTime: 0,
+  const deliveryKey = queryKeys.courier.delivery(deliveryId);
+  const proofKey = queryKeys.courier.proof(deliveryId);
+  const delivery = useQuery({ queryKey: deliveryKey, queryFn: ({ signal }) => getDelivery(deliveryId, token, signal), enabled: Boolean(token), gcTime: 0 });
+  const proof = useQuery({ queryKey: proofKey, queryFn: ({ signal }) => getProof(deliveryId, token, signal),
+    enabled: Boolean(token && delivery.isSuccess), gcTime: 0,
     refetchInterval: query => query.state.data?.completionState === 'PENDING' ? 3000 : false });
   function saved(value: ProofResponse) {
     client.setQueryData(proofKey, value);
-    void client.invalidateQueries({ queryKey: ['courier', user?.id, 'deliveries'] });
-    void client.invalidateQueries({ queryKey: deliveryKey });
+    void invalidateAfterCourierProof(client, deliveryId);
   }
   const failure = delivery.error || proof.error;
   return <main className="courier-main">
