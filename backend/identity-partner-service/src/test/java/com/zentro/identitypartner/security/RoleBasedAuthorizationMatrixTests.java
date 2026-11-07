@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationController;
@@ -216,7 +217,7 @@ class RoleBasedAuthorizationMatrixTests {
   class MerchantApiKeyEndpoints {
 
     @ParameterizedTest
-    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER"})
+    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER", "ROLE_SERVICE"})
     void nonMerchantsCannotGetApiKey(String role) throws Exception {
       mvc.perform(get("/api/v1/merchants/api-key")
           .with(jwt().authorities(new SimpleGrantedAuthority(role))))
@@ -225,7 +226,7 @@ class RoleBasedAuthorizationMatrixTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER"})
+    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER", "ROLE_SERVICE"})
     void nonMerchantsCannotIssueApiKey(String role) throws Exception {
       mvc.perform(post("/api/v1/merchants/api-key")
           .with(jwt().authorities(new SimpleGrantedAuthority(role))))
@@ -234,7 +235,7 @@ class RoleBasedAuthorizationMatrixTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER"})
+    @ValueSource(strings = {"ROLE_CUSTOMER", "ROLE_COURIER", "ROLE_DISPATCHER", "ROLE_SERVICE"})
     void nonMerchantsCannotRevokeApiKey(String role) throws Exception {
       mvc.perform(delete("/api/v1/merchants/api-key")
           .with(jwt().authorities(new SimpleGrantedAuthority(role))))
@@ -265,6 +266,8 @@ class RoleBasedAuthorizationMatrixTests {
       mvc.perform(post("/api/v1/merchants/api-key")
           .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_MERCHANT"))))
           .andExpect(status().isOk())
+          .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
+          .andExpect(header().string("Pragma", "no-cache"))
           .andExpect(jsonPath("$.secret").value("zn_live_secret_token"))
           .andExpect(jsonPath("$.credential.prefix").value("zn_live_rot12345"));
 

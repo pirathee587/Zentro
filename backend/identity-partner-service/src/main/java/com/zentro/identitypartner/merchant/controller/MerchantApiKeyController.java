@@ -7,6 +7,9 @@ import com.zentro.identitypartner.merchant.service.MerchantApiKeyService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,8 +32,11 @@ public class MerchantApiKeyController {
   }
 
   @PostMapping
-  public IssuedMerchantApiKey issueOrRotate(@AuthenticationPrincipal Jwt jwt) {
-    return keys.issueOrRotate(jwt);
+  public ResponseEntity<IssuedMerchantApiKey> issueOrRotate(@AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .header(HttpHeaders.PRAGMA, "no-cache")
+        .body(keys.issueOrRotate(jwt));
   }
 
   @DeleteMapping

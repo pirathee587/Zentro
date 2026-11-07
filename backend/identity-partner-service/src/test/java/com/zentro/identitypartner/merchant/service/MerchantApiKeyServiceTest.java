@@ -14,6 +14,9 @@ import static org.mockito.Mockito.when;
 import com.zentro.identitypartner.user.dto.UserProfile;
 import com.zentro.identitypartner.user.service.UserProfileService;
 import java.time.OffsetDateTime;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,6 +120,35 @@ class MerchantApiKeyServiceTest {
     assertThat(issued).isNotNull();
     assertThat(issued.secret()).startsWith("zn_live_");
     assertThat(issued.credential().prefix()).isEqualTo("zn_live_new12345");
+    assertThat(issued.toString()).doesNotContain(issued.secret());
+    assertThat(issued.toString()).contains("[REDACTED]");
+    assertThat(issued.secret()).matches("zn_live_[A-Za-z0-9_-]{43}");
+  }
+
+  @Test
+  @DisplayName("Each creation stores only the SHA-256 hash of a distinct 256-bit key")
+  void creationsUseDistinctKeysAndStoreOnlySha256Hash() throws Exception {
+    when(profiles.current(jwt)).thenReturn(activeMerchantUser);
+    when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(userId))).thenReturn(Boolean.TRUE);
+    MerchantApiKeyMetadata meta = new MerchantApiKeyMetadata(
+        UUID.randomUUID(), "zn_live_new12345", OffsetDateTime.now(), OffsetDateTime.now(), null, true);
+    when(jdbc.queryForObject(anyString(), any(RowMapper.class), eq(userId), anyString(), anyString()))
+        .thenReturn(meta);
+
+    IssuedMerchantApiKey first = service.issueOrRotate(jwt);
+    IssuedMerchantApiKey second = service.issueOrRotate(jwt);
+    org.mockito.ArgumentCaptor<String> prefix = org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.ArgumentCaptor<String> hash = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(jdbc, org.mockito.Mockito.times(2)).queryForObject(
+        anyString(), any(RowMapper.class), eq(userId), prefix.capture(), hash.capture());
+
+    String expectedHash = HexFormat.of().formatHex(
+        MessageDigest.getInstance("SHA-256").digest(first.secret().getBytes(StandardCharsets.UTF_8)));
+    assertThat(first.secret()).isNotEqualTo(second.secret());
+    assertThat(first.secret()).hasSize(51);
+    assertThat(prefix.getAllValues()).contains(first.secret().substring(0, 16), second.secret().substring(0, 16));
+    assertThat(hash.getAllValues()).contains(expectedHash);
+    assertThat(hash.getAllValues()).doesNotContain(first.secret(), second.secret());
   }
 
   @Test
