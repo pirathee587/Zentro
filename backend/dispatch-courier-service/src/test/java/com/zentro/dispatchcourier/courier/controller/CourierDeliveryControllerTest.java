@@ -47,6 +47,11 @@ class CourierDeliveryControllerTest {
   static final String ROOT = "/api/v1/courier/deliveries";
   static final String PROOF = ROOT + "/" + PARCEL + "/proof";
   static final String BODY = "{\"recipientName\":\" Nimal \",\"notes\":\"   \",\"proofReference\":\" REF-1 \"}";
+
+  @Test void anonymousOpenApiIsAbsentAndSwaggerUiIsNotServed() throws Exception {
+    mvc.perform(get("/v3/api-docs")).andExpect(status().isNotFound());
+    mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+  }
   static RequestPostProcessor courier() {
     return jwt().jwt(j -> j.subject("keycloak-subject-distinct-from-both-UUIDs"))
         .authorities(new SimpleGrantedAuthority("ROLE_COURIER"));
