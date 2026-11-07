@@ -45,8 +45,10 @@ export interface PublicTrackingResponse {
   timeline?: TrackingMilestone[];
 }
 
-export const getTracking = (trackingNumber: string, signal?: AbortSignal) =>
-  apiClient.get<PublicTrackingResponse>(`/api/v1/tracking/${encodeURIComponent(trackingNumber.trim().toUpperCase())}`, { signal });
+export const getTracking = (trackingNumber: string, signal?: AbortSignal) => {
+  const path = `/api/v1/tracking/${encodeURIComponent(trackingNumber.trim().toUpperCase())}`;
+  return signal ? apiClient.get<PublicTrackingResponse>(path, { signal }) : apiClient.get<PublicTrackingResponse>(path);
+};
 
 export async function fetchPublicTracking(trackingNumber: string): Promise<PublicTrackingResponse | null> {
   const clean = trackingNumber.trim().toUpperCase();

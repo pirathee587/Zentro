@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { queryKeys } from './queryKeys';
+import { principalCacheScope, queryKeys } from './queryKeys';
 
 describe('query key factories', () => {
   it('produce stable serializable domain/resource/params keys', () => {
@@ -16,7 +16,11 @@ describe('query key factories', () => {
   });
 
   it('keeps credentials and personal fields out of key factories', () => {
-    const serialized = JSON.stringify([queryKeys.courier.deliveries(), queryKeys.merchant.orders({ limit: 10 })]);
-    expect(serialized).not.toMatch(/token|phone|address|email/i);
+    const serialized = JSON.stringify([
+      queryKeys.courier.deliveries(principalCacheScope('private-user-id')),
+      queryKeys.merchant.orders({ limit: 10 }, principalCacheScope('private-user-id')),
+    ]);
+    expect(serialized).not.toMatch(/private-user-id|token|phone|address|email/i);
+    expect(principalCacheScope('private-user-id')).toBe(principalCacheScope('private-user-id'));
   });
 });

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
-import { queryKeys } from '@/shared/api/queryKeys';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import {
   getMerchantApiKey,
   getMerchantApplication,
@@ -10,9 +10,9 @@ import {
 } from '../api/merchantApi';
 
 export const merchantQueryKeys = {
-  application: (_userId?: string) => queryKeys.merchant.application(),
-  apiKey: (_userId?: string) => queryKeys.merchant.apiKey(),
-  orders: (_userId?: string) => queryKeys.merchant.orders(),
+  application: (userId?: string) => queryKeys.merchant.application(principalCacheScope(userId)),
+  apiKey: (userId?: string) => queryKeys.merchant.apiKey(principalCacheScope(userId)),
+  orders: (userId?: string) => queryKeys.merchant.orders(undefined, principalCacheScope(userId)),
 };
 
 export function useMerchantApplicationQuery(enabled = true) {

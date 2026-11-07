@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { apiClient, withBearerToken } from '@/shared/api/apiClient';
-import { queryKeys } from '@/shared/api/queryKeys';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 
 export const courierWorkloadKey = ['dispatcher', 'workload'] as const;
-export const workloadQueryKey = (params?: { search?: string; availability?: 'available' | 'unavailable' }) =>
-  queryKeys.dispatcher.workload(params);
+export const workloadQueryKey = (params?: { search?: string; availability?: 'available' | 'unavailable' }, userId?: string) =>
+  queryKeys.dispatcher.workload(params, userId === undefined ? undefined : principalCacheScope(userId));
 
 const workloadSchema = z.object({
   courierId: z.string().uuid(),

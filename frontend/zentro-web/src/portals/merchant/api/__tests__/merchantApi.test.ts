@@ -15,6 +15,7 @@ vi.mock('@/shared/api/apiClient', () => ({
     post: vi.fn(),
     delete: vi.fn(),
   },
+  withBearerToken: vi.fn((token: string) => ({ headers: { Authorization: `Bearer ${token}` } })),
 }));
 
 const auth = { accessToken: 'merchant-token' };

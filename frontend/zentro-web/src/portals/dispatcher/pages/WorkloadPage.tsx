@@ -49,7 +49,7 @@ export function WorkloadPage() {
     availability: availability === 'ALL' ? undefined : availability.toLowerCase() as 'available' | 'unavailable',
   };
   const workload = useQuery({
-    queryKey: workloadQueryKey(params),
+    queryKey: workloadQueryKey(params, user?.id),
     enabled: Boolean(user?.accessToken),
     queryFn: ({ signal }) => getCourierWorkload(params, user?.accessToken, signal),
   });

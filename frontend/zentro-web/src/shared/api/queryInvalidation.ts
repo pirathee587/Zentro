@@ -16,9 +16,9 @@ export function invalidateAfterDispatchAssignment(client: QueryClient) {
   ]);
 }
 
-export function invalidateAfterCourierProof(client: QueryClient, deliveryId: string) {
+export function invalidateAfterCourierProof(client: QueryClient, deliveryId: string, scope?: string) {
   return Promise.all([
     client.invalidateQueries({ queryKey: queryKeys.courier.deliveries() }),
-    client.invalidateQueries({ queryKey: queryKeys.courier.delivery(deliveryId) }),
+    client.invalidateQueries({ queryKey: queryKeys.courier.delivery(deliveryId, scope) }),
   ]);
 }

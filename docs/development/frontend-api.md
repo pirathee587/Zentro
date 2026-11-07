@@ -10,7 +10,7 @@ The tracking SSE connection in `shared/domain/tracking/useTrackingStream.ts` int
 
 The app uses the single `shared/api/queryClient.ts` instance. Query defaults are a 30 second stale time, five minute garbage collection, no focus refetch, and at most two retries with a 300ms exponential delay capped at one second. Only normalized network errors and HTTP 5xx errors retry. Client errors, including 400, 401, 403, 404, 409, and 422, do not retry. Mutations never retry automatically; retrying writes remains an explicit user action and booking retains its `Idempotency-Key` behavior.
 
-Use `shared/api/queryKeys.ts` for shared domains. Keys are arrays beginning with `[domain, resource]`; parameterized keys append a stable, sorted, serializable params object. Do not put auth tokens or personal fields in keys. Root keys without params are used as prefixes when a mutation should invalidate all parameter variations.
+Use `shared/api/queryKeys.ts` for shared domains. Keys are arrays beginning with `[domain, resource]`; parameterized keys append a stable, sorted, serializable params object. Account-scoped queries use an opaque process-local namespace so private query data stays separated without putting identity fields or auth tokens in keys. Root keys without params are used as prefixes when a mutation should invalidate all parameter variations.
 
 ## Mutation invalidation matrix
 

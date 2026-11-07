@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiClient, withBearerToken } from '@/shared/api/apiClient';
-import { queryKeys } from '@/shared/api/queryKeys';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import { useAuth } from '@/shared/auth/useAuth';
 
 export const dispatchQueueKey = ['dispatcher', 'queue'] as const;
@@ -26,7 +26,7 @@ export type EligibleCourier = z.infer<typeof courierSchema>;
 export function useDispatchQueue(filters = defaultQueueFilters) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: queryKeys.dispatcher.queue(filters), enabled: Boolean(user?.accessToken),
+    queryKey: queryKeys.dispatcher.queue(filters, principalCacheScope(user?.id)), enabled: Boolean(user?.accessToken),
     queryFn: async ({ signal }) => queueSchema.parse((await apiClient.get('/api/v1/dispatch/queue', {
       ...withBearerToken(user!.accessToken!), params: { search: filters.search, from: filters.from || undefined, to: filters.to || undefined, sort: filters.sort },
       signal,

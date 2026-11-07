@@ -5,6 +5,7 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { Button } from '@/shared/ui';
 import { assignDelivery, eligibleCouriers, type QueueParcel } from '../api/dispatchApi';
+import { principalCacheScope } from '@/shared/api/queryKeys';
 
 export function AssignmentDialog({ parcel, close, completed, stale }: {
   parcel: QueueParcel; close: () => void; completed: () => void; stale: (message: string) => void;
@@ -15,7 +16,7 @@ export function AssignmentDialog({ parcel, close, completed, stale }: {
   const [error, setError] = useState('');
   const dialog = useRef<HTMLDivElement>(null);
   const locked = useRef(false);
-  const eligibleKey = ['dispatcher', 'eligible-couriers', { parcelId: parcel.parcelId }] as const;
+  const eligibleKey = ['dispatcher', 'eligible-couriers', { parcelId: parcel.parcelId, scope: principalCacheScope(user?.id) }] as const;
   const couriers = useQuery({ queryKey: eligibleKey,
     queryFn: ({ signal }) => eligibleCouriers(parcel.parcelId, user!.accessToken!, signal), enabled: Boolean(user?.accessToken), staleTime: 0 });
   const validSelection = Boolean(selected && couriers.data?.some(courier => courier.id === selected));

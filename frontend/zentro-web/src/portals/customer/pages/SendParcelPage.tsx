@@ -28,8 +28,8 @@ import {
   parseWeight,
 } from './sendParcelForm';
 import { AuthContext } from '@/shared/auth/authContext';
-import { useQueryClient } from '@tanstack/react-query';
 import { invalidateAfterBooking } from '@/shared/api/queryInvalidation';
+import { queryClient } from '@/shared/api/queryClient';
 
 type Step = 1 | 2 | 3;
 
@@ -44,7 +44,6 @@ export const SendParcelPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const auth = useContext(AuthContext);
-  const queryClient = useQueryClient();
 
   // Flow step: 1 = Details, 2 = Review, 3 = Booked
   const [step, setStep] = useState<Step>(1);
