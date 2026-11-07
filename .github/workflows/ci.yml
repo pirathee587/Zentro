@@ -63,15 +63,16 @@ jobs:
           cache: maven
           cache-dependency-path: backend/**/pom.xml
 
-      - name: Run Maven tests and package all modules
-        run: mvn --batch-mode --no-transfer-progress test package
+      - name: Run Maven tests, package all modules, and verify cross-service E2E
+        run: mvn --batch-mode --no-transfer-progress -DrunE2E verify
 
       - name: Upload backend test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-test-reports
-          path: backend/**/target/surefire-reports/*.xml
+          path: |
+            backend/**/target/surefire-reports/*.xml
           if-no-files-found: ignore
           retention-days: 7
 
