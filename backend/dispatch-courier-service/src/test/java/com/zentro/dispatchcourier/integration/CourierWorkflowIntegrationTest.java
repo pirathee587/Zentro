@@ -92,6 +92,68 @@ class CourierWorkflowIntegrationTest {
     return request(HttpMethod.POST, ROOT + "/" + id + "/proof", token, evidence);
   }
 
+  @Test void workloadHttpContractUsesPersistedLifetimeCountsIncludingCompletedProofs() throws Exception {
+    UUID extra = new UUID(10, 1);
+    assign(extra, courierA);
+    var zero = new IdentityCourierClient.Courier(new UUID(10, 2), new UUID(11, 2), null, true, "ACTIVE");
+    var inactive = new IdentityCourierClient.Courier(new UUID(10, 3), new UUID(11, 3), "Synthetic Inactive", false, "ACTIVE");
+    when(identity.listAll("dispatcher")).thenReturn(List.of(courierB, zero, inactive, courierA));
+    assertThat(submit(a, "courier-a", EVIDENCE).getStatusCode().value()).isEqualTo(201);
+    new ProofCompletionWorker(proofs, parcels, 8).completePending();
+    assertThat(proofs.find(a).orElseThrow().completionState()).isEqualTo("COMPLETED");
+
+    var response = request(HttpMethod.GET, "/api/v1/dispatch/workload", "dispatcher", null);
+    assertThat(response.getStatusCode().value()).isEqualTo(200);
+    var json = new com.fasterxml.jackson.databind.ObjectMapper();
+    var body = json.readTree(response.getBody());
+    assertThat(body.path("total").asInt()).isEqualTo(4);
+    assertThat(body.path("overloadConfigured").asBoolean()).isFalse();
+    var expected = Map.of(courierA.id(), 2L, courierB.id(), 1L, zero.id(), 0L, inactive.id(), 0L);
+    long sum = 0;
+    for (var item : body.path("items")) {
+      UUID courierId = UUID.fromString(item.path("courierId").asText());
+      long count = item.path("assignmentCount").asLong();
+      assertThat(count).isEqualTo(expected.get(courierId));
+      sum += count;
+    }
+    assertThat(sum).isEqualTo(jdbc.queryForObject("SELECT count(DISTINCT parcel_id) FROM dispatch.delivery_assignment", Long.class));
+    assertThat(body.path("items").get(3).path("name").isNull()).isTrue(); // Null names sort last.
+    assertThat(response.getBody()).doesNotContain("recipientName", "proofReference", "phone", "address", "assignedBy");
+
+    var spec = json.readTree(java.nio.file.Path.of("../../docs/api/openapi/dispatch.openapi.json").toFile());
+    assertDocumentedObject(body, spec.path("components").path("schemas").path("Workload"));
+    for (var item : body.path("items"))
+      assertDocumentedObject(item, spec.path("components").path("schemas").path("CourierWorkload"));
+  }
+
+  private static void assertDocumentedObject(com.fasterxml.jackson.databind.JsonNode value,
+      com.fasterxml.jackson.databind.JsonNode schema) {
+    var actualNames = new java.util.HashSet<String>();
+    value.fieldNames().forEachRemaining(actualNames::add);
+    var documentedNames = new java.util.HashSet<String>();
+    schema.path("properties").fieldNames().forEachRemaining(documentedNames::add);
+    assertThat(actualNames).containsExactlyInAnyOrderElementsOf(documentedNames);
+    value.fields().forEachRemaining(field -> {
+      var rule = schema.path("properties").path(field.getKey());
+      if (field.getValue().isNull()) {
+        assertThat(rule.path("anyOf").findValuesAsText("type")).contains("null");
+      } else {
+        String type = rule.path("type").asText("string");
+        assertThat(switch (type) {
+          case "integer" -> field.getValue().isIntegralNumber();
+          case "boolean" -> field.getValue().isBoolean();
+          case "array" -> field.getValue().isArray();
+          default -> field.getValue().isTextual();
+        }).as("documented type for %s", field.getKey()).isTrue();
+        if (rule.has("enum")) {
+          var allowed = new java.util.ArrayList<String>();
+          rule.path("enum").forEach(option -> allowed.add(option.asText()));
+          assertThat(allowed).contains(field.getValue().asText());
+        }
+      }
+    });
+  }
+
   @Test void assignedVisibilityAndCrossCourierDenialUsePersistedAssignments() {
     assertThat(request(HttpMethod.GET, ROOT, "courier-a", null).getBody()).contains(a.toString()).doesNotContain(b.toString());
     assertThat(request(HttpMethod.GET, ROOT, "courier-b", null).getBody()).contains(b.toString()).doesNotContain(a.toString());

@@ -270,6 +270,10 @@ class ZeroTrustJwtSecurityTest {
     String token = signToken(TRUSTED_KEY, ISSUER, List.of(AUDIENCE),
         Instant.now().plusSeconds(300), List.of(role));
 
+    mvc.perform(get("/api/v1/dispatch/workload").header("Authorization", "Bearer " + token))
+        .andExpect(status().isForbidden())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+
     mvc.perform(get("/api/v1/dispatch/queue")
             .header("Authorization", "Bearer " + token))
         .andExpect(status().isForbidden())
