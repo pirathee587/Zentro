@@ -52,7 +52,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * End-to-end Zero Trust JWT validation tests exercising the real {@link ZentroSecurityAutoConfiguration}
+ * HTTP-slice Zero Trust JWT validation tests (repositories and upstream services are mocked) exercising the real {@link ZentroSecurityAutoConfiguration}
  * {@code JwtDecoder} (RS256 signature verification against JWKS, issuer, expiration, audience, and
  * {@code realm_access.roles} mapping) together with {@link DispatchCourierSecurityConfig}.
  */
@@ -60,6 +60,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import({
     ZentroSecurityAutoConfiguration.class,
     DispatchCourierSecurityConfig.class,
+    DispatchPermissions.class,
     DispatchService.class,
     ProofOfDeliveryService.class,
     DispatchExceptionHandler.class,
@@ -142,6 +143,30 @@ class ZeroTrustJwtSecurityTest {
     mvc.perform(get("/api/v1/courier/deliveries")
             .header("Authorization", "Bearer " + token))
         .andExpect(status().isOk());
+  }
+
+  static java.util.stream.Stream<Object> rejectedPermissions() {
+    return java.util.stream.Stream.of(null, "DISPATCH_VIEW", Map.of("DISPATCH_VIEW", true), List.of(),
+        List.of("DISPATCH_REASSIGN", "COURIER_MANAGE"), List.of("dispatch_view"),
+        List.of("DISPATCH_VIEW", 7), List.of("DISPATCH_VIEW", " "));
+  }
+
+  @ParameterizedTest
+  @org.junit.jupiter.params.provider.MethodSource("rejectedPermissions")
+  void signedDispatcherWithRejectedPermissionsCannotReadOrAssign(Object permissions) throws Exception {
+    String token = signToken(TRUSTED_KEY, ISSUER, List.of(AUDIENCE), Instant.now().plusSeconds(300),
+        List.of("DISPATCHER"), permissions);
+    for (String path : List.of("queue", "unassigned", "workload", "eligible-couriers")) {
+      mvc.perform(get("/api/v1/dispatch/" + path).param("parcelId", UUID.randomUUID().toString())
+          .header("Authorization", "Bearer " + token).header("X-Permissions", "DISPATCH_VIEW"))
+          .andExpect(status().isForbidden())
+          .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+    mvc.perform(post("/api/v1/dispatch/assignments").header("Authorization", "Bearer " + token)
+        .header("X-Permissions", "DISPATCH_ASSIGN").contentType(MediaType.APPLICATION_JSON)
+        .content("{\"parcelId\":\"" + UUID.randomUUID() + "\",\"courierId\":\"" + UUID.randomUUID() + "\"}"))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(parcelSource, assignmentRepository, proofRepository, identityCourierClient);
   }
 
   @Test
@@ -287,12 +312,18 @@ class ZeroTrustJwtSecurityTest {
       List<String> audience,
       Instant expiresAt,
       List<String> roles) throws Exception {
+    return signToken(signingKey, issuer, audience, expiresAt, roles, List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN"));
+  }
+
+  private static String signToken(RSAKey signingKey, String issuer, List<String> audience,
+      Instant expiresAt, List<String> roles, Object permissions) throws Exception {
     JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
         .subject("subject-" + UUID.randomUUID())
         .issuer(issuer)
         .issueTime(Date.from(expiresAt.minusSeconds(300)))
         .expirationTime(Date.from(expiresAt))
         .claim("realm_access", Map.of("roles", roles));
+    if (permissions != null) claims.claim("permissions", permissions);
     if (audience != null) {
       claims.audience(audience);
     }
