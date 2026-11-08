@@ -536,7 +536,7 @@
       "get": {
         "operationId": "getCourierWorkload",
         "summary": "Read courier workload",
-        "description": "Optional name search and availability filter. Allowed roles: DISPATCHER.",
+        "description": "Lifetime assignment-based workload, not active/completed/failed delivery metrics. Optional name search and availability filter; no date window. Requires DISPATCH_VIEW permission. Allowed roles: DISPATCHER.",
         "tags": [
           "S3"
         ],
@@ -1688,7 +1688,14 @@
             "format": "uuid"
           },
           "name": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "active": {
             "type": "boolean"
@@ -1697,14 +1704,18 @@
             "type": "string"
           },
           "assignmentCount": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Lifetime S3 assignment rows for this courier; includes completed proofs, with no date or parcel-status filter."
           },
           "availability": {
             "type": "string",
             "enum": [
               "AVAILABLE",
               "UNAVAILABLE"
-            ]
+            ],
+            "description": "AVAILABLE only when the S1 courier is active and accountStatus is ACTIVE; not a capacity metric."
           }
         }
       },
@@ -1718,10 +1729,15 @@
             }
           },
           "total": {
-            "type": "integer"
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Courier rows after search and availability filtering, not a delivery total."
           },
           "overloadConfigured": {
-            "type": "boolean"
+            "type": "boolean",
+            "const": false,
+            "description": "No capacity threshold is configured."
           }
         }
       },
