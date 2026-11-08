@@ -10,6 +10,8 @@ The checked-in OpenAPI 3.1 JSON files are the REST contract for paths as clients
 | S4 Tracking & Reporting | `/api/v1/tracking/**`; the gateway also reserves `/api/v1/reports/**`, with no active report controller | [`tracking.openapi.json`](openapi/tracking.openapi.json) |
 | S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
 
+S3's [workload metric definitions](dispatcher-workload.md) explain lifetime assignment counts, courier totals, timezone/reassignment limitations and #134 verification evidence.
+
 The generator inventory and guard are maintained in [`build_openapi.py`](build_openapi.py). To regenerate the committed artifacts and verify that their operations match the real controller mappings:
 
 ```sh
