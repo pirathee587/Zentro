@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.web.server.WebFilterChain;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
@@ -18,7 +18,7 @@ class CorrelationIdFilterTest {
     MockServerWebExchange exchange = MockServerWebExchange.from(
         MockServerHttpRequest.get("/api/v1/parcels").build());
     AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
-    GatewayFilterChain chain = ex -> {
+    WebFilterChain chain = ex -> {
       downstream.set(ex);
       return Mono.empty();
     };
@@ -38,7 +38,7 @@ class CorrelationIdFilterTest {
             .header(CorrelationIdFilter.HEADER, "custom-corr-id-99")
             .build());
     AtomicReference<ServerWebExchange> downstream = new AtomicReference<>();
-    GatewayFilterChain chain = ex -> {
+    WebFilterChain chain = ex -> {
       downstream.set(ex);
       return Mono.empty();
     };

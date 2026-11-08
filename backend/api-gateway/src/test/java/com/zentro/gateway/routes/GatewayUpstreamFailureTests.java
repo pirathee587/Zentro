@@ -52,11 +52,17 @@ class GatewayUpstreamFailureTests {
     MockWebServer server = new MockWebServer();
     server.setDispatcher(new Dispatcher() {
       @Override public MockResponse dispatch(RecordedRequest request) {
-        if (request.getPath().startsWith("/api/v1/zones/slow")) {
+        if (request.getPath().startsWith("/api/v1/zones/slow") || request.getPath().equals("/api/v1/parcels")) {
           return new MockResponse().setHeadersDelay(750, TimeUnit.MILLISECONDS).setBody("slow upstream");
         }
         if (request.getPath().startsWith("/api/v1/zones/broken")) {
           return new MockResponse().setResponseCode(503).setBody("private-upstream-host.local:8082 internal diagnostic");
+        }
+        if (request.getPath().equals("/api/v1/zones/malformed")) return new MockResponse().setStatus("NOT HTTP");
+        if (request.getPath().startsWith("/api/v1/zones/client-error/")) {
+          int code = Integer.parseInt(request.getPath().substring(request.getPath().lastIndexOf('/') + 1));
+          return new MockResponse().setResponseCode(code).setHeader("Content-Type", "application/problem+json")
+              .setBody("{\"status\":" + code + ",\"fieldErrors\":{\"weightKg\":\"Invalid weight\"}}");
         }
         return new MockResponse().setResponseCode(200).setBody("ok");
       }
@@ -72,6 +78,38 @@ class GatewayUpstreamFailureTests {
 
   @AfterAll
   static void stopUpstream() throws IOException { upstream.shutdown(); }
+
+  @Test
+  void bookingTimeoutIsBoundedDoesNotRetryAndOtherRoutesRecover() throws Exception {
+    while (upstream.takeRequest(10, TimeUnit.MILLISECONDS) != null) { }
+    long started = System.nanoTime();
+    client.post().uri("/api/v1/parcels").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .bodyValue("{\"probe\":144}").exchange().expectStatus().isEqualTo(504)
+        .expectHeader().exists("X-Correlation-Id").expectBody().jsonPath("$.instance").isEqualTo("/api/v1/parcels");
+    assertThat(java.time.Duration.ofNanos(System.nanoTime() - started)).isLessThan(java.time.Duration.ofSeconds(3));
+    assertThat(upstream.takeRequest(1, TimeUnit.SECONDS)).isNotNull();
+    assertThat(upstream.takeRequest(800, TimeUnit.MILLISECONDS)).isNull();
+    client.get().uri("/api/v1/zones").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .exchange().expectStatus().isOk();
+  }
+
+  @Test
+  void malformedHttpResponseIsMappedToSafe502() {
+    client.get().uri("/api/v1/zones/malformed").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .exchange().expectStatus().isEqualTo(502).expectHeader().contentType("application/problem+json")
+        .expectHeader().exists("X-Correlation-Id").expectBody()
+        .jsonPath("$.instance").isEqualTo("/api/v1/zones/malformed")
+        .jsonPath("$.detail").value(value -> assertThat(value.toString()).doesNotContain("HTTP", "127.0.0.1", "8082"));
+  }
+
+  @Test
+  void designedUpstream4xxPassThroughPreservesValidationBodies() {
+    for (int status : List.of(400, 404, 405, 422, 429)) {
+      client.get().uri("/api/v1/zones/client-error/" + status).header("Authorization", "Bearer test.ROLE_CUSTOMER")
+          .exchange().expectStatus().isEqualTo(status).expectHeader().exists("X-Correlation-Id")
+          .expectBody().json("{\"status\":" + status + ",\"fieldErrors\":{\"weightKg\":\"Invalid weight\"}}");
+    }
+  }
 
   @Test
   void refusedUpstreamReturnsSafe503WithCorrelationId() {
