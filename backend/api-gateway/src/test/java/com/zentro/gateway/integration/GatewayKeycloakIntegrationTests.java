@@ -431,7 +431,12 @@ class GatewayKeycloakIntegrationTests {
     client.get().uri("/actuator/health").exchange().expectStatus().isOk();
     clearRequests();
     client.get().uri("/api/v1/unlisted-public-route").exchange().expectStatus().isUnauthorized()
-        .expectHeader().contentType("application/problem+json");
+        .expectHeader().contentType("application/problem+json").expectHeader().exists("X-Correlation-Id");
+    for (String identity : CLIENTS.keySet()) {
+      client.get().uri("/api/v1/unlisted-public-route")
+          .header("Authorization", "Bearer " + accessToken(identity)).exchange().expectStatus().isForbidden()
+          .expectHeader().contentType("application/problem+json").expectHeader().exists("X-Correlation-Id");
+    }
     assertNoUpstreamReceived();
   }
 

@@ -9,6 +9,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,7 +27,12 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 @Import({GatewayBehaviorTests.DecoderStub.class, GatewayDefaultDenyTests.UnsecuredRoute.class})
 class GatewayDefaultDenyTests {
   private static final MockWebServer UPSTREAM = start();
-  @Autowired WebTestClient client;
+  @org.springframework.boot.test.web.server.LocalServerPort int port;
+  WebTestClient client;
+
+  @BeforeEach void httpClient() {
+    client = WebTestClient.bindToServer().baseUrl("http://localhost:" + port).build();
+  }
 
   private static MockWebServer start() {
     try {
@@ -57,9 +63,9 @@ class GatewayDefaultDenyTests {
     // A response is queued so an accidental forward fails quickly rather than waiting for the proxy timeout.
     UPSTREAM.enqueue(new MockResponse().setBody("must not be reachable"));
     for (String path : List.of("/api/v1/unlisted", "/api/v1/unlisted/", "/api/v1/UNLISTED",
-        "/api/v1/unlisted%2Fchild", "/api/v1/another-unknown/resource", "/api/v1/audit-unsecured/probe")) {
+        "/api/v1/another-unknown/resource", "/api/v1/audit-unsecured/probe", "/api/v1/customer/parcels")) {
       for (String role : List.of("ANONYMOUS", "CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER", "SERVICE", "no-role")) {
-        var request = client.get().uri(URI.create(path));
+        var request = client.get().uri(path);
         if (!role.equals("ANONYMOUS")) request.header("Authorization", "Bearer test.ROLE_" + role);
         int expected = role.equals("ANONYMOUS") ? 401 : 403;
         request.exchange().expectStatus().isEqualTo(expected)
@@ -68,6 +74,17 @@ class GatewayDefaultDenyTests {
             .jsonPath("$.detail").value(value -> assertThat(value.toString())
                 .doesNotContain("localhost", "127.0.0.1", "808", "identity", "parcel", "stack"));
       }
+    }
+    assertThat(UPSTREAM.takeRequest(100, TimeUnit.MILLISECONDS)).isNull();
+  }
+
+  @Test
+  void encodedSlashIsRejectedByExistingFirewallBeforeRouting() throws Exception {
+    for (String role : List.of("ANONYMOUS", "CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER", "SERVICE")) {
+      var request = client.get().uri(URI.create("http://localhost:" + port + "/api/v1/unlisted%2Fchild"));
+      if (!role.equals("ANONYMOUS")) request.header("Authorization", "Bearer test.ROLE_" + role);
+      request.exchange().expectStatus().isBadRequest().expectHeader().exists("X-Correlation-Id")
+          .expectBody().isEmpty();
     }
     assertThat(UPSTREAM.takeRequest(100, TimeUnit.MILLISECONDS)).isNull();
   }
