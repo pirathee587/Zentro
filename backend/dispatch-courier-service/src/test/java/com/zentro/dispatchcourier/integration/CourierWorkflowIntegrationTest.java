@@ -64,6 +64,7 @@ class CourierWorkflowIntegrationTest {
       String role = token.startsWith("courier") ? "COURIER" : token.toUpperCase();
       when(decoder.decode(token)).thenReturn(Jwt.withTokenValue(token).header("alg", "test")
           .subject("subject-" + token).claim("realm_access", Map.of("roles", List.of(role)))
+          .claim("permissions", token.equals("dispatcher") ? List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN") : List.of())
           .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build());
     }
     when(identity.currentCourier("courier-a")).thenReturn(courierA);
@@ -98,6 +99,22 @@ class CourierWorkflowIntegrationTest {
       assertThat(request(HttpMethod.GET, ROOT + "/" + a + suffix, "courier-b", null).getStatusCode().value()).isEqualTo(403);
     assertThat(submit(a, "courier-b", EVIDENCE).getStatusCode().value()).isEqualTo(403);
     assertThat(proofs.find(a)).isEmpty();
+  }
+
+  @Test void deniedDispatcherPermissionLeavesDatabaseAndUpstreamsUntouched() {
+    var original = jdbc.queryForList("SELECT * FROM dispatch.delivery_assignment ORDER BY parcel_id");
+    clearInvocations(identity, source, parcels);
+    for (Object permissions : List.of(List.of(), List.of("DISPATCH_VIEW"), "DISPATCH_ASSIGN", List.of("dispatch_assign"))) {
+      when(decoder.decode("restricted-dispatcher")).thenReturn(Jwt.withTokenValue("restricted-dispatcher")
+          .header("alg", "test").subject("restricted-dispatcher")
+          .claim("realm_access", Map.of("roles", List.of("DISPATCHER")))
+          .claim("permissions", permissions).build());
+      assertThat(request(HttpMethod.POST, "/api/v1/dispatch/assignments", "restricted-dispatcher",
+          Map.of("parcelId", UUID.randomUUID(), "courierId", courierA.id())).getStatusCode().value()).isEqualTo(403);
+    }
+    assertThat(jdbc.queryForList("SELECT * FROM dispatch.delivery_assignment ORDER BY parcel_id")).isEqualTo(original);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_of_delivery", Integer.class)).isZero();
+    verifyNoInteractions(identity, source, parcels);
   }
   @Test void proofReplayConflictAndParcelAssociationSurviveHttpRoundTrips() {
     assertThat(submit(a, "courier-a", EVIDENCE).getStatusCode().value()).isEqualTo(201);
