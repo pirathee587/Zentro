@@ -30,7 +30,6 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -396,7 +395,6 @@ class GatewayKeycloakIntegrationTests {
         .exchange().expectStatus().isOk();
   }
 
-  @Disabled("Known shape mismatch: upstream 5xx sanitizer omits `instance`; see docs/testing/gateway-integration-tests.md#findings")
   @Test
   void upstreamAndGatewayFailuresUseTheSameProblemJsonShape() throws Exception {
     EntityExchangeResult<byte[]> response = client.get().uri("/api/v1/zones/__zd31_failure")
