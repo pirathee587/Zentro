@@ -430,7 +430,7 @@ class GatewayKeycloakIntegrationTests {
     }
     client.get().uri("/actuator/health").exchange().expectStatus().isOk();
     clearRequests();
-    client.get().uri("/api/v1/unlisted-public-route").exchange().expectStatus().isNotFound()
+    client.get().uri("/api/v1/unlisted-public-route").exchange().expectStatus().isUnauthorized()
         .expectHeader().contentType("application/problem+json");
     assertNoUpstreamReceived();
   }

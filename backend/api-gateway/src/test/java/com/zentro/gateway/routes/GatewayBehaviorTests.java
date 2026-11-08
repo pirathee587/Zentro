@@ -230,12 +230,13 @@ class GatewayBehaviorTests {
   }
 
   @Test
-  void unknownRoutesReturnSafeJson404ForAnonymousAndAuthenticatedCallers() {
-    for (WebTestClient.RequestHeadersSpec<?> request : List.of(
-        client.get().uri("/api/v1/not-a-route"),
-        client.get().uri("/api/v1/not-a-route").header("Authorization", "Bearer test.ROLE_CUSTOMER"))) {
-      request.exchange().expectStatus().isNotFound().expectHeader().contentType("application/problem+json")
-          .expectBody().jsonPath("$.status").isEqualTo(404).jsonPath("$.title").isEqualTo("Not Found")
+  void unknownApiRoutesFailClosedAndNonApiRoutesKeep404() {
+    for (boolean authenticated : List.of(false, true)) {
+      var request = client.get().uri("/api/v1/not-a-route");
+      if (authenticated) request.header("Authorization", "Bearer test.ROLE_CUSTOMER");
+      int expected = authenticated ? 403 : 401;
+      request.exchange().expectStatus().isEqualTo(expected).expectHeader().contentType("application/problem+json")
+          .expectHeader().exists("X-Correlation-Id").expectBody().jsonPath("$.status").isEqualTo(expected)
           .jsonPath("$.detail").value(value -> assertThat(value.toString()).doesNotContain("localhost", "808", "S1", "S2", "S3", "S4", "S5"));
     }
     client.get().uri("/missing").exchange().expectStatus().isNotFound()
