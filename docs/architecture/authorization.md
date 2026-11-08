@@ -79,6 +79,7 @@ Security errors return standardized RFC 7807 `application/problem+json` payloads
   - Detail message: `"Access denied"` / `"You do not have access to this resource."`
 - **`404 Not Found`**:
   - Returned when a requested resource does not exist, or non-API routes are targeted.
+  - Unlisted `/api/v1/**` gateway paths deliberately changed from 404 to 401 (anonymous) or 403 (authenticated) in #144. Listed endpoint resource 404 responses are unchanged. The fail-closed fallback also denies a newly added route without an explicit security rule.
 - **`409 Conflict`**:
   - Returned when an operation violates state constraints (e.g., submitting a merchant application when one is already pending/approved, reviewing an application that is not in `PENDING` state, or attempting to suspend a merchant who is not in `APPROVED` state).
 - **`400 Bad Request`**:

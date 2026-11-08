@@ -83,7 +83,7 @@ against `GatewaySecurityConfig`.
 | `/api/v1/admin/audit-logs/**` | S5 notification | DISPATCHER | No |
 | `/actuator/health[/**]` | Gateway | Anonymous | Yes |
 | `/actuator/prometheus` | Gateway | Human roles | No |
-| Unlisted `/api/v1/**` path | No route | Safe 404 after route lookup | No upstream |
+| Unlisted `/api/v1/**` path | Denied even if a new route lacks a security rule | Safe 401 anonymous / 403 authenticated with correlation ID (#144 deliberate change from 404) | No upstream |
 | Other non-API path | No route | Safe 404 | No upstream |
 
 The authorization documentation (`docs/architecture/authorization.md`) and gateway README agree with
@@ -116,9 +116,8 @@ documents that header for browser clients. This known gap is reported without ma
 - **CORS gap:** `Idempotency-Key` is documented for parcel booking but absent from gateway
   `Access-Control-Allow-Headers`; browser preflight for that header is rejected. No config change is
   included in this testing task.
-- **Error-shape mismatch:** `ProblemWriter` includes an `instance` field, while
-  `UpstreamResponseSanitizingFilter` emits an upstream 5xx problem without it. The strict equality
-  test remains disabled with this finding as its reason; see
+- **Error-shape mismatch (fixed in #144):** `UpstreamResponseSanitizingFilter` now reuses
+  `ProblemWriter`, including `instance`. The strict equality test is re-enabled; see
   [`upstreamAndGatewayFailuresUseTheSameProblemJsonShape`](../../backend/api-gateway/src/test/java/com/zentro/gateway/integration/GatewayKeycloakIntegrationTests.java)
   for the follow-up test. No gateway implementation is changed here.
 
@@ -153,3 +152,11 @@ Record the following after running the suite and backend build:
 
 The package phase needs Maven Central access for the uncached Spring Boot plugin dependency. The
 separate full reactor `mvn test` passed; retry packaging when Maven Central is reachable.
+
+## #144 audit update
+
+The former API-3 `instance` mismatch is fixed by reusing ProblemWriter, and its strict integration
+shape test is re-enabled. Correlation IDs now run before security/local error handling. See
+[the current route/timeout audit](../architecture/gateway-routes.md) for the updated inventory,
+known CORS gap, resource risks and actual #144 run evidence. Results above remain historical #66
+results; they are not counts for the updated suite.

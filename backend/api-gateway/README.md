@@ -26,7 +26,7 @@ Role claims come from `realm_access.roles`; only `CUSTOMER`, `MERCHANT`, `COURIE
 | `POST /api/v1/parcels/estimate[(-fee)]` | CUSTOMER, DISPATCHER | S2 |
 | `PATCH /api/v1/parcels/{id}/status` | DISPATCHER (SERVICE calls S2 directly) | S2 |
 | `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/zones/**` | CUSTOMER, MERCHANT, COURIER, DISPATCHER | S1/S2 |
-| Unknown `/api/v1/**` | Safe 404 problem+json | — |
+| Unlisted `/api/v1/**` | Safe 401 anonymous / 403 authenticated problem+json with correlation ID | Deny all |
 | Non-API paths | 404 problem+json | — |
 
 | Route ID | Path predicates | Service |
@@ -35,9 +35,11 @@ Role claims come from `realm_access.roles`; only `CUSTOMER`, `MERCHANT`, `COURIE
 | parcel | `/api/v1/zones/**`, `/api/v1/parcels/**`, `/api/v1/merchant/orders/**`, `/api/v1/admin/zones/**`, `/api/v1/admin/pricing-rules/**` | S2 |
 | dispatch | `/api/v1/dispatch/**`, `/api/v1/courier/**` | S3 |
 | tracking | `/api/v1/tracking/**`, `/api/v1/reports/**` | S4 |
-| notification | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/audit-logs/**` | S5 |
+| notification | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/audit-logs/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**` | S5 |
 
 ## Environment
+
+Release note (#144): unlisted API paths deliberately changed from 404 to 401/403. Listed public/role routes retain their policy; non-API paths retain 404. Customer-portal real mode supports estimate and booking only. Full route, timeout, error and dormant customer-path evidence is in [the gateway audit](../../docs/architecture/gateway-routes.md).
 
 Copy `.env.example` to `.env` and set values for your environment. `.env` is ignored by Git. The defaults support running the gateway from an IDE; Docker deployments should set service hostnames such as `http://identity-partner-service:8081`.
 
