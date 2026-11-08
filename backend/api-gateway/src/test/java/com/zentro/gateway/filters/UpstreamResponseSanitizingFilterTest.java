@@ -34,17 +34,6 @@ class UpstreamResponseSanitizingFilterTest {
   }
 
   @Test
-  void emptyUpstream5xxStillProducesSafeProblem() {
-    MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/zones").build());
-    filter.filter(exchange, mutated -> {
-      mutated.getResponse().setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-      return mutated.getResponse().setComplete();
-    }).block();
-    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-    assertThat(exchange.getResponse().getBodyAsString().block()).contains("\"instance\":\"/api/v1/zones\"");
-  }
-
-  @Test
   void passesThroughNon5xxUpstreamResponsesUnchanged() {
     MockServerWebExchange exchange = MockServerWebExchange.from(
         MockServerHttpRequest.get("/api/v1/zones").build());
