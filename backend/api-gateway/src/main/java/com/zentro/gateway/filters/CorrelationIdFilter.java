@@ -2,19 +2,19 @@ package com.zentro.gateway.filters;
 
 import com.zentro.gateway.constants.GatewayConstants;
 import java.util.UUID;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.web.server.WebFilterChain;
+import org.springframework.web.server.WebFilter;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @Component
-public class CorrelationIdFilter implements GlobalFilter, Ordered {
+public class CorrelationIdFilter implements WebFilter, Ordered {
   public static final String HEADER = GatewayConstants.CORRELATION_ID_HEADER;
 
   @Override
-  public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+  public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
     String path = exchange.getRequest().getPath().value();
     String incoming = exchange.getRequest().getHeaders().getFirst(HEADER);
     String id = incoming == null || incoming.isBlank() ? UUID.randomUUID().toString() : incoming;

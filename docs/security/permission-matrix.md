@@ -74,6 +74,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 
 Gateway-configured `/api/v1/admin/zones/**` and `/api/v1/admin/audit-logs/**` prefixes have no matching controller endpoint in the audited services. They return an upstream 404 rather than exposing an unguarded controller. They are not counted as endpoints. No S4 report controller exists despite the gateway's reserved `/api/v1/reports/**` route.
 
+#144 gateway update: unlisted `/api/v1/**` paths now fail closed with safe problem+json and correlation ID: 401 for anonymous requests, 403 for every authenticated role. This is a deliberate change from unknown-path 404; listed/reserved prefixes keep their existing role rules and downstream resource 404 behavior. Unserved non-API paths retain local 404. See [the route audit](../architecture/gateway-routes.md) for tests and the dormant customer legacy-path finding.
+
 ## Findings
 
 | ID | Classification | Evidence / reproduction | Status |
