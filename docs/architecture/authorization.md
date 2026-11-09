@@ -21,7 +21,7 @@ In accordance with the Zentro project architecture:
 | Action / Capability | Customer | Merchant | Courier | Dispatcher / Admin |
 |---|---|---|---|---|
 | Public tracking lookup (`GET /api/v1/tracking/{number}`) | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
-| Real-time tracking stream (`GET /api/v1/tracking/{number}/stream`) | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| Real-time tracking stream (`GET /api/v1/tracking/{number}/stream`) | ✅ Own only | ✅ Own only | ✅ Assigned only | ✅ Yes |
 | View personal deliveries (`GET /api/v1/tracking/mine`) | ✅ Own only | ✅ Own only | ❌ Denied | ❌ Denied |
 | Submit merchant application (`POST /api/v1/merchants`) | ✅ Yes | ❌ Denied | ❌ Denied | ❌ Denied |
 | View own merchant application (`GET /api/v1/merchants/me`) | ✅ Own only | ✅ Own only | ✅ Own only | ✅ Own only |
@@ -130,3 +130,28 @@ The authorization architecture is verified by automated test suites:
    - Verifies RFC 7807 compliance for 401 and 403 errors.
 5. **`GatewayBehaviorTests`** (`api-gateway`):
    - Verifies edge route protection, public tracking lookup, and bearer token validation.
+
+---
+
+## 6. Live Tracking Authorization & SSE Security (ZD-060)
+
+### Public Tracking Security
+- `GET /api/v1/tracking/{trackingRef}` and `GET /api/v1/tracking/{trackingRef}/events` (JSON) are privacy-preserving public inquiry endpoints.
+- **Exposed fields:** `trackingRef`, `status`, `rawStatus`, `category`, `size`, `description`, `originCity`, `destinationCity`, `estimatedDays`, `estimatedDeliveryDate`, `createdAt`, `deliveredAt`, `failureReason`, and event history.
+- **Strictly excluded:** Customer full names, phone numbers, email addresses, complete street addresses, financial fees, internal UUIDs, courier identity, and raw database entities.
+- `SERVICE`-only tokens are rejected with `403 Forbidden` to enforce separation of concerns.
+
+### Authenticated Live Tracking Streams (SSE)
+- `GET /api/v1/tracking/{trackingRef}/stream` and `GET /api/v1/tracking/{trackingRef}/events` with `Accept: text/event-stream` require backend authentication and fine-grained resource authorization via `DeliveryAuthorizationService`.
+- **Access Rules:**
+  - **`CUSTOMER`**: Can stream only deliveries where `parcel.customerSubject == jwt.getSubject()`.
+  - **`MERCHANT`**: Can stream only deliveries where `parcel.merchantSubject == jwt.getSubject()`.
+  - **`COURIER`**: Can stream only deliveries assigned to them (`parcel.courierSubject == jwt.getSubject()`).
+  - **`DISPATCHER`**: Platform-wide operational access.
+  - **Unauthorized / Mismatched Owners:** Rejected with `403 Forbidden` (`AccessDeniedException`).
+  - **Unauthenticated / Expired Tokens:** Rejected with `401 Unauthorized` (`ResponseStatusException`).
+- **Connection Lifecycle Security:**
+  - Token expiration is verified on connection establishment and revalidated upon each broadcast; expired emitters are immediately completed and evicted.
+  - Resource ownership is revalidated upon each event emission against the current database state (e.g. if a courier is unassigned, subscription is revoked).
+  - Periodic background cleanup task (`cleanupExpiredSubscribers`) purges dead/expired emitters.
+  - Live event payloads contain strictly safe event attributes (`trackingRef`, `status`, `title`, `description`, `occurredAt`) with zero PII or internal identifiers.

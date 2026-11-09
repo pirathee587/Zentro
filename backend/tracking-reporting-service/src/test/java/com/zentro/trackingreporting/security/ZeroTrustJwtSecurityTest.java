@@ -71,6 +71,34 @@ class ZeroTrustJwtSecurityTest {
   private static RSAKey untrustedRsaKey;
   private static HttpServer jwksServer;
   private static String jwksUri;
+  private static final RSAKey trustedRsaKey;
+  private static final RSAKey untrustedRsaKey;
+  private static final HttpServer jwksServer;
+  private static final String jwksUri;
+
+  static {
+    try {
+      trustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s4-trusted-kid").generate();
+      // Same kid, different key material: simulates a forged token.
+      untrustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s4-trusted-kid").generate();
+
+      byte[] jwksBytes = new JWKSet(trustedRsaKey.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
+      jwksServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+      jwksServer.createContext("/realms/zentro/protocol/openid-connect/certs", exchange -> {
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, jwksBytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+          os.write(jwksBytes);
+        }
+        exchange.close();
+      });
+      jwksServer.start();
+      jwksUri = "http://127.0.0.1:" + jwksServer.getAddress().getPort()
+          + "/realms/zentro/protocol/openid-connect/certs";
+    } catch (Exception ex) {
+      throw new ExceptionInInitializerError(ex);
+    }
+  }
 
   @Autowired private MockMvc mockMvc;
   @MockBean private TrackingService trackingService;
@@ -266,6 +294,54 @@ class ZeroTrustJwtSecurityTest {
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + validToken("service-client", "SERVICE")))
         .andExpect(status().isForbidden());
     verifyNoInteractions(trackingService);
+  }
+
+  @Test
+  @DisplayName("Live tracking stream without authentication is rejected with 401")
+  void liveTrackingStreamWithoutAuthIsRejectedWith401() throws Exception {
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Live tracking stream with SERVICE role is rejected with 403")
+  void liveTrackingStreamWithServiceRoleIsRejectedWith403() throws Exception {
+    String token = validToken("service-daemon", "SERVICE");
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("Live tracking stream with expired token is rejected with 401")
+  void liveTrackingStreamWithExpiredTokenIsRejectedWith401() throws Exception {
+    String expiredToken = signToken(trustedRsaKey, ISSUER, List.of(AUDIENCE),
+        Instant.now().minusSeconds(120), "customer-alice", List.of("CUSTOMER"));
+
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Live tracking stream with valid customer token succeeds")
+  void liveTrackingStreamWithValidCustomerTokenSucceeds() throws Exception {
+    String token = validToken("customer-alice", "CUSTOMER");
+    com.zentro.trackingreporting.tracking.entity.TrackingParcel parcel = new com.zentro.trackingreporting.tracking.entity.TrackingParcel();
+    parcel.setTrackingRef("ZT-7K3QX9M2PA");
+    parcel.setCustomerSubject("customer-alice");
+
+    when(trackingService.getParcel("ZT-7K3QX9M2PA")).thenReturn(parcel);
+    when(streamService.subscribe(eq("ZT-7K3QX9M2PA"), any(), any()))
+        .thenReturn(new org.springframework.web.servlet.mvc.method.annotation.SseEmitter());
+
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.request().asyncStarted());
   }
 
   @Test

@@ -53,6 +53,16 @@ public class TrackingService {
   }
 
   @Transactional(readOnly = true)
+  public TrackingParcel getParcel(String trackingRef) {
+    if (trackingRef == null || trackingRef.isBlank()) {
+      throw new TrackingNotFoundException(trackingRef);
+    }
+    String cleanRef = trackingRef.trim().toUpperCase();
+    return parcelRepository.findByTrackingRef(cleanRef)
+        .orElseThrow(() -> new TrackingNotFoundException(cleanRef));
+  }
+
+  @Transactional(readOnly = true)
   public PublicTrackingResponse getPublicTracking(String trackingRef) {
     if (trackingRef == null || trackingRef.isBlank()) {
       throw new TrackingNotFoundException(trackingRef);
@@ -121,13 +131,29 @@ public class TrackingService {
     if (hasStatus && hasQuery) {
       TrackingStatus status = TrackingStatus.fromString(statusFilter);
       paged = parcelRepository.searchByCustomerAndStatus(customerSubject, status, query.trim(), pageable);
+      if (paged == null) {
+        paged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+      }
     } else if (hasStatus) {
       TrackingStatus status = TrackingStatus.fromString(statusFilter);
       paged = parcelRepository.findByCustomerSubjectAndStatus(customerSubject, status, pageable);
+      if (paged == null) {
+        paged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+      }
     } else if (hasQuery) {
       paged = parcelRepository.searchByCustomer(customerSubject, query.trim(), pageable);
+      if (paged == null) {
+        paged = parcelRepository.searchByCustomerOrMerchant(customerSubject, query.trim(), pageable);
+      }
     } else {
       paged = parcelRepository.findByCustomerSubject(customerSubject, pageable);
+      if (paged == null) {
+        paged = parcelRepository.findByCustomerOrMerchantSubject(customerSubject, pageable);
+      }
+    }
+
+    if (paged == null) {
+      paged = Page.empty(pageable);
     }
 
     List<CustomerDeliveryResponse> list = paged.getContent().stream().map(parcel -> {
