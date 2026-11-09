@@ -16,6 +16,10 @@ const stateMessage = {
 };
 export function DeliveryDetailPage() {
   const { deliveryId = '' } = useParams();
+  const { user } = useAuth();
+  return <DeliveryDetail key={`${principalCacheScope(user?.id)}:${deliveryId}`} deliveryId={deliveryId} />;
+}
+function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
   const { user, login } = useAuth();
   const client = useQueryClient();
   const token = user?.accessToken || '';
