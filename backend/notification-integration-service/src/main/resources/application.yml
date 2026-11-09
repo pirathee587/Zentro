@@ -24,8 +24,8 @@ spring:
       ack-mode: manual
 zentro:
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
+    audience: ${JWT_AUDIENCE:zentro-api}
     jwks-uri: ${JWT_JWKS_URI:}
   identity:
     # S1 Identity, used to check that a merchant is approved before it registers a webhook endpoint.

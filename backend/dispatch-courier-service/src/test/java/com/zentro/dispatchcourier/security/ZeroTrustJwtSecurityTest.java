@@ -10,13 +10,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.PlainJWT;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
 import com.zentro.dispatchcourier.courier.controller.CourierDeliveryController;
@@ -33,12 +36,14 @@ import com.zentro.security.config.ZentroSecurityAutoConfiguration;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -336,6 +341,103 @@ class ZeroTrustJwtSecurityTest {
         claims.build());
     signedJwt.sign(new RSASSASigner(signingKey));
     return signedJwt.serialize();
+  }
+
+  private static String hmacToken(String secret, String issuer, List<String> audience, List<String> roles) throws Exception {
+    JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
+        .subject("subject-" + UUID.randomUUID())
+        .issuer(issuer)
+        .issueTime(Date.from(Instant.now().minusSeconds(30)))
+        .expirationTime(Date.from(Instant.now().plusSeconds(300)))
+        .claim("realm_access", Map.of("roles", roles));
+    if (audience != null) {
+      claims.audience(audience);
+    }
+    SignedJWT signedJwt = new SignedJWT(
+        new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).build(),
+        claims.build());
+    signedJwt.sign(new MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
+    return signedJwt.serialize();
+  }
+
+  private static String unsignedToken(String issuer, List<String> audience, List<String> roles) {
+    JWTClaimsSet.Builder claims = new JWTClaimsSet.Builder()
+        .subject("subject-" + UUID.randomUUID())
+        .issuer(issuer)
+        .issueTime(Date.from(Instant.now().minusSeconds(30)))
+        .expirationTime(Date.from(Instant.now().plusSeconds(300)))
+        .claim("realm_access", Map.of("roles", roles));
+    if (audience != null) {
+      claims.audience(audience);
+    }
+    return new PlainJWT(claims.build()).serialize();
+  }
+
+  @Test
+  @DisplayName("Malformed JWT string is rejected with 401")
+  void malformedJwtIsRejectedWith401() throws Exception {
+    for (String badToken : List.of("not-a-jwt", "abc.def", "header.payload.signature.extra")) {
+      mvc.perform(get("/api/v1/dispatch/queue")
+              .header("Authorization", "Bearer " + badToken))
+          .andExpect(status().isUnauthorized())
+          .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+    verifyNoInteractions(parcelSource, assignmentRepository, proofRepository, identityCourierClient);
+  }
+
+  @Test
+  @DisplayName("Tampered JWT payload with forged claims is rejected with 401")
+  void tamperedJwtPayloadIsRejectedWith401() throws Exception {
+    String valid = signToken(TRUSTED_KEY, ISSUER, List.of(AUDIENCE), Instant.now().plusSeconds(300), List.of("DISPATCHER"));
+    String[] parts = valid.split("\\.");
+    String tamperedPayload = Base64.getUrlEncoder().withoutPadding().encodeToString(
+        "{\"sub\":\"attacker\",\"realm_access\":{\"roles\":[\"DISPATCHER\"]}}".getBytes(StandardCharsets.UTF_8));
+    String tamperedToken = parts[0] + "." + tamperedPayload + "." + parts[2];
+
+    mvc.perform(get("/api/v1/dispatch/queue")
+            .header("Authorization", "Bearer " + tamperedToken))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(parcelSource, assignmentRepository, proofRepository, identityCourierClient);
+  }
+
+  @Test
+  @DisplayName("JWT with unsupported symmetric algorithm HS256 is rejected with 401")
+  void unsupportedAlgorithmHs256IsRejectedWith401() throws Exception {
+    String token = hmacToken("secret01234567890123456789012345678901", ISSUER, List.of(AUDIENCE), List.of("DISPATCHER"));
+    mvc.perform(get("/api/v1/dispatch/queue")
+            .header("Authorization", "Bearer " + token))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(parcelSource, assignmentRepository, proofRepository, identityCourierClient);
+  }
+
+  @Test
+  @DisplayName("Unsigned token with alg:none is rejected with 401")
+  void unsignedTokenAlgNoneIsRejectedWith401() throws Exception {
+    String token = unsignedToken(ISSUER, List.of(AUDIENCE), List.of("DISPATCHER"));
+    mvc.perform(get("/api/v1/dispatch/queue")
+            .header("Authorization", "Bearer " + token))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(parcelSource, assignmentRepository, proofRepository, identityCourierClient);
+  }
+
+  @Test
+  @DisplayName("Gateway-forwarded request carrying an invalid token is rejected by downstream S3 service")
+  void gatewayForwardedRequestWithInvalidTokenIsRejectedWith401() throws Exception {
+    String expiredToken = signToken(TRUSTED_KEY, ISSUER, List.of(AUDIENCE),
+        Instant.now().minusSeconds(120), List.of("DISPATCHER"));
+
+    mvc.perform(get("/api/v1/dispatch/queue")
+            .header("Authorization", "Bearer " + expiredToken)
+            .header("X-Forwarded-For", "10.0.0.1")
+            .header("X-User-Id", "dispatcher-1")
+            .header("X-User-Roles", "ROLE_DISPATCHER")
+            .header("X-Correlation-Id", "gateway-trace-789"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    verifyNoInteractions(parcelSource, assignmentRepository, proofRepository, identityCourierClient);
   }
 }
 
