@@ -186,3 +186,12 @@ External blockers remain: evidence-field approval; Identity's duplicate V4 migra
 and unverified authenticated S1–S4 end-to-end operation. Tracking projection initialization is an
 existing S4 dependency, unchanged by this implementation. S2 outbox publishing and S4 Kafka consumption
 must both be enabled in a configured environment. Tests using mocked HTTP do not establish live integration.
+
+## Completion-worker diagnostic context (#143)
+
+Proof insertion captures diagnostic context in nullable internal columns owned
+by S3. The leased completion worker restores that context for each attempt and
+its approved REST call to S2, including after restart. No evidence, lease,
+retry, authorization or API response contract changes. Legacy rows use the
+proof ID as correlation and a new root trace. See
+[observability](../architecture/observability.md) for migration and scope rules.

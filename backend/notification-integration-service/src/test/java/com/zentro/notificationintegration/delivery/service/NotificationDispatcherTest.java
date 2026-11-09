@@ -40,6 +40,30 @@ import org.slf4j.LoggerFactory;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationDispatcherTest {
+  @Test void delayedNotificationAttemptsRestoreOriginAndCleanUpAfterFailure() throws Exception {
+    try (var tracing = new com.zentro.notificationintegration.support.PropagationTestSupport()) {
+      var metadata = tracing.metadata("notification-143");
+      UUID eventId = UUID.randomUUID();
+      when(repository.lockForDelivery(ID)).thenReturn(Optional.of(new AttemptRow(ID, eventId, "ZT-ABCDEFGH12", "FAILED",
+          "MOCK_SMS", TEXT, 0, metadata)), Optional.of(new AttemptRow(ID, eventId, "ZT-ABCDEFGH12", "FAILED", "MOCK_SMS", TEXT, 1, metadata)));
+      var sender = org.mockito.Mockito.mock(com.zentro.notificationintegration.delivery.provider.NotificationSender.class);
+      var spans = new java.util.ArrayList<String>();
+      org.mockito.Mockito.doAnswer(invocation -> {
+        assertThat(org.slf4j.MDC.get("correlationId")).isEqualTo("notification-143");
+        assertThat(tracing.tracer.currentSpan().context().traceId()).isEqualTo(com.zentro.notificationintegration.support.PropagationTestSupport.TRACE);
+        spans.add(tracing.tracer.currentSpan().context().spanId());
+        throw new IllegalStateException("private-exception-secret");
+      }).when(sender).send(any());
+      var dispatcher = new NotificationDispatcher(repository, sender, new NotificationMetrics(registry, repository), properties(5), Clock.fixed(NOW, ZoneOffset.UTC));
+      dispatcher.setPropagation(tracing.context);
+      dispatcher.deliver(ID);
+      dispatcher.deliver(ID);
+      assertThat(spans).hasSize(2).doesNotHaveDuplicates();
+      assertThat(org.slf4j.MDC.get("correlationId")).isNull();
+      assertThat(tracing.tracer.currentSpan()).isNull();
+      assertThat(logs.list).extracting(ILoggingEvent::getFormattedMessage).noneMatch(m -> m.contains("private-exception-secret"));
+    }
+  }
   private static final Instant NOW = Instant.parse("2026-11-05T10:00:00Z");
   private static final String TEXT = "Delivery of parcel ZT-ABCDEFGH12 was not completed: Gate locked.";
   private static final UUID ID = UUID.randomUUID();

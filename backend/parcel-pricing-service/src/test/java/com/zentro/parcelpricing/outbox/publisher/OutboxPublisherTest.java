@@ -46,6 +46,43 @@ import org.springframework.transaction.support.TransactionOperations;
 
 @ExtendWith(MockitoExtension.class)
 class OutboxPublisherTest {
+  @Test
+  @SuppressWarnings("unchecked")
+  void retriesKeepOriginButUseFreshProducerSpansAndLegacyRowsRemainUsable() {
+    try (var provider = io.opentelemetry.sdk.trace.SdkTracerProvider.builder().build()) {
+      var sdk = provider.get("test");
+      var tracer = new io.micrometer.tracing.otel.bridge.OtelTracer(sdk,
+          new io.micrometer.tracing.otel.bridge.OtelCurrentTraceContext(), event -> {});
+      var propagation = new com.zentro.security.observability.PropagationContext(tracer,
+          new io.micrometer.tracing.otel.bridge.OtelPropagator(io.opentelemetry.context.propagation.ContextPropagators.create(
+              io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator.getInstance()), sdk));
+      publisher.setPropagation(propagation);
+      String trace = "0123456789abcdef0123456789abcdef";
+      var metadata = new com.zentro.security.observability.PropagationMetadata("durable-143", "00-" + trace + "-0123456789abcdef-01", null);
+      var event = new PendingEvent(UUID.randomUUID(), PARCEL_A, CREATED, SECRET, 0, metadata);
+      batch(event);
+      when(kafka.send(any(ProducerRecord.class))).thenReturn(CompletableFuture.failedFuture(new TimeoutException("private-password")),
+          CompletableFuture.completedFuture(null));
+      when(repository.markFailed(any(), anyString(), any())).thenReturn(1);
+      assertThat(publisher.publishBatch()).isZero();
+      assertThat(publisher.publishBatch()).isEqualTo(1);
+      ArgumentCaptor<ProducerRecord<String, String>> sent = ArgumentCaptor.forClass(ProducerRecord.class);
+      verify(kafka, times(2)).send(sent.capture());
+      var first = sent.getAllValues().getFirst();
+      var second = sent.getAllValues().getLast();
+      assertThat(header(first, "traceparent")).startsWith("00-" + trace + "-");
+      assertThat(header(second, "traceparent")).startsWith("00-" + trace + "-").isNotEqualTo(header(first, "traceparent"));
+      assertThat(header(second, "X-Correlation-Id")).isEqualTo("durable-143");
+      assertThat(first.value()).isEqualTo(second.value());
+      assertThat(org.slf4j.MDC.get("correlationId")).isNull();
+      assertThat(tracer.currentSpan()).isNull();
+      assertThat(logs.list).extracting(ILoggingEvent::getFormattedMessage).noneMatch(m -> m.contains("private-password"));
+      var legacy = event(PARCEL_B, CREATED, 0);
+      batch(legacy);
+      assertThat(publisher.publishBatch()).isEqualTo(1);
+      assertThat(org.slf4j.MDC.get("correlationId")).isNull();
+    }
+  }
   private static final Instant NOW = Instant.parse("2026-11-03T10:00:00Z");
   private static final String STATUS = "parcel.status.updated";
   private static final String CREATED = "parcel.created";

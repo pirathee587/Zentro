@@ -73,3 +73,5 @@ SSE responses from `/api/v1/tracking/*/stream` have a long upstream response tim
 ## Tests
 
 Run `mvn -B -f backend/pom.xml -pl api-gateway -am verify` from the repository root.
+
+HTTP correlation IDs use the bounded ASCII policy documented in [HTTP correlation and tracing](../../docs/architecture/observability.md). Safe non-UUID IDs are preserved; invalid or duplicate IDs are replaced. Boot owns W3C HTTP tracing; baggage is not forwarded.

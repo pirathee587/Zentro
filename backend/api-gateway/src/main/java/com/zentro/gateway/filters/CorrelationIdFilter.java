@@ -16,9 +16,15 @@ public class CorrelationIdFilter implements WebFilter, Ordered {
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
     String path = exchange.getRequest().getPath().value();
-    String incoming = exchange.getRequest().getHeaders().getFirst(HEADER);
-    String id = incoming == null || incoming.isBlank() ? UUID.randomUUID().toString() : incoming;
+    var values = exchange.getRequest().getHeaders().get(HEADER);
+    String incoming = values != null && values.size() == 1 ? values.getFirst() : null;
+    String id = incoming != null && incoming.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+        ? incoming : UUID.randomUUID().toString();
     exchange.getResponse().getHeaders().set(HEADER, id);
+    exchange.getResponse().beforeCommit(() -> {
+      exchange.getResponse().getHeaders().set(HEADER, id);
+      return Mono.empty();
+    });
     String[] segments = path.split("/");
     if (segments.length == 6 && segments[1].equals("api") && segments[2].equals("v1")
         && segments[3].equals("tracking") && segments[5].equals("stream")) {
@@ -26,9 +32,13 @@ public class CorrelationIdFilter implements WebFilter, Ordered {
       exchange.getResponse().getHeaders().set("Cache-Control", "no-cache");
     }
     ServerWebExchange updated = exchange.mutate()
-        .request(request -> request.headers(headers -> headers.set(HEADER, id)))
+        .request(request -> request.headers(headers -> {
+          headers.set(HEADER, id);
+          headers.remove("baggage");
+        }))
         .build();
-    return chain.filter(updated);
+    // Reactor context is request-local; never hold a thread-local MDC scope across an asynchronous chain.
+    return chain.filter(updated).contextWrite(context -> context.put("correlationId", id));
   }
 
   @Override public int getOrder() { return Ordered.HIGHEST_PRECEDENCE; }

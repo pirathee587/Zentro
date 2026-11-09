@@ -78,6 +78,8 @@ class OutboxRestartRecoveryIntegrationTest {
   private ConfigurableApplicationContext app;
   private KafkaConsumer<String, String> consumer;
   private final Map<String, AtomicInteger> received = new ConcurrentHashMap<>();
+  private final Map<String, String> correlations = new ConcurrentHashMap<>();
+  private final Map<String, String> traces = new ConcurrentHashMap<>();
   private JdbcTemplate jdbc;
 
   /** Starts S2 against the containers; {@code publisher} switches the outbox publisher on or off. */
@@ -135,6 +137,11 @@ class OutboxRestartRecoveryIntegrationTest {
       Header header = record.headers().lastHeader(OutboxPublisher.HEADER_EVENT_ID);
       String eventId = header == null ? "missing" : new String(header.value(), StandardCharsets.UTF_8);
       received.computeIfAbsent(eventId, id -> new AtomicInteger()).incrementAndGet();
+      for (String name : List.of("X-Correlation-Id", "traceparent")) {
+        Header value = record.headers().lastHeader(name);
+        if (value != null) (name.equals("traceparent") ? traces : correlations)
+            .put(eventId, new String(value.value(), StandardCharsets.UTF_8));
+      }
     }
   }
 
@@ -186,9 +193,15 @@ class OutboxRestartRecoveryIntegrationTest {
   void committedEventsSurviveRestart() throws Exception {
     ConfigurableApplicationContext before = start(false);
     List<UUID> parcels = new ArrayList<>();
-    for (int i = 0; i < 3; i++) {
-      parcels.add(bookAndPickUp(before));
+    String trace = "0123456789abcdef0123456789abcdef";
+    var propagation = before.getBean(com.zentro.security.observability.PropagationContext.class);
+    try (var work = propagation.start(new com.zentro.security.observability.PropagationMetadata(
+        "restart-143", "00-" + trace + "-0123456789abcdef-01", null), "test.origin", null);
+         var scope = work.scope()) {
+      for (int i = 0; i < 3; i++) parcels.add(bookAndPickUp(before));
     }
+    // Simulate rows written by the old application during a rolling upgrade.
+    jdbc.update("UPDATE parcel.outbox_event SET correlation_id = NULL, traceparent = NULL, tracestate = NULL WHERE aggregate_id = ?", parcels.getLast());
     before.close();
 
     Set<UUID> pending = new HashSet<>();
@@ -208,6 +221,17 @@ class OutboxRestartRecoveryIntegrationTest {
     }
 
     assertThat(pending).allSatisfy(id -> assertThat(copies(id)).as("copies of %s", id).isEqualTo(1));
+    for (UUID parcelId : parcels) {
+      for (UUID id : jdbc.queryForList("SELECT event_id FROM parcel.outbox_event WHERE aggregate_id = ?", UUID.class, parcelId)) {
+        if (parcelId.equals(parcels.getLast())) {
+          assertThat(correlations.get(id.toString())).isEqualTo(id.toString());
+          assertThat(traces.get(id.toString())).doesNotContain(trace);
+        } else {
+          assertThat(correlations.get(id.toString())).isEqualTo("restart-143");
+          assertThat(traces.get(id.toString())).startsWith("00-" + trace + "-");
+        }
+      }
+    }
     assertThat(jdbc.queryForObject("""
         SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ANY (?) AND attempts > 0
         """, Integer.class, (Object) parcels.toArray(UUID[]::new))).isZero();

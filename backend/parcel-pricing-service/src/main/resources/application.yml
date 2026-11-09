@@ -1,6 +1,8 @@
 server:
   port: ${SERVER_PORT:8082}
 spring:
+  application:
+    name: parcel-pricing-service
   config:
     import: optional:file:./.env[.properties]
   datasource:
@@ -24,6 +26,11 @@ spring:
         "[request.timeout.ms]": ${KAFKA_REQUEST_TIMEOUT_MS:10000}
         "[delivery.timeout.ms]": ${KAFKA_DELIVERY_TIMEOUT_MS:30000}
 zentro:
+  identity:
+    base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
+  correlation:
+    internal-base-urls:
+      - ${zentro.identity.base-url}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
@@ -45,6 +52,11 @@ zentro:
       "[parcel.status.updated]": parcel.status.updated
       "[parcel.created]": parcel.created
 management:
+  tracing:
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
   endpoint:
     health:
       probes:
@@ -53,3 +65,7 @@ management:
     web:
       exposure:
         include: health
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"

@@ -1,5 +1,6 @@
 package com.zentro.notificationintegration.webhook.service;
 
+import com.zentro.security.observability.PropagationContext;
 import com.zentro.notificationintegration.notification.repository.NotificationRepository;
 import com.zentro.notificationintegration.webhook.client.WebhookHttpSender;
 import com.zentro.notificationintegration.webhook.client.WebhookHttpSender.SignedRequest;
@@ -44,10 +45,15 @@ import org.springframework.transaction.annotation.Transactional;
  *       twice at once). Checks the endpoint again, signs, sends, and records the response code and outcome.
  *       A later event for the same parcel waits while an earlier one is still open.</li>
  * </ul>
- * Logs carry the event id, merchant id and status code only: never the secret, the signature or the payload.
+ * Logs carry safe event identifiers, status codes and bounded outcome categories: never merchant ids,
+ * error descriptions, secrets, signatures or payloads.
  */
 @Service
 public class WebhookDeliveryService {
+  private PropagationContext propagation = PropagationContext.noop();
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
+
   public static final String CONSUMER = "merchant-webhooks";
   /** last_error of deliveries closed because the merchant disabled the endpoint (not a delivery failure). */
   public static final String DISABLED_ERROR = "Subscription disabled";
@@ -104,13 +110,13 @@ public class WebhookDeliveryService {
     Optional<WebhookSubscription> subscription = subscriptions.findActiveByMerchant(event.merchantId());
     if (subscription.isEmpty()) {
       metrics.skipped();
-      log.debug("No active webhook endpoint: eventId={} merchantId={}", eventId, event.merchantId());
+      log.debug("No active webhook endpoint: eventId={}", eventId);
       return Optional.empty();
     }
     Optional<UUID> id = deliveries.insertPending(subscription.get().id(), eventId, event.event().eventType(),
         event.event().parcelId(), event.rawEnvelope(), sha256(event.rawEnvelope()), OffsetDateTime.now(clock));
-    id.ifPresent(d -> log.info("Webhook delivery queued: eventId={} merchantId={} deliveryId={}", eventId,
-        event.merchantId(), d));
+    id.ifPresent(d -> log.info("Webhook delivery queued: eventId={} deliveryId={}", eventId,
+        d));
     return id;
   }
 
@@ -129,46 +135,52 @@ public class WebhookDeliveryService {
     if (row == null) {
       return;
     }
-    OffsetDateTime now = OffsetDateTime.now(clock);
-    if (!row.subscriptionActive()) {
-      deliveries.markFailed(row.id(), row.attempts(), null, DISABLED_ERROR);
-      metrics.skipped();
-      metrics.recordTerminalFailure(WebhookTerminalCategory.SUBSCRIPTION_DISABLED);
-      log.info("Webhook delivery closed, endpoint disabled: eventId={} merchantId={} terminalCategory={}",
-          row.eventId(), row.merchantId(), WebhookTerminalCategory.SUBSCRIPTION_DISABLED);
-      return;
-    }
-    if (deliveries.hasEarlierOpen(row.subscriptionId(), row.parcelId(), row.createdAt(), row.id())) {
-      deliveries.postpone(row.id(), now.plus(holdBack));
-      log.debug("Webhook delivery held back for parcel order: eventId={}", row.eventId());
-      return;
-    }
+    try (var work = propagation.start(row.propagation(), "webhook.deliver", null); var scope = work.scope()) {
+      OffsetDateTime now = OffsetDateTime.now(clock);
+      if (!row.subscriptionActive()) {
+        deliveries.markFailed(row.id(), row.attempts(), null, DISABLED_ERROR);
+        metrics.skipped();
+        metrics.recordTerminalFailure(WebhookTerminalCategory.SUBSCRIPTION_DISABLED);
+        log.info("Webhook delivery closed, endpoint disabled: eventId={} terminalCategory={}",
+            row.eventId(), WebhookTerminalCategory.SUBSCRIPTION_DISABLED);
+        return;
+      }
+      if (deliveries.hasEarlierOpen(row.subscriptionId(), row.parcelId(), row.createdAt(), row.id())) {
+        deliveries.postpone(row.id(), now.plus(holdBack));
+        log.debug("Webhook delivery held back for parcel order: eventId={}", row.eventId());
+        return;
+      }
 
-    int attempt = row.attempts() + 1;
-    URI url;
-    try {
-      url = validator.validate(row.url());
-    } catch (UnresolvableWebhookHostException ex) {
-      record(row, attempt, WebhookSendResult.networkError("host cannot be resolved"));
-      return;
-    } catch (InvalidWebhookUrlException ex) {
-      fail(row, attempt, null, "Endpoint not allowed: " + ex.getMessage(),
-          WebhookResponseClass.NON_RETRYABLE_FAILURE, WebhookTerminalCategory.ENDPOINT_NOT_ALLOWED);
-      return;
-    }
-    String secret;
-    try {
-      secret = cipher.decrypt(row.secretCiphertext(), row.merchantId());
-    } catch (WebhookSecretException | WebhooksUnavailableException ex) {
-      fail(row, attempt, null, "Signing secret unavailable",
-          WebhookResponseClass.NON_RETRYABLE_FAILURE, WebhookTerminalCategory.SECRET_UNAVAILABLE);
-      return;
-    }
+      int attempt = row.attempts() + 1;
+      URI url;
+      try {
+        url = validator.validate(row.url());
+      } catch (UnresolvableWebhookHostException ex) {
+        work.failed();
+        record(row, attempt, WebhookSendResult.networkError("host cannot be resolved"));
+        return;
+      } catch (InvalidWebhookUrlException ex) {
+        work.failed();
+        fail(row, attempt, null, "Endpoint not allowed: " + ex.getMessage(),
+            WebhookResponseClass.NON_RETRYABLE_FAILURE, WebhookTerminalCategory.ENDPOINT_NOT_ALLOWED);
+        return;
+      }
+      String secret;
+      try {
+        secret = cipher.decrypt(row.secretCiphertext(), row.merchantId());
+      } catch (WebhookSecretException | WebhooksUnavailableException ex) {
+        work.failed();
+        fail(row, attempt, null, "Signing secret unavailable",
+            WebhookResponseClass.NON_RETRYABLE_FAILURE, WebhookTerminalCategory.SECRET_UNAVAILABLE);
+        return;
+      }
 
-    long timestamp = Instant.now(clock).getEpochSecond();
-    WebhookSendResult result = sender.send(new SignedRequest(url, row.eventId().toString(), row.eventType(),
-        timestamp, signer.sign(secret, timestamp, row.payload()), row.payload()));
-    record(row, attempt, result);
+      long timestamp = Instant.now(clock).getEpochSecond();
+      WebhookSendResult result = sender.send(new SignedRequest(url, row.eventId().toString(), row.eventType(),
+          timestamp, signer.sign(secret, timestamp, row.payload()), row.payload()));
+      if (result.status() == null || result.status() >= 300) work.failed();
+      record(row, attempt, result);
+    }
   }
 
   private void record(DeliveryAttempt row, int attempt, WebhookSendResult result) {
@@ -178,16 +190,15 @@ public class WebhookDeliveryService {
       case SUCCEEDED -> {
         deliveries.markSucceeded(row.id(), attempt, result.status());
         metrics.succeeded();
-        log.info("Webhook delivered: eventId={} merchantId={} status={} responseClass={} attempts={}",
-            row.eventId(), row.merchantId(), result.status(), outcome.responseClass(), attempt);
+        log.info("Webhook delivered: eventId={} status={} responseClass={} attempts={}",
+            row.eventId(), result.status(), outcome.responseClass(), attempt);
       }
       case RETRY -> {
         OffsetDateTime next = OffsetDateTime.now(clock).plus(outcome.delay());
         deliveries.markRetry(row.id(), attempt, result.status(), outcome.error(), next);
         metrics.retried();
-        log.warn("Webhook attempt failed, will retry: eventId={} merchantId={} status={} responseClass={} error={} attempts={}"
-            + " nextTry={}", row.eventId(), row.merchantId(), result.status(), outcome.responseClass(),
-            outcome.error(), attempt, next);
+        log.warn("Webhook attempt failed, will retry: eventId={} status={} responseClass={} attempts={}"
+            + " nextTry={}", row.eventId(), result.status(), outcome.responseClass(), attempt, next);
       }
       case FAILED -> {
         WebhookTerminalCategory category = outcome.error() != null && outcome.error().contains("gave up after")
@@ -203,8 +214,8 @@ public class WebhookDeliveryService {
     deliveries.markFailed(row.id(), attempt, status, error);
     metrics.failed();
     metrics.recordTerminalFailure(category);
-    log.error("Webhook delivery failed permanently: eventId={} merchantId={} status={} responseClass={} terminalCategory={} error={} attempts={}",
-        row.eventId(), row.merchantId(), status, responseClass, category, error, attempt);
+    log.error("Webhook delivery failed permanently: eventId={} status={} responseClass={} terminalCategory={} attempts={}",
+        row.eventId(), status, responseClass, category, attempt);
   }
 
   static String sha256(String value) {

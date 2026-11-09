@@ -59,6 +59,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext // stop the listener and retry scheduler with the class, before its containers go away
+@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
 class WebhookDeliveryIntegrationTest {
   private static final String CREATED_TOPIC = "parcel.created";
   private static final String STATUS_TOPIC = "parcel.status.updated";
@@ -228,12 +229,19 @@ class WebhookDeliveryIntegrationTest {
     UUID parcelId = UUID.randomUUID();
     String message = createdEvent(eventId, parcelId, merchant[0]);
 
-    send(CREATED_TOPIC, parcelId, message);
+    var record = new org.apache.kafka.clients.producer.ProducerRecord<String, String>(CREATED_TOPIC, parcelId.toString(), message);
+    record.headers().add("X-Correlation-Id", "merchant-webhook-143".getBytes(StandardCharsets.UTF_8));
+    record.headers().add("traceparent", "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01".getBytes(StandardCharsets.UTF_8));
+    kafka.send(record).get();
 
     Map<String, Object> row = awaitDelivery(eventId, "SUCCEEDED");
+    var metadata = jdbc.queryForMap("SELECT correlation_id, traceparent FROM notification.webhook_delivery WHERE event_id = ?", eventId);
+    assertThat(metadata.get("correlation_id")).isEqualTo("merchant-webhook-143");
+    assertThat((String) metadata.get("traceparent")).startsWith("00-0123456789abcdef0123456789abcdef-");
     assertThat(row).containsEntry("attempts", 1).containsEntry("response_status", 200);
     Received received = receivedAt(merchant[1]).get(0);
     assertThat(received.body()).isEqualTo(message);
+    assertThat(received.headers()).doesNotContainKeys("x-correlation-id", "traceparent", "tracestate", "baggage");
     assertThat(received.headers()).containsEntry("content-type", "application/json")
         .containsEntry("x-swiftdrop-event-id", eventId.toString())
         .containsEntry("x-swiftdrop-event-type", "parcel.created");

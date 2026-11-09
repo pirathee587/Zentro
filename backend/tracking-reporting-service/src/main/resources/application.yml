@@ -38,6 +38,11 @@ zentro:
   kafka:
     enabled: ${KAFKA_CONSUMER_ENABLED:false}
 management:
+  tracing:
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
   endpoint:
     health:
       probes:
@@ -46,3 +51,7 @@ management:
     web:
       exposure:
         include: health,prometheus
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"

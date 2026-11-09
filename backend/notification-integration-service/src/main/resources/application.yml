@@ -1,6 +1,8 @@
 server:
   port: ${SERVER_PORT:8085}
 spring:
+  application:
+    name: notification-integration-service
   config:
     import: optional:file:./.env[.properties]
   datasource:
@@ -23,6 +25,9 @@ spring:
       # Offsets are committed only after the event was stored (see ParcelEventConsumer).
       ack-mode: manual
 zentro:
+  correlation:
+    internal-base-urls:
+      - ${zentro.identity.base-url}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
@@ -65,6 +70,11 @@ zentro:
       failed-window-minutes: ${WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES:60}
       stuck-minutes: ${WEBHOOK_HEALTH_STUCK_MINUTES:10}
 management:
+  tracing:
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
   endpoint:
     health:
       probes:
@@ -73,3 +83,7 @@ management:
     web:
       exposure:
         include: health
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"

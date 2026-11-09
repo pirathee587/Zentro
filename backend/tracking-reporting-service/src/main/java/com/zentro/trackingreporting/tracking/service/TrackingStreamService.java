@@ -131,7 +131,7 @@ public class TrackingStreamService {
           .name("connected")
           .data(Map.of("trackingRef", key, "status", "CONNECTED")));
     } catch (IOException e) {
-      log.debug("Failed to send initial SSE connected event for subscriber {} on {}", subscriberId, key, e);
+      log.debug("Tracking stream failed: category=initial_send_error");
       removeSubscriber(key, subscriberId);
     }
 
@@ -187,7 +187,7 @@ public class TrackingStreamService {
                 "occurredAt", event.getOccurredAt() != null ? event.getOccurredAt().toString() : Instant.now().toString()
             )));
       } catch (IOException e) {
-        log.debug("Removing dead SSE emitter {} for {}", subscriber.getId(), key);
+        log.debug("Tracking stream closed: category=dead_emitter");
         removeSubscriber(key, subscriber.getId());
       }
     }

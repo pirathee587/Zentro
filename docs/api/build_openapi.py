@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(__file__).resolve().parent / "openapi"
+CORRELATION_SCHEMA = {"type": "string", "minLength": 1, "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
 
 
 def field(kind="string", **kw):
@@ -294,8 +296,8 @@ def make_operation(service, row):
         params.append({"name": name, "in": "query", "required": required,
                        "description": f"{name} filter or pagination parameter.", "schema": schema})
     params.append({"name": "X-Correlation-Id", "in": "header", "required": False,
-        "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
-        "schema": {"type": "string", "format": "uuid"}, "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"})
+        "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+        "schema": CORRELATION_SCHEMA, "example": "request-123"})
     for name, typ, required, minimum, maximum, _ in headers:
         params.append({"name": name, "in": "header", "required": required,
             "description": "Optional booking idempotency key; blank values are rejected.",
@@ -312,7 +314,7 @@ def make_operation(service, row):
         else:
             resp["content"] = {"application/json": {"schema": schema_ref(response_schema)}}
     if success in (200, 201):
-        resp["headers"] = {"X-Correlation-Id": {"description": "Gateway correlation identifier.", "schema": {"type": "string", "format": "uuid"}}}
+        resp["headers"] = {"X-Correlation-Id": {"description": "Accepted correlation identifier.", "schema": CORRELATION_SCHEMA}}
         for h in response_headers:
             resp["headers"][h] = {"description": "Response header emitted by the operation.", "schema": {"type": "string"}}
             if h == "Cache-Control": resp["headers"][h]["example"] = "no-store"
@@ -328,7 +330,7 @@ def make_operation(service, row):
         responses[str(code)] = error_response(code)
     # Correlation id is assigned by the gateway on both success and error responses.
     for r in responses.values():
-        r.setdefault("headers", {})["X-Correlation-Id"] = {"description": "Gateway correlation identifier.", "schema": {"type": "string", "format": "uuid"}}
+        r.setdefault("headers", {})["X-Correlation-Id"] = {"description": "Accepted correlation identifier.", "schema": CORRELATION_SCHEMA}
     op = {"operationId": opid, "summary": summary, "description": description + (f" Allowed roles: {roles}." if roles != "PUBLIC" else " Public: anonymous and human access; SERVICE-only tokens are denied."),
           "tags": [SERVICE_INFO[service][1]], "responses": responses}
     if params: op["parameters"] = params
@@ -429,7 +431,7 @@ def validate():
     errors = []
     for service in OPS:
         spec_path = OUT / f"{service}.openapi.json"
-        spec = json.loads(spec_path.read_text())
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
         actual = set()
         for path, item in spec.get("paths", {}).items():
             for method, op in item.items():
@@ -470,7 +472,7 @@ def validate():
 def generate():
     OUT.mkdir(parents=True, exist_ok=True)
     for service in OPS:
-        (OUT / f"{service}.openapi.json").write_text(json.dumps(build(service), indent=2, ensure_ascii=False) + "\n")
+        (OUT / f"{service}.openapi.json").write_text(json.dumps(build(service), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Generated {len(OPS)} service OpenAPI artifacts in {OUT.relative_to(ROOT)}")
 
 

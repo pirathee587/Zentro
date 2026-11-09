@@ -1,1 +1,4 @@
 com.zentro.security.config.ZentroSecurityAutoConfiguration
+com.zentro.security.config.CorrelationAutoConfiguration
+com.zentro.security.config.PropagationAutoConfiguration
+com.zentro.security.config.KafkaPropagationAutoConfiguration

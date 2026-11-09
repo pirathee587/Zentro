@@ -42,7 +42,7 @@ public class IdentityPartnerGrpcService extends IdentityPartnerServiceGrpc.Ident
       GetCourierProfileRequest request,
       StreamObserver<CourierProfileResponse> responseObserver) {
     String courierId = request.getCourierId();
-    log.debug("Handling gRPC GetCourierProfile for courierId: {}", courierId);
+    log.debug("Handling gRPC GetCourierProfile");
 
     CourierGrpcResponse response = courierProfileService.getCourierProfileForGrpc(courierId);
 
@@ -70,7 +70,7 @@ public class IdentityPartnerGrpcService extends IdentityPartnerServiceGrpc.Ident
       GetMerchantStatusRequest request,
       StreamObserver<MerchantStatusResponse> responseObserver) {
     String merchantId = request.getMerchantId();
-    log.debug("Handling gRPC GetMerchantStatus for merchantId: {}", merchantId);
+    log.debug("Handling gRPC GetMerchantStatus");
 
     String status = queryMerchantStatus(merchantId);
 
@@ -103,7 +103,7 @@ public class IdentityPartnerGrpcService extends IdentityPartnerServiceGrpc.Ident
           """, String.class, merchantSubject);
       return status != null ? status : STATUS_NOT_FOUND;
     } catch (EmptyResultDataAccessException e) {
-      log.debug("No merchant application found for merchantId: {}", merchantSubject);
+      log.debug("Merchant application not found");
       return STATUS_NOT_FOUND;
     }
   }
