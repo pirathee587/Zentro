@@ -155,3 +155,46 @@ The authorization architecture is verified by automated test suites:
   - Resource ownership is revalidated upon each event emission against the current database state (e.g. if a courier is unassigned, subscription is revoked).
   - Periodic background cleanup task (`cleanupExpiredSubscribers`) purges dead/expired emitters.
   - Live event payloads contain strictly safe event attributes (`trackingRef`, `status`, `title`, `description`, `occurredAt`) with zero PII or internal identifiers.
+
+---
+
+## 7. Per-Service Zero Trust JWT Validation Verification (ZD-070)
+
+### 7.1 Architecture & Threat Model
+In accordance with Zero Trust architecture principles, backend microservices never assume an incoming HTTP request is trusted simply because it arrived from the network or passed through the API Gateway. Perimeter validation at the gateway is necessary but not sufficient.
+
+Every microservice that accepts authenticated traffic (`identity-partner-service`, `parcel-pricing-service`, `dispatch-courier-service`, `tracking-reporting-service`, `notification-integration-service`) independently executes full cryptographic JWT validation on every request via `zentro-security-starter` and local Spring Security filter chains.
+
+### 7.2 Independent Validation Criteria
+Each microservice independently verifies:
+1. **Cryptographic Signature:** Validated against Keycloak's JSON Web Key Set (JWKS) public keys. Tokens signed by untrusted keys or attackers are rejected with `401 Unauthorized`.
+2. **Trusted Issuer (`iss`):** Must match the configured Keycloak realm URL (`${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}`). Tokens minted by any other authority are rejected with `401 Unauthorized`.
+3. **Expected Audience (`aud`):** Must contain `${JWT_AUDIENCE:zentro-api}`. Tokens missing the audience claim or issued for a different client are rejected with `401 Unauthorized`.
+4. **Token Expiration (`exp`):** Evaluated strictly against current system time (with standard clock skew). Expired tokens are rejected with `401 Unauthorized`.
+5. **Algorithm Restriction:** Only asymmetric RS256 signatures are permitted. Symmetric algorithms (`HS256`) and unsigned tokens (`alg: none` / `PlainJWT`) are rejected with `401 Unauthorized`.
+6. **Payload Integrity:** Any tampering with the Base64URL-encoded payload portion invalidates the digital signature and triggers immediate rejection (`401 Unauthorized`).
+7. **Role & Authority Mapping:** Validated tokens are parsed to extract `realm_access.roles`, translated into Spring Security `GrantedAuthority` records (`ROLE_CUSTOMER`, `ROLE_MERCHANT`, `ROLE_COURIER`, `ROLE_DISPATCHER`), and evaluated against `@PreAuthorize` and HTTP route security rules.
+
+### 7.3 Gateway vs. Downstream Service Responsibilities
+- **API Gateway (`api-gateway`):**
+  - Edge defense and reverse proxy routing.
+  - Strips untrusted/spoofed identity headers (`X-User-Id`, `X-Roles`, `X-Authenticated-User`, `X-Remote-User`).
+  - Enforces perimeter rate limits and injects distributed tracing correlation IDs (`X-Correlation-Id`).
+  - Forwards the client's `Authorization: Bearer <jwt>` header untouched to downstream services.
+- **Downstream Services (S1–S5):**
+  - Reject requests lacking an `Authorization` header (`401 Unauthorized`).
+  - Completely ignore forged identity headers (`X-User-Id`, `X-User-Roles`) in the absence of a cryptographically verified JWT.
+  - Reject expired, tampered, or improperly signed tokens even if accompanied by valid-looking gateway headers (`401 Unauthorized`).
+  - Authorize resource access strictly based on the authenticated `Jwt.getSubject()` and verified roles.
+
+### 7.4 Security Error Responses (RFC 7807)
+All JWT validation rejections across every service return consistent RFC 7807 Problem Details:
+```json
+{
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Authentication required",
+  "instance": "/api/v1/..."
+}
+```

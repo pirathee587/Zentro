@@ -23,8 +23,8 @@ zentro:
   identity:
     base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
+    audience: ${JWT_AUDIENCE:zentro-api}
     jwks-uri: ${JWT_JWKS_URI:}
 management:
   endpoint:
