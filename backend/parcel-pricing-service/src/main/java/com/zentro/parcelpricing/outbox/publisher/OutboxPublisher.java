@@ -1,6 +1,8 @@
 package com.zentro.parcelpricing.outbox.publisher;
 
 import com.zentro.parcelpricing.outbox.repository.OutboxRepository;
+import com.zentro.security.observability.PropagationContext;
+import io.micrometer.tracing.Span;
 import com.zentro.parcelpricing.config.OutboxProperties;
 import com.zentro.parcelpricing.outbox.repository.OutboxRepository.PendingEvent;
 import java.nio.charset.StandardCharsets;
@@ -54,6 +56,8 @@ public class OutboxPublisher {
   private final OutboxMetrics metrics;
   private final TransactionOperations transactions;
   private final Clock clock;
+  private PropagationContext propagation = PropagationContext.noop();
+  @Autowired(required = false) public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
 
   @Autowired
   public OutboxPublisher(OutboxRepository repository, KafkaTemplate<String, String> kafka,
@@ -90,26 +94,30 @@ public class OutboxPublisher {
       if (blockedParcels.contains(event.aggregateId())) {
         continue;
       }
-      String topic = properties.topicFor(event.eventType());
-      if (topic == null) {
-        recordFailure(event, UNMAPPED_EVENT_TYPE);
-        blockedParcels.add(event.aggregateId());
-        continue;
+      try (var work = propagation.start(event.propagation(), "outbox.publish", Span.Kind.PRODUCER); var scope = work.scope()) {
+        String topic = properties.topicFor(event.eventType());
+        if (topic == null) {
+          recordFailure(event, UNMAPPED_EVENT_TYPE);
+          blockedParcels.add(event.aggregateId());
+          continue;
+        }
+        try {
+          send(topic, event);
+        } catch (InterruptedException ex) {
+          work.failed();
+          Thread.currentThread().interrupt();
+          recordFailure(event, "interrupted while waiting for the broker");
+          break;
+        } catch (Exception ex) {
+          work.failed();
+          recordFailure(event, describe(ex));
+          // The broker is probably unavailable: stop this round instead of waiting on every remaining event.
+          break;
+        }
+        repository.markPublished(event.eventId());
+        metrics.published(event.eventType());
+        published++;
       }
-      try {
-        send(topic, event);
-      } catch (InterruptedException ex) {
-        Thread.currentThread().interrupt();
-        recordFailure(event, "interrupted while waiting for the broker");
-        break;
-      } catch (Exception ex) {
-        recordFailure(event, describe(ex));
-        // The broker is probably unavailable: stop this round instead of waiting on every remaining event.
-        break;
-      }
-      repository.markPublished(event.eventId());
-      metrics.published(event.eventType());
-      published++;
     }
     return published;
   }
@@ -120,6 +128,7 @@ public class OutboxPublisher {
     record.headers().add(HEADER_EVENT_ID, event.eventId().toString().getBytes(StandardCharsets.UTF_8));
     record.headers().add(HEADER_EVENT_TYPE, event.eventType().getBytes(StandardCharsets.UTF_8));
     record.headers().add(HEADER_SCHEMA_VERSION, SCHEMA_VERSION.getBytes(StandardCharsets.UTF_8));
+    propagation.capture().headers().forEach((name, value) -> record.headers().add(name, value.getBytes(StandardCharsets.UTF_8)));
     kafka.send(record).get(properties.sendTimeoutMs(), TimeUnit.MILLISECONDS);
   }
 
@@ -129,17 +138,20 @@ public class OutboxPublisher {
     metrics.failed(event.eventType());
     if (attempts >= properties.maxAttempts()) {
       log.error("Outbox event {} ({}) is dead after {} attempts and will not be retried until replayed",
-          event.eventId(), event.eventType(), attempts);
+          event.eventId(), safeEventType(event.eventType()), attempts);
     } else {
       log.warn("Outbox event {} ({}) failed attempt {}; next try at {}",
-          event.eventId(), event.eventType(), attempts, nextAttemptAt);
+          event.eventId(), safeEventType(event.eventType()), attempts, nextAttemptAt);
     }
   }
 
-  /** Short failure description from the exception type and message; Kafka errors never include the record value. */
+  private static String safeEventType(String type) {
+    return "parcel.created".equals(type) || "parcel.status.updated".equals(type) ? type : "unmapped";
+  }
+
+  /** Safe failure category only; exception messages may include sensitive payloads or broker credentials. */
   static String describe(Throwable ex) {
     Throwable cause = ex instanceof ExecutionException && ex.getCause() != null ? ex.getCause() : ex;
-    String message = cause.getMessage();
-    return cause.getClass().getSimpleName() + (message == null ? "" : ": " + message);
+    return cause.getClass().getSimpleName();
   }
 }

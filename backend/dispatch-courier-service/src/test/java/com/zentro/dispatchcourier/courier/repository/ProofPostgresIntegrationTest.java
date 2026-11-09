@@ -62,6 +62,22 @@ class ProofPostgresIntegrationTest {
         .isInstanceOf(ProofException.class);
     assertThat(proofs.find(parcel).orElseThrow()).isEqualTo(first.proof());
   }
+
+  @Test void diagnosticMetadataSurvivesNewRepositoryAndLegacyRows() {
+    org.slf4j.MDC.put("correlationId", "durable-proof-143");
+    try { proofs.save(parcel, "courier", evidence); }
+    finally { org.slf4j.MDC.remove("correlationId"); }
+    var first = proofs.claim(8).orElseThrow();
+    assertThat(first.propagation().correlationId()).isEqualTo("durable-proof-143");
+    jdbc.update("UPDATE dispatch.proof_of_delivery SET next_attempt_at = now() - interval '1 second'");
+    var restarted = new ProofRepository(jdbc);
+    var recovered = transactions.execute(status -> restarted.claim(8).orElseThrow());
+    assertThat(recovered.propagation()).isEqualTo(first.propagation());
+    jdbc.update("UPDATE dispatch.proof_of_delivery SET correlation_id = NULL, traceparent = NULL, tracestate = NULL, next_attempt_at = now() - interval '1 second'");
+    var legacy = transactions.execute(status -> restarted.claim(8).orElseThrow());
+    assertThat(legacy.propagation().correlationId()).isEqualTo(legacy.proofId().toString());
+    assertThat(legacy.propagation().traceparent()).isNull();
+  }
   @Test void concurrentSubmissionsCommitExactlyOneProof() throws Exception {
     var barrier = new CyclicBarrier(2);
     Callable<ProofRepository.Submission> submit = () -> { barrier.await(10, TimeUnit.SECONDS); return proofs.save(parcel, "courier", evidence); };

@@ -74,7 +74,7 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
             return new ServerCall.Listener<ReqT>() {};
           }
         } catch (JwtException e) {
-          log.warn("Invalid JWT in gRPC call: {}", e.getMessage());
+          log.warn("gRPC authentication rejected: category=invalid_jwt");
           call.close(Status.UNAUTHENTICATED.withDescription("Invalid JWT credentials"), new Metadata());
           return new ServerCall.Listener<ReqT>() {};
         }

@@ -1,6 +1,7 @@
 package com.zentro.parcelpricing.parcel.repository;
 
 import com.zentro.parcelpricing.parcel.entity.ParcelStatus;
+import com.zentro.security.observability.PropagationContext;
 import com.zentro.parcelpricing.parcel.entity.ParcelStatusChange;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -33,6 +34,9 @@ public class ParcelStatusRepository {
   }
 
   private final JdbcTemplate jdbc;
+  private PropagationContext propagation = PropagationContext.noop();
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
 
   public ParcelStatusRepository(JdbcTemplate jdbc) {
     this.jdbc = jdbc;
@@ -90,9 +94,10 @@ public class ParcelStatusRepository {
   /** Stores one event to be published later. {@code payloadJson} must be the full event envelope. */
   public void insertOutboxEvent(UUID eventId, UUID aggregateId, String eventType, String payloadJson,
       OffsetDateTime occurredAt) {
+    var metadata = propagation.capture();
     jdbc.update("""
-        INSERT INTO parcel.outbox_event (event_id, aggregate_id, event_type, payload, occurred_at)
-        VALUES (?, ?, ?, ?::jsonb, ?)
-        """, eventId, aggregateId, eventType, payloadJson, occurredAt);
+        INSERT INTO parcel.outbox_event (event_id, aggregate_id, event_type, payload, occurred_at, correlation_id, traceparent, tracestate)
+        VALUES (?, ?, ?, ?::jsonb, ?, ?, ?, ?)
+        """, eventId, aggregateId, eventType, payloadJson, occurredAt, metadata.correlationId(), metadata.traceparent(), metadata.tracestate());
   }
 }

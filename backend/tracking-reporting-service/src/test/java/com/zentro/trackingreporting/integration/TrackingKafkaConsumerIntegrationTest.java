@@ -37,6 +37,8 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext
+@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 class TrackingKafkaConsumerIntegrationTest {
 
   private static final String STATUS_TOPIC = "parcel.status.updated";
@@ -44,6 +46,23 @@ class TrackingKafkaConsumerIntegrationTest {
   private static final Duration WAIT = Duration.ofSeconds(30);
   private static final char[] CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ".toCharArray();
   private static final SecureRandom RANDOM = new SecureRandom();
+
+  @Test
+  void poisonRecordAndExceptionAreNotLoggedAndNextRecordStillProcesses(
+      org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+    String secret = "private-kafka-password-143";
+    String ref = newTrackingRef();
+    var poison = new org.apache.kafka.clients.producer.ProducerRecord<String, String>(CREATED_TOPIC, 0,
+        UUID.randomUUID().toString(), "{\"" + secret + "\":");
+    poison.headers().add("X-Correlation-Id", "safe-poison-143".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    kafka.send(poison).get();
+    UUID event = UUID.randomUUID();
+    var healthy = new org.apache.kafka.clients.producer.ProducerRecord<String, String>(CREATED_TOPIC, 0,
+        UUID.randomUUID().toString(), createdEventJson(event, UUID.randomUUID(), ref));
+    kafka.send(healthy).get();
+    await().atMost(WAIT).until(() -> !trackingEventRepository.findByTrackingRefOrderByOccurredAtAsc(ref).isEmpty());
+    assertThat(output.getAll()).contains("category=processing_error").doesNotContain(secret);
+  }
 
   @Container
   static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");

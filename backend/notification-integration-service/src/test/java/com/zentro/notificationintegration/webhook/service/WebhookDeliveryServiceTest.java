@@ -45,6 +45,26 @@ import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 
 class WebhookDeliveryServiceTest {
+  @Test void webhookAttemptsRestoreStoredContextAndUseFreshSpans() {
+    try (var tracing = new com.zentro.notificationintegration.support.PropagationTestSupport()) {
+      service.setPropagation(tracing.context);
+      var row = attemptRow("https://hooks.example.com/events", true, 0);
+      lock(new DeliveryAttempt(row.id(), row.subscriptionId(), row.eventId(), row.eventType(), row.parcelId(), row.payload(),
+          row.attempts(), row.createdAt(), row.merchantId(), row.url(), row.secretCiphertext(), row.subscriptionActive(), tracing.metadata("webhook-143")));
+      var spans = new java.util.ArrayList<String>();
+      when(sender.send(any())).thenAnswer(invocation -> {
+        assertThat(org.slf4j.MDC.get("correlationId")).isEqualTo("webhook-143");
+        assertThat(tracing.tracer.currentSpan().context().traceId()).isEqualTo(com.zentro.notificationintegration.support.PropagationTestSupport.TRACE);
+        spans.add(tracing.tracer.currentSpan().context().spanId());
+        return WebhookSendResult.response(500);
+      });
+      service.attempt(deliveryId);
+      service.attempt(deliveryId);
+      assertThat(spans).hasSize(2).doesNotHaveDuplicates();
+      assertThat(org.slf4j.MDC.get("correlationId")).isNull();
+      assertThat(tracing.tracer.currentSpan()).isNull();
+    }
+  }
   private static final String KEY = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
   private static final Instant NOW = Instant.parse("2026-11-06T08:00:00Z");
   private static final String MERCHANT = "merchant-unit";

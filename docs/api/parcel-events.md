@@ -210,3 +210,15 @@ The producer uses `acks=all` and `enable.idempotence=true`.
 - **Local broker:** `backend/docker-compose.yml` has no Kafka service yet. Owner: @pirathee587. Until then, run `docker run -d --name zd23-kafka -p 9092:9092 apache/kafka:3.7.0`.
 - **Kubernetes/Helm:** the Kafka deployment and production topic settings belong to the deployment owner.
 - **Payload confirmation:** the payloads above, including the optional `merchantId` added in #32, still need confirmation from the S4 and S5 owners (@hephzibah-peries, @Deadsecnote1).
+
+## Correlation and tracing (#143)
+
+The outbox retains nullable diagnostic columns separately from the event JSON.
+The publisher restores that parent context and creates a fresh producer span
+for each attempt. Kafka adds `X-Correlation-Id`, `traceparent`, and optional
+`tracestate` alongside the existing event headers; keys, values, event IDs,
+schemaVersion, ordering and delivery guarantees are unchanged. S4 and both S5
+consumer groups extract validated headers into scoped consumer-attempt spans.
+Legacy messages/rows remain supported without metadata. No baggage or secrets
+are copied. See [observability](../architecture/observability.md) for validation,
+nullable migration names, retry/restart behavior and logging limitations.

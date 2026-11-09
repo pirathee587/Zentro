@@ -35,7 +35,7 @@ public class TrackingStreamService {
           .name("connected")
           .data(Map.of("trackingRef", key, "status", "CONNECTED")));
     } catch (IOException e) {
-      log.debug("Failed to send initial SSE connected event for {}", key, e);
+      log.debug("Tracking stream failed: category=initial_send_error");
       removeEmitter(key, emitter);
     }
 
@@ -60,7 +60,7 @@ public class TrackingStreamService {
                 "occurredAt", event.getOccurredAt().toString()
             )));
       } catch (IOException e) {
-        log.debug("Removing dead SSE emitter for {}", key);
+        log.debug("Tracking stream closed: category=dead_emitter");
         removeEmitter(key, emitter);
       }
     }

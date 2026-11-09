@@ -1,6 +1,7 @@
 package com.zentro.parcelpricing.outbox.repository;
 
 import java.time.OffsetDateTime;
+import com.zentro.security.observability.PropagationMetadata;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,7 +16,13 @@ public class OutboxRepository {
   static final int MAX_ERROR_LENGTH = 500;
 
   /** One unpublished event. {@code payload} is the full event envelope JSON as stored. */
-  public record PendingEvent(UUID eventId, UUID aggregateId, String eventType, String payload, int attempts) {}
+  public record PendingEvent(UUID eventId, UUID aggregateId, String eventType, String payload, int attempts,
+      PropagationMetadata propagation) {
+    public PendingEvent(UUID eventId, UUID aggregateId, String eventType, String payload, int attempts) {
+      this(eventId, aggregateId, eventType, payload, attempts, new PropagationMetadata(eventId.toString(), null, null));
+    }
+    @Override public String toString() { return "PendingEvent[eventId=" + eventId + "]"; }
+  }
 
   private final JdbcTemplate jdbc;
 
@@ -32,7 +39,7 @@ public class OutboxRepository {
   @Transactional(propagation = Propagation.MANDATORY)
   public List<PendingEvent> fetchBatch(int maxAttempts, int batchSize) {
     return jdbc.query("""
-        SELECT o.event_id, o.aggregate_id, o.event_type, o.payload::text AS payload, o.attempts
+        SELECT o.event_id, o.aggregate_id, o.event_type, o.payload::text AS payload, o.attempts, o.correlation_id, o.traceparent, o.tracestate
           FROM parcel.outbox_event o
          WHERE o.published_at IS NULL
            AND o.attempts < ?
@@ -50,7 +57,9 @@ public class OutboxRepository {
             rs.getObject("aggregate_id", UUID.class),
             rs.getString("event_type"),
             rs.getString("payload"),
-            rs.getInt("attempts")),
+            rs.getInt("attempts"), new PropagationMetadata(
+                rs.getString("correlation_id") == null ? rs.getString("event_id") : rs.getString("correlation_id"),
+                rs.getString("traceparent"), rs.getString("tracestate"))),
         maxAttempts, batchSize);
   }
 

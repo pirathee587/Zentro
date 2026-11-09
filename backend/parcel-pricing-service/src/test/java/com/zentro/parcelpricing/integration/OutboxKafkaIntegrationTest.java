@@ -63,9 +63,28 @@ import org.testcontainers.utility.DockerImageName;
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext // stop the publisher's scheduler with this class instead of keeping it in the context cache
+@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
 class OutboxKafkaIntegrationTest {
   private static final String STATUS_TOPIC = "parcel.status.updated";
   private static final String CREATED_TOPIC = "parcel.created";
+
+  @Test
+  void requestContextSurvivesStoredOutboxAndKafkaPublication() throws Exception {
+    String trace = "0123456789abcdef0123456789abcdef";
+    String body = mvc.perform(post("/api/v1/parcels").with(as("trace-customer", "CUSTOMER"))
+        .header("X-Correlation-Id", "outbox-request-143")
+        .header("traceparent", "00-" + trace + "-0123456789abcdef-01")
+        .contentType(MediaType.APPLICATION_JSON).content(BOOKING))
+        .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+    UUID parcelId = UUID.fromString(objectMapper.readTree(body).get("id").asText());
+    var record = awaitRecords(parcelId, 1).getFirst();
+    var stored = jdbc.queryForMap("SELECT correlation_id, traceparent FROM parcel.outbox_event WHERE aggregate_id = ?", parcelId);
+    assertThat(stored.get("correlation_id")).isEqualTo("outbox-request-143");
+    assertThat((String) stored.get("traceparent")).startsWith("00-" + trace + "-");
+    assertThat(header(record, "X-Correlation-Id")).isEqualTo("outbox-request-143");
+    assertThat(header(record, "traceparent")).startsWith("00-" + trace + "-").isNotEqualTo(stored.get("traceparent"));
+    assertThat(record.value()).doesNotContain("correlation_id", "traceparent", "tracestate");
+  }
   private static final String BOOKING = """
       {
         "sender": {"name": "Kafka Sender", "phone": "0771234567", "address": "12 Kafka Road, Colombo", "city": "Colombo"},

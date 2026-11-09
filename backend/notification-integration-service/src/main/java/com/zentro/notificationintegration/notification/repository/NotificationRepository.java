@@ -1,5 +1,7 @@
 package com.zentro.notificationintegration.notification.repository;
 
+import com.zentro.security.observability.PropagationContext;
+import com.zentro.security.observability.PropagationMetadata;
 import com.zentro.notificationintegration.messaging.event.ParcelEvent;
 import com.zentro.notificationintegration.notification.entity.NotificationStatus;
 import java.time.OffsetDateTime;
@@ -12,13 +14,22 @@ import org.springframework.stereotype.Repository;
 /** JdbcTemplate access to the notification schema. */
 @Repository
 public class NotificationRepository {
+  private PropagationContext propagation = PropagationContext.noop();
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
+
   static final int MAX_ERROR_LENGTH = 500;
   static final int MAX_REASON_LENGTH = 200;
   static final int MAX_MESSAGE_LENGTH = 500;
 
   /** The parts of a notification row needed to (re)send it. */
   public record AttemptRow(UUID id, UUID eventId, String trackingRef, String parcelStatus, String channel,
-      String message, int attempts) {}
+      String message, int attempts, PropagationMetadata propagation) {
+    public AttemptRow(UUID id, UUID eventId, String trackingRef, String parcelStatus, String channel, String message, int attempts) {
+      this(id, eventId, trackingRef, parcelStatus, channel, message, attempts, new PropagationMetadata(eventId.toString(), null, null));
+    }
+    @Override public String toString() { return "AttemptRow[id=" + id + ", eventId=" + eventId + "]"; }
+  }
 
   private final JdbcTemplate jdbc;
 
@@ -40,14 +51,15 @@ public class NotificationRepository {
   /** Creates the notification row for an event and returns its id. */
   public UUID insertAttempt(ParcelEvent event, String channel, String message, NotificationStatus status,
       OffsetDateTime nextAttemptAt) {
+    var metadata = propagation.capture();
     return jdbc.queryForObject("""
         INSERT INTO notification.notification_attempt
-            (event_id, event_type, parcel_id, tracking_ref, parcel_status, channel, message, status, next_attempt_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (event_id, event_type, parcel_id, tracking_ref, parcel_status, channel, message, status, next_attempt_at, correlation_id, traceparent, tracestate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING id
         """, UUID.class,
         event.eventId(), event.eventType(), event.parcelId(), event.trackingRef(), event.status(), channel,
-        cut(message, MAX_MESSAGE_LENGTH), status.name(), nextAttemptAt);
+        cut(message, MAX_MESSAGE_LENGTH), status.name(), nextAttemptAt, metadata.correlationId(), metadata.traceparent(), metadata.tracestate());
   }
 
   /**
@@ -56,14 +68,16 @@ public class NotificationRepository {
    */
   public Optional<AttemptRow> lockForDelivery(UUID id) {
     return jdbc.query("""
-        SELECT id, event_id, tracking_ref, parcel_status, channel, message, attempts
+        SELECT id, event_id, tracking_ref, parcel_status, channel, message, attempts, correlation_id, traceparent, tracestate
           FROM notification.notification_attempt
          WHERE id = ? AND status IN ('PENDING', 'RETRY')
          FOR UPDATE SKIP LOCKED
         """,
         (rs, n) -> new AttemptRow(rs.getObject("id", UUID.class), rs.getObject("event_id", UUID.class),
             rs.getString("tracking_ref"), rs.getString("parcel_status"), rs.getString("channel"),
-            rs.getString("message"), rs.getInt("attempts")),
+            rs.getString("message"), rs.getInt("attempts"), new PropagationMetadata(
+                rs.getString("correlation_id") == null ? rs.getString("event_id") : rs.getString("correlation_id"),
+                rs.getString("traceparent"), rs.getString("tracestate"))),
         id).stream().findFirst();
   }
 

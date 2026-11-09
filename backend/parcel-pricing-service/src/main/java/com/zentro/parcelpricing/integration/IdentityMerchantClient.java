@@ -85,7 +85,7 @@ public class IdentityMerchantClient {
       log.error("Identity returned unexpected status during merchant check: {}", ex.getStatusCode());
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Identity verification service is unavailable. Please try again.");
     } catch (RestClientException ex) {
-      log.error("Failed to connect to Identity service during merchant check: {}", ex.getMessage());
+      log.error("Identity merchant check failed: category=transport_error");
       throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Identity verification service is unavailable. Please try again.");
     }
   }

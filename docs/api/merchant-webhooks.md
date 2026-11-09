@@ -304,3 +304,12 @@ Migration `V2__webhook_schema.sql` (schema `notification`):
 - **Schema confirmation:** the optional `merchantId` in both event schemas needs confirmation from the S4 and S5 owners (@hephzibah-peries, @Deadsecnote1).
 - **Encryption key rotation** with two active keys is not supported; see "Configuration".
 - **Deployment:** `WEBHOOK_SECRET_KEY` must be provided through the deployment's secret store (deployment owner).
+
+## Internal diagnostic context (#143)
+
+S5 stores Kafka correlation/W3C context in nullable internal delivery columns
+and restores it for every immediate or scheduled attempt. Retries keep the
+originating trace but create new span IDs. Legacy rows without metadata still
+work. The signed body, hash, event ID, signature headers and external webhook
+contract do not change; internal trace/correlation headers and baggage are not
+sent to merchant endpoints. See [observability](../architecture/observability.md).
