@@ -17,6 +17,13 @@ describe('staff sign in handoff', () => {
     expect(screen.getByRole('heading', { name: 'This account is not enabled for staff.' })).toBeInTheDocument();
     expect(auth.logout).not.toHaveBeenCalled();
   });
+
+  it('returns a dispatcher who started sign in on /dispatcher to the dispatcher portal', async () => {
+    const auth: Auth = { user: { id: 'dispatcher', roles: ['DISPATCHER'], accessToken: 'test-token', returnTo: '/dispatcher', entryPoint: 'staff' }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
+    renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes><Route path="*" element={<CallbackPage />} /><Route path="/dispatcher" element={<h1>Dispatcher portal opened</h1>} /></Routes></AuthContext.Provider></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Dispatcher portal opened' })).toBeInTheDocument();
+    expect(screen.queryByText(/does not have access to a Zentro portal/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('merchant access handoff', () => {
