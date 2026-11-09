@@ -356,6 +356,7 @@ class MerchantWebhookApiTest {
     assertThat(first.get("items")).hasSize(2);
     assertThat(first.get("items").get(0).get("status").asText()).isEqualTo("FAILED");
     assertThat(first.get("items").get(0).get("responseStatus").asInt()).isEqualTo(200);
+    assertThat(first.get("items").get(0).get("responseClass").asText()).isEqualTo("SUCCESSFUL");
     assertThat(first.get("items").get(0).has("payload")).isFalse();
     JsonNode second = json(perform(get(PATH + "/deliveries").param("page", "1").param("size", "2"), auth));
     assertThat(second.get("items")).hasSize(1);

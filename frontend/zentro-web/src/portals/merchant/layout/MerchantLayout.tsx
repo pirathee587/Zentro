@@ -2,10 +2,12 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
 import './merchant.css';
+import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 
 export function MerchantLayout() {
   const { logout, user } = useAuth();
   return <div className="merchant-portal">
+    <RouteAccessibility portal="Merchant dashboard" />
     <header className="merchant-header">
       <Link className="merchant-brand" to="/merchant/dashboard" aria-label="Zentro merchant home"><span className="merchant-brand-mark">z</span><span>zentro <small>business</small></span></Link>
       <nav className="merchant-nav" aria-label="Merchant navigation">

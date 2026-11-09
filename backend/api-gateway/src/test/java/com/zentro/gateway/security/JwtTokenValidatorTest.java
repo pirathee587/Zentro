@@ -75,5 +75,22 @@ class JwtTokenValidatorTest {
     assertThat(result.getErrors()).extracting("description")
         .contains("Required audience is missing");
   }
+
+  @Test
+  void rejectsTokenWithEmptyAudience() {
+    Jwt jwt = Jwt.withTokenValue("empty-audience")
+        .header("alg", "RS256")
+        .issuer(ISSUER)
+        .audience(List.of())
+        .issuedAt(Instant.now().minusSeconds(30))
+        .expiresAt(Instant.now().plusSeconds(300))
+        .build();
+
+    OAuth2TokenValidatorResult result = validator.validate(jwt);
+
+    assertThat(result.hasErrors()).isTrue();
+    assertThat(result.getErrors()).extracting("description")
+        .contains("Required audience is missing");
+  }
 }
 

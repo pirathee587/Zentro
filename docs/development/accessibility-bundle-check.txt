@@ -1,0 +1,14 @@
+Actual post-build inspection: scanned JS/CSS dist assets for /axe-core|user-event/i, read installed package metadata, and ran npm ls --omit=dev @testing-library/user-event axe-core.
+
+@testing-library/user-event 14.6.1 MIT
+axe-core 4.11.0 MPL-2.0
+JS/CSS dist assets inspected: 9
+dist assets matching axe-core|user-event: []
+zentro-web@0.1.0 /repo/frontend/zentro-web
+`-- (empty)
+
+npm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

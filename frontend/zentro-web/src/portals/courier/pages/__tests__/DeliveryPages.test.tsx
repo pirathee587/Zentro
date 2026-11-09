@@ -11,6 +11,8 @@ import { TodayDeliveriesPage } from '../TodayDeliveriesPage';
 import { DeliveryDetailPage } from '../DeliveryDetailPage';
 import { ProofOfDeliveryForm } from '../ProofOfDeliveryForm';
 import type { ProofResponse } from '../../api/deliveryApi';
+import { CourierLayout } from '../../layout/CourierLayout';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 
 const parcelId = '11111111-1111-4111-8111-111111111111';
 const root = `*/api/v1/courier/deliveries`;
@@ -25,12 +27,13 @@ let submitted: unknown;
 
 function renderPages(path = `/courier/deliveries/${parcelId}`) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth as never}>
+  const view = render(<QueryClientProvider client={client}><AuthContext.Provider value={auth as never}>
     <MemoryRouter initialEntries={[path]}><Routes>
       <Route path="/courier" element={<TodayDeliveriesPage />} />
       <Route path="/courier/deliveries/:deliveryId" element={<DeliveryDetailPage />} />
     </Routes></MemoryRouter>
   </AuthContext.Provider></QueryClientProvider>);
+  return { ...view, client };
 }
 function fillForm() {
   fireEvent.change(screen.getByLabelText(/Recipient Name/), { target: { value: ' Nimal ' } });
@@ -44,13 +47,15 @@ function renderSession(path = '/courier') {
   function tree(session: Auth) {
     return <QueryClientProvider client={client}><AuthContext.Provider value={session}>
       <MemoryRouter initialEntries={[path]}><Routes><Route element={<ProtectedRoute />}>
-        <Route path="/courier" element={<TodayDeliveriesPage />} />
-        <Route path="/courier/deliveries/:deliveryId" element={<DeliveryDetailPage />} />
+        <Route element={<CourierLayout />}>
+          <Route path="/courier" element={<TodayDeliveriesPage />} />
+          <Route path="/courier/deliveries/:deliveryId" element={<DeliveryDetailPage />} />
+        </Route>
       </Route></Routes></MemoryRouter>
     </AuthContext.Provider></QueryClientProvider>;
   }
   const view = render(tree(initial));
-  return { change: (user: Auth['user']) => view.rerender(tree({ ...initial, user })) };
+  return { client, change: (user: Auth['user']) => view.rerender(tree({ ...initial, user })) };
 }
 beforeEach(() => {
   currentProof = null; requests = 0; submitted = undefined;
@@ -86,6 +91,7 @@ describe('courier delivery pages', () => {
     expect(await screen.findByText(otherId)).toBeInTheDocument();
     await act(async () => { release(); await responded; });
     expect(screen.queryByText(parcelId)).not.toBeInTheDocument();
+    expect(session.client.getQueryData(queryKeys.courier.deliveries(principalCacheScope(auth.user.id)))).toBeUndefined();
   });
   it('unmounts saved evidence and requests sign-in on logout', async () => {
     currentProof = { ...savedProof, completionState: 'COMPLETED' };
@@ -94,6 +100,7 @@ describe('courier delivery pages', () => {
     session.change(null);
     expect(await screen.findByText('Redirecting to sign in...')).toBeInTheDocument();
     expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
+    expect(session.client.getQueriesData({ queryKey: ['courier'] })).toEqual([]);
     expect(auth.login).toHaveBeenCalledWith(`/courier/deliveries/${parcelId}`, undefined, 'staff');
   });
   it('clears unsaved evidence when the account changes on the same delivery route', async () => {
@@ -114,11 +121,12 @@ describe('courier delivery pages', () => {
   });
   it('hides previously displayed proof when a refresh is denied', async () => {
     currentProof = savedProof;
-    renderPages(); await screen.findByText('Nimal');
+    const { client } = renderPages(); await screen.findByText('Nimal');
     server.use(http.get(`${root}/${parcelId}/proof`, () => HttpResponse.json({}, { status: 403 })));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh completion state' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('permission');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Delivery not available');
     expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
+    expect(JSON.stringify(client.getQueriesData({ queryKey: ['courier'] }))).not.toContain('Nimal');
   });
   it('lists authorized deliveries and navigates to details', async () => {
     renderPages('/courier');
@@ -176,7 +184,7 @@ describe('courier delivery pages', () => {
   it.each([401, 403] as const)('does not show evidence after access failure %s', async status => {
     server.use(http.get(`${root}/${parcelId}`, () => HttpResponse.json({}, { status })));
     renderPages();
-    expect(await screen.findByRole('alert')).toHaveTextContent(status === 401 ? 'session has expired' : 'permission');
+    expect(await screen.findByRole('alert')).toHaveTextContent(status === 401 ? 'session has expired' : 'Delivery not available');
     expect(screen.queryByLabelText(/Recipient Name/)).not.toBeInTheDocument();
     expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
   });
@@ -184,7 +192,7 @@ describe('courier delivery pages', () => {
     server.use(http.post(`${root}/${parcelId}/proof`, () => HttpResponse.json({ fieldErrors: { proofReference: 'Reference is invalid.' } }, { status: 400 })));
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
-    expect(await screen.findByText('Reference is invalid.')).toBeInTheDocument();
+    expect(await screen.findByText('Check this field.')).toBeInTheDocument();
     expect(screen.getByLabelText(/Recipient Name/)).toHaveValue(' Nimal ');
   });
   it('reconciles a lost POST response and never resubmits saved evidence', async () => {
@@ -217,5 +225,140 @@ describe('proof form limits', () => {
     fillForm(); fireEvent.change(screen.getByLabelText(new RegExp(label)), { target: { value: 'x'.repeat(size) } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
     expect(screen.getByText(`Use at most ${size - 1} characters.`)).toBeInTheDocument(); expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe('assigned-delivery access and recovery', () => {
+  it.each([403, 404])('uses the same neutral detail state for %s and clears cached evidence', async status => {
+    currentProof = savedProof;
+    const { client } = renderPages();
+    await screen.findByText('Nimal');
+    server.use(http.get(`${root}/${parcelId}/proof`, () => HttpResponse.json({}, { status })));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh completion state' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Delivery not available');
+    expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
+    expect(screen.queryByText(parcelId)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
+    const cached = client.getQueriesData({ queryKey: ['courier'] });
+    expect(JSON.stringify(cached)).not.toContain('Nimal');
+    expect(JSON.stringify(cached)).not.toContain('REF-1');
+  });
+  it.each([401, 403])('does not retry list access failure %s', async status => {
+    let calls = 0;
+    server.use(http.get(root, () => { calls++; return HttpResponse.json({}, { status }); }));
+    renderPages('/courier');
+    expect(await screen.findByRole('alert')).toHaveTextContent(status === 401 ? 'session has expired' : "You don't have access");
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(calls).toBe(1);
+    if (status === 401) {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign in again' }));
+      expect(auth.login).toHaveBeenCalledWith('/courier', undefined, 'staff');
+    }
+  });
+  it('retries a list dependency failure explicitly', async () => {
+    server.use(http.get(root, () => HttpResponse.json({}, { status: 503 })));
+    renderPages('/courier');
+    await screen.findByRole('alert');
+    server.use(http.get(root, () => HttpResponse.json([summary])));
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText(parcelId)).toBeInTheDocument();
+  });
+  it.each([400, 422])('maps %s field errors without echoing server input', async status => {
+    server.use(http.post(`${root}/${parcelId}/proof`, () => HttpResponse.json({ fieldErrors: {
+      recipientName: 'Rejected PRIVATE-VALUE', notes: 'PRIVATE-NOTE', unrelated: 'PRIVATE-OTHER',
+    } }, { status })));
+    renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
+    await waitFor(() => expect(screen.getByLabelText(/Recipient Name/)).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.getByLabelText(/Delivery Notes/)).toHaveAttribute('aria-invalid', 'true');
+    expect(document.body.textContent).not.toContain('PRIVATE-');
+  });
+  it.each(['network', '503'])('never automatically repeats a POST after %s', async failure => {
+    server.use(http.post(`${root}/${parcelId}/proof`, () => {
+      requests++;
+      return failure === 'network' ? HttpResponse.error() : HttpResponse.json({}, { status: 503 });
+    }));
+    renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
+    await screen.findByRole('button', { name: 'Check and retry' });
+    expect(requests).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Check and retry' }));
+    await waitFor(() => expect(requests).toBe(2));
+  });
+  it('invalidates list and submitted delivery using a real QueryClient', async () => {
+    const { client } = renderPages();
+    await screen.findByLabelText(/Recipient Name/);
+    const scope = principalCacheScope(auth.user.id);
+    client.setQueryData(queryKeys.courier.deliveries(scope), [summary]);
+    client.setQueryData(queryKeys.courier.profile(scope), { name: 'Synthetic Courier' });
+    client.setQueryData(queryKeys.courier.delivery('other-parcel', scope), { parcelId: 'other-parcel' });
+    client.setQueryData(queryKeys.customer.dashboard(), { count: 1 });
+    fillForm(); fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
+    await screen.findByRole('heading', { name: 'Saved proof' });
+    expect(client.getQueryState(queryKeys.courier.deliveries(scope))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(queryKeys.courier.profile(scope))?.isInvalidated).toBe(false);
+    expect(client.getQueryState(queryKeys.courier.delivery('other-parcel', scope))?.isInvalidated).toBe(false);
+    expect(client.getQueryState(queryKeys.customer.dashboard())?.isInvalidated).toBe(false);
+  });
+  it('counts recipient Unicode code points rather than UTF-16 units', async () => {
+    const save = vi.fn().mockResolvedValue(savedProof);
+    render(<ProofOfDeliveryForm save={save} reconcile={vi.fn().mockResolvedValue(null)} saved={vi.fn()} />);
+    fillForm();
+    fireEvent.change(screen.getByLabelText(/Recipient Name/), { target: { value: '𐐀'.repeat(100) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    expect(save.mock.calls[0][0].recipientName).toBe('𐐀'.repeat(100));
+  });
+});
+
+describe('proof ownership changes during submission', () => {
+  it.each([403, 404])('removes the draft and caches when pre-submit reconciliation returns %s', async status => {
+    const { client } = renderPages();
+    await screen.findByLabelText(/Recipient Name/); fillForm();
+    server.use(http.get(`${root}/${parcelId}/proof`, () => HttpResponse.json({}, { status })));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Delivery not available');
+    expect(screen.queryByDisplayValue(' Nimal ')).not.toBeInTheDocument();
+    expect(screen.queryByText(parcelId)).not.toBeInTheDocument();
+    expect(client.getQueryData(queryKeys.courier.delivery(parcelId, principalCacheScope(auth.user.id)))).toBeNull();
+    expect(requests).toBe(0);
+  });
+  it('does not restore the previous account cache after a late POST response', async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const sending = new Promise<void>(resolve => { started = resolve; });
+    server.use(http.post(`${root}/${parcelId}/proof`, async () => {
+      started(); await gate; return HttpResponse.json(savedProof, { status: 201 });
+    }));
+    const session = renderSession(`/courier/deliveries/${parcelId}`);
+    await screen.findByLabelText(/Recipient Name/); fillForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
+    await sending;
+    server.use(http.get(`${root}/${parcelId}`, () => HttpResponse.json({}, { status: 403 })));
+    session.change({ ...auth.user, id: 'courier-b', accessToken: 'token-b' } as Auth['user']);
+    await screen.findByText('Delivery not available');
+    await act(async () => { release(); await delay(30); });
+    expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
+    expect(JSON.stringify(session.client.getQueriesData({ queryKey: ['courier'] }))).not.toContain('Nimal');
+    expect(session.client.getQueryData(queryKeys.courier.proof(parcelId, principalCacheScope(auth.user.id)))).toBeUndefined();
+  });
+});
+
+describe('delivery navigation', () => {
+  it('can open an assigned delivery after visiting an unavailable delivery', async () => {
+    const other = '22222222-2222-4222-8222-222222222222';
+    server.use(
+      http.get(`${root}/${parcelId}`, () => HttpResponse.json({}, { status: 403 })),
+      http.get(root, () => HttpResponse.json([{ ...summary, parcelId: other }])),
+      http.get(`${root}/${other}`, () => HttpResponse.json({ ...summary, parcelId: other })),
+      http.get(`${root}/${other}/proof`, () => HttpResponse.json({ code: 'PROOF_NOT_FOUND' }, { status: 404 })),
+    );
+    renderPages();
+    await screen.findByText('Delivery not available');
+    fireEvent.click(screen.getByRole('link', { name: 'Back to my deliveries' }));
+    fireEvent.click(await screen.findByRole('link', { name: 'View delivery' }));
+    expect(await screen.findByLabelText(/Recipient Name/)).toBeInTheDocument();
+    expect(screen.queryByText('Delivery not available')).not.toBeInTheDocument();
   });
 });

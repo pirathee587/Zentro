@@ -787,6 +787,8 @@ Test colocation is an accepted and preferred convention. Keep component tests cl
 
 Before considering a frontend change complete, run applicable ESLint, TypeScript type-check, unit/component tests and production build commands defined by the actual `package.json`. Do not claim checks passed unless they were executed successfully.
 
+See `docs/development/accessibility.md` for WCAG 2.2 AA review patterns, token contrast evidence and the manual verification checklist. DOM tests do not verify browser layout, screen readers or device rendering.
+
 ## Mandatory Frontend Refactoring Workflow
 
 Before changing frontend architecture:

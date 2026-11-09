@@ -30,8 +30,15 @@ export async function getProof(id: string, token: string, signal?: AbortSignal):
 export async function submitProof(id: string, body: SubmitProofRequest, token: string): Promise<ProofResponse> {
   return (await apiClient.post<ProofResponse>(`${path(id)}/proof`, body, auth(token))).data;
 }
+export function deliveryAccessDenied(error: unknown): boolean {
+  return axios.isAxiosError(error) && [403, 404].includes(error.response?.status ?? 0);
+}
+export function deliverySessionExpired(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
 export function deliveryError(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (error.response?.status === 403) return "You don't have access";
     if (error.response?.status === 409) return 'Proof is already recorded with different evidence. Refresh to view the saved proof.';
     if (error.response?.status === 404) return 'This delivery is no longer available to your account.';
     if (error.response?.status === 400) return 'Check the required fields and character limits.';
