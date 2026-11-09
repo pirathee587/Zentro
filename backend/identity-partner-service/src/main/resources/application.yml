@@ -16,7 +16,7 @@ zentro:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
     jwks-uri: ${JWT_JWKS_URI:}
-    internal-token: ${INTERNAL_SERVICE_TOKEN:zentro-internal-service-secret}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:}
 grpc:
   server:
     port: ${GRPC_SERVER_PORT:9081}

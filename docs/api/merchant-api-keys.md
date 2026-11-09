@@ -64,7 +64,7 @@ Gateway route: `/api/v1/merchants/**` (requires human authentication; S1 enforce
 #### Response Example (`200 OK`)
 ```json
 {
-  "secret": "zn_live_K7z9X1v2B8c3D4e5F6g7H8j9K0l1M2n3P4q5R6s7T8u",
+  "secret": "zn_example_xxx",
   "credential": {
     "id": "7f0a9967-1724-4f81-9b16-5bc456a12345",
     "prefix": "zn_live_K7z9X1v2",
