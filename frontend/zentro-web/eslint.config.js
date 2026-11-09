@@ -20,4 +20,5 @@ export default [
   {files:['src/shared/**/*.{ts,tsx}'], rules:{'no-restricted-imports':['error',{patterns:[{group:['@/portals/**','@/app/**'],message:'Shared modules must not import portals or app.'}]}], 'no-restricted-syntax':rawControlRule}},
   {files:['src/app/**/*.{ts,tsx}'], rules:{'no-restricted-syntax':rawControlRule}},
   {files:['src/shared/ui/**/*.{ts,tsx}'], rules:{'no-restricted-syntax':'off'}},
+  {files:['tests/e2e/**/*.{ts,tsx}'], rules:{'react-hooks/rules-of-hooks':'off'}},
 ];

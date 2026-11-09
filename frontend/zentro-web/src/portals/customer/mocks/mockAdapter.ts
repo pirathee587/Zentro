@@ -22,9 +22,50 @@ import {
   buildDashboardData,
 } from './mockData';
 
+// Session storage backing for mock session persistence across page reloads
+function loadStoredParcels(): Parcel[] {
+  if (typeof window !== 'undefined') {
+    const raw = window.sessionStorage.getItem('zentro.mock-parcels');
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        // Fall back to initial mock parcels
+      }
+    }
+  }
+  return [...INITIAL_MOCK_PARCELS];
+}
+
+function saveStoredParcels(parcels: Parcel[]): void {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.setItem('zentro.mock-parcels', JSON.stringify(parcels));
+  }
+}
+
+function loadStoredReceipts(): Receipt[] {
+  if (typeof window !== 'undefined') {
+    const raw = window.sessionStorage.getItem('zentro.mock-receipts');
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        // Fall back to initial mock receipts
+      }
+    }
+  }
+  return [...INITIAL_MOCK_RECEIPTS];
+}
+
+function saveStoredReceipts(receipts: Receipt[]): void {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.setItem('zentro.mock-receipts', JSON.stringify(receipts));
+  }
+}
+
 // In-memory persistent state for the mock session
-let parcelsStore: Parcel[] = [...INITIAL_MOCK_PARCELS];
-let receiptsStore: Receipt[] = [...INITIAL_MOCK_RECEIPTS];
+let parcelsStore: Parcel[] = loadStoredParcels();
+let receiptsStore: Receipt[] = loadStoredReceipts();
 const supportTicketsStore: SupportTicket[] = [];
 
 // Subscribers for real-time tracking
@@ -222,6 +263,7 @@ export const mockCustomerAdapter = {
     };
 
     parcelsStore = [newParcel, ...parcelsStore];
+    saveStoredParcels(parcelsStore);
     if (key) {
       idempotentBookings.set(key, { signature, booking: bookingResponse });
     }
@@ -242,6 +284,7 @@ export const mockCustomerAdapter = {
       recipientName: payload.recipient.name,
     };
     receiptsStore = [newReceipt, ...receiptsStore];
+    saveStoredReceipts(receiptsStore);
 
     return bookingResponse;
   },
