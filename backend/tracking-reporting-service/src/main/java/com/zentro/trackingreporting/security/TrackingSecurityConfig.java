@@ -35,7 +35,8 @@ public class TrackingSecurityConfig {
         .authorizeHttpRequests(registry -> registry
             .requestMatchers("/actuator/health/**", "/v3/api-docs/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/tracking/mine").hasAnyRole("CUSTOMER", "MERCHANT")
-            .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*", "/api/v1/tracking/*/events", "/api/v1/tracking/*/stream")
+            .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*/stream").hasAnyRole("CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER")
+            .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*", "/api/v1/tracking/*/events")
                 .access((authentication, context) -> new AuthorizationDecision(!serviceOnly(authentication.get())))
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth -> oauth

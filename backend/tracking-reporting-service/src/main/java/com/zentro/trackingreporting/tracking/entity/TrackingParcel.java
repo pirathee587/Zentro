@@ -32,6 +32,9 @@ public class TrackingParcel {
   @Column(name = "merchant_subject")
   private String merchantSubject;
 
+  @Column(name = "courier_subject")
+  private String courierSubject;
+
   @Column(name = "sender_name", nullable = false, length = 100)
   private String senderName;
 
@@ -125,6 +128,9 @@ public class TrackingParcel {
 
   public String getMerchantSubject() { return merchantSubject; }
   public void setMerchantSubject(String merchantSubject) { this.merchantSubject = merchantSubject; }
+
+  public String getCourierSubject() { return courierSubject; }
+  public void setCourierSubject(String courierSubject) { this.courierSubject = courierSubject; }
 
   public String getSenderName() { return senderName; }
   public void setSenderName(String senderName) { this.senderName = senderName; }

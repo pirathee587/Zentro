@@ -70,6 +70,7 @@ Content-Type: application/json
       "status": "RETRY",
       "attempts": 2,
       "responseStatus": 503,
+      "responseClass": "RETRYABLE_FAILURE",
       "lastError": "HTTP 503",
       "nextAttemptAt": "2026-11-06T08:01:10Z",
       "createdAt": "2026-11-06T08:00:30Z",
@@ -281,6 +282,8 @@ All settings come from environment variables. Names are listed in `backend/notif
 | Signal | Name |
 |---|---|
 | Counter | `zentro.webhooks.succeeded`, `zentro.webhooks.failed`, `zentro.webhooks.retried` |
+| Counter | `zentro.webhooks.attempts` (tags: `response_class`, `outcome`) |
+| Counter | `zentro.webhooks.terminal` (tag: `category`) |
 | Counter | `zentro.webhooks.skipped`: no `merchantId`, no active endpoint, or endpoint disabled |
 | Counter | `zentro.webhooks.duplicates`, `zentro.webhooks.rejected` (malformed events) |
 | Gauge | `zentro.webhooks.pending` (`PENDING` + `RETRY`), `zentro.webhooks.failed.total` |

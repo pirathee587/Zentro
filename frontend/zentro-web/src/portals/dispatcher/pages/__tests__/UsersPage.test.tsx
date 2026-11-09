@@ -159,7 +159,7 @@ describe('UsersPage', () => {
     renderUsersPage();
     await screen.findByText('Alice');
     fireEvent.click(screen.getByRole('button', { name: 'Edit user Alice' }));
-    expect(screen.getByRole('dialog', { name: /Edit Alice/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Edit user' })).toBeInTheDocument();
   });
 
   it('disables account status dropdown when editing own account', async () => {

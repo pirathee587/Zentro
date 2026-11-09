@@ -20,12 +20,14 @@ export const Field: React.FC<FieldProps> = ({
   multiline = false,
   rows = 3,
   disabled,
+  'aria-describedby': describedBy,
   ...props
 }) => {
   const generatedId = useId();
   const id = customId || generatedId;
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
+  const description = [describedBy, error ? errorId : hint ? hintId : undefined].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className={`sd-field ${error ? 'has-error' : ''} ${containerClassName}`.trim()}>
@@ -36,22 +38,22 @@ export const Field: React.FC<FieldProps> = ({
 
       {multiline ? (
         <BaseTextarea
+          {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
           id={id}
           rows={rows}
           disabled={disabled}
           aria-invalid={Boolean(error)}
-          aria-describedby={error ? errorId : hint ? hintId : undefined}
+          aria-describedby={description}
           className={`sd-input sd-textarea ${className}`.trim()}
-          {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
         />
       ) : (
         <BaseInput
+          {...props}
           id={id}
           disabled={disabled}
           aria-invalid={Boolean(error)}
-          aria-describedby={error ? errorId : hint ? hintId : undefined}
+          aria-describedby={description}
           className={`sd-input ${className}`.trim()}
-          {...props}
         />
       )}
 

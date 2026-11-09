@@ -32,8 +32,8 @@ zentro:
     internal-base-urls:
       - ${zentro.identity.base-url}
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
+    audience: ${JWT_AUDIENCE:zentro-api}
     jwks-uri: ${JWT_JWKS_URI:}
   outbox:
     # Off by default so tests and environments without a broker never try to connect.

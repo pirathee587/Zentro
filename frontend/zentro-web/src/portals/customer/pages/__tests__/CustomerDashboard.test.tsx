@@ -152,6 +152,7 @@ describe('CustomerDashboard Page', () => {
     );
 
     expect(screen.getByLabelText(/Loading Customer Dashboard/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Customer dashboard' })).toBeInTheDocument();
   });
 
   it('renders top row with greeting, segmented bar, monthly spend and 3 large stats', async () => {
@@ -339,6 +340,7 @@ describe('CustomerDashboard Page', () => {
     );
 
     expect(await screen.findByText('Unable to load dashboard')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Customer dashboard' })).toBeInTheDocument();
     expect(screen.getByText('Network gateway timeout')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Retry/i })).toBeInTheDocument();
   });

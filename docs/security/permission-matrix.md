@@ -60,8 +60,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | POST `/api/v1/courier/deliveries/{parcelId}/proof` | S3 | CO → CO | assignment checked before evidence write; S3 calls S2 as SERVICE | CO (own assignment) | same |
 | GET `/api/v1/tracking/mine` | S4 | C,M → C,M | filter uses JWT subject; customer/merchant cannot supply another owner | C,M (own records) | C,M (own records) |
 | GET `/api/v1/tracking/{trackingRef}` | S4 | public except S-only → public except S-only | Public tracking reference; response omits names, contact details, full addresses, fees | anon,C,M,CO,D,roleless | same; S-only denied |
-| GET `/api/v1/tracking/{trackingRef}/events` | S4 | public except S-only → public except S-only | Public tracking reference; public event data | anon,C,M,CO,D,roleless | same; S-only denied |
-| GET `/api/v1/tracking/{trackingRef}/stream` | S4 | public except S-only → public except S-only | Public tracking reference; public event stream | anon,C,M,CO,D,roleless | same; S-only denied |
+| GET `/api/v1/tracking/{trackingRef}/events` | S4 | public except S-only → public except S-only (JSON); C,M,CO,D (SSE) | Public tracking milestones for JSON; if SSE (text/event-stream), requires JWT and ownership/assigned check | anon,C,M,CO,D,roleless (JSON) / C,M,CO,D (SSE) | same; S-only denied |
+| GET `/api/v1/tracking/{trackingRef}/stream` | S4 | C,M,CO,D → C,M,CO,D + owner/assigned check | Live tracking stream; token required; ownership/assignment strictly enforced; safe payload only | C,M (own), CO (assigned), D | C,M (own), CO (assigned), D; anon & S-only denied |
 | GET `/api/v1/merchant/webhooks` | S5 | M → M | merchant ID is JWT `sub` | M | M |
 | POST `/api/v1/merchant/webhooks` | S5 | M → M | merchant ID is JWT `sub`; approved/active check | M (approved/active) | M (approved/active) |
 | DELETE `/api/v1/merchant/webhooks` | S5 | M → M | merchant ID is JWT `sub` | M | M |

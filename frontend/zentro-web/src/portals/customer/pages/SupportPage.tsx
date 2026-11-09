@@ -145,6 +145,7 @@ export const SupportPage: React.FC = () => {
     const trimmedMsg = contactMessage.trim();
     if (trimmedMsg.length < 10) {
       setContactError('Message must be at least 10 characters.');
+      document.getElementById('contact-message-input')?.focus();
       return;
     }
 
@@ -204,9 +205,9 @@ export const SupportPage: React.FC = () => {
               }}
               aria-hidden="true"
             />
-            <CardTitle style={{ color: 'var(--onDark)' }}>Delivery assistant</CardTitle>
+            <CardTitle style={{ color: 'var(--panel-text)' }}>Delivery assistant</CardTitle>
           </div>
-          <span style={{ fontSize: '12px', color: 'var(--mute)' }}>
+          <span style={{ fontSize: '12px', color: 'var(--panel-muted)' }}>
             AI Powered
           </span>
         </CardHeader>
@@ -218,6 +219,7 @@ export const SupportPage: React.FC = () => {
             role="log"
             aria-live="polite"
             aria-label="Delivery assistant conversation"
+            tabIndex={0}
           >
             {messages.map((msg) => {
               if (msg.isError) {
@@ -232,7 +234,7 @@ export const SupportPage: React.FC = () => {
                         padding: '2px 8px',
                         fontSize: '11px',
                         borderColor: 'var(--line)',
-                        color: 'var(--onDark)',
+                        color: 'var(--panel-text)',
                       }}
                     >
                       Retry
