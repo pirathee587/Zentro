@@ -1,0 +1,166 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/shared/testing/mocks/server';
+import { queryClient } from '@/shared/api/queryClient';
+
+const { getUser, signinSilent, signinRedirect } = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  signinSilent: vi.fn(),
+  signinRedirect: vi.fn(),
+}));
+vi.mock('@/shared/auth/oidcConfig', () => ({
+  clearLegacyStoredTokens: vi.fn(),
+  oidcManager: {
+    getUser, signinSilent, signinRedirect,
+    events: { addUserLoaded: vi.fn(), removeUserLoaded: vi.fn(), addUserUnloaded: vi.fn(), removeUserUnloaded: vi.fn() },
+  },
+}));
+
+import { Providers } from './providers';
+import { AppRouter } from './router';
+
+/**
+ * Route access matrix (ZD-082): every protected route group, the open routes and an unknown path, for each role and
+ * account state. Guards are UX only; the backend still authorizes every request.
+ */
+type Profile = { accountStatus?: string; merchantStatus?: string };
+type Who = { label: string; roles?: string[]; profile?: Profile };
+
+const visitor: Who = { label: 'visitor' };
+const customer: Who = { label: 'CUSTOMER', roles: ['CUSTOMER'], profile: { accountStatus: 'ACTIVE' } };
+const merchant: Who = { label: 'approved MERCHANT', roles: ['MERCHANT'], profile: { accountStatus: 'ACTIVE', merchantStatus: 'APPROVED' } };
+const customerMerchant: Who = { label: 'CUSTOMER + approved MERCHANT', roles: ['CUSTOMER', 'MERCHANT'], profile: { accountStatus: 'ACTIVE', merchantStatus: 'APPROVED' } };
+const courier: Who = { label: 'COURIER', roles: ['COURIER'], profile: { accountStatus: 'ACTIVE' } };
+const dispatcher: Who = { label: 'DISPATCHER', roles: ['DISPATCHER'], profile: { accountStatus: 'ACTIVE' } };
+const disabledCustomer: Who = { label: 'DISABLED CUSTOMER', roles: ['CUSTOMER'], profile: { accountStatus: 'DISABLED' } };
+const suspendedDispatcher: Who = { label: 'SUSPENDED DISPATCHER', roles: ['DISPATCHER'], profile: { accountStatus: 'SUSPENDED' } };
+const adminOnly: Who = { label: 'ADMIN-only token', roles: ['ADMIN'], profile: { accountStatus: 'ACTIVE' } };
+const serviceOnly: Who = { label: 'SERVICE-only token', roles: ['SERVICE'], profile: { accountStatus: 'ACTIVE' } };
+
+/** Expected result: open (renders at the same path), forbidden, sign-in, or a redirect to another path. */
+type Outcome = 'open' | 'forbidden' | 'sign-in' | `redirect:${string}`;
+const PROTECTED = ['/customer', '/merchant/register-business', '/merchant/dashboard', '/courier', '/dispatcher', '/admin/users'] as const;
+
+const matrix: Array<[Who, Outcome[]]> = [
+  //                  /customer    register-business  /merchant/dashboard  /courier     /dispatcher  /admin/users
+  [visitor,          ['sign-in',   'sign-in',         'sign-in',           'sign-in',   'sign-in',   'sign-in']],
+  [customer,         ['open',      'open',            'forbidden',         'forbidden', 'forbidden', 'forbidden']],
+  [merchant,         ['forbidden', 'forbidden',       'open',              'forbidden', 'forbidden', 'forbidden']],
+  [customerMerchant, ['open',      'open',            'open',              'forbidden', 'forbidden', 'forbidden']],
+  [courier,          ['forbidden', 'forbidden',       'forbidden',         'open',      'forbidden', 'forbidden']],
+  [dispatcher,       ['forbidden', 'forbidden',       'forbidden',         'forbidden', 'open',      'redirect:/dispatcher']],
+  [disabledCustomer, ['forbidden', 'forbidden',       'forbidden',         'forbidden', 'forbidden', 'forbidden']],
+  [suspendedDispatcher, ['forbidden', 'forbidden',    'forbidden',         'forbidden', 'forbidden', 'forbidden']],
+  [adminOnly,        ['forbidden', 'forbidden',       'forbidden',         'forbidden', 'forbidden', 'forbidden']],
+  [serviceOnly,      ['forbidden', 'forbidden',       'forbidden',         'forbidden', 'forbidden', 'forbidden']],
+];
+
+/** A landmark that proves the right portal rendered, not just that the guard let the path through. */
+const PORTAL_LANDMARK: Record<string, () => HTMLElement> = {
+  '/customer': () => screen.getByRole('navigation', { name: 'Customer Navigation' }),
+  '/merchant/register-business': () => screen.getByRole('heading', { level: 1 }),
+  '/merchant/dashboard': () => screen.getByRole('navigation', { name: 'Merchant navigation' }),
+  '/courier': () => screen.getByRole('navigation', { name: 'Courier navigation' }),
+  '/dispatcher': () => screen.getByRole('navigation', { name: 'Dispatcher navigation' }),
+};
+
+function Location() {
+  return <output data-testid="location">{useLocation().pathname}</output>;
+}
+
+function signIn(who: Who) {
+  if (!who.roles) {
+    getUser.mockResolvedValue(null);
+    return;
+  }
+  const sub = `${who.label.replace(/\W+/g, '-')}-${Math.random().toString(36).slice(2)}`;
+  getUser.mockResolvedValue({ expired: false, access_token: `${sub}-token`, profile: { sub, realm_access: { roles: who.roles } } });
+  server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: sub, name: who.label, roles: who.roles, ...who.profile })));
+}
+
+function renderApp(path: string) {
+  render(<Providers><MemoryRouter initialEntries={[path]}><AppRouter /><Location /></MemoryRouter></Providers>);
+}
+
+const location = () => screen.getByTestId('location').textContent;
+
+async function expectOutcome(path: string, outcome: Outcome) {
+  if (outcome === 'sign-in') {
+    await waitFor(() => expect(signinRedirect).toHaveBeenCalled());
+    expect(signinRedirect.mock.calls.at(-1)?.[0]?.state?.returnTo).toBe(path);
+    expect(screen.getByText(/Redirecting to sign in/i)).toBeInTheDocument();
+    return;
+  }
+  if (outcome === 'forbidden') {
+    await waitFor(() => expect(location()).toBe('/forbidden'), { timeout: 10000 });
+    expect(screen.getByRole('heading', { name: 'Forbidden' })).toBeInTheDocument();
+    return;
+  }
+  if (outcome.startsWith('redirect:')) {
+    const target = outcome.slice('redirect:'.length);
+    await waitFor(() => expect(location()).toBe(target), { timeout: 10000 });
+    expect(await screen.findByRole('navigation', { name: 'Dispatcher navigation' }, { timeout: 10000 })).toBeInTheDocument();
+    return;
+  }
+  await waitFor(() => expect(PORTAL_LANDMARK[path]()).toBeInTheDocument(), { timeout: 15000 });
+  expect(location()).toBe(path);
+  expect(screen.queryByRole('heading', { name: 'Forbidden' })).not.toBeInTheDocument();
+}
+
+beforeEach(() => {
+  signinSilent.mockRejectedValue(new Error('login_required'));
+  signinRedirect.mockResolvedValue(undefined);
+  // Pages load their own data; any API call other than the profile gets an empty answer.
+  server.use(http.all('*/api/*', () => HttpResponse.json([])));
+  // No merchant application yet, so the application page stays on /merchant/register-business.
+  server.use(http.get('*/api/v1/merchants/me', () => HttpResponse.json({ title: 'Not Found' }, { status: 404 })));
+});
+
+afterEach(() => {
+  queryClient.clear();
+  window.sessionStorage.clear();
+  vi.clearAllMocks();
+});
+
+describe('route access matrix', () => {
+  for (const [who, outcomes] of matrix) {
+    describe(who.label, () => {
+      PROTECTED.forEach((path, column) => {
+        it(`${path} -> ${outcomes[column]}`, async () => {
+          signIn(who);
+          renderApp(path);
+          await expectOutcome(path, outcomes[column]);
+        }, 30000);
+      });
+
+      it('/styleguide and /forbidden stay open', async () => {
+        signIn(who);
+        renderApp('/styleguide');
+        expect(await screen.findByRole('heading', { name: 'Style guide' })).toBeInTheDocument();
+      });
+
+      it('an unknown path shows page not found', async () => {
+        signIn(who);
+        renderApp('/no-such-page');
+        expect(await screen.findByRole('heading', { name: 'Page not found' }, { timeout: 10000 })).toBeInTheDocument();
+        expect(location()).toBe('/no-such-page');
+      }, 30000);
+    });
+  }
+
+  it('/forbidden renders for a visitor without starting sign in', async () => {
+    signIn(visitor);
+    renderApp('/forbidden');
+    expect(await screen.findByRole('heading', { name: 'Forbidden' })).toBeInTheDocument();
+    expect(signinRedirect).not.toHaveBeenCalled();
+  });
+
+  it('admin paths never open an Admin portal: a dispatcher lands in the Dispatcher portal', async () => {
+    signIn(dispatcher);
+    renderApp('/admin');
+    await waitFor(() => expect(location()).toBe('/dispatcher'), { timeout: 10000 });
+    expect(screen.queryByText(/admin portal/i)).not.toBeInTheDocument();
+  }, 30000);
+});
