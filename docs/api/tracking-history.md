@@ -46,14 +46,17 @@ Provides high-level tracking status for public tracking portals. Strictly protec
 
 ### 2. Public Tracking Event Milestones & Live Stream
 
-`GET /api/v1/tracking/{trackingRef}/events`
+`GET /api/v1/tracking/{trackingRef}/events`  
+`GET /api/v1/tracking/{trackingRef}/stream`
 
-Retrieves the chronological list of milestone tracking events for a parcel. Also supports Server-Sent Events (`text/event-stream`) for live updates.
+Retrieves the chronological list of milestone tracking events for a parcel (JSON). Also supports Server-Sent Events (`text/event-stream`) for live updates on either endpoint.
 
 | Item | Value |
 |---|---|
-| Roles | Public (No authentication required) |
+| Roles (JSON) | Public (No authentication required; SERVICE-only denied) |
+| Roles (SSE `text/event-stream`) | `CUSTOMER` (own), `MERCHANT` (own), `COURIER` (assigned), `DISPATCHER` (all) |
 | Content type | `application/json` or `text/event-stream` |
+| Security (SSE) | Valid Bearer JWT required; ownership verified; token expiration and authorization revalidated throughout connection lifecycle |
 
 #### Response `200` (application/json)
 

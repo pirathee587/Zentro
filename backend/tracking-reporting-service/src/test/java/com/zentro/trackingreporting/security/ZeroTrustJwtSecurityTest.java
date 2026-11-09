@@ -269,6 +269,54 @@ class ZeroTrustJwtSecurityTest {
   }
 
   @Test
+  @DisplayName("Live tracking stream without authentication is rejected with 401")
+  void liveTrackingStreamWithoutAuthIsRejectedWith401() throws Exception {
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Live tracking stream with SERVICE role is rejected with 403")
+  void liveTrackingStreamWithServiceRoleIsRejectedWith403() throws Exception {
+    String token = validToken("service-daemon", "SERVICE");
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  @DisplayName("Live tracking stream with expired token is rejected with 401")
+  void liveTrackingStreamWithExpiredTokenIsRejectedWith401() throws Exception {
+    String expiredToken = signToken(trustedRsaKey, ISSUER, List.of(AUDIENCE),
+        Instant.now().minusSeconds(120), "customer-alice", List.of("CUSTOMER"));
+
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("Live tracking stream with valid customer token succeeds")
+  void liveTrackingStreamWithValidCustomerTokenSucceeds() throws Exception {
+    String token = validToken("customer-alice", "CUSTOMER");
+    com.zentro.trackingreporting.tracking.entity.TrackingParcel parcel = new com.zentro.trackingreporting.tracking.entity.TrackingParcel();
+    parcel.setTrackingRef("ZT-7K3QX9M2PA");
+    parcel.setCustomerSubject("customer-alice");
+
+    when(trackingService.getParcel("ZT-7K3QX9M2PA")).thenReturn(parcel);
+    when(streamService.subscribe(eq("ZT-7K3QX9M2PA"), any(), any()))
+        .thenReturn(new org.springframework.web.servlet.mvc.method.annotation.SseEmitter());
+
+    mockMvc.perform(get("/api/v1/tracking/ZT-7K3QX9M2PA/stream")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.request().asyncStarted());
+  }
+
+  @Test
   @DisplayName("Unknown non-public tracking path still requires authentication")
   void nonPublicPathRequiresAuthentication() throws Exception {
     mockMvc.perform(get("/api/v1/tracking/" + UUID.randomUUID() + "/internal/history"))

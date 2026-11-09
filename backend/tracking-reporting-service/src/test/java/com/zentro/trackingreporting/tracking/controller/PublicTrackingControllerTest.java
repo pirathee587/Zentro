@@ -1,6 +1,7 @@
 package com.zentro.trackingreporting.tracking.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -117,13 +118,57 @@ class PublicTrackingControllerTest {
   }
 
   @Test
-  @DisplayName("GET /api/v1/tracking/{trackingRef}/events supports SSE when Accept: text/event-stream")
-  void getTrackingEventsSseStream() throws Exception {
+  @DisplayName("GET /api/v1/tracking/{trackingRef}/events with text/event-stream rejects unauthenticated caller with 401")
+  void getTrackingEventsSseStreamUnauthenticated() throws Exception {
     String ref = "ZT-7K3QX9M2PA";
-    SseEmitter emitter = new SseEmitter();
-    when(streamService.subscribe(ref)).thenReturn(emitter);
 
     mockMvc.perform(get("/api/v1/tracking/{trackingRef}/events", ref)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("GET /api/v1/tracking/{trackingRef}/events supports SSE for authenticated user")
+  void getTrackingEventsSseStream() throws Exception {
+    String ref = "ZT-7K3QX9M2PA";
+    com.zentro.trackingreporting.tracking.entity.TrackingParcel parcel = new com.zentro.trackingreporting.tracking.entity.TrackingParcel();
+    parcel.setTrackingRef(ref);
+    parcel.setCustomerSubject("cust-1");
+
+    SseEmitter emitter = new SseEmitter();
+    when(trackingService.getParcel(ref)).thenReturn(parcel);
+    when(streamService.subscribe(eq(ref), any(), any())).thenReturn(emitter);
+
+    mockMvc.perform(get("/api/v1/tracking/{trackingRef}/events", ref)
+            .principal(new org.springframework.security.authentication.TestingAuthenticationToken("cust-1", "pass", "ROLE_CUSTOMER"))
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(request().asyncStarted());
+  }
+
+  @Test
+  @DisplayName("GET /api/v1/tracking/{trackingRef}/stream rejects unauthenticated caller with 401")
+  void streamEventsUnauthenticated() throws Exception {
+    String ref = "ZT-7K3QX9M2PA";
+
+    mockMvc.perform(get("/api/v1/tracking/{trackingRef}/stream", ref)
+            .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  @DisplayName("GET /api/v1/tracking/{trackingRef}/stream supports SSE for authenticated user")
+  void streamEventsAuthenticated() throws Exception {
+    String ref = "ZT-7K3QX9M2PA";
+    com.zentro.trackingreporting.tracking.entity.TrackingParcel parcel = new com.zentro.trackingreporting.tracking.entity.TrackingParcel();
+    parcel.setTrackingRef(ref);
+    parcel.setCustomerSubject("cust-1");
+
+    SseEmitter emitter = new SseEmitter();
+    when(trackingService.getParcel(ref)).thenReturn(parcel);
+    when(streamService.subscribe(eq(ref), any(), any())).thenReturn(emitter);
+
+    mockMvc.perform(get("/api/v1/tracking/{trackingRef}/stream", ref)
+            .principal(new org.springframework.security.authentication.TestingAuthenticationToken("cust-1", "pass", "ROLE_CUSTOMER"))
             .accept(MediaType.TEXT_EVENT_STREAM_VALUE))
         .andExpect(request().asyncStarted());
   }
