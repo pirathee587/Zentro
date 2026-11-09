@@ -71,34 +71,6 @@ class ZeroTrustJwtSecurityTest {
   private static RSAKey untrustedRsaKey;
   private static HttpServer jwksServer;
   private static String jwksUri;
-  private static final RSAKey trustedRsaKey;
-  private static final RSAKey untrustedRsaKey;
-  private static final HttpServer jwksServer;
-  private static final String jwksUri;
-
-  static {
-    try {
-      trustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s4-trusted-kid").generate();
-      // Same kid, different key material: simulates a forged token.
-      untrustedRsaKey = new RSAKeyGenerator(2048).keyID("zentro-s4-trusted-kid").generate();
-
-      byte[] jwksBytes = new JWKSet(trustedRsaKey.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
-      jwksServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-      jwksServer.createContext("/realms/zentro/protocol/openid-connect/certs", exchange -> {
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, jwksBytes.length);
-        try (OutputStream os = exchange.getResponseBody()) {
-          os.write(jwksBytes);
-        }
-        exchange.close();
-      });
-      jwksServer.start();
-      jwksUri = "http://127.0.0.1:" + jwksServer.getAddress().getPort()
-          + "/realms/zentro/protocol/openid-connect/certs";
-    } catch (Exception ex) {
-      throw new ExceptionInInitializerError(ex);
-    }
-  }
 
   @Autowired private MockMvc mockMvc;
   @MockBean private TrackingService trackingService;
