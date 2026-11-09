@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { server } from '@/shared/testing/mocks/server';
 import { queryClient } from '@/shared/api/queryClient';
 
@@ -81,7 +81,7 @@ function signIn(who: Who) {
 }
 
 function renderApp(path: string) {
-  render(<Providers><MemoryRouter initialEntries={[path]}><AppRouter /><Location /></MemoryRouter></Providers>);
+  return render(<Providers><MemoryRouter initialEntries={[path]}><AppRouter /><Location /></MemoryRouter></Providers>);
 }
 
 const location = () => screen.getByTestId('location').textContent;
@@ -155,6 +155,106 @@ describe('route access matrix', () => {
     renderApp('/forbidden');
     expect(await screen.findByRole('heading', { name: 'Forbidden' })).toBeInTheDocument();
     expect(signinRedirect).not.toHaveBeenCalled();
+  });
+
+  describe('merchant approval states', () => {
+    const applicant = (merchantStatus?: string): Who => ({
+      label: `CUSTOMER applicant ${merchantStatus ?? 'without application'}`, roles: ['CUSTOMER'],
+      profile: { accountStatus: 'ACTIVE', ...(merchantStatus ? { merchantStatus } : {}) },
+    });
+    const merchantWith = (merchantStatus?: string): Who => ({
+      label: `MERCHANT ${merchantStatus ?? 'without approval record'}`, roles: ['MERCHANT'],
+      profile: { accountStatus: 'ACTIVE', ...(merchantStatus ? { merchantStatus } : {}) },
+    });
+    const withApplication = (status: string) => server.use(http.get('*/api/v1/merchants/me', () =>
+      HttpResponse.json({ id: 'application-1', businessName: 'Manual Store', status })));
+
+    it.each([
+      ['/merchant/dashboard', 'open'],
+      ['/merchant/dashboard/webhooks', 'forbidden'],
+      ['/merchant/dashboard/api-credentials', 'forbidden'],
+    ] as const)('a PENDING applicant on %s -> %s', async (path, outcome) => {
+      signIn(applicant('PENDING'));
+      renderApp(path);
+      if (outcome === 'open') {
+        expect(await screen.findByRole('heading', { name: /reviewing your details/i }, { timeout: 10000 })).toBeInTheDocument();
+        expect(location()).toBe(path);
+      } else {
+        await expectOutcome(path, 'forbidden');
+      }
+    }, 30000);
+
+    it.each([['PENDING', /Your application is/i], ['REJECTED', /A little more information/i]] as const)(
+      'a %s applicant sees the application status page', async (status, heading) => {
+        signIn(applicant(status));
+        withApplication(status);
+        renderApp('/merchant/status');
+        expect(await screen.findByRole('heading', { level: 1, name: heading }, { timeout: 10000 })).toBeInTheDocument();
+        expect(location()).toBe('/merchant/status');
+      }, 30000);
+
+    it('an applicant with an application is moved from register-business to the status page', async () => {
+      signIn(applicant('PENDING'));
+      withApplication('PENDING');
+      renderApp('/merchant/register-business');
+      await waitFor(() => expect(location()).toBe('/merchant/status'), { timeout: 10000 });
+    }, 30000);
+
+    it.each([['REJECTED'], [undefined]] as const)('a %s applicant cannot open the merchant dashboard', async (status) => {
+      signIn(applicant(status));
+      renderApp('/merchant/dashboard');
+      await expectOutcome('/merchant/dashboard', 'forbidden');
+    }, 30000);
+
+    it.each([['PENDING'], ['REJECTED'], [undefined]] as const)(
+      'a MERCHANT whose approval is %s cannot open any merchant page', async (status) => {
+        for (const path of ['/merchant/dashboard', '/merchant/dashboard/webhooks']) {
+          signIn(merchantWith(status));
+          const { unmount } = renderApp(path);
+          await expectOutcome(path, 'forbidden');
+          unmount();
+          queryClient.clear();
+        }
+      }, 30000);
+
+    it.each(['/merchant/dashboard/webhooks', '/merchant/dashboard/api-credentials'])(
+      'an approved MERCHANT opens %s', async (path) => {
+        signIn(merchant);
+        renderApp(path);
+        expect(await screen.findByRole('navigation', { name: 'Merchant navigation' }, { timeout: 10000 })).toBeInTheDocument();
+        expect(location()).toBe(path);
+      }, 30000);
+
+    it('an approved MERCHANT sees the approval check while the profile loads, then the dashboard', async () => {
+      signIn(merchant);
+      server.use(http.get('*/api/v1/users/me', async () => {
+        await delay(300);
+        return HttpResponse.json({ id: 'merchant', roles: ['MERCHANT'], accountStatus: 'ACTIVE', merchantStatus: 'APPROVED' });
+      }));
+      renderApp('/merchant/dashboard');
+      expect(await screen.findByRole('status', { name: 'Checking merchant approval' })).toBeInTheDocument();
+      expect(await screen.findByRole('navigation', { name: 'Merchant navigation' }, { timeout: 10000 })).toBeInTheDocument();
+      expect(location()).toBe('/merchant/dashboard');
+    }, 30000);
+
+    it('a PENDING applicant reloading the dashboard waits for the profile instead of being forbidden', async () => {
+      signIn(applicant('PENDING'));
+      server.use(http.get('*/api/v1/users/me', async () => {
+        await delay(300);
+        return HttpResponse.json({ id: 'applicant', roles: ['CUSTOMER'], accountStatus: 'ACTIVE', merchantStatus: 'PENDING' });
+      }));
+      renderApp('/merchant/dashboard');
+      expect(await screen.findByRole('status', { name: 'Checking merchant approval' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: /reviewing your details/i }, { timeout: 10000 })).toBeInTheDocument();
+      expect(location()).toBe('/merchant/dashboard');
+    }, 30000);
+
+    it('a MERCHANT is denied when the profile cannot be loaded (fails closed)', async () => {
+      signIn(merchant);
+      server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ title: 'Unavailable' }, { status: 503 })));
+      renderApp('/merchant/dashboard');
+      await expectOutcome('/merchant/dashboard', 'forbidden');
+    }, 30000);
   });
 
   it('admin paths never open an Admin portal: a dispatcher lands in the Dispatcher portal', async () => {
