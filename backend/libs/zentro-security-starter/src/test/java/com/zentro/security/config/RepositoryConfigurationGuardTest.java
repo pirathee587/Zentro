@@ -6,6 +6,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
 
 /** Repository-level, value-suppressing guards. Reads tracked worktree files only; never local env files. */
 class RepositoryConfigurationGuardTest {
@@ -122,12 +123,29 @@ class RepositoryConfigurationGuardTest {
   @Test void developmentPublishedPortsHaveAConfigurableLoopbackDefault() throws Exception {
     int ports = 0;
     for (String path : List.of("docker-compose.yml", "backend/docker-compose.yml", "infra/keycloak/docker-compose.keycloak.yml")) {
-      for (String line : read(path).split("\\R")) {
-        if (!line.strip().matches("- \\\".*:[0-9]+\\\"")) continue;
-        ports++;
-        assertThat(line.contains("${BIND_ADDRESS:-127.0.0.1}:")).as("%s published port has an explicit safe binding", path).isTrue();
+      Map<?, ?> document = new Yaml().load(Files.readString(ROOT.resolve(path), StandardCharsets.UTF_8));
+      for (Object service : ((Map<?, ?>) document.get("services")).values()) {
+        Object published = ((Map<?, ?>) service).get("ports");
+        if (published == null) continue;
+        for (Object port : (List<?>) published) {
+          ports++;
+          assertThat(safeBinding(port)).as("%s published port has an explicit safe binding", path).isTrue();
+        }
       }
     }
     assertThat(ports).isEqualTo(11);
+  }
+  static boolean safeBinding(Object port) {
+    if (port instanceof String value)
+      return value.startsWith("${BIND_ADDRESS:-127.0.0.1}:") || value.startsWith("127.0.0.1:") || value.startsWith("[::1]:");
+    if (port instanceof Map<?, ?> value)
+      return List.of("127.0.0.1", "::1", "${BIND_ADDRESS:-127.0.0.1}").stream().anyMatch(host -> host.equals(value.get("host_ip")));
+    return false;
+  }
+  @Test void bindingGuardRejectsUnquotedNumericAndLongSyntaxWithoutSafeHost() {
+    for (Object unsafe : List.of("8080:8080", 8080, "0.0.0.0:8080:8080", Map.of("target", 8080, "published", 8080)))
+      assertThat(safeBinding(unsafe)).isFalse();
+    assertThat(safeBinding("${BIND_ADDRESS:-127.0.0.1}:8080:8080")).isTrue();
+    assertThat(safeBinding(Map.of("target", 8080, "published", 8080, "host_ip", "127.0.0.1"))).isTrue();
   }
 }
