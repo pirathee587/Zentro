@@ -53,8 +53,8 @@ public class IntegrationAttemptController {
         .toList();
     List<AttemptHistoryResponse.WebhookAttempt> webhookRows = webhooks.listHistory(size, offset).stream()
         .map(row -> new AttemptHistoryResponse.WebhookAttempt(row.id(), row.eventId(), row.parcelId(),
-            row.eventType(), row.status().name(), row.attempts(), row.responseStatus(), row.lastError(),
-            row.nextAttemptAt(), row.createdAt(), row.updatedAt()))
+            row.eventType(), row.status().name(), row.attempts(), row.responseStatus(), row.responseClass(),
+            row.lastError(), row.nextAttemptAt(), row.createdAt(), row.updatedAt()))
         .toList();
     return new AttemptHistoryResponse(notificationRows, webhookRows, page, size,
         notifications.countHistory(), webhooks.countHistory());
