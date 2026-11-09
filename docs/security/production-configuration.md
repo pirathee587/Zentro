@@ -105,169 +105,169 @@ Source ownership uses `.github/CODEOWNERS`; deployment ownership is not establis
 Names only are listed below. “Configured” means supply a deployment-specific value; “conditional” means required when the associated feature/provider is enabled. Non-secret defaults still require production review. No k8s Secret wiring is present in this repository. Source paths identify templates and/or environment references; template placeholders are not runtime defaults.
 | Source / service | Name | Purpose | Secret | Committed default | Production requirement |
 |---|---|---|---|---|---|
-| `.env.common.example` | `FRONTEND_ORIGIN` | Browser origin policy | no | template only; not a runtime default | configured / feature-dependent |
-| `.env.common.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `.env.common.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `.env.common.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template only; not a runtime default | configured / feature-dependent |
-| `.env.example` | `BIND_ADDRESS` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `CORS_ALLOWED_ORIGINS` | Browser origin policy | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `GATEWAY_CONNECT_TIMEOUT_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `GATEWAY_PORT` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `GATEWAY_RESPONSE_TIMEOUT` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `GATEWAY_TRACKING_RESPONSE_TIMEOUT_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `JWT_JWKS_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `RATE_LIMIT_DEFAULT_PER_MINUTE` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `RATE_LIMIT_TRACKING_PER_MINUTE` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `S1_URI` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `S2_URI` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `S3_URI` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `S4_URI` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `S5_URI` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/.env.example` | `TRUST_X_FORWARDED_FOR` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `CORS_ALLOWED_ORIGINS` | Browser origin policy | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_CONNECT_TIMEOUT_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_RESPONSE_TIMEOUT` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_TRACKING_RESPONSE_TIMEOUT_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | nonempty; review for production | configured / feature-dependent |
+| `.env.common.example` | `FRONTEND_ORIGIN` | Browser origin policy | no | template development example; no runtime default | configured / feature-dependent |
+| `.env.common.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `.env.common.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `.env.common.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
+| `.env.example` | `BIND_ADDRESS` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `CORS_ALLOWED_ORIGINS` | Browser origin policy | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `GATEWAY_CONNECT_TIMEOUT_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `GATEWAY_PORT` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `GATEWAY_RESPONSE_TIMEOUT` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `GATEWAY_TRACKING_RESPONSE_TIMEOUT_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `JWT_JWKS_URI` | Identity provider / token validation | no | template empty; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `RATE_LIMIT_DEFAULT_PER_MINUTE` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `RATE_LIMIT_TRACKING_PER_MINUTE` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `S1_URI` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `S2_URI` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `S3_URI` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `S4_URI` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `S5_URI` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/.env.example` | `TRUST_X_FORWARDED_FOR` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `CORS_ALLOWED_ORIGINS` | Browser origin policy | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_CONNECT_TIMEOUT_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_RESPONSE_TIMEOUT` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `GATEWAY_TRACKING_RESPONSE_TIMEOUT_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/api-gateway/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `RATE_LIMIT_DEFAULT_PER_MINUTE` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `RATE_LIMIT_TRACKING_PER_MINUTE` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `S1_URI` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `S2_URI` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `S3_URI` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `S4_URI` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `S5_URI` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/api-gateway/src/main/resources/application.yml` | `TRUST_X_FORWARDED_FOR` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template only; not a runtime default | required; service-specific |
-| `backend/dispatch-courier-service/.env.example` | `DB_URL` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/dispatch-courier-service/.env.example` | `DB_USER` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/dispatch-courier-service/.env.example` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `PARCEL_BASE_URL` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `POD_CLIENT_ID` | Proof completion worker | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `POD_CLIENT_SECRET` | Proof completion worker | yes | template only; not a runtime default | conditional; provision privately |
-| `backend/dispatch-courier-service/.env.example` | `POD_MAX_ATTEMPTS` | Proof completion worker | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `POD_POLL_INTERVAL_MS` | Proof completion worker | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `POD_TOKEN_URI` | Proof completion worker | yes | template only; not a runtime default | conditional; provision privately |
-| `backend/dispatch-courier-service/.env.example` | `POD_WORKER_ENABLED` | Proof completion worker | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `RATE_LIMIT_DEFAULT_PER_MINUTE` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `RATE_LIMIT_TRACKING_PER_MINUTE` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `S1_URI` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `S2_URI` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `S3_URI` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `S4_URI` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `S5_URI` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/api-gateway/src/main/resources/application.yml` | `TRUST_X_FORWARDED_FOR` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/dispatch-courier-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/dispatch-courier-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/dispatch-courier-service/.env.example` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `PARCEL_BASE_URL` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `POD_CLIENT_ID` | Proof completion worker | no | template empty; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `POD_CLIENT_SECRET` | Proof completion worker | yes | template empty; no runtime default | conditional; provision privately |
+| `backend/dispatch-courier-service/.env.example` | `POD_MAX_ATTEMPTS` | Proof completion worker | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `POD_POLL_INTERVAL_MS` | Proof completion worker | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `POD_TOKEN_URI` | Proof completion worker | yes | template development example; no runtime default | conditional; provision privately |
+| `backend/dispatch-courier-service/.env.example` | `POD_WORKER_ENABLED` | Proof completion worker | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/dispatch-courier-service/Dockerfile` | `GIT_SHA` | Service feature / integration configuration | no | none (required reference) | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `DB_USER` | Service datasource | no | none (required reference) | required; service-specific |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
+| `backend/dispatch-courier-service/src/main/resources/application.yml` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `PARCEL_BASE_URL` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
+| `backend/dispatch-courier-service/src/main/resources/application.yml` | `PARCEL_BASE_URL` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_CLIENT_ID` | Proof completion worker | no | empty | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_CLIENT_SECRET` | Proof completion worker | yes | empty | conditional; provision privately |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_MAX_ATTEMPTS` | Proof completion worker | no | nonempty; review for production | configured / feature-dependent |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_POLL_INTERVAL_MS` | Proof completion worker | no | nonempty; review for production | configured / feature-dependent |
+| `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_MAX_ATTEMPTS` | Proof completion worker | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_POLL_INTERVAL_MS` | Proof completion worker | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_TOKEN_URI` | Proof completion worker | yes | empty | conditional; provision privately |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_WORKER_ENABLED` | Proof completion worker | no | nonempty; review for production | configured / feature-dependent |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `backend/docker-compose.yml` | `BIND_ADDRESS` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `backend/identity-partner-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template only; not a runtime default | required; service-specific |
-| `backend/identity-partner-service/.env.example` | `DB_URL` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/identity-partner-service/.env.example` | `DB_USER` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/identity-partner-service/.env.example` | `INTERNAL_SERVICE_TOKEN` | Service feature / integration configuration | yes | template only; not a runtime default | conditional; provision privately |
-| `backend/identity-partner-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/identity-partner-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/identity-partner-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
+| `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_WORKER_ENABLED` | Proof completion worker | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/dispatch-courier-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/docker-compose.yml` | `BIND_ADDRESS` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/identity-partner-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/identity-partner-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/identity-partner-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/identity-partner-service/.env.example` | `INTERNAL_SERVICE_TOKEN` | Service feature / integration configuration | yes | template empty; no runtime default | conditional; provision privately |
+| `backend/identity-partner-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/identity-partner-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/identity-partner-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/identity-partner-service/Dockerfile` | `GIT_SHA` | Service feature / integration configuration | no | none (required reference) | configured / feature-dependent |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `DB_USER` | Service datasource | no | none (required reference) | required; service-specific |
-| `backend/identity-partner-service/src/main/resources/application.yml` | `GRPC_SERVER_ENABLED` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/identity-partner-service/src/main/resources/application.yml` | `GRPC_SERVER_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
+| `backend/identity-partner-service/src/main/resources/application.yml` | `GRPC_SERVER_ENABLED` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/identity-partner-service/src/main/resources/application.yml` | `GRPC_SERVER_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `INTERNAL_SERVICE_TOKEN` | Service feature / integration configuration | yes | empty | conditional; provision privately |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/identity-partner-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/identity-partner-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template only; not a runtime default | required; service-specific |
-| `backend/notification-integration-service/.env.example` | `DB_URL` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/notification-integration-service/.env.example` | `DB_USER` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/notification-integration-service/.env.example` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `KAFKA_CONSUMER_GROUP` | Broker connection / consumer | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATIONS_CONSUMER_ENABLED` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_MAX_ATTEMPTS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_MOCK_FAIL_MODE` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `NOTIFICATION_RETRY_POLL_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOKS_ALLOW_INSECURE_LOCAL` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOKS_ENABLED` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_CONNECT_TIMEOUT_MS` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_CONSUMER_GROUP` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_HEALTH_STUCK_MINUTES` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_MAX_ATTEMPTS` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_READ_TIMEOUT_MS` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_RETRY_BASE_DELAY_MS` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_RETRY_MAX_DELAY_MS` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_RETRY_POLL_MS` | Webhook delivery / encryption | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/notification-integration-service/.env.example` | `WEBHOOK_SECRET_KEY` | Webhook delivery / encryption | yes | template only; not a runtime default | conditional; provision privately |
+| `backend/identity-partner-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/notification-integration-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/notification-integration-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/notification-integration-service/.env.example` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `KAFKA_CONSUMER_GROUP` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATIONS_CONSUMER_ENABLED` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_MAX_ATTEMPTS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_MOCK_FAIL_MODE` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `NOTIFICATION_RETRY_POLL_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOKS_ALLOW_INSECURE_LOCAL` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOKS_ENABLED` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_CONNECT_TIMEOUT_MS` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_CONSUMER_GROUP` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_HEALTH_STUCK_MINUTES` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_MAX_ATTEMPTS` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_READ_TIMEOUT_MS` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_RETRY_BASE_DELAY_MS` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_RETRY_MAX_DELAY_MS` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_RETRY_POLL_MS` | Webhook delivery / encryption | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/notification-integration-service/.env.example` | `WEBHOOK_SECRET_KEY` | Webhook delivery / encryption | yes | template empty; no runtime default | conditional; provision privately |
 | `backend/notification-integration-service/Dockerfile` | `GIT_SHA` | Service feature / integration configuration | no | none (required reference) | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `DB_USER` | Service datasource | no | none (required reference) | required; service-specific |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `KAFKA_CONSUMER_GROUP` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATIONS_CONSUMER_ENABLED` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_MAX_ATTEMPTS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_MOCK_FAIL_MODE` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_RETRY_POLL_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOKS_ALLOW_INSECURE_LOCAL` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOKS_ENABLED` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_CONNECT_TIMEOUT_MS` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_CONSUMER_GROUP` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_HEALTH_STUCK_MINUTES` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_MAX_ATTEMPTS` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_READ_TIMEOUT_MS` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_RETRY_BASE_DELAY_MS` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_RETRY_MAX_DELAY_MS` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_RETRY_POLL_MS` | Webhook delivery / encryption | no | nonempty; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `KAFKA_CONSUMER_GROUP` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATIONS_CONSUMER_ENABLED` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_HEALTH_FAILED_WINDOW_MINUTES` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_HEALTH_STUCK_PENDING_MINUTES` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_MAX_ATTEMPTS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_MOCK_FAIL_MODE` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `NOTIFICATION_RETRY_POLL_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOKS_ALLOW_INSECURE_LOCAL` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOKS_ENABLED` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_CONNECT_TIMEOUT_MS` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_CONSUMER_GROUP` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_HEALTH_STUCK_MINUTES` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_MAX_ATTEMPTS` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_READ_TIMEOUT_MS` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_RETRY_BASE_DELAY_MS` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_RETRY_MAX_DELAY_MS` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_RETRY_POLL_MS` | Webhook delivery / encryption | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `WEBHOOK_SECRET_KEY` | Webhook delivery / encryption | yes | empty | conditional; provision privately |
-| `backend/parcel-pricing-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template only; not a runtime default | required; service-specific |
-| `backend/parcel-pricing-service/.env.example` | `DB_URL` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/parcel-pricing-service/.env.example` | `DB_USER` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/parcel-pricing-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_BATCH_SIZE` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_MAX_ATTEMPTS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_POLL_INTERVAL_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_PUBLISHER_ENABLED` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_SEND_TIMEOUT_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_STUCK_THRESHOLD_MS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_TOPIC_PARTITIONS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `OUTBOX_TOPIC_REPLICAS` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/parcel-pricing-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/parcel-pricing-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/parcel-pricing-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/parcel-pricing-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_BATCH_SIZE` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_MAX_ATTEMPTS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_POLL_INTERVAL_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_PUBLISHER_ENABLED` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_SEND_TIMEOUT_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_STUCK_THRESHOLD_MS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_TOPIC_PARTITIONS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `OUTBOX_TOPIC_REPLICAS` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/parcel-pricing-service/Dockerfile` | `GIT_SHA` | Service feature / integration configuration | no | none (required reference) | configured / feature-dependent |
 | `backend/parcel-pricing-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/parcel-pricing-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
@@ -275,29 +275,29 @@ Names only are listed below. “Configured” means supply a deployment-specific
 | `backend/parcel-pricing-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/parcel-pricing-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/parcel-pricing-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_DELIVERY_TIMEOUT_MS` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_MAX_BLOCK_MS` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_REQUEST_TIMEOUT_MS` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_BATCH_SIZE` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_MAX_ATTEMPTS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_POLL_INTERVAL_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_PUBLISHER_ENABLED` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_SEND_TIMEOUT_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_STUCK_THRESHOLD_MS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_TOPIC_PARTITIONS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_TOPIC_REPLICAS` | Service feature / integration configuration | no | nonempty; review for production | configured / feature-dependent |
-| `backend/parcel-pricing-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `backend/tracking-reporting-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template only; not a runtime default | required; service-specific |
-| `backend/tracking-reporting-service/.env.example` | `DB_URL` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/tracking-reporting-service/.env.example` | `DB_USER` | Service datasource | no | template only; not a runtime default | required; service-specific |
-| `backend/tracking-reporting-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/tracking-reporting-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/tracking-reporting-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/tracking-reporting-service/.env.example` | `KAFKA_CONSUMER_ENABLED` | Broker connection / consumer | no | template only; not a runtime default | configured / feature-dependent |
-| `backend/tracking-reporting-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template only; not a runtime default | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_DELIVERY_TIMEOUT_MS` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_MAX_BLOCK_MS` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `KAFKA_REQUEST_TIMEOUT_MS` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_BATCH_SIZE` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_MAX_ATTEMPTS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_POLL_INTERVAL_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_PUBLISHER_ENABLED` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_RETRY_BASE_DELAY_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_RETRY_MAX_DELAY_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_SEND_TIMEOUT_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_STUCK_THRESHOLD_MS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_TOPIC_PARTITIONS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `OUTBOX_TOPIC_REPLICAS` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/parcel-pricing-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/tracking-reporting-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/tracking-reporting-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/tracking-reporting-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
+| `backend/tracking-reporting-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/tracking-reporting-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/tracking-reporting-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/tracking-reporting-service/.env.example` | `KAFKA_CONSUMER_ENABLED` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
+| `backend/tracking-reporting-service/.env.example` | `SERVER_PORT` | Listener / development binding | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/tracking-reporting-service/Dockerfile` | `GIT_SHA` | Service feature / integration configuration | no | none (required reference) | configured / feature-dependent |
 | `backend/tracking-reporting-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/tracking-reporting-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
@@ -305,34 +305,34 @@ Names only are listed below. “Configured” means supply a deployment-specific
 | `backend/tracking-reporting-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/tracking-reporting-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/tracking-reporting-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/tracking-reporting-service/src/main/resources/application.yml` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/tracking-reporting-service/src/main/resources/application.yml` | `KAFKA_CONSUMER_ENABLED` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/tracking-reporting-service/src/main/resources/application.yml` | `KAFKA_CONSUMER_GROUP` | Broker connection / consumer | no | nonempty; review for production | configured / feature-dependent |
-| `backend/tracking-reporting-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `docker-compose.yml` | `BIND_ADDRESS` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
-| `frontend/zentro-web/.env.example` | `VITE_API_BASE_URL` | Public frontend build configuration | no | template only; not a runtime default | public only; configure per deployment |
-| `frontend/zentro-web/.env.example` | `VITE_KEYCLOAK_CLIENT_ID` | Identity provider / token validation | no | template only; not a runtime default | public only; configure per deployment |
-| `frontend/zentro-web/.env.example` | `VITE_KEYCLOAK_REALM` | Identity provider / token validation | no | template only; not a runtime default | public only; configure per deployment |
-| `frontend/zentro-web/.env.example` | `VITE_KEYCLOAK_URL` | Identity provider / token validation | no | template only; not a runtime default | public only; configure per deployment |
-| `infra/keycloak/.env.example` | `GOOGLE_CLIENT_ID` | Service feature / integration configuration | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `GOOGLE_CLIENT_SECRET` | Service feature / integration configuration | yes | template only; not a runtime default | conditional; provision privately |
-| `infra/keycloak/.env.example` | `KC_BOOTSTRAP_ADMIN_PASSWORD` | Identity provider / token validation | yes | template only; not a runtime default | conditional; provision privately |
-| `infra/keycloak/.env.example` | `KC_BOOTSTRAP_ADMIN_USERNAME` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KC_DB` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KC_DB_PASSWORD` | Identity provider / token validation | yes | template only; not a runtime default | conditional; provision privately |
-| `infra/keycloak/.env.example` | `KC_DB_POOL_MAX_SIZE` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KC_DB_SCHEMA` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KC_DB_URL` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KC_DB_USERNAME` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KC_HTTP_PORT` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KEYCLOAK_REALM` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `KEYCLOAK_URL` | Identity provider / token validation | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `SMTP_FROM` | Mail provider | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `SMTP_HOST` | Mail provider | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `SMTP_PASSWORD` | Mail provider | yes | template only; not a runtime default | conditional; provision privately |
-| `infra/keycloak/.env.example` | `SMTP_PORT` | Mail provider | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/.env.example` | `SMTP_USER` | Mail provider | no | template only; not a runtime default | configured / feature-dependent |
-| `infra/keycloak/docker-compose.keycloak.yml` | `BIND_ADDRESS` | Listener / development binding | no | nonempty; review for production | configured / feature-dependent |
+| `backend/tracking-reporting-service/src/main/resources/application.yml` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/tracking-reporting-service/src/main/resources/application.yml` | `KAFKA_CONSUMER_ENABLED` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/tracking-reporting-service/src/main/resources/application.yml` | `KAFKA_CONSUMER_GROUP` | Broker connection / consumer | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `backend/tracking-reporting-service/src/main/resources/application.yml` | `SERVER_PORT` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `docker-compose.yml` | `BIND_ADDRESS` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
+| `frontend/zentro-web/.env.example` | `VITE_API_BASE_URL` | Public frontend build configuration | no | template development example; no runtime default | public only; configure per deployment |
+| `frontend/zentro-web/.env.example` | `VITE_KEYCLOAK_CLIENT_ID` | Identity provider / token validation | no | template development example; no runtime default | public only; configure per deployment |
+| `frontend/zentro-web/.env.example` | `VITE_KEYCLOAK_REALM` | Identity provider / token validation | no | template development example; no runtime default | public only; configure per deployment |
+| `frontend/zentro-web/.env.example` | `VITE_KEYCLOAK_URL` | Identity provider / token validation | no | template development example; no runtime default | public only; configure per deployment |
+| `infra/keycloak/.env.example` | `GOOGLE_CLIENT_ID` | Service feature / integration configuration | no | template empty; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `GOOGLE_CLIENT_SECRET` | Service feature / integration configuration | yes | template empty; no runtime default | conditional; provision privately |
+| `infra/keycloak/.env.example` | `KC_BOOTSTRAP_ADMIN_PASSWORD` | Identity provider / token validation | yes | template synthetic placeholder; no runtime default | conditional; provision privately |
+| `infra/keycloak/.env.example` | `KC_BOOTSTRAP_ADMIN_USERNAME` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KC_DB` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KC_DB_PASSWORD` | Identity provider / token validation | yes | template empty; no runtime default | conditional; provision privately |
+| `infra/keycloak/.env.example` | `KC_DB_POOL_MAX_SIZE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KC_DB_SCHEMA` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KC_DB_URL` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KC_DB_USERNAME` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KC_HTTP_PORT` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KEYCLOAK_REALM` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `KEYCLOAK_URL` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `SMTP_FROM` | Mail provider | no | template empty; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `SMTP_HOST` | Mail provider | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `SMTP_PASSWORD` | Mail provider | yes | template empty; no runtime default | conditional; provision privately |
+| `infra/keycloak/.env.example` | `SMTP_PORT` | Mail provider | no | template development example; no runtime default | configured / feature-dependent |
+| `infra/keycloak/.env.example` | `SMTP_USER` | Mail provider | no | template empty; no runtime default | configured / feature-dependent |
+| `infra/keycloak/docker-compose.keycloak.yml` | `BIND_ADDRESS` | Listener / development binding | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `infra/keycloak/docker-compose.keycloak.yml` | `KC_BOOTSTRAP_ADMIN_PASSWORD` | Identity provider / token validation | yes | none (required reference) | conditional; provision privately |
 
 Additional runtime controls (not credentials): `SPRING_PROFILES_ACTIVE` selects profiles and must include prod where the health-only policy is required; `JAVA_OPTS` and Keycloak's `JAVA_OPTS_APPEND` control JVM tuning. Keycloak Compose sets `KC_HTTP_ENABLED`, `KC_HEALTH_ENABLED`, `KC_SPI_THEME_CACHE_THEMES`, `KC_SPI_THEME_CACHE_TEMPLATES`, and `KC_SPI_THEME_STATIC_MAX_AGE` for development only; production values require owner review. `GIT_SHA` is public build metadata. Keycloak DB and mail/provider names in its environment example are not automatically wired to every Compose setting; configure the intended runtime explicitly.
