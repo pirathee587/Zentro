@@ -35,7 +35,7 @@ describe('portal routing', () => {
     render(<Providers><MemoryRouter initialEntries={['/customer']}><AppRouter /></MemoryRouter></Providers>);
     expect(await screen.findByRole('heading', { name: /Welcome back/i }, { timeout: 15000 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /User profile options/i }));
-    expect(screen.getByRole('menuitem', { name: /Sign out/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sign out/i })).toBeInTheDocument();
   }, 40000);
 
   it('renders the courier portal for an authenticated courier', async () => {

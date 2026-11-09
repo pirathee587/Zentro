@@ -5,6 +5,7 @@ import { principalCacheScope } from '@/shared/api/queryKeys';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
 import './courier.css';
+import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 
 export function CourierLayout() {
   const { logout, user } = useAuth();
@@ -19,6 +20,7 @@ export function CourierLayout() {
   }, [client, scope]);
 
   return <div className="courier-portal">
+    <RouteAccessibility portal="Courier assignments" />
     <header className="courier-header">
       <Link className="staff-brand" to="/courier" aria-label="Zentro courier home">
         <span className="staff-brand-mark">z</span><span>zentro <small>courier</small></span>

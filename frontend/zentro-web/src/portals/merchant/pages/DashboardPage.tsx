@@ -37,8 +37,8 @@ export function DashboardPage() {
     <section className="merchant-setup-card"><div><span className="merchant-eyebrow">WHAT HAPPENS NEXT</span><h2>Your business access is being reviewed</h2><p>Once a dispatcher updates your application, sign in again to use the merchant tools. Your customer account remains available while you wait.</p></div><Button variant="secondary" className="merchant-outline-link" type="button" onClick={() => window.location.reload()}>Refresh status</Button></section>
   </main>;
 
-  if (application.isLoading) return <main className="merchant-main"><div className="merchant-loading"><Spinner label="Loading your business dashboard" /></div></main>;
-  if (application.isError) return <main className="merchant-main"><ErrorState message={friendlyApiError(application.error, 'We could not load your business details.')} /></main>;
+  if (application.isLoading) return <main className="merchant-main"><h1 className="sr-only">Merchant dashboard</h1><div className="merchant-loading"><Spinner label="Loading your business dashboard" /></div></main>;
+  if (application.isError) return <main className="merchant-main"><h1 className="sr-only">Merchant dashboard</h1><ErrorState message={friendlyApiError(application.error, 'We could not load your business details.')} /></main>;
   const details = application.data;
   const activeKey = key.data?.active === true;
 
@@ -70,9 +70,9 @@ export function DashboardPage() {
       {orders.isLoading && <div className="merchant-orders-state" role="status"><Spinner label="Loading your orders" /><span>Loading your orders…</span></div>}
       {orders.isError && <div className="merchant-orders-state merchant-orders-error" role="alert"><ErrorState message={friendlyApiError(orders.error, 'We could not load your orders. Please try again.')} /><Button variant="secondary" type="button" onClick={() => void orders.refetch()}>Retry</Button></div>}
       {!orders.isLoading && !orders.isError && orders.data?.length === 0 && <div className="merchant-orders-state"><p>No orders yet.</p><span>Orders created through your merchant integration will appear here.</span></div>}
-      {!orders.isLoading && !orders.isError && orders.data && orders.data.length > 0 && <div className="merchant-orders-table-wrap">
-        <table className="merchant-orders-table">
-          <thead><tr><th>Order</th><th>Tracking</th><th>Placed</th><th>Status</th><th>Fee</th></tr></thead>
+      {!orders.isLoading && !orders.isError && orders.data && orders.data.length > 0 && <div className="merchant-orders-table-wrap" role="region" aria-label="Order table scroll area" tabIndex={0}>
+        <table className="merchant-orders-table" aria-labelledby="merchant-orders-title">
+          <thead><tr><th scope="col">Order</th><th scope="col">Tracking</th><th scope="col">Placed</th><th scope="col">Status</th><th scope="col">Fee</th></tr></thead>
           <tbody>{orders.data.map((order) => <tr key={order.id}>
             <th scope="row">{order.externalOrderRef}</th>
             <td>{order.trackingRef}</td>

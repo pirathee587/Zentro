@@ -640,7 +640,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
                     >
                       Assigned Driver
                     </span>
-                    <CardTitle style={{ color: 'var(--onDark)', marginTop: '2px', fontSize: '18px' }}>
+                    <CardTitle style={{ color: 'var(--panel-text)', marginTop: '2px', fontSize: '18px' }}>
                       Your courier
                     </CardTitle>
                   </div>
@@ -648,10 +648,10 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
                 <CardContent>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div>
-                      <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--onDark)' }}>
+                      <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--panel-text)' }}>
                         {courier.name || 'Assigned Courier'}
                       </div>
-                      <div className="sd-courier-vehicle" style={{ color: 'var(--mute)', fontSize: '13px', marginTop: '2px' }}>
+                      <div className="sd-courier-vehicle" style={{ color: 'var(--panel-muted)', fontSize: '13px', marginTop: '2px' }}>
                         <span>{courier.vehicle || 'Delivery Courier'}</span>
                         {courier.zone && !courier.vehicle?.includes(courier.zone) ? (
                           <>
