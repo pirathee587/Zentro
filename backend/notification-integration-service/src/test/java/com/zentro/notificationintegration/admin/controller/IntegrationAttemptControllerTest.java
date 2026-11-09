@@ -9,8 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.zentro.notificationintegration.admin.dto.AttemptHistoryResponse;
 import com.zentro.notificationintegration.notification.repository.NotificationRepository;
+import com.zentro.notificationintegration.webhook.entity.WebhookDelivery;
+import com.zentro.notificationintegration.webhook.entity.WebhookDeliveryStatus;
 import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository;
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -126,6 +130,31 @@ class IntegrationAttemptControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.page").value(0))
         .andExpect(jsonPath("$.size").value(25));
+  }
+
+  @Test
+  @DisplayName("DISPATCHER webhook-deliveries includes responseClass for observability")
+  void dispatcher_webhookDeliveries_includesResponseClass() throws Exception {
+    when(notificationRepository.listHistory(25, 0)).thenReturn(List.of());
+    when(notificationRepository.countHistory()).thenReturn(0L);
+
+    UUID deliveryId = UUID.randomUUID();
+    UUID eventId = UUID.randomUUID();
+    UUID parcelId = UUID.randomUUID();
+    UUID subId = UUID.randomUUID();
+    WebhookDelivery delivery = new WebhookDelivery(
+        deliveryId, subId, eventId, "parcel.status.updated", parcelId,
+        WebhookDeliveryStatus.SUCCEEDED, 1, 200, null, null,
+        OffsetDateTime.now(), OffsetDateTime.now());
+    when(webhookDeliveryRepository.listHistory(25, 0)).thenReturn(List.of(delivery));
+    when(webhookDeliveryRepository.countHistory()).thenReturn(1L);
+
+    mvc.perform(get(WEBHOOK_PATH)
+            .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.webhooks[0].id").value(deliveryId.toString()))
+        .andExpect(jsonPath("$.webhooks[0].responseStatus").value(200))
+        .andExpect(jsonPath("$.webhooks[0].responseClass").value("SUCCESSFUL"));
   }
 
   // ---- pagination guard ----

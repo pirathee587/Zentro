@@ -146,8 +146,12 @@ class WebhookRetryTestingTest {
   }
 
   private DeliveryAttempt createAttemptRow(String endpointUrl, boolean active, int priorAttempts) {
+    return createAttemptRow(deliveryId, endpointUrl, active, priorAttempts);
+  }
+
+  private DeliveryAttempt createAttemptRow(UUID id, String endpointUrl, boolean active, int priorAttempts) {
     return new DeliveryAttempt(
-        deliveryId,
+        id,
         subscriptionId,
         eventId,
         "parcel.status.updated",
@@ -499,6 +503,62 @@ class WebhookRetryTestingTest {
       assertThat(health.getDetails()).containsEntry("failedRecently", 0L);
       assertThat(health.getDetails()).containsEntry("enabled", true);
     }
+
+    @Test
+    @DisplayName("Tagged attempt metrics increment accurately by response_class and outcome without double-counting")
+    void taggedAttemptMetrics() {
+      // 1. Success 200
+      UUID id1 = UUID.randomUUID();
+      when(deliveries.lockForAttempt(id1)).thenReturn(Optional.of(createAttemptRow(id1, "https://webhook.acme.com/v1", true, 0)));
+      when(sender.send(any())).thenReturn(WebhookSendResult.response(200));
+      deliveryService.attempt(id1);
+
+      assertThat(meterRegistry.find(WebhookMetrics.ATTEMPTS).tag("response_class", "successful").tag("outcome", "succeeded").counter().count()).isEqualTo(1.0);
+
+      // 2. Retryable failure 503
+      UUID id2 = UUID.randomUUID();
+      when(deliveries.lockForAttempt(id2)).thenReturn(Optional.of(createAttemptRow(id2, "https://webhook.acme.com/v1", true, 1)));
+      when(sender.send(any())).thenReturn(WebhookSendResult.response(503));
+      deliveryService.attempt(id2);
+
+      assertThat(meterRegistry.find(WebhookMetrics.ATTEMPTS).tag("response_class", "retryable_failure").tag("outcome", "retried").counter().count()).isEqualTo(1.0);
+
+      // 3. Permanent non-retryable 400
+      UUID id3 = UUID.randomUUID();
+      when(deliveries.lockForAttempt(id3)).thenReturn(Optional.of(createAttemptRow(id3, "https://webhook.acme.com/v1", true, 0)));
+      when(sender.send(any())).thenReturn(WebhookSendResult.response(400));
+      deliveryService.attempt(id3);
+
+      assertThat(meterRegistry.find(WebhookMetrics.ATTEMPTS).tag("response_class", "non_retryable_failure").tag("outcome", "failed").counter().count()).isEqualTo(1.0);
+      assertThat(meterRegistry.find(WebhookMetrics.TERMINAL).tag("category", "non_retryable_status").counter().count()).isEqualTo(1.0);
+
+      // 4. Exhaustion at attempt 8
+      UUID id4 = UUID.randomUUID();
+      when(deliveries.lockForAttempt(id4)).thenReturn(Optional.of(createAttemptRow(id4, "https://webhook.acme.com/v1", true, 7)));
+      when(sender.send(any())).thenReturn(WebhookSendResult.response(500));
+      deliveryService.attempt(id4);
+
+      assertThat(meterRegistry.find(WebhookMetrics.ATTEMPTS).tag("response_class", "retryable_failure").tag("outcome", "failed").counter().count()).isEqualTo(1.0);
+      assertThat(meterRegistry.find(WebhookMetrics.TERMINAL).tag("category", "exhausted_retries").counter().count()).isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("Terminal failures for disabled subscription and invalid endpoints increment terminal metrics")
+    void terminalFailureMetrics() {
+      // Disabled subscription
+      UUID idDisabled = UUID.randomUUID();
+      when(deliveries.lockForAttempt(idDisabled)).thenReturn(Optional.of(createAttemptRow(idDisabled, "https://webhook.acme.com/v1", false, 0)));
+      deliveryService.attempt(idDisabled);
+
+      assertThat(meterRegistry.find(WebhookMetrics.TERMINAL).tag("category", "subscription_disabled").counter().count()).isEqualTo(1.0);
+
+      // Blocked internal URL
+      UUID idBlocked = UUID.randomUUID();
+      when(deliveries.lockForAttempt(idBlocked)).thenReturn(Optional.of(createAttemptRow(idBlocked, "https://blocked-internal.acme.com/v1", true, 0)));
+      deliveryService.attempt(idBlocked);
+
+      assertThat(meterRegistry.find(WebhookMetrics.TERMINAL).tag("category", "endpoint_not_allowed").counter().count()).isEqualTo(1.0);
+    }
   }
 
   // =========================================================================
@@ -545,6 +605,10 @@ class WebhookRetryTestingTest {
                 .as("Log message should contain eventId for tracing")
                 .contains(eventId.toString());
           });
+
+      assertThat(capturedLogs.list).extracting(ILoggingEvent::getFormattedMessage)
+          .anySatisfy(msg -> assertThat(msg).contains("responseClass=RETRYABLE_FAILURE"))
+          .anySatisfy(msg -> assertThat(msg).contains("terminalCategory=EXHAUSTED_RETRIES"));
     }
 
     @Test

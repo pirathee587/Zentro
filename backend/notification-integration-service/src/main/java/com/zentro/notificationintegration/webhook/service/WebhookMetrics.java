@@ -4,13 +4,18 @@ import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepo
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Locale;
 import java.util.function.LongSupplier;
 import org.springframework.stereotype.Component;
 
 /**
- * Micrometer meters: counters zentro.webhooks.succeeded / failed / retried / skipped / duplicates / rejected and
- * gauges zentro.webhooks.pending (PENDING + RETRY rows) and zentro.webhooks.failed.total (FAILED rows, not
- * counting deliveries closed because the merchant disabled the endpoint).
+ * Micrometer meters:
+ * <ul>
+ *   <li>Counters {@code zentro.webhooks.succeeded / failed / retried / skipped / duplicates / rejected}</li>
+ *   <li>Counter {@code zentro.webhooks.attempts} with low-cardinality tags {@code response_class} and {@code outcome}</li>
+ *   <li>Counter {@code zentro.webhooks.terminal} with low-cardinality tag {@code category}</li>
+ *   <li>Gauges {@code zentro.webhooks.pending} (PENDING + RETRY rows) and {@code zentro.webhooks.failed.total}</li>
+ * </ul>
  */
 @Component
 public class WebhookMetrics {
@@ -20,9 +25,12 @@ public class WebhookMetrics {
   public static final String SKIPPED = "zentro.webhooks.skipped";
   public static final String DUPLICATES = "zentro.webhooks.duplicates";
   public static final String REJECTED = "zentro.webhooks.rejected";
+  public static final String ATTEMPTS = "zentro.webhooks.attempts";
+  public static final String TERMINAL = "zentro.webhooks.terminal";
   public static final String PENDING_GAUGE = "zentro.webhooks.pending";
   public static final String FAILED_GAUGE = "zentro.webhooks.failed.total";
 
+  private final MeterRegistry registry;
   private final Counter succeeded;
   private final Counter failed;
   private final Counter retried;
@@ -31,6 +39,7 @@ public class WebhookMetrics {
   private final Counter rejected;
 
   public WebhookMetrics(MeterRegistry registry, WebhookDeliveryRepository repository) {
+    this.registry = registry;
     succeeded = registry.counter(SUCCEEDED);
     failed = registry.counter(FAILED);
     retried = registry.counter(RETRIED);
@@ -66,6 +75,24 @@ public class WebhookMetrics {
 
   public void rejected() {
     rejected.increment();
+  }
+
+  /**
+   * Records an individual delivery attempt with bounded, low-cardinality classification tags.
+   */
+  public void recordAttempt(WebhookResponseClass responseClass, WebhookRetryPolicy.Decision outcome) {
+    String rcTag = responseClass == null ? "unknown" : responseClass.name().toLowerCase(Locale.ROOT);
+    String outcomeTag = outcome == null ? "unknown"
+        : (outcome == WebhookRetryPolicy.Decision.RETRY ? "retried" : outcome.name().toLowerCase(Locale.ROOT));
+    registry.counter(ATTEMPTS, "response_class", rcTag, "outcome", outcomeTag).increment();
+  }
+
+  /**
+   * Records a terminal failure categorized by its failure path with bounded, low-cardinality tags.
+   */
+  public void recordTerminalFailure(WebhookTerminalCategory category) {
+    String catTag = category == null ? "unknown" : category.name().toLowerCase(Locale.ROOT);
+    registry.counter(TERMINAL, "category", catTag).increment();
   }
 
   /** A gauge must never throw; report "unknown" when the database cannot be read. */

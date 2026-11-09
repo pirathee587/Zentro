@@ -34,8 +34,24 @@ public record AttemptHistoryResponse(
       String status,
       int attempts,
       Integer responseStatus,
+      String responseClass,
       String lastError,
       OffsetDateTime nextAttemptAt,
       OffsetDateTime createdAt,
-      OffsetDateTime updatedAt) {}
+      OffsetDateTime updatedAt) {
+    public WebhookAttempt(
+        UUID id,
+        UUID eventId,
+        UUID parcelId,
+        String eventType,
+        String status,
+        int attempts,
+        Integer responseStatus,
+        String lastError,
+        OffsetDateTime nextAttemptAt,
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt) {
+      this(id, eventId, parcelId, eventType, status, attempts, responseStatus, null, lastError, nextAttemptAt, createdAt, updatedAt);
+    }
+  }
 }
