@@ -344,3 +344,21 @@ describe('proof ownership changes during submission', () => {
     expect(session.client.getQueryData(queryKeys.courier.proof(parcelId, principalCacheScope(auth.user.id)))).toBeUndefined();
   });
 });
+
+describe('delivery navigation', () => {
+  it('can open an assigned delivery after visiting an unavailable delivery', async () => {
+    const other = '22222222-2222-4222-8222-222222222222';
+    server.use(
+      http.get(`${root}/${parcelId}`, () => HttpResponse.json({}, { status: 403 })),
+      http.get(root, () => HttpResponse.json([{ ...summary, parcelId: other }])),
+      http.get(`${root}/${other}`, () => HttpResponse.json({ ...summary, parcelId: other })),
+      http.get(`${root}/${other}/proof`, () => HttpResponse.json({ code: 'PROOF_NOT_FOUND' }, { status: 404 })),
+    );
+    renderPages();
+    await screen.findByText('Delivery not available');
+    fireEvent.click(screen.getByRole('link', { name: 'Back to my deliveries' }));
+    fireEvent.click(await screen.findByRole('link', { name: 'View delivery' }));
+    expect(await screen.findByLabelText(/Recipient Name/)).toBeInTheDocument();
+    expect(screen.queryByText('Delivery not available')).not.toBeInTheDocument();
+  });
+});
