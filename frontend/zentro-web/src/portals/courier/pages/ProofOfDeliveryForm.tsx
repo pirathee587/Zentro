@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import axios from 'axios';
 import { Button, Input, Textarea } from '@/shared/ui';
-import { deliveryError, proofLimits, type ProofResponse, type SubmitProofRequest } from '../api/deliveryApi';
+import { deliveryAccessDenied, deliverySessionExpired, deliveryError, proofLimits, type ProofResponse, type SubmitProofRequest } from '../api/deliveryApi';
 
 interface Props {
   save: (request: SubmitProofRequest) => Promise<ProofResponse>;
@@ -38,8 +38,15 @@ export function ProofOfDeliveryForm({ save, reconcile, saved }: Props) {
       if (existing) { saved(existing); return; }
       saved(await save(request)); setUncertain(false);
     } catch (failure) {
-      if (axios.isAxiosError(failure) && failure.response?.data?.fieldErrors)
-        setErrors(failure.response.data.fieldErrors as Record<string, string>);
+      if (deliveryAccessDenied(failure) || deliverySessionExpired(failure)) {
+        setError(deliveryAccessDenied(failure) ? 'Delivery not available' : deliveryError(failure));
+        return;
+      }
+      if (axios.isAxiosError(failure) && failure.response?.data?.fieldErrors) {
+        const fields = failure.response.data.fieldErrors;
+        setErrors(Object.fromEntries(['recipientName', 'notes', 'proofReference']
+          .filter(field => typeof fields[field] === 'string').map(field => [field, 'Check this field.'])));
+      }
       setError(deliveryError(failure)); setUncertain(true);
       try {
         const existing = await reconcile();

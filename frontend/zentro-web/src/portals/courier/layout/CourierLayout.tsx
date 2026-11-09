@@ -1,10 +1,22 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { principalCacheScope } from '@/shared/api/queryKeys';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
 import './courier.css';
 
 export function CourierLayout() {
   const { logout, user } = useAuth();
+  const client = useQueryClient();
+  const scope = principalCacheScope(user?.id);
+  useEffect(() => () => {
+    const filters = { predicate: (query: { queryKey: readonly unknown[] }) =>
+      query.queryKey[0] === 'courier' && query.queryKey.some(part =>
+        typeof part === 'object' && part !== null && 'scope' in part && part.scope === scope) };
+    void client.cancelQueries(filters);
+    client.removeQueries(filters);
+  }, [client, scope]);
 
   return <div className="courier-portal">
     <header className="courier-header">
@@ -20,6 +32,6 @@ export function CourierLayout() {
         <Button variant="secondary" className="staff-logout" type="button" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></Button>
       </div>
     </header>
-    <Outlet />
+    <div key={scope}><Outlet /></div>
   </div>;
 }
