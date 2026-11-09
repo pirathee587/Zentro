@@ -257,6 +257,31 @@ describe('route access matrix', () => {
     }, 30000);
   });
 
+  describe('backend permission errors inside an allowed portal', () => {
+    // The guard let the user in, but the backend (the security boundary) refuses the data request. The customer
+    // portal is left out: its list pages use built-in sample data unless VITE_USE_CUSTOMER_MOCKS=false (finding F10).
+    it.each([
+      [merchant, '/merchant/dashboard', 'Merchant navigation'],
+      [courier, '/courier', 'Courier navigation'],
+      [dispatcher, '/dispatcher/users', 'Dispatcher navigation'],
+    ] as const)('%#: a %s page answered with 401 or 403 keeps the portal and shows a message', async (who, path, navigation) => {
+      for (const status of [401, 403]) {
+        signIn(who);
+        server.use(http.all('*/api/*', ({ request }) => (request.url.includes('/api/v1/users/me')
+          ? HttpResponse.json({ id: who.label, roles: who.roles, ...who.profile })
+          : HttpResponse.json({ title: status === 401 ? 'Unauthorized' : 'Forbidden', status }, { status }))));
+        const { unmount } = renderApp(path);
+        expect(await screen.findByRole('navigation', { name: navigation }, { timeout: 15000 })).toBeInTheDocument();
+        const message = status === 401 ? /session has expired/i : /permission|don't have access/i;
+        expect(await screen.findByText(message, {}, { timeout: 15000 })).toBeInTheDocument();
+        expect(location()).toBe(path);
+        expect(signinRedirect).not.toHaveBeenCalled();
+        unmount();
+        queryClient.clear();
+      }
+    }, 60000);
+  });
+
   it('admin paths never open an Admin portal: a dispatcher lands in the Dispatcher portal', async () => {
     signIn(dispatcher);
     renderApp('/admin');
