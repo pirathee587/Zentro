@@ -284,7 +284,7 @@ class GatewayKeycloakIntegrationTests {
   }
 
   @Test
-  void corsReportsAllowedHeadersAndDocumentsMissingIdempotencyKeyWithoutFailing() {
+  void corsAllowsIdempotencyKeyForConfiguredOrigin() {
     client.options().uri("http://localhost:" + port + "/api/v1/parcels")
         .header("Origin", "http://localhost:3000")
         .header("Access-Control-Request-Method", "POST")
@@ -299,9 +299,9 @@ class GatewayKeycloakIntegrationTests {
         .header("Origin", "http://localhost:3000")
         .header("Access-Control-Request-Method", "POST")
         .header("Access-Control-Request-Headers", "authorization,content-type,idempotency-key")
-        .exchange().expectStatus().value(status -> assertThat(status).isIn(200, 403))
+        .exchange().expectStatus().isOk()
         .expectHeader().value("Access-Control-Allow-Headers", value ->
-            assertThat(value.toLowerCase()).doesNotContain("idempotency-key"));
+            assertThat(value.toLowerCase()).contains("idempotency-key"));
   }
 
   @Test

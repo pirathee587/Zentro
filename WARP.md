@@ -1335,3 +1335,7 @@ Before creating new helper code:
 6. Add tests for important utility functions.
 
 Always prioritize maintainability, cohesion and separation of concerns.
+
+## Configuration and secret audit guidance
+
+Use [development configuration](docs/development/configuration.md) for local template copying and loopback-bound Compose ports. Review [production configuration and secret handling](docs/security/production-configuration.md) for environment ownership, deployment assumptions, guards and incident response. Development Compose and the committed development realm export are not production deployment templates.

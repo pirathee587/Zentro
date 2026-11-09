@@ -1,4 +1,4 @@
-# Zentro – Full‑stack Docker Compose (backend + frontend)
+# DEVELOPMENT ONLY — full-stack Compose; not a production deployment definition.
 # Run from project root:  docker compose up -d --build
 
 services:
@@ -14,7 +14,7 @@ services:
     env_file:
       - ./backend/identity-partner-service/.env
     ports:
-      - "8081:8081"
+      - "${BIND_ADDRESS:-127.0.0.1}:8081:8081"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/actuator/health/liveness"]
       interval: 30s
@@ -32,7 +32,7 @@ services:
     env_file:
       - ./backend/api-gateway/.env
     ports:
-      - "8080:8080"
+      - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       identity-partner-service:
         condition: service_started
@@ -47,7 +47,7 @@ services:
     env_file:
       - ./backend/parcel-pricing-service/.env
     ports:
-      - "8082:8082"
+      - "${BIND_ADDRESS:-127.0.0.1}:8082:8082"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/actuator/health/liveness"]
       interval: 30s
@@ -65,7 +65,7 @@ services:
     env_file:
       - ./backend/dispatch-courier-service/.env
     ports:
-      - "8083:8083"
+      - "${BIND_ADDRESS:-127.0.0.1}:8083:8083"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/actuator/health/liveness"]
       interval: 30s
@@ -83,7 +83,7 @@ services:
     env_file:
       - ./backend/tracking-reporting-service/.env
     ports:
-      - "8084:8084"
+      - "${BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8084/actuator/health/liveness"]
       interval: 30s
@@ -101,7 +101,7 @@ services:
     env_file:
       - ./backend/notification-integration-service/.env
     ports:
-      - "8085:8085"
+      - "${BIND_ADDRESS:-127.0.0.1}:8085:8085"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8085/actuator/health/liveness"]
       interval: 30s
@@ -118,7 +118,7 @@ services:
       dockerfile: Dockerfile
     container_name: zentro-web
     ports:
-      - "80:8080"
+      - "${BIND_ADDRESS:-127.0.0.1}:80:8080"
     networks: [zentro]
     restart: unless-stopped
 
