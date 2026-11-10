@@ -45,7 +45,7 @@ class DeliveryProjectionIntegrationTest {
   TrackingKafkaConsumer consumer;
 
   @BeforeEach void setup() {
-    jdbc.execute("TRUNCATE tracking.tracking_event, tracking.processed_event, tracking.delivery_projection, tracking.delivery_daily");
+    jdbc.execute("TRUNCATE tracking.tracking_parcel, tracking.tracking_event, tracking.processed_event, tracking.delivery_projection, tracking.delivery_daily");
     consumer = new TrackingKafkaConsumer(tracking, processed, mapper, projections);
   }
   record Fact(String topic, String json) {}
@@ -132,6 +132,21 @@ class DeliveryProjectionIntegrationTest {
     apply(fact(UUID.fromString("00000000-0000-0000-0000-000000000001"), parcel, "FAILED", "2026-11-01T00:00:00Z"));
     assertThat(metrics().get(0)).containsEntry("failed", 1L).containsEntry("delivered", 0L).containsEntry("active", 0L);
     recountMatches();
+  }
+
+  @Test void lateMilestoneCannotDowngradeExistingIdentityRowWithLegacyNullParcelId() {
+    jdbc.update("""
+        INSERT INTO tracking.tracking_parcel(tracking_ref, customer_subject, sender_name, sender_phone, sender_address,
+          recipient_name, recipient_phone, recipient_address)
+        VALUES ('ZT-7K3QX9M2PA', 'synthetic-customer', 'Synthetic sender', '000', 'Synthetic address',
+          'Synthetic recipient', '000', 'Synthetic address')
+        """);
+    UUID parcel = UUID.randomUUID();
+    apply(fact(UUID.randomUUID(), parcel, "DELIVERED", "2026-11-03T00:00:00Z"));
+    apply(fact(UUID.randomUUID(), parcel, "OUT_FOR_DELIVERY", "2026-11-02T00:00:00Z"));
+    assertThat(jdbc.queryForObject("SELECT status FROM tracking.tracking_parcel", String.class)).isEqualTo("DELIVERED");
+    assertThat(jdbc.queryForObject("SELECT customer_subject FROM tracking.tracking_parcel", String.class)).isEqualTo("synthetic-customer");
+    assertThat(jdbc.queryForObject("SELECT parcel_id FROM tracking.tracking_parcel", UUID.class)).isNull();
   }
 
   @Test void differentParcelsUpdatingSameDayDoNotLoseIncrements() throws Exception {
