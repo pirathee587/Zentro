@@ -29,10 +29,6 @@ public class TrackingKafkaConsumer {
   private final ObjectMapper mapper;
   private final DeliveryProjectionRepository projections;
 
-  public TrackingKafkaConsumer(TrackingService tracking, ProcessedEventRepository processed, ObjectMapper mapper) {
-    this(tracking, processed, mapper, null);
-  }
-
   public TrackingKafkaConsumer(TrackingService tracking, ProcessedEventRepository processed, ObjectMapper mapper,
       DeliveryProjectionRepository projections) {
     this.tracking = tracking;

@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.zentro.trackingreporting.messaging.idempotency.ProcessedEvent;
 import com.zentro.trackingreporting.messaging.idempotency.ProcessedEventRepository;
+import com.zentro.trackingreporting.reporting.DeliveryProjectionRepository;
 import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.tracking.service.TrackingService;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +37,7 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
 
   @Mock private TrackingService trackingService;
   @Mock private ProcessedEventRepository processedEventRepository;
+  @Mock private DeliveryProjectionRepository deliveryProjectionRepository;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
   private TrackingKafkaConsumer consumer;
@@ -43,7 +45,7 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
   @BeforeEach
   void setUp() {
     org.mockito.Mockito.lenient().when(processedEventRepository.claim(any(), any())).thenReturn(1);
-    consumer = new TrackingKafkaConsumer(trackingService, processedEventRepository, objectMapper);
+    consumer = new TrackingKafkaConsumer(trackingService, processedEventRepository, objectMapper, deliveryProjectionRepository);
   }
 
   private ObjectNode validCreatedEnvelope() {
