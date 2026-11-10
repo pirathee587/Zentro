@@ -212,7 +212,16 @@ class WebhookDeliveryIntegrationTest {
 
   private Map<String, Object> awaitDelivery(UUID eventId, String status) {
     await().atMost(WAIT).until(() -> status.equals(delivery(eventId).get("status")));
-    return delivery(eventId);
+    var row = delivery(eventId);
+    var history = jdbc.queryForList("SELECT * FROM notification.delivery_attempt_history WHERE event_id = ? ORDER BY attempt_number", eventId);
+    assertThat(history.size()).isGreaterThanOrEqualTo((Integer) row.get("attempts"));
+    for (int i = 0; i < history.size(); i++) {
+      var attempt = history.get(i);
+      assertThat(attempt).containsEntry("attempt_number", i + 1).containsEntry("delivery_kind", "WEBHOOK");
+      assertThat((java.sql.Timestamp)attempt.get("finished_at")).isAfterOrEqualTo((java.sql.Timestamp)attempt.get("started_at"));
+      assertThat(attempt.keySet()).doesNotContain("secret", "payload", "signature", "last_error");
+    }
+    return row;
   }
 
   private static String hmac(String secret, String data) throws Exception {
@@ -288,6 +297,36 @@ class WebhookDeliveryIntegrationTest {
     assertThat(done).containsEntry("attempts", 2).containsEntry("response_status", 200);
     assertThat(done.get("last_error")).isNull();
     assertThat(receivedAt(merchant[1])).hasSize(2);
+    var history = jdbc.queryForList("SELECT http_status, response_class, outcome FROM notification.delivery_attempt_history WHERE event_id = ? ORDER BY attempt_number", eventId);
+    assertThat(history).extracting(r -> r.get("http_status")).containsExactly(500, 200);
+    assertThat(history).extracting(r -> r.get("response_class")).containsExactly("5xx", "2xx");
+    assertThat(history).extracting(r -> r.get("outcome")).containsExactly("RETRY", "SUCCEEDED");
+  }
+
+  @Test void rateLimitedAttemptIsPreservedBeforeSuccess() throws Exception {
+    String[] merchant = newMerchant(429);
+    UUID event = UUID.randomUUID(), parcel = UUID.randomUUID();
+    send(STATUS_TOPIC, parcel, statusEvent(event, parcel, "PICKED_UP", merchant[0]));
+    awaitDelivery(event, "SUCCEEDED");
+    var history = jdbc.queryForList("SELECT http_status, outcome, terminal FROM notification.delivery_attempt_history WHERE event_id = ? ORDER BY attempt_number", event);
+    assertThat(history).extracting(r -> r.get("http_status")).containsExactly(429, 200);
+    assertThat(history).extracting(r -> r.get("terminal")).containsExactly(false, true);
+  }
+
+  @Test void allEightFailedWebhookAttemptsRemainInHistoryAtExhaustion() throws Exception {
+    String[] merchant = newMerchant(500, 500, 500, 500, 500, 500, 500, 500);
+    UUID event = UUID.randomUUID(), parcel = UUID.randomUUID();
+    send(STATUS_TOPIC, parcel, statusEvent(event, parcel, "PICKED_UP", merchant[0]));
+    assertThat(awaitDelivery(event, "FAILED")).containsEntry("attempts", 8);
+    var history = jdbc.queryForList("SELECT attempt_number, http_status, terminal, next_retry_at FROM notification.delivery_attempt_history WHERE event_id = ? ORDER BY attempt_number", event);
+    assertThat(history).hasSize(8);
+    for (int i = 0; i < 8; i++) {
+      assertThat(history.get(i)).containsEntry("attempt_number", i + 1).containsEntry("http_status", 500)
+          .containsEntry("terminal", i == 7);
+      if (i == 7) assertThat(history.get(i).get("next_retry_at")).isNull();
+      else assertThat(history.get(i).get("next_retry_at")).isNotNull();
+    }
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM notification.webhook_delivery WHERE event_id = ?", Long.class, event)).isEqualTo(1);
   }
 
   @Test

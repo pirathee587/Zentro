@@ -1,0 +1,8 @@
+ecd9660acc106122c17905e6f8d428c5aabe5f49823b62052b9ecb25325a6cfd  api-gateway/target/api-gateway-0.1.0-SNAPSHOT.jar
+b42c2d78292dc5a68420b470a3f57d23d5a3287e06174d5e65f81e3b1aaa251b  dispatch-courier-service/target/dispatch-courier-service-0.1.0-SNAPSHOT.jar
+44f8cc3d7078d13e759856761ca35e9910b3ef640178cd4cc896b03187a40678  identity-partner-service/target/identity-partner-service-0.1.0-SNAPSHOT.jar
+6e0820c126739a858cf85eeb4d06bf68bee05db5f5fd4a8fc023a01ff0b13662  libs/zentro-security-starter/target/zentro-security-starter-0.1.0-SNAPSHOT.jar
+65078a0bc0cfdbd099827bf98d6e773642a2c5f81c7617ccc2b85385af1ad892  merchant-order-webhook-e2e/target/merchant-order-webhook-e2e-0.1.0-SNAPSHOT.jar
+e864734b9c714df63a937a5fc2056668fb45de18bf3b5e0efd22e0b64dda30a5  notification-integration-service/target/notification-integration-service-0.1.0-SNAPSHOT.jar
+be05b224ea0d241f9d3de2b6dbabeb75beb09a1a5cdf6a5d9e17a9a80a554e72  parcel-pricing-service/target/parcel-pricing-service-0.1.0-SNAPSHOT.jar
+adcd8fbe110b16592241e4fb16cdd0b36e8c10ca3216e1d377da59388ec6f4e8  tracking-reporting-service/target/tracking-reporting-service-0.1.0-SNAPSHOT.jar

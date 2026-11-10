@@ -1,0 +1,18 @@
+[INFO] Building Zentro Security Starter 0.1.0-SNAPSHOT                    [2/9]
+[INFO] Tests run: 62, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Building api-gateway 0.1.0-SNAPSHOT                                [3/9]
+[INFO] Tests run: 210, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Building identity-partner-service 0.1.0-SNAPSHOT                   [4/9]
+[INFO] Tests run: 420, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Building parcel-pricing-service 0.1.0-SNAPSHOT                     [5/9]
+[INFO] Tests run: 675, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Building dispatch-courier-service 0.1.0-SNAPSHOT                   [6/9]
+[INFO] Tests run: 259, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Building tracking-reporting-service 0.1.0-SNAPSHOT                 [7/9]
+[INFO] Tests run: 91, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Building notification-integration-service 0.1.0-SNAPSHOT           [8/9]
+[INFO] Tests run: 425, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests are skipped.
+[INFO] Tests are skipped.
+[INFO] BUILD SUCCESS
+[INFO] Total time:  09:41 min

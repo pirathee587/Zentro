@@ -1,0 +1,26 @@
+Base source: 055da427a2af414c18ec44aed06efb7dcf77da9b
+Backend CI and normal test worktree: 4b3ccba655d97e80242336edab3ea26e5a8522bb
+Final packaging/image source: 50715b5a46f2c5971b6fd60cbf9484dac0ad4642
+Only difference after 4b3ccba: local image builder explicitly disables provenance and SBOM defaults; no Maven/application source change.
+Frontend source for final dist comparison: 4b3ccba655d97e80242336edab3ea26e5a8522bb (frontend inputs unchanged by 50715b5).
+
+Base backend comparison, twice from clean worktree backend/:
+mvn --batch-mode --no-transfer-progress -DskipTests clean package
+Final comparison, fresh clone of committed HEAD, twice:
+mvn --batch-mode --no-transfer-progress -DskipTests -Dbuild.revision=50715b5a46f2c5971b6fd60cbf9484dac0ad4642 clean package
+Final full CI coverage, clean worktree backend/ (10m56s, all modules + merchant E2E):
+mvn --batch-mode --no-transfer-progress -Dbuild.revision=4b3ccba -DrunE2E verify
+Explicit requested normal command, same clean worktree backend/ (9m41s):
+mvn --batch-mode test package
+
+Container frontend checks: node v22.23.4, npm 10.9.9, existing immutable local Node 22 image.
+npm ci && npm test && npm run lint && npm run type-check && npm run build
+New JUnit reporter invocation also verified: npm test -- --reporter=default --reporter=junit --outputFile=reports/vitest.xml
+Final dist reproducibility, twice in separate container runs with same mounted clean source and environment:
+npm ci && rm -rf dist && npm run build
+
+No host Node/npm installation; host frontend checks NOT run. No actionlint/shellcheck installation; those checks NOT run.
+Basic workflow YAML syntax: Java 21 source launcher with already-cached org.yaml:snakeyaml:2.3, SafeConstructor and duplicate keys rejected.
+Compose checks: existing Docker Compose plugin, --env-file /dev/null, --no-env-resolution --no-interpolate --quiet, both committed Compose files.
+Guard cases: scripts/test-ci-release.sh; 19 positive/negative/sanitization cases passed.
+Image checks: existing Docker/BuildKit binaries, scripts/check-container-builds.sh NEW_OUTPUT --twice; second pass --no-cache, local --load only, --provenance=false --sbom=false; task-scoped images removed.

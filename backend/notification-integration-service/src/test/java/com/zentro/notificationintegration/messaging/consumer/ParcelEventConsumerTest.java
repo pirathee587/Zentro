@@ -40,6 +40,16 @@ class ParcelEventConsumerTest {
 
   ParcelEventConsumer consumer;
 
+  @Test void unsupportedHeaderVersionIsRejectedAndAcknowledgedWithoutHandling() {
+    var record = record(PAYLOAD);
+    record.headers().add("schemaVersion", new byte[]{'9'});
+    consumer.onParcelEvent(record, ack);
+    verify(service).reject(TOPIC, 1, 42L, "unsupported schema version");
+    verify(ack).acknowledge();
+    verify(service, never()).handle(any());
+    org.mockito.Mockito.verifyNoInteractions(parser, dispatcher);
+  }
+
   @BeforeEach
   void setUp() {
     consumer = new ParcelEventConsumer(parser, service, dispatcher);

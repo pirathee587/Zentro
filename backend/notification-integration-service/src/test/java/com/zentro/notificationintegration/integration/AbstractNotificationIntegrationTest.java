@@ -136,6 +136,17 @@ abstract class AbstractNotificationIntegrationTest {
   Map<String, Object> awaitRow(UUID eventId, String status) {
     await().atMost(Duration.ofSeconds(60)).until(() -> rowsFor(eventId).stream()
         .anyMatch(r -> status.equals(r.get("status"))));
-    return rowsFor(eventId).get(0);
+    var row = rowsFor(eventId).get(0);
+    var history = jdbc.queryForList("SELECT * FROM notification.delivery_attempt_history WHERE event_id = ? ORDER BY attempt_number", eventId);
+    org.assertj.core.api.Assertions.assertThat(history).hasSize((Integer) row.get("attempts"));
+    for (int i = 0; i < history.size(); i++) {
+      var attempt = history.get(i);
+      org.assertj.core.api.Assertions.assertThat(attempt).containsEntry("attempt_number", i + 1)
+          .containsEntry("delivery_kind", "NOTIFICATION");
+      org.assertj.core.api.Assertions.assertThat((java.sql.Timestamp)attempt.get("finished_at"))
+          .isAfterOrEqualTo((java.sql.Timestamp)attempt.get("started_at"));
+      org.assertj.core.api.Assertions.assertThat(attempt.keySet()).doesNotContain("message", "secret", "payload", "last_error");
+    }
+    return row;
   }
 }

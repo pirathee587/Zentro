@@ -3,9 +3,9 @@ package com.zentro.trackingreporting.messaging.consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zentro.trackingreporting.messaging.idempotency.ProcessedEvent;
-import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.messaging.idempotency.ProcessedEventRepository;
+import com.zentro.trackingreporting.reporting.DeliveryProjectionRepository;
+import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.tracking.service.TrackingService;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @ConditionalOnProperty(prefix = "zentro.kafka", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class TrackingKafkaConsumer {
-
   private static final Logger log = LoggerFactory.getLogger(TrackingKafkaConsumer.class);
   private static final String CONSUMER_NAME = "tracking-reporting-service";
 
@@ -42,13 +41,9 @@ public class TrackingKafkaConsumer {
   private final ProcessedEventRepository processedEventRepository;
   private final ObjectMapper objectMapper;
 
-  public TrackingKafkaConsumer(
-      TrackingService trackingService,
-      ProcessedEventRepository processedEventRepository,
-      ObjectMapper objectMapper) {
-    this.trackingService = trackingService;
-    this.processedEventRepository = processedEventRepository;
-    this.objectMapper = objectMapper;
+  @Transactional
+  public void onParcelEvent(String message, String topic, String headerEventId) {
+    onParcelEvent(message, topic, headerEventId, null);
   }
 
   public void onParcelEvent(String message, String topic, String headerEventId) {
@@ -57,8 +52,7 @@ public class TrackingKafkaConsumer {
 
   @KafkaListener(topics = {"parcel.created", "parcel.status.updated"}, groupId = "${spring.kafka.consumer.group-id:tracking-reporting-service}")
   @Transactional
-  public void onParcelEvent(
-      @Payload String message,
+  public void onParcelEvent(@Payload String message,
       @Header(name = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
       @Header(name = "eventId", required = false) String headerEventId,
       @Header(name = "schemaVersion", required = false) Object headerSchemaVersion) {
@@ -243,28 +237,23 @@ public class TrackingKafkaConsumer {
         return;
       }
 
-      trackingService.recordEvent(
-          trackingRef,
-          parcelId,
-          status,
-          previousStatus,
-          actorRole,
-          status.defaultTitle(),
-          failureReason != null ? failureReason : status.defaultDescription(),
-          failureReason,
-          null,
-          occurredAt,
-          eventId
-      );
+  private String text(JsonNode node, String key, int max) {
+    JsonNode value = node.get(key);
+    if (value == null || !value.isTextual() || value.textValue().isBlank() || value.textValue().length() > max)
+      throw new IllegalArgumentException();
+    return value.textValue();
+  }
 
-      processedEventRepository.save(new ProcessedEvent(CONSUMER_NAME, eventId));
-      log.info("Tracking event processed: eventId={}", eventId);
+  private UUID uuid(JsonNode node, String key) {
+    String value = text(node, key, 36);
+    UUID uuid = UUID.fromString(value);
+    if (!uuid.toString().equalsIgnoreCase(value)) throw new IllegalArgumentException();
+    return uuid;
+  }
 
-    } catch (Exception e) {
-      // Payloads and exception chains can contain secrets. Preserve the cause for retry classification only.
-      log.error("Tracking event failed: category=processing_error eventId={}", eventId);
-      throw new RuntimeException("Error processing Kafka tracking event", e);
-    }
+  private void allowed(JsonNode node, java.util.Set<String> fields) {
+    var names = node.fieldNames();
+    while (names.hasNext()) if (!fields.contains(names.next())) throw new IllegalArgumentException();
   }
 
   private static String extractHeaderString(Object header) {
@@ -290,3 +279,6 @@ public class TrackingKafkaConsumer {
   }
 }
 
+  private record Event(UUID id, UUID parcel, String ref, TrackingStatus status, String previous,
+                       String actor, String reason, Instant time) {}
+}

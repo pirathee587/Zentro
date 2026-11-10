@@ -19,6 +19,27 @@ class ParcelEventParserTest {
 
   private final ParcelEventParser parser = new ParcelEventParser(MAPPER);
 
+  @Test void explicitUnknownVersionAndOversizeAreRejectedWithoutEchoingValues() {
+    var event = createdEvent().put("schemaVersion", "synthetic-private-value");
+    assertThatThrownBy(() -> parser.parse("parcel.created", event.toString()))
+        .isInstanceOf(MalformedEventException.class).hasMessage("unsupported schema version");
+    assertThatThrownBy(() -> parser.parse("parcel.created", "x".repeat(65537)))
+        .isInstanceOf(MalformedEventException.class).hasMessage("message too large");
+  }
+
+  @Test void fieldsOutsideApprovedSchemaAndMissingRequiredFieldsAreRejected() {
+    for (String message : new String[]{createdEvent().toString() + " {}",
+        createdEvent().toString().replace("\"eventId\":", "\"eventId\":\"duplicate-value\",\"eventId\":")})
+      assertThatThrownBy(() -> parser.parse("parcel.created", message)).isInstanceOf(MalformedEventException.class);
+    for (String field : new String[]{"source", "occurredAt"}) {
+      var event = createdEvent(); payload(event).remove(field);
+      assertThatThrownBy(() -> parser.parse("parcel.created", event.toString())).isInstanceOf(MalformedEventException.class);
+    }
+    var event = createdEvent(); payload(event).put("syntheticPrivateField", "must-not-store");
+    assertThatThrownBy(() -> parser.parse("parcel.created", event.toString()))
+        .isInstanceOf(MalformedEventException.class).hasMessage("unexpected event field");
+  }
+
   static ObjectNode statusEvent(String status, String failureReason) {
     ObjectNode envelope = MAPPER.createObjectNode()
         .put("eventId", EVENT_ID)

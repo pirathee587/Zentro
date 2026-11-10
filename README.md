@@ -320,7 +320,7 @@ After rebuilding the frontend, use a hard refresh (`Ctrl + Shift + R`) to clear 
 
 ## Contributing
 
-1. Branch from `develop`: `feature/<area>-<task>`.
+1. Branch from `develop`: `<type>/<issue-number>-<short-name>` (for example `feature/123-add-login`; types: feature, fix, chore, hotfix, docs).
 2. Commit with Conventional Commits, for example `feat(parcel): add fee estimate`.
 3. Open a Pull Request to `develop`. At least one reviewer must approve.
 4. Never commit `.env` files, passwords, keys, `target/` or `node_modules/`.
@@ -332,6 +332,7 @@ After rebuilding the frontend, use a hard refresh (`Ctrl + Shift + R`) to clear 
 - [System architecture](docs/architecture/)
 - [API specifications](docs/api/)
 - [Test reports](docs/test-reports/)
+- [CI artifacts and release verification](docs/development/ci-and-release.md): build-only checks, reproducibility evidence and pending release-owner decisions
 
 <div align="center">
 
