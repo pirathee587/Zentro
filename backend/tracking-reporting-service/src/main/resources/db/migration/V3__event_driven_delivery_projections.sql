@@ -35,7 +35,7 @@ LEFT JOIN tracking.delivery_daily d ON d.day = dates.day::DATE;
 -- Backfill from S4's own durable event history only. Legacy rows without stable event IDs are excluded.
 INSERT INTO tracking.delivery_projection(parcel_id, created_at, terminal_at, terminal_status, current_status, current_at)
 SELECT ids.parcel_id, c.created_at, t.occurred_at, t.status,
-       COALESCE(t.status, latest.status), latest.occurred_at
+       COALESCE(t.status, latest.status), COALESCE(t.occurred_at, latest.occurred_at)
 FROM (SELECT DISTINCT parcel_id FROM tracking.tracking_event WHERE event_id IS NOT NULL AND parcel_id IS NOT NULL) ids
 LEFT JOIN LATERAL (SELECT min(occurred_at) AS created_at FROM tracking.tracking_event
     WHERE parcel_id = ids.parcel_id AND event_id IS NOT NULL AND status = 'CREATED') c ON true
