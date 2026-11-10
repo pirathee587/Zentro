@@ -2788,6 +2788,27 @@
               }
             }
           },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid bearer token",
             "content": {
@@ -3701,7 +3722,8 @@
               "string",
               "null"
             ],
-            "maxLength": 32
+            "maxLength": 32,
+            "pattern": "^(\\+?[0-9]{9,15})?$"
           }
         }
       },
