@@ -37,6 +37,7 @@ export const queryKeys = {
     profile: (scope?: string) => scope ? ['courier', 'profile', { scope }] as const : ['courier', 'profile'] as const,
   },
   merchant: {
+    order: (orderId: string, scope: string) => ['merchant', 'order', stableParams({ orderId, scope })] as const,
     application: (scope?: string) => scope ? ['merchant', 'application', { scope }] as const : ['merchant', 'application'] as const,
     apiKey: (scope?: string) => scope ? ['merchant', 'api-key', { scope }] as const : ['merchant', 'api-key'] as const,
     orders: (params?: QueryParams, scope?: string) => params === undefined && scope === undefined ? ['merchant', 'orders'] as const : ['merchant', 'orders', stableParams({ ...params, ...(scope ? { scope } : {}) })] as const,

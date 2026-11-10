@@ -4,7 +4,9 @@ import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import {
   getMerchantApiKey,
   getMerchantApplication,
+  getMerchantOrder,
   getMerchantOrders,
+  isMerchantOrderId,
   issueMerchantApiKey,
   revokeMerchantApiKey,
 } from '../api/merchantApi';
@@ -13,6 +15,7 @@ export const merchantQueryKeys = {
   application: (userId?: string) => queryKeys.merchant.application(principalCacheScope(userId)),
   apiKey: (userId?: string) => queryKeys.merchant.apiKey(principalCacheScope(userId)),
   orders: (userId?: string) => queryKeys.merchant.orders(undefined, principalCacheScope(userId)),
+  order: (orderId: string, userId?: string) => queryKeys.merchant.order(orderId, principalCacheScope(userId)),
 };
 
 export function useMerchantApplicationQuery(enabled = true) {
@@ -54,6 +57,21 @@ export function useMerchantOrdersQuery(enabled = true) {
       refreshAccessToken,
       signal,
     }),
+  });
+}
+
+export function useMerchantOrderQuery(orderId: string, enabled = true) {
+  const { user, loading, refreshAccessToken } = useAuth();
+  const authenticated = !loading && Boolean(user?.id && user.accessToken);
+
+  return useQuery({
+    queryKey: merchantQueryKeys.order(orderId, user?.id),
+    enabled: authenticated && isMerchantOrderId(orderId) && enabled,
+    queryFn: ({ signal }) => {
+      // Also guard explicit refetches, which bypass the enabled option.
+      if (!authenticated) throw new Error('Your sign-in session has ended. Please sign in again.');
+      return getMerchantOrder({ accessToken: user?.accessToken, refreshAccessToken, signal }, orderId);
+    },
   });
 }
 
