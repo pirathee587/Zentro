@@ -42,6 +42,7 @@ public class ParcelEventParser {
     if (message == null || message.isBlank()) {
       throw new MalformedEventException("empty message");
     }
+    if (message.length() > 65536) throw new MalformedEventException("message too large");
     JsonNode envelope;
     try {
       envelope = objectMapper.readTree(message);
@@ -51,6 +52,8 @@ public class ParcelEventParser {
     if (envelope == null || !envelope.isObject()) {
       throw new MalformedEventException("envelope is not a JSON object");
     }
+    // The approved envelope is unversioned and has no schemaVersion property.
+    if (envelope.has("schemaVersion")) throw new MalformedEventException("unsupported schema version");
 
     UUID eventId = uuid(envelope, "eventId");
     String eventType = text(envelope, "eventType");
