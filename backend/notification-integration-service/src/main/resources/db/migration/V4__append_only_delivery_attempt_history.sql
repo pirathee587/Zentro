@@ -5,6 +5,7 @@ CREATE TABLE notification.delivery_attempt_history (
     delivery_id UUID NOT NULL,
     event_id UUID NOT NULL,
     attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
+    policy_attempt_number INTEGER NOT NULL CHECK (policy_attempt_number > 0),
     outcome VARCHAR(16) NOT NULL,
     response_class VARCHAR(16) NOT NULL,
     http_status INTEGER,
@@ -27,9 +28,11 @@ BEGIN
     kind := CASE WHEN TG_TABLE_NAME = 'webhook_delivery' THEN 'WEBHOOK' ELSE 'NOTIFICATION' END;
     IF kind = 'WEBHOOK' THEN response := NEW.response_status; END IF;
     INSERT INTO notification.delivery_attempt_history
-        (delivery_kind, delivery_id, event_id, attempt_number, outcome, response_class, http_status,
+        (delivery_kind, delivery_id, event_id, attempt_number, policy_attempt_number, outcome, response_class, http_status,
          started_at, finished_at, next_retry_at, terminal)
-    VALUES (kind, NEW.id, NEW.event_id, NEW.attempts, NEW.status,
+    VALUES (kind, NEW.id, NEW.event_id,
+        (SELECT COALESCE(max(attempt_number), 0) + 1 FROM notification.delivery_attempt_history
+          WHERE delivery_kind = kind AND delivery_id = NEW.id), NEW.attempts, NEW.status,
         CASE WHEN response IS NOT NULL THEN (response / 100)::TEXT || 'xx'
              WHEN NEW.status IN ('SENT', 'SUCCEEDED') THEN 'SUCCESS'
              ELSE 'DELIVERY_ERROR' END,
