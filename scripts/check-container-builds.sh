@@ -4,8 +4,8 @@ set -euo pipefail
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(git -C "$script_dir" rev-parse --show-toplevel)
 docker_bin=${ZENTRO_DOCKER_BIN:-docker}
-builder=("$docker_bin" build)
-if [[ -n ${ZENTRO_BUILDX_BIN:-} ]]; then builder=("$ZENTRO_BUILDX_BIN" build --load);fi
+builder=("$docker_bin" build --provenance=false --sbom=false)
+if [[ -n ${ZENTRO_BUILDX_BIN:-} ]]; then builder=("$ZENTRO_BUILDX_BIN" build --load --provenance=false --sbom=false);fi
 [[ $# -ge 1 && $# -le 2 ]] || { echo "Usage: $0 OUTPUT_DIRECTORY [--twice]" >&2; exit 2; }
 output=$1
 [[ ! -e "$output" ]] || { echo 'Output directory must be new' >&2; exit 2; }
