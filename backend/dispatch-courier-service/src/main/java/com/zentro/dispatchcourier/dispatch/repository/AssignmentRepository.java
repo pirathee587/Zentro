@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -143,7 +144,7 @@ public class AssignmentRepository {
   }
 
   private void writeAuditAndEvent(UUID parcelId, String action, UUID oldCourier, UUID newCourier, String subject) {
-    Instant occurredAt = Instant.now();
+    OffsetDateTime occurredAt = OffsetDateTime.now(ZoneOffset.UTC);
     jdbc.update("""
         INSERT INTO dispatch.assignment_audit
           (audit_id, parcel_id, action, old_courier_profile_id, new_courier_profile_id, actor_subject, occurred_at)
@@ -165,7 +166,7 @@ public class AssignmentRepository {
       String payload = objectMapper.writeValueAsString(java.util.Map.of(
           "eventId", eventId,
           "eventType", eventType,
-          "occurredAt", occurredAt,
+          "occurredAt", occurredAt.toInstant(),
           "aggregateId", parcelId,
           "payload", eventPayload));
       jdbc.update("""
