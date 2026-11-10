@@ -49,6 +49,7 @@ public class ParcelEventConsumer {
   public void onParcelEvent(ConsumerRecord<String, String> record, Acknowledgment ack) {
     ParcelEvent event;
     try {
+      ParcelEventParser.validateVersion(record.headers());
       event = parser.parse(record.topic(), record.value());
     } catch (MalformedEventException ex) {
       service.reject(record.topic(), record.partition(), record.offset(), ex.getMessage());

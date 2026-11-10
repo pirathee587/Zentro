@@ -130,7 +130,7 @@ class NotificationDispatcherTest {
     ArgumentCaptor<String> error = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<OffsetDateTime> next = ArgumentCaptor.forClass(OffsetDateTime.class);
     verify(repository).markRetry(eq(ID), eq(3), error.capture(), next.capture());
-    assertThat(error.getValue()).startsWith("NotificationSendException").doesNotContain("Gate locked");
+    assertThat(error.getValue()).isEqualTo("Provider delivery failed").doesNotContain("Gate locked");
     assertThat(next.getValue().toInstant()).isEqualTo(NOW.plusSeconds(20)); // 5s * 2^(3-1)
     verify(repository, never()).markSent(any(), anyInt());
     assertThat(registry.get(NotificationMetrics.RETRIED).counter().count()).isEqualTo(1);
@@ -147,7 +147,7 @@ class NotificationDispatcherTest {
     ArgumentCaptor<String> timeoutError = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<OffsetDateTime> timeoutNext = ArgumentCaptor.forClass(OffsetDateTime.class);
     verify(repository).markRetry(eq(ID), eq(2), timeoutError.capture(), timeoutNext.capture());
-    assertThat(timeoutError.getValue()).contains("timeout");
+    assertThat(timeoutError.getValue()).isEqualTo("Provider delivery failed");
     assertThat(timeoutNext.getValue().toInstant()).isEqualTo(NOW.plusSeconds(10));
 
     org.mockito.Mockito.clearInvocations(repository);
@@ -155,7 +155,7 @@ class NotificationDispatcherTest {
     dispatcher(FailMode.THROTTLED, 5).deliver(ID);
     ArgumentCaptor<String> throttledError = ArgumentCaptor.forClass(String.class);
     verify(repository).markRetry(eq(ID), eq(3), throttledError.capture(), any());
-    assertThat(throttledError.getValue()).contains("throttled");
+    assertThat(throttledError.getValue()).isEqualTo("Provider delivery failed");
   }
 
   @Test

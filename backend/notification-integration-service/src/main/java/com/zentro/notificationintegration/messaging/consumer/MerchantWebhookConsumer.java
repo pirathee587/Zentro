@@ -49,6 +49,7 @@ public class MerchantWebhookConsumer {
   public void onParcelEvent(ConsumerRecord<String, String> record, Acknowledgment ack) {
     MerchantParcelEvent event;
     try {
+      ParcelEventParser.validateVersion(record.headers());
       event = reader.read(record.topic(), record.value());
     } catch (MalformedEventException ex) {
       service.reject(record.topic(), record.partition(), record.offset(), ex.getMessage());

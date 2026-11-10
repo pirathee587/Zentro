@@ -1345,3 +1345,7 @@ Always prioritize maintainability, cohesion and separation of concerns.
 ## Configuration and secret audit guidance
 
 Use [development configuration](docs/development/configuration.md) for local template copying and loopback-bound Compose ports. Review [production configuration and secret handling](docs/security/production-configuration.md) for environment ownership, deployment assumptions, guards and incident response. Development Compose and the committed development realm export are not production deployment templates.
+
+## Event projection verification
+
+See [notification and reporting projections](docs/events/projections.md) for S4's event-only daily aggregates and independent recount, S5's append-only attempt history, ordering/replay rules and retention follow-ups. Parcel events do not carry customer/courier identities or destination details; do not fabricate these fields or backfill through another service's database. Reports API approval and implementation remain separate from the internal projections.
