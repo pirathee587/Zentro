@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { AxiosError, CanceledError, type InternalAxiosRequestConfig } from 'axios';
 import { apiClient, setAccessToken } from '@/shared/api/apiClient';
-import { getMerchantOrder, type MerchantOrder } from '../merchantApi';
+import { getMerchantOrder, getMerchantOrders, type MerchantOrder, type MerchantOrderStatus } from '../merchantApi';
 
 const originalAdapter = apiClient.defaults.adapter;
 const orderId = '3f1c2b7e-8a4d-4c1e-9b2a-5d6e7f8a9b0c';
@@ -27,6 +27,38 @@ afterEach(() => {
 });
 
 describe('merchant order detail API', () => {
+  it.each([
+    'CREATED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED',
+  ] as const)('preserves backend status %s consistently in list and detail responses', async (status) => {
+    const responseOrder: MerchantOrder = { ...order, status };
+    apiClient.defaults.adapter = async (config) => ({
+      data: config.url === '/api/v1/merchant/orders' ? [responseOrder] : responseOrder,
+      status: 200, statusText: 'OK', headers: {}, config,
+    });
+
+    const orders = await getMerchantOrders(auth);
+    const detail = await getMerchantOrder(auth, orderId);
+    expectTypeOf(orders[0].status).toEqualTypeOf<MerchantOrderStatus>();
+    expectTypeOf(detail.status).toEqualTypeOf<MerchantOrderStatus>();
+    expect(orders[0].status).toBe(status);
+    expect(detail.status).toBe(status);
+    expect(orders[0]).toEqual(detail);
+  });
+
+  it('preserves an unexpected wire status without converting it to a supported state', async () => {
+    // Simulate contract drift at the transport boundary, without widening the documented DTO type.
+    const responseOrder = { ...order, status: 'UNRECOGNIZED_STATUS' };
+    apiClient.defaults.adapter = async (config) => ({
+      data: config.url === '/api/v1/merchant/orders' ? [responseOrder] : responseOrder,
+      status: 200, statusText: 'OK', headers: {}, config,
+    });
+
+    const orders = await getMerchantOrders(auth);
+    const detail = await getMerchantOrder(auth, orderId);
+    expect(orders[0].status).toBe('UNRECOGNIZED_STATUS');
+    expect(detail.status).toBe('UNRECOGNIZED_STATUS');
+  });
+
   it('requests the order UUID with the refreshed bearer token and returns the complete typed DTO', async () => {
     const refreshAccessToken = vi.fn(async () => 'fresh-token');
     setAccessToken('stale-shared-token');
