@@ -38,6 +38,13 @@ public class ParcelEventParser {
     return Set.copyOf(TOPIC_EVENT_TYPES.values());
   }
 
+  public static void validateVersion(org.apache.kafka.common.header.Headers headers) {
+    for (var header : headers.headers("schemaVersion")) {
+      if (!java.util.Arrays.equals(header.value(), new byte[]{'1'}))
+        throw new MalformedEventException("unsupported schema version");
+    }
+  }
+
   public ParcelEvent parse(String topic, String message) {
     if (message == null || message.isBlank()) {
       throw new MalformedEventException("empty message");

@@ -36,11 +36,21 @@ public class TrackingKafkaConsumer {
     this.projections = projections;
   }
 
+  @Transactional
+  public void onParcelEvent(String message, String topic, String headerEventId) {
+    onParcelEvent(message, topic, headerEventId, null);
+  }
+
   @KafkaListener(topics = {"parcel.created", "parcel.status.updated"}, groupId = "${spring.kafka.consumer.group-id:tracking-reporting-service}")
   @Transactional
   public void onParcelEvent(@Payload String message,
       @Header(name = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
-      @Header(name = "eventId", required = false) String headerEventId) {
+      @Header(name = "eventId", required = false) String headerEventId,
+      @Header(name = "schemaVersion", required = false) String schemaVersion) {
+    if (schemaVersion != null && !"1".equals(schemaVersion)) {
+      log.warn("Tracking event discarded: category=unsupported_version");
+      return;
+    }
     Event event;
     try {
       event = parse(message, topic);
