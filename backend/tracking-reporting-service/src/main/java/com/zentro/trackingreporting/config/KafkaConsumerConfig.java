@@ -17,8 +17,8 @@ import org.springframework.util.backoff.FixedBackOff;
  * <ul>
  *   <li>Fatal / non-retryable exceptions (such as {@link JsonProcessingException} and {@link IllegalArgumentException})
  *       are not retried and do not block partition processing.</li>
- *   <li>Transient processing exceptions (such as database access failures) are retried with configured
- *       backoff before exhausting retries.</li>
+ *   <li>Database and transaction failures retry without exhaustion, preserving the record until recovery.</li>
+ *   <li>Other unexpected processing failures use the configured bounded backoff.</li>
  * </ul>
  */
 @Configuration(proxyBeanMethods = false)

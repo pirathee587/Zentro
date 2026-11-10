@@ -1,5 +1,5 @@
 [INFO] Reactor Summary for Zentro Backend 0.1.0-SNAPSHOT:
-[INFO] 
+[INFO]
 [INFO] Zentro Backend ..................................... SUCCESS [  0.001 s]
 [INFO] Zentro Security Starter ............................ SUCCESS [  6.691 s]
 [INFO] api-gateway ........................................ SUCCESS [02:17 min]
