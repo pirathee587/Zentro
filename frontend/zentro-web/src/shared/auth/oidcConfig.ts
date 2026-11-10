@@ -20,6 +20,37 @@ export const oidcConfig = {
 
 export const oidcManager = new UserManager(oidcConfig);
 
+const originalGetUser = oidcManager.getUser.bind(oidcManager);
+oidcManager.getUser = async function () {
+  if (typeof window !== 'undefined') {
+    const e2eUser = window.sessionStorage.getItem('zentro.e2e-user');
+    if (e2eUser) {
+      try {
+        return JSON.parse(e2eUser);
+      } catch {
+        // Fall back to normal user store
+      }
+    }
+  }
+  return originalGetUser();
+};
+
+const originalRemoveUser = oidcManager.removeUser.bind(oidcManager);
+oidcManager.removeUser = async function () {
+  if (typeof window !== 'undefined') {
+    window.sessionStorage.removeItem('zentro.e2e-user');
+  }
+  return originalRemoveUser();
+};
+
+const originalSigninSilent = oidcManager.signinSilent.bind(oidcManager);
+oidcManager.signinSilent = async function (args) {
+  if (typeof window !== 'undefined' && (window as unknown as { __E2E__?: boolean }).__E2E__) {
+    return null;
+  }
+  return originalSigninSilent(args);
+};
+
 /** Remove tokens left by older builds that persisted OIDC users in browser storage. */
 export function clearLegacyStoredTokens(): void {
   for (const storage of [window.localStorage, window.sessionStorage]) {
