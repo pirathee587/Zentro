@@ -113,9 +113,13 @@ export function getMerchantOrders(auth: MerchantApiAuth, limit = 50) {
   );
 }
 
+export function isMerchantOrderId(orderId: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+}
+
 /** Read an owned order by its UUID, not its tracking or external reference. */
 export async function getMerchantOrder(auth: MerchantApiAuth, orderId: string): Promise<MerchantOrder> {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+  if (!isMerchantOrderId(orderId)) {
     throw new Error('A valid order UUID is required.');
   }
 
