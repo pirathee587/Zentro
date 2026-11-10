@@ -61,7 +61,6 @@ public class ParcelEventParser {
     }
     // The approved envelope is unversioned and has no schemaVersion property.
     if (envelope.has("schemaVersion")) throw new MalformedEventException("unsupported schema version");
-    allowed(envelope, Set.of("eventId", "eventType", "aggregateId", "occurredAt", "payload"));
 
     UUID eventId = uuid(envelope, "eventId");
     String eventType = text(envelope, "eventType");
@@ -74,6 +73,7 @@ public class ParcelEventParser {
     }
     UUID parcelId = uuid(envelope, "aggregateId");
     OffsetDateTime occurredAt = timestamp(envelope, "occurredAt");
+    allowed(envelope, Set.of("eventId", "eventType", "aggregateId", "occurredAt", "payload"));
 
     JsonNode payload = envelope.get("payload");
     if (payload == null || !payload.isObject()) {
