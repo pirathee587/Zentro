@@ -4,6 +4,7 @@ import com.zentro.parcelpricing.pricing.rules.DeliveryZone;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -38,11 +39,31 @@ public class ZoneService {
   }
 
   public boolean isValidZone(String zoneCode) {
-    if (zoneCode == null || zoneCode.isBlank()) {
+    if (zoneCode == null) {
       return true;
+    }
+    if (zoneCode.isBlank()) {
+      return false;
     }
     return getActiveZones().stream()
         .anyMatch(z -> z.code().equalsIgnoreCase(zoneCode.trim()));
+  }
+
+  public boolean isKnownZone(String zoneCode) {
+    if (zoneCode == null || zoneCode.isBlank()) {
+      return false;
+    }
+    return getActiveZones().stream()
+        .anyMatch(z -> z.code().equalsIgnoreCase(zoneCode.trim()));
+  }
+
+  public Optional<DeliveryZone> getZoneByCode(String zoneCode) {
+    if (zoneCode == null || zoneCode.isBlank()) {
+      return Optional.empty();
+    }
+    return getActiveZones().stream()
+        .filter(z -> z.code().equalsIgnoreCase(zoneCode.trim()))
+        .findFirst();
   }
 
   public static List<DeliveryZone> defaultZones() {

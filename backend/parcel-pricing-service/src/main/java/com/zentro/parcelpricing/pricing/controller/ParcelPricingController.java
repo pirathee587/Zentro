@@ -73,15 +73,28 @@ public class ParcelPricingController {
       fieldErrors.put("weightKg", "Either weightKg, dimensions, or parcelSize must be provided.");
     }
 
+    if (request.weightKg() != null && hasMoreThanTwoDecimals(request.weightKg())) {
+      fieldErrors.put("weightKg", "Weight must have at most 2 decimal places.");
+    }
+    if (request.distanceKm() != null && hasMoreThanTwoDecimals(request.distanceKm())) {
+      fieldErrors.put("distanceKm", "Distance must have at most 2 decimal places.");
+    }
+
     if (hasAnyDimension) {
       if (request.lengthCm() == null) {
         fieldErrors.put("lengthCm", "When specifying dimensions, length, width, and height must all be provided.");
+      } else if (hasMoreThanTwoDecimals(request.lengthCm())) {
+        fieldErrors.put("lengthCm", "Length must have at most 2 decimal places.");
       }
       if (request.widthCm() == null) {
         fieldErrors.put("widthCm", "When specifying dimensions, length, width, and height must all be provided.");
+      } else if (hasMoreThanTwoDecimals(request.widthCm())) {
+        fieldErrors.put("widthCm", "Width must have at most 2 decimal places.");
       }
       if (request.heightCm() == null) {
         fieldErrors.put("heightCm", "When specifying dimensions, length, width, and height must all be provided.");
+      } else if (hasMoreThanTwoDecimals(request.heightCm())) {
+        fieldErrors.put("heightCm", "Height must have at most 2 decimal places.");
       }
       if (request.hasDimensions()
           && request.lengthCm().compareTo(BigDecimal.ZERO) > 0
@@ -142,14 +155,22 @@ public class ParcelPricingController {
           "Unsupported route and zone combination: SAME_CITY cannot span different delivery zones.");
     }
 
-    if (request.currency() != null && request.currency().isBlank()) {
-      fieldErrors.put("currency", "Currency cannot be blank.");
+    if (request.currency() != null) {
+      if (request.currency().isBlank()) {
+        fieldErrors.put("currency", "Currency cannot be blank.");
+      } else if (!request.currency().trim().matches("^[A-Za-z]{3}$")) {
+        fieldErrors.put("currency", "Currency must be a 3-letter ISO code.");
+      }
     }
 
     if (!fieldErrors.isEmpty()) {
       String firstMessage = fieldErrors.values().iterator().next();
       throw new PricingValidationException(firstMessage, fieldErrors);
     }
+  }
+
+  private static boolean hasMoreThanTwoDecimals(BigDecimal value) {
+    return value.scale() > 2 && value.stripTrailingZeros().scale() > 2;
   }
 
   private static String resolveFieldForIllegalArgument(String message) {

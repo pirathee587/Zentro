@@ -4,14 +4,12 @@ import com.zentro.parcelpricing.pricing.rules.PricingRule;
 import com.zentro.parcelpricing.pricing.dto.PricingRuleUpdateRequest;
 import com.zentro.parcelpricing.pricing.service.PricingService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/admin/pricing-rules")
@@ -30,10 +28,6 @@ public class AdminPricingRuleController {
 
   @PutMapping
   public PricingRule updateRule(@Valid @RequestBody PricingRuleUpdateRequest request) {
-    try {
-      return pricingService.updateStandardRule(request);
-    } catch (IllegalArgumentException ex) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
-    }
+    return pricingService.updateStandardRule(request);
   }
 }
