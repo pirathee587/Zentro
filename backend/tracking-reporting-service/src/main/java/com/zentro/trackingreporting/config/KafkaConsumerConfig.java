@@ -36,6 +36,16 @@ public class KafkaConsumerConfig {
     long attempts = Math.max(1, maxAttempts);
     FixedBackOff backOff = new FixedBackOff(intervalMs, attempts - 1);
     DefaultErrorHandler handler = new SafeKafkaErrorHandler(backOff, propagation);
+    // Exhausting a transient database retry must not advance the offset and lose a business fact.
+    handler.setBackOffFunction((record, exception) -> {
+      for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+        if (cause instanceof org.springframework.dao.DataAccessException
+            || cause instanceof org.springframework.transaction.TransactionException) {
+          return new FixedBackOff(intervalMs, FixedBackOff.UNLIMITED_ATTEMPTS);
+        }
+      }
+      return backOff;
+    });
     handler.setLogLevel(org.springframework.kafka.KafkaException.Level.WARN);
     handler.addNotRetryableExceptions(
         JsonProcessingException.class,
