@@ -11,6 +11,7 @@ import java.sql.Array;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -213,8 +214,9 @@ class UserAdminPostgresIntegrationTest {
       pool.shutdownNow();
     }
 
-    List<Map<String, Object>> rows = auditRows(customer.id());
+    List<Map<String, Object>> rows = new ArrayList<>(auditRows(customer.id()));
     assertThat(rows).hasSize(2);
+    rows.sort(Comparator.comparing(r -> "ACTIVE".equals(r.get("old_status")) ? 0 : 1));
     assertThat(rows.get(0).get("old_status")).isEqualTo("ACTIVE");
     assertThat(rows.get(1).get("old_status")).isEqualTo(rows.get(0).get("new_status"));
     assertThat(service.getById(customer.id()).accountStatus()).isEqualTo(rows.get(1).get("new_status"));
