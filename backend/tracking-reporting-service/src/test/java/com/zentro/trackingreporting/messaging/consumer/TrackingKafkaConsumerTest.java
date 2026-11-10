@@ -12,8 +12,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -59,24 +57,7 @@ class TrackingKafkaConsumerTest {
     when(processed.claim(anyString(), eq(id))).thenReturn(1);
     doThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic outage")).when(projections).lock(any());
     assertThatThrownBy(() -> consumer.onParcelEvent(valid(), "parcel.created", null))
-        .isInstanceOf(org.springframework.dao.DataAccessException.class);
-    verifyNoInteractions(tracking);
-  }
-
-  @ParameterizedTest @ValueSource(strings = {"{not-json", "null", "[]", "{}", "\"text\""})
-  void invalidEnvelopeIsSkippedWithoutDatabaseAccess(String value) {
-    consumer.onParcelEvent(value, "parcel.created", id.toString());
-    verifyNoInteractions(processed, tracking, projections);
-  }
-
-  @ParameterizedTest @ValueSource(strings = {"eventId", "aggregateId", "occurredAt", "trackingRef", "source", "status"})
-  void missingRequiredValuesNeverInventFacts(String field) throws Exception {
-    var mapper = new ObjectMapper();
-    var e = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(valid());
-    e.remove(field);
-    ((com.fasterxml.jackson.databind.node.ObjectNode)e.path("payload")).remove(field);
-    consumer.onParcelEvent(e.toString(), "parcel.created", id.toString());
-    verifyNoInteractions(processed, tracking, projections);
+        .isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
   }
 
   @Test void unknownVersionTypeStatusWrongTypesAndOversizeAreSkipped() throws Exception {

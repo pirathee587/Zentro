@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class ParcelEventParser {
   public static final String PARCEL_CREATED = "parcel.created";
   public static final String PARCEL_STATUS_UPDATED = "parcel.status.updated";
+  public static final String SUPPORTED_SCHEMA_VERSION = "1";
 
   static final Set<String> STATUSES =
       Set.of("CREATED", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED");
@@ -33,6 +34,13 @@ public class ParcelEventParser {
     this.objectMapper = objectMapper;
   }
 
+  /** Validates the schema version header. Missing header is accepted as legacy version 1. */
+  public static void validateSchemaVersion(String schemaVersion) {
+    if (schemaVersion != null && !SUPPORTED_SCHEMA_VERSION.equals(schemaVersion)) {
+      throw new MalformedEventException("unsupported schemaVersion");
+    }
+  }
+
   /** Event types accepted by the current notification consumer topics. */
   public static Set<String> supportedEventTypes() {
     return Set.copyOf(TOPIC_EVENT_TYPES.values());
@@ -43,6 +51,27 @@ public class ParcelEventParser {
       if (!java.util.Arrays.equals(header.value(), new byte[]{'1'}))
         throw new MalformedEventException("unsupported schema version");
     }
+  }
+
+  public ParcelEvent parse(String topic, String message, String schemaVersion) {
+    validateSchemaVersion(schemaVersion);
+    return parse(topic, message);
+  }
+
+  public ParcelEvent parse(String topic, String message, String schemaVersion, String headerEventId) {
+    validateSchemaVersion(schemaVersion);
+    ParcelEvent event = parse(topic, message);
+    if (headerEventId != null && !headerEventId.isBlank()) {
+      try {
+        UUID hId = UUID.fromString(headerEventId);
+        if (!hId.equals(event.eventId())) {
+          throw new MalformedEventException("conflicting eventId");
+        }
+      } catch (IllegalArgumentException ex) {
+        throw new MalformedEventException("invalid header eventId");
+      }
+    }
+    return event;
   }
 
   public ParcelEvent parse(String topic, String message) {

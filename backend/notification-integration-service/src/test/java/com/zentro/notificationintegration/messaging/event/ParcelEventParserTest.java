@@ -186,4 +186,41 @@ class ParcelEventParserTest {
         .isInstanceOf(MalformedEventException.class)
         .satisfies(ex -> assertThat(ex.getMessage()).doesNotContain("0771234567"));
   }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"2", "0", "abc", "v1", " "})
+  @DisplayName("Unsupported schemaVersion is rejected with a short reason")
+  void unsupportedSchemaVersion(String version) {
+    assertThatThrownBy(() -> parser.parse("parcel.status.updated", statusEvent("PICKED_UP", null).toString(), version))
+        .isInstanceOf(MalformedEventException.class)
+        .hasMessage("unsupported schemaVersion");
+  }
+
+  @Test
+  @DisplayName("Supported schemaVersion 1 and legacy null schemaVersion are accepted")
+  void supportedSchemaVersions() {
+    ParcelEvent v1 = parser.parse("parcel.status.updated", statusEvent("PICKED_UP", null).toString(), "1");
+    assertThat(v1).isNotNull();
+
+    ParcelEvent vNull = parser.parse("parcel.status.updated", statusEvent("PICKED_UP", null).toString(), null);
+    assertThat(vNull).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Header eventId matching envelope is accepted; conflicting or invalid header eventId is rejected")
+  void headerEventIdValidation() {
+    String message = statusEvent("PICKED_UP", null).toString();
+
+    ParcelEvent matched = parser.parse("parcel.status.updated", message, "1", EVENT_ID);
+    assertThat(matched.eventId()).isEqualTo(UUID.fromString(EVENT_ID));
+
+    String conflictingId = UUID.randomUUID().toString();
+    assertThatThrownBy(() -> parser.parse("parcel.status.updated", message, "1", conflictingId))
+        .isInstanceOf(MalformedEventException.class)
+        .hasMessage("conflicting eventId");
+
+    assertThatThrownBy(() -> parser.parse("parcel.status.updated", message, "1", "invalid-uuid"))
+        .isInstanceOf(MalformedEventException.class)
+        .hasMessage("invalid header eventId");
+  }
 }

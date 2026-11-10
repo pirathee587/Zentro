@@ -82,4 +82,21 @@ class MerchantEventReaderTest {
     assertThatThrownBy(() -> reader.read("parcel.status.updated", "{not json"))
         .isInstanceOf(MalformedEventException.class);
   }
+
+  @Test
+  @DisplayName("Unsupported schemaVersion or conflicting headerEventId is rejected")
+  void schemaVersionAndHeaderEventIdValidation() {
+    String raw = statusEvent().toString();
+    assertThatThrownBy(() -> reader.read("parcel.status.updated", raw, "2"))
+        .isInstanceOf(MalformedEventException.class)
+        .hasMessage("unsupported schemaVersion");
+
+    assertThatThrownBy(() -> reader.read("parcel.status.updated", raw, "1", UUID.randomUUID().toString()))
+        .isInstanceOf(MalformedEventException.class)
+        .hasMessage("conflicting eventId");
+
+    MerchantParcelEvent valid = reader.read("parcel.status.updated", raw, "1", eventId.toString());
+    assertThat(valid).isNotNull();
+    assertThat(valid.event().eventId()).isEqualTo(eventId);
+  }
 }

@@ -29,7 +29,15 @@ public class MerchantEventReader {
    *                                 non-blank string of at most {@value #MAX_MERCHANT_ID_LENGTH} characters
    */
   public MerchantParcelEvent read(String topic, String message) {
-    ParcelEvent event = parser.parse(topic, message);
+    return read(topic, message, null, null);
+  }
+
+  public MerchantParcelEvent read(String topic, String message, String schemaVersion) {
+    return read(topic, message, schemaVersion, null);
+  }
+
+  public MerchantParcelEvent read(String topic, String message, String schemaVersion, String headerEventId) {
+    ParcelEvent event = parser.parse(topic, message, schemaVersion, headerEventId);
     JsonNode merchantNode;
     try {
       merchantNode = objectMapper.readTree(message).path("payload").get("merchantId");
