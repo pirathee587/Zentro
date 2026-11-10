@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(DispatchQueueController.class)
 @Import({com.zentro.security.config.ZentroSecurityAutoConfiguration.class,
-    DispatchCourierSecurityConfig.class, DispatchService.class,
+    DispatchCourierSecurityConfig.class, com.zentro.dispatchcourier.security.DispatchPermissions.class, DispatchService.class,
     DispatchExceptionHandler.class})
 @TestPropertySource(properties = {
     "zentro.security.issuer-uri=http://localhost:8180/realms/zentro",
@@ -44,6 +44,42 @@ class DispatchQueueControllerTest {
   static final String PARCEL = "11111111-1111-4111-8111-111111111111";
   static final String COURIER = "22222222-2222-4222-8222-222222222222";
   static final String BODY = "{\"parcelId\":\"" + PARCEL + "\",\"courierId\":\"" + COURIER + "\"}";
+
+  @ParameterizedTest
+  @ValueSource(strings = {"queue", "unassigned", "workload", "eligible-couriers"})
+  void everyReadRequiresViewRatherThanAssign(String path) throws Exception {
+    for (var permissions : java.util.List.of(java.util.List.<String>of(), java.util.List.of("DISPATCH_ASSIGN"))) {
+      mvc.perform(get("/api/v1/dispatch/" + path).param("parcelId", PARCEL)
+          .with(jwt().jwt(j -> j.claim("permissions", permissions))
+              .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isForbidden());
+    }
+    verifyNoInteractions(source, assignments, identity);
+  }
+
+  @Test void viewOnlyCannotAssignEvenWithForgedPermissionHeaderAndBody() throws Exception {
+    mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json")
+        .header("X-Permissions", "DISPATCH_ASSIGN")
+        .content(BODY.replace("}", ",\"permissions\":[\"DISPATCH_ASSIGN\"]}"))
+        .with(jwt().jwt(j -> j.claim("permissions", java.util.List.of("DISPATCH_VIEW")))
+            .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(source, assignments, identity);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"queue", "unassigned", "workload", "eligible-couriers"})
+  void viewPermissionAllowsEachReadHandler(String path) throws Exception {
+    doReturn(new ParcelSource.Snapshot(java.util.List.of(), true)).when(source).eligibleParcels(anyString());
+    doAnswer(call -> {
+      java.util.function.Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
+      return action.apply(new ParcelSource.Parcel(java.util.UUID.fromString(PARCEL), "TEST", "Pickup", "Dropoff", java.time.Instant.now()));
+    }).when(source).withEligibleParcel(any(), anyString(), any());
+    mvc.perform(get("/api/v1/dispatch/" + path).param("parcelId", PARCEL)
+        .with(jwt().jwt(j -> j.claim("permissions", java.util.List.of("DISPATCH_VIEW")))
+            .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isOk());
+  }
 
   @BeforeEach void setup() {
     when(source.eligibleParcels(anyString())).thenThrow(new DispatchException(
@@ -86,6 +122,7 @@ class DispatchQueueControllerTest {
     when(identity.listAll(anyString())).thenReturn(java.util.List.of(courier));
 
     mvc.perform(get("/api/v1/dispatch/workload").with(jwt()
+        .jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
         .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].courierId").value(COURIER))
@@ -96,6 +133,7 @@ class DispatchQueueControllerTest {
 
   @Test void dispatcherGetsExplicitUnavailabilityWithoutFabricatedTotal() throws Exception {
     mvc.perform(get("/api/v1/dispatch/queue").with(jwt()
+        .jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
         .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isServiceUnavailable())
         .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
@@ -110,7 +148,8 @@ class DispatchQueueControllerTest {
 
   @Test void unavailableSourceNeverCreatesAssignment() throws Exception {
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
-        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .with(jwt().jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("DISPATCH_SOURCE_UNAVAILABLE"));
     verify(assignments, never()).insert(any(), any(), any());
     verifyNoInteractions(identity);
@@ -119,7 +158,8 @@ class DispatchQueueControllerTest {
   @ParameterizedTest @ValueSource(strings = {"{}", "{\"parcelId\":\"bad\",\"courierId\":null}", "null", "not-json"})
   void invalidAssignmentReturnsProblemDetails(String body) throws Exception {
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(body)
-        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .with(jwt().jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     verifyNoInteractions(source, assignments, identity);
   }
@@ -127,7 +167,8 @@ class DispatchQueueControllerTest {
   @Test void conflictIsExplicitAndDoesNotCallSource() throws Exception {
     when(assignments.exists(java.util.UUID.fromString(PARCEL))).thenReturn(true);
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
-        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .with(jwt().jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DELIVERY_ALREADY_ASSIGNED"));
     verifyNoInteractions(source, identity);
   }
@@ -135,7 +176,8 @@ class DispatchQueueControllerTest {
   @Test void storageFailureDoesNotLeakDatabaseDetails() throws Exception {
     when(assignments.exists(any())).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("secret database host"));
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
-        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .with(jwt().jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("DISPATCH_STORAGE_UNAVAILABLE"))
         .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("secret"))));
   }
@@ -152,7 +194,9 @@ class DispatchQueueControllerTest {
     when(assignments.insert(parcelId, courier, "dispatcher-subject")).thenReturn(
         new AssignmentRepository.Assignment(parcelId, courierId, courier.userId(), "dispatcher-subject", java.time.Instant.now()));
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
-        .with(jwt().jwt(token -> token.subject("dispatcher-subject")).authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .with(jwt().jwt(token -> token.subject("dispatcher-subject")
+            .claim("permissions", java.util.List.of("DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isCreated()).andExpect(jsonPath("$.courierId").value(COURIER))
         .andExpect(jsonPath("$.assignedBy").value("dispatcher-subject"));
   }

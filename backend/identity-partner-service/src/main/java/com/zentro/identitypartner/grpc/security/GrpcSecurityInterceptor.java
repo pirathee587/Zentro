@@ -36,9 +36,9 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
   private final JwtDecoder jwtDecoder;
 
   public GrpcSecurityInterceptor(
-      @Value("${zentro.security.internal-token:zentro-internal-service-secret}") String internalToken,
+      @Value("${zentro.security.internal-token:}") String internalToken,
       @Autowired(required = false) JwtDecoder jwtDecoder) {
-    this.internalToken = internalToken;
+    this.internalToken = internalToken == null ? "" : internalToken;
     this.jwtDecoder = jwtDecoder;
   }
 
@@ -53,7 +53,7 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
     String internalServiceHeader = headers.get(INTERNAL_SERVICE_METADATA_KEY);
 
     // 1. Check shared internal service token
-    if (internalTokenHeader != null && internalTokenHeader.equals(internalToken)) {
+    if (!internalToken.isBlank() && internalTokenHeader != null && internalTokenHeader.equals(internalToken)) {
       String caller = internalServiceHeader != null ? internalServiceHeader : "internal-service";
       Context context = Context.current().withValue(CALLER_IDENTITY_CONTEXT_KEY, caller);
       return Contexts.interceptCall(context, call, headers, next);
@@ -74,7 +74,7 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
             return new ServerCall.Listener<ReqT>() {};
           }
         } catch (JwtException e) {
-          log.warn("Invalid JWT in gRPC call: {}", e.getMessage());
+          log.warn("gRPC authentication rejected: category=invalid_jwt");
           call.close(Status.UNAUTHENTICATED.withDescription("Invalid JWT credentials"), new Metadata());
           return new ServerCall.Listener<ReqT>() {};
         }

@@ -5,6 +5,7 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { Button } from '@/shared/ui';
 import { assignDelivery, eligibleCouriers, type QueueParcel } from '../api/dispatchApi';
+import { principalCacheScope } from '@/shared/api/queryKeys';
 
 export function AssignmentDialog({ parcel, close, completed, stale }: {
   parcel: QueueParcel; close: () => void; completed: () => void; stale: (message: string) => void;
@@ -15,8 +16,9 @@ export function AssignmentDialog({ parcel, close, completed, stale }: {
   const [error, setError] = useState('');
   const dialog = useRef<HTMLDivElement>(null);
   const locked = useRef(false);
-  const couriers = useQuery({ queryKey: ['dispatcher', 'eligible-couriers', user?.id, parcel.parcelId],
-    queryFn: () => eligibleCouriers(parcel.parcelId, user!.accessToken!), enabled: Boolean(user?.accessToken), retry: false, staleTime: 0 });
+  const eligibleKey = ['dispatcher', 'eligible-couriers', { parcelId: parcel.parcelId, scope: principalCacheScope(user?.id) }] as const;
+  const couriers = useQuery({ queryKey: eligibleKey,
+    queryFn: ({ signal }) => eligibleCouriers(parcel.parcelId, user!.accessToken!, signal), enabled: Boolean(user?.accessToken), staleTime: 0 });
   const validSelection = Boolean(selected && couriers.data?.some(courier => courier.id === selected));
   const mutation = useMutation({
     mutationFn: () => assignDelivery(parcel.parcelId, selected, user!.accessToken!),
@@ -29,7 +31,7 @@ export function AssignmentDialog({ parcel, close, completed, stale }: {
         stale(status === 409 ? 'This delivery is already assigned or no longer eligible. The queue has been refreshed.' : 'This delivery is no longer available. The queue has been refreshed.');
       } else {
         setError(status === 409 ? 'That courier is no longer eligible. Choose another courier.' : friendlyApiError(failure, 'Assignment failed. Refresh the queue before retrying if the result is uncertain.'));
-        await queryClient.invalidateQueries({ queryKey: ['dispatcher', 'eligible-couriers', user?.id, parcel.parcelId] });
+        await queryClient.invalidateQueries({ queryKey: eligibleKey });
       }
     },
     onSettled: () => { locked.current = false; },

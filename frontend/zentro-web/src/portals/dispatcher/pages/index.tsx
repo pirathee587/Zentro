@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { DispatchQueueCard } from './DispatchQueueCard';
+import { CourierWorkloadCard } from './CourierWorkloadCard';
 import { useMerchantApplications } from './MerchantApprovalsPage';
 
 type ApplicationPreviewProps = {
@@ -68,11 +69,7 @@ export function UnassignedParcelsPage() {
             <small>Waiting for your review</small>
           </article>
           <DispatchQueueCard />
-          <article className="staff-stat-card">
-            <span>Courier workload</span>
-            <strong>Not connected</strong>
-            <small>Courier job data is not available yet</small>
-          </article>
+          <CourierWorkloadCard />
         </div>
       </section>
 
@@ -143,6 +140,8 @@ export { UsersPage } from './UsersPage';
 export { CouriersPage } from './CouriersPage';
 
 export { WorkloadPage } from './WorkloadPage';
+export { DispatchQueueCard } from './DispatchQueueCard';
+export { CourierWorkloadCard } from './CourierWorkloadCard';
 
 export const ReportsPage = () => (
   <section className="staff-main">

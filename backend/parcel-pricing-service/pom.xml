@@ -83,6 +83,13 @@
       <version>1.5.1</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <!-- External OpenAPI parser/validator; test-only so production artifacts are unchanged. -->
+      <groupId>io.swagger.parser.v3</groupId>
+      <artifactId>swagger-parser</artifactId>
+      <version>2.1.22</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <build>
     <plugins>

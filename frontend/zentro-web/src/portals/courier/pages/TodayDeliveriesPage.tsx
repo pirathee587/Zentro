@@ -1,13 +1,23 @@
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
-import { deliveryError, listDeliveries } from '../api/deliveryApi';
+import { deliveryError, deliveryAccessDenied, deliverySessionExpired, listDeliveries } from '../api/deliveryApi';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 
 export function TodayDeliveriesPage() {
-  const { user } = useAuth();
-  const deliveries = useQuery({ queryKey: ['courier', user?.id, 'deliveries'],
-    queryFn: () => listDeliveries(user!.accessToken), enabled: Boolean(user?.accessToken), retry: false, gcTime: 0 });
+  const { user, login } = useAuth();
+  const client = useQueryClient();
+  const listKey = queryKeys.courier.deliveries(principalCacheScope(user?.id));
+  const deliveries = useQuery({ queryKey: listKey,
+    queryFn: async ({ signal }) => {
+      try { return await listDeliveries(user!.accessToken, signal); }
+      catch (error) {
+        if (deliveryAccessDenied(error) || deliverySessionExpired(error)) client.setQueryData(listKey, []);
+        throw error;
+      }
+    }, enabled: Boolean(user?.accessToken), gcTime: 0,
+    refetchInterval: query => deliveryAccessDenied(query.state.error) || deliverySessionExpired(query.state.error) ? false : 15_000 });
   const firstName = user?.name?.trim().split(/\s+/)[0] || 'Courier';
   return <main className="courier-main">
     <section className="staff-hero"><div><span className="staff-eyebrow">YOUR COURIER SPACE</span>
@@ -16,8 +26,10 @@ export function TodayDeliveriesPage() {
       <h2 id="deliveries-title">My assigned deliveries</h2>
       {deliveries.isPending && <p role="status">Loading deliveries…</p>}
       {deliveries.isError && <div className="courier-alert is-error" role="alert"><span>{deliveryError(deliveries.error)}</span>
-        <Button onClick={() => void deliveries.refetch()}>Retry</Button></div>}
-      {deliveries.data?.length === 0 && <div className="courier-assignment"><p>No deliveries are assigned to you yet.</p></div>}
+        {deliverySessionExpired(deliveries.error)
+          ? <Button onClick={() => void login('/courier', undefined, 'staff')}>Sign in again</Button>
+          : !deliveryAccessDenied(deliveries.error) && <Button onClick={() => void deliveries.refetch()}>Retry</Button>}</div>}
+      {!deliveries.isError && deliveries.data?.length === 0 && <div className="courier-assignment"><p>No deliveries are assigned to you yet.</p></div>}
       <ul className="courier-delivery-list">{!deliveries.isError && deliveries.data?.map(delivery => <li className="courier-card" key={delivery.parcelId}>
         <h3>Delivery <span className="courier-delivery-id">{delivery.parcelId}</span></h3>
         <p>Assigned {new Date(delivery.assignedAt).toLocaleString()}</p>

@@ -1,7 +1,5 @@
 package com.zentro.notificationintegration.webhook.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.kafka.ConcurrentKafkaListenerContainerFactoryConfigurer;
@@ -11,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import com.zentro.security.observability.SafeKafkaErrorHandler;
+import com.zentro.security.observability.PropagationContext;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -30,7 +30,10 @@ public class WebhookConfig {
   @ConditionalOnProperty(prefix = "zentro.webhooks", name = "enabled", havingValue = "true")
   @EnableScheduling
   static class Delivery {
-    private static final Logger log = LoggerFactory.getLogger(Delivery.class);
+
+    private PropagationContext propagation = PropagationContext.noop();
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
 
     @Bean(LISTENER_CONTAINER_FACTORY)
     ConcurrentKafkaListenerContainerFactory<Object, Object> webhookListenerContainerFactory(
@@ -38,11 +41,8 @@ public class WebhookConfig {
         ObjectProvider<ConsumerFactory<Object, Object>> consumerFactory) {
       ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
       configurer.configure(factory, consumerFactory.getObject());
-      DefaultErrorHandler handler = new DefaultErrorHandler(new FixedBackOff(5000L, FixedBackOff.UNLIMITED_ATTEMPTS));
+      DefaultErrorHandler handler = new SafeKafkaErrorHandler(new FixedBackOff(5000L, FixedBackOff.UNLIMITED_ATTEMPTS), propagation);
       handler.setLogLevel(org.springframework.kafka.KafkaException.Level.WARN);
-      handler.setRetryListeners((record, ex, attempt) -> log.warn(
-          "Parcel event at {}-{}@{} not stored for webhooks yet (attempt {}): {}; will be redelivered",
-          record.topic(), record.partition(), record.offset(), attempt, ex.getClass().getSimpleName()));
       factory.setCommonErrorHandler(handler);
       return factory;
     }

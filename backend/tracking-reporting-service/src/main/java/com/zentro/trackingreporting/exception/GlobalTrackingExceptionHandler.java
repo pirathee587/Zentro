@@ -89,7 +89,7 @@ public class GlobalTrackingExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   public ProblemDetail handleGeneric(Exception ex, HttpServletRequest request) {
-    log.error("Unhandled error processing request: {}", request.getRequestURI(), ex);
+    log.error("Tracking request failed: category=unexpected_error");
     ProblemDetail problem = ProblemDetail.forStatusAndDetail(
         HttpStatus.INTERNAL_SERVER_ERROR,
         "An unexpected error occurred while retrieving tracking information."

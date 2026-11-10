@@ -14,7 +14,6 @@ import com.zentro.trackingreporting.exception.TrackingNotFoundException;
 import com.zentro.trackingreporting.tracking.repository.TrackingEventRepository;
 import com.zentro.trackingreporting.tracking.repository.TrackingParcelRepository;
 import java.math.BigDecimal;
-import java.sql.ResultSet;
 import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -26,12 +25,10 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,23 +39,27 @@ public class TrackingService {
   private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_INSTANT;
   private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH).withZone(ZoneOffset.UTC);
 
-  /** Cached result of whether parcel.parcel exists. null = not yet checked. */
-  private volatile Boolean parcelTableExists = null;
-
   private final TrackingParcelRepository parcelRepository;
   private final TrackingEventRepository eventRepository;
   private final TrackingStreamService streamService;
-  private final JdbcTemplate jdbcTemplate;
 
   public TrackingService(
       TrackingParcelRepository parcelRepository,
       TrackingEventRepository eventRepository,
-      TrackingStreamService streamService,
-      JdbcTemplate jdbcTemplate) {
+      TrackingStreamService streamService) {
     this.parcelRepository = parcelRepository;
     this.eventRepository = eventRepository;
     this.streamService = streamService;
-    this.jdbcTemplate = jdbcTemplate;
+  }
+
+  @Transactional(readOnly = true)
+  public TrackingParcel getParcel(String trackingRef) {
+    if (trackingRef == null || trackingRef.isBlank()) {
+      throw new TrackingNotFoundException(trackingRef);
+    }
+    String cleanRef = trackingRef.trim().toUpperCase();
+    return parcelRepository.findByTrackingRef(cleanRef)
+        .orElseThrow(() -> new TrackingNotFoundException(cleanRef));
   }
 
   @Transactional(readOnly = true)
@@ -67,7 +68,7 @@ public class TrackingService {
       throw new TrackingNotFoundException(trackingRef);
     }
     String cleanRef = trackingRef.trim().toUpperCase();
-    TrackingParcel parcel = findOrBackfillParcel(cleanRef)
+    TrackingParcel parcel = parcelRepository.findByTrackingRef(cleanRef)
         .orElseThrow(() -> new TrackingNotFoundException(cleanRef));
 
     List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef);
@@ -104,7 +105,8 @@ public class TrackingService {
       throw new TrackingNotFoundException(trackingRef);
     }
     String cleanRef = trackingRef.trim().toUpperCase();
-    findOrBackfillParcel(cleanRef).orElseThrow(() -> new TrackingNotFoundException(cleanRef));
+    parcelRepository.findByTrackingRef(cleanRef)
+        .orElseThrow(() -> new TrackingNotFoundException(cleanRef));
 
     List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef);
     return events.stream().map(this::toEventDto).toList();
@@ -122,9 +124,6 @@ public class TrackingService {
     int pageSize = Math.min(Math.max(1, size), 100);
     Pageable pageable = PageRequest.of(pageIndex, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-    // Attempt backfill for this customer if parcel table exists in shared DB
-    backfillCustomerParcels(customerSubject);
-
     Page<TrackingParcel> paged;
     boolean hasStatus = statusFilter != null && !statusFilter.isBlank() && !"ALL".equalsIgnoreCase(statusFilter);
     boolean hasQuery = query != null && !query.trim().isEmpty();
@@ -132,13 +131,29 @@ public class TrackingService {
     if (hasStatus && hasQuery) {
       TrackingStatus status = TrackingStatus.fromString(statusFilter);
       paged = parcelRepository.searchByCustomerAndStatus(customerSubject, status, query.trim(), pageable);
+      if (paged == null) {
+        paged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+      }
     } else if (hasStatus) {
       TrackingStatus status = TrackingStatus.fromString(statusFilter);
       paged = parcelRepository.findByCustomerSubjectAndStatus(customerSubject, status, pageable);
+      if (paged == null) {
+        paged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+      }
     } else if (hasQuery) {
       paged = parcelRepository.searchByCustomer(customerSubject, query.trim(), pageable);
+      if (paged == null) {
+        paged = parcelRepository.searchByCustomerOrMerchant(customerSubject, query.trim(), pageable);
+      }
     } else {
       paged = parcelRepository.findByCustomerSubject(customerSubject, pageable);
+      if (paged == null) {
+        paged = parcelRepository.findByCustomerOrMerchantSubject(customerSubject, pageable);
+      }
+    }
+
+    if (paged == null) {
+      paged = Page.empty(pageable);
     }
 
     List<CustomerDeliveryResponse> list = paged.getContent().stream().map(parcel -> {
@@ -237,146 +252,6 @@ public class TrackingService {
       );
     }
     return saved;
-  }
-
-  private Optional<TrackingParcel> findOrBackfillParcel(String trackingRef) {
-    Optional<TrackingParcel> existing = parcelRepository.findByTrackingRef(trackingRef);
-    if (existing.isPresent()) {
-      return existing;
-    }
-    return backfillFromSharedParcelTable(trackingRef);
-  }
-
-  private Optional<TrackingParcel> backfillFromSharedParcelTable(String trackingRef) {
-    if (!hasParcelTable()) {
-      return Optional.empty();
-    }
-    try {
-      String sql = "SELECT * FROM parcel.parcel WHERE tracking_ref = ?";
-      List<TrackingParcel> results = jdbcTemplate.query(sql, (rs, rowNum) -> mapFromParcelRow(rs), trackingRef);
-      if (!results.isEmpty()) {
-        TrackingParcel backfilled = parcelRepository.save(results.get(0));
-        backfillHistoryForParcel(backfilled);
-        return Optional.of(backfilled);
-      }
-    } catch (DataAccessException e) {
-      log.debug("parcel.parcel table not reachable or does not exist: {}", e.getMessage());
-    }
-    return Optional.empty();
-  }
-
-  private void backfillCustomerParcels(String customerSubject) {
-    if (!hasParcelTable()) {
-      return;
-    }
-    try {
-      String sql = "SELECT * FROM parcel.parcel WHERE customer_subject = ?";
-      List<TrackingParcel> results = jdbcTemplate.query(sql, (rs, rowNum) -> mapFromParcelRow(rs), customerSubject);
-      for (TrackingParcel p : results) {
-        if (parcelRepository.findByTrackingRef(p.getTrackingRef()).isEmpty()) {
-          TrackingParcel saved = parcelRepository.save(p);
-          backfillHistoryForParcel(saved);
-        }
-      }
-    } catch (DataAccessException e) {
-      log.debug("parcel.parcel table not reachable for customer backfill: {}", e.getMessage());
-    }
-  }
-
-  /**
-   * Returns true if the parcel.parcel cross-schema table is reachable.
-   * Result is cached for the lifetime of this bean so the check runs at most once per JVM.
-   */
-  private boolean hasParcelTable() {
-    if (parcelTableExists != null) {
-      return parcelTableExists;
-    }
-    try {
-      String check = "SELECT COUNT(*) FROM information_schema.tables "
-          + "WHERE table_schema = 'parcel' AND table_name = 'parcel'";
-      Integer count = jdbcTemplate.queryForObject(check, Integer.class);
-      parcelTableExists = count != null && count > 0;
-    } catch (DataAccessException e) {
-      log.debug("information_schema check failed — treating parcel table as absent: {}", e.getMessage());
-      parcelTableExists = false;
-    }
-    return parcelTableExists;
-  }
-
-  private void backfillHistoryForParcel(TrackingParcel parcel) {
-    // Record initial CREATED event
-    if (eventRepository.findByTrackingRefOrderByOccurredAtAsc(parcel.getTrackingRef()).isEmpty()) {
-      recordEvent(
-          parcel.getTrackingRef(),
-          parcel.getParcelId(),
-          TrackingStatus.CREATED,
-          null,
-          "CUSTOMER",
-          "Parcel Booked",
-          "Delivery order created and registered in system",
-          null,
-          parcel.getSenderCity(),
-          parcel.getCreatedAt(),
-          null
-      );
-    }
-
-    // Also check parcel.parcel_status_history if available
-    try {
-      String sql = "SELECT * FROM parcel.parcel_status_history WHERE parcel_id = ? ORDER BY occurred_at ASC";
-      jdbcTemplate.query(sql, (ResultSet rs) -> {
-        TrackingStatus status = TrackingStatus.fromString(rs.getString("to_status"));
-        String fromStatus = rs.getString("from_status");
-        String role = rs.getString("actor_role");
-        String reason = rs.getString("reason");
-        Instant occurredAt = rs.getTimestamp("occurred_at").toInstant();
-        recordEvent(
-            parcel.getTrackingRef(),
-            parcel.getParcelId(),
-            status,
-            fromStatus,
-            role,
-            status.defaultTitle(),
-            reason != null ? reason : status.defaultDescription(),
-            reason,
-            null,
-            occurredAt,
-            null
-        );
-      }, parcel.getParcelId());
-    } catch (DataAccessException e) {
-      log.debug("parcel.parcel_status_history table not reachable: {}", e.getMessage());
-    }
-  }
-
-  private TrackingParcel mapFromParcelRow(ResultSet rs) throws java.sql.SQLException {
-    TrackingParcel p = new TrackingParcel();
-    p.setParcelId(rs.getObject("id", UUID.class));
-    p.setTrackingRef(rs.getString("tracking_ref"));
-    p.setCustomerSubject(rs.getString("customer_subject"));
-    p.setSenderName(rs.getString("sender_name"));
-    p.setSenderPhone(rs.getString("sender_phone"));
-    p.setSenderAddress(rs.getString("sender_address"));
-    p.setSenderCity(rs.getString("sender_city"));
-    p.setRecipientName(rs.getString("recipient_name"));
-    p.setRecipientPhone(rs.getString("recipient_phone"));
-    p.setRecipientAddress(rs.getString("recipient_address"));
-    p.setRecipientCity(rs.getString("recipient_city"));
-    p.setWeightKg(rs.getBigDecimal("weight_kg"));
-    p.setSize(rs.getString("size"));
-    p.setCategory(rs.getString("category"));
-    p.setDescription(rs.getString("description"));
-    p.setDestinationType(rs.getString("destination_type"));
-    p.setExpress(rs.getBoolean("is_express"));
-    p.setFee(rs.getBigDecimal("fee"));
-    p.setCurrency(rs.getString("currency"));
-    p.setEstimatedDays(rs.getInt("estimated_days"));
-    p.setStatus(TrackingStatus.fromString(rs.getString("status")));
-    p.setCreatedAt(rs.getTimestamp("created_at").toInstant());
-    if (rs.getTimestamp("updated_at") != null) {
-      p.setUpdatedAt(rs.getTimestamp("updated_at").toInstant());
-    }
-    return p;
   }
 
   private List<TrackingMilestoneDto> buildTimeline(TrackingParcel parcel, List<TrackingEvent> events) {

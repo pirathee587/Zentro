@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useId, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button, EmptyState, ErrorState, Input, Spinner } from '@/shared/ui';
@@ -8,6 +8,7 @@ import { getTracking } from '@/shared/domain/tracking/trackingApi';
 import { useTrackingStream } from '@/shared/domain/tracking/useTrackingStream';
 import { ArrowIcon } from '../assets/ArrowIcon';
 import { normalizePublicTrackingNumber } from '../utils/trackingNumber';
+import { queryKeys } from '@/shared/api/queryKeys';
 
 const Arrow = ArrowIcon;
 
@@ -25,6 +26,8 @@ export function TrackingSearchPage() {
 function TrackForm() {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
+  const errorId = useId();
+  const form = useRef<HTMLFormElement>(null);
   const navigate = useNavigate();
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -32,20 +35,24 @@ function TrackForm() {
     const trackingNumber = normalizePublicTrackingNumber(value);
     if (!trackingNumber) {
       setError('Enter a valid tracking number: ZTR- followed by 10 letters or numbers.');
+      form.current?.querySelector('input')?.focus();
       return;
     }
     navigate(`/track/${trackingNumber}`);
   }
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} ref={form}>
       <Input
         aria-label="Tracking number"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        required
         value={value}
         onChange={(event) => { setValue(event.target.value); setError(''); }}
         placeholder="ZTR-ABCDEFG234"
       />
-      {error && <ErrorState message={error} />}
+      {error && <div id={errorId}><ErrorState message={error} /></div>}
       <Button className="auth-submit" type="submit">Track parcel <Arrow /></Button>
     </form>
   );
@@ -55,9 +62,8 @@ export function TrackingPage() {
   const { trackingNumber = '' } = useParams();
   const navigate = useNavigate();
   const tracking = useQuery({
-    queryKey: ['tracking', trackingNumber],
-    queryFn: async () => (await getTracking(trackingNumber)).data,
-    retry: false,
+    queryKey: queryKeys.tracking.parcel(trackingNumber),
+    queryFn: async ({ signal }) => (await getTracking(trackingNumber, signal)).data,
   });
   const refreshTracking = useCallback(() => { void tracking.refetch(); }, [tracking.refetch]);
   useTrackingStream(trackingNumber, refreshTracking);

@@ -765,6 +765,9 @@ Use route guards and permission-aware UI visibility for navigation and user expe
 - Keep API communication out of presentation components and organize portal operations in feature-specific API modules.
 - Centralize common request and response handling, preserve backend contracts, and use appropriate timeouts and error handling.
 - Keep React Query query keys and invalidation logic consistent.
+- Use the shared `frontend/zentro-web/src/shared/api/queryKeys.ts` factories for new or inconsistent query keys and the singleton QueryClient defaults for retry policy. Mutations must not retry automatically; use exact or domain-prefix invalidation after successful writes.
+- Pass TanStack Query's `AbortSignal` to `apiClient` for query requests. Keep real-time SSE streams on their existing stream transport.
+- See `docs/development/frontend-api.md` for the client error shape, query defaults, invalidation matrix and endpoint workflow.
 - Use local React state for component-specific state and existing Context providers for genuinely shared client state.
 - Do not duplicate server data in unrelated global stores or add another state-management library without a clear requirement.
 - Never expose client secrets or private credentials in frontend code.
@@ -783,6 +786,8 @@ Test colocation is an accepted and preferred convention. Keep component tests cl
 ## Frontend Verification
 
 Before considering a frontend change complete, run applicable ESLint, TypeScript type-check, unit/component tests and production build commands defined by the actual `package.json`. Do not claim checks passed unless they were executed successfully.
+
+See `docs/development/accessibility.md` for WCAG 2.2 AA review patterns, token contrast evidence and the manual verification checklist. DOM tests do not verify browser layout, screen readers or device rendering.
 
 ## Mandatory Frontend Refactoring Workflow
 
@@ -1330,3 +1335,7 @@ Before creating new helper code:
 6. Add tests for important utility functions.
 
 Always prioritize maintainability, cohesion and separation of concerns.
+
+## Configuration and secret audit guidance
+
+Use [development configuration](docs/development/configuration.md) for local template copying and loopback-bound Compose ports. Review [production configuration and secret handling](docs/security/production-configuration.md) for environment ownership, deployment assumptions, guards and incident response. Development Compose and the committed development realm export are not production deployment templates.

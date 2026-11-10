@@ -1,4 +1,5 @@
-import { useState, useId, type FormEvent } from 'react';
+import { useState, useId, useRef, type FormEvent } from 'react';
+import { useDialogFocus } from '@/shared/ui/useDialogFocus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
@@ -69,6 +70,8 @@ function UserEditPanel({
   );
   const [saveError, setSaveError] = useState('');
   const isSelf = user.id === currentUserId;
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, () => { if (!save.isPending) onClose(); });
 
   const save = useMutation({
     mutationFn: () => {
@@ -93,8 +96,10 @@ function UserEditPanel({
   return (
     <div
       role="dialog"
+      ref={dialog}
+      tabIndex={-1}
       aria-modal="true"
-      aria-label={`Edit ${user.name ?? user.email}`}
+      aria-label="Edit user"
       className="staff-edit-panel"
     >
       <div className="staff-edit-panel-header">
@@ -200,13 +205,16 @@ export function UsersPage() {
   const usersQuery = useQuery({
     queryKey: usersKey(statusFilter, liveSearch),
     enabled: Boolean(currentUser?.accessToken),
-    retry: false,
-    queryFn: () => listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }),
+    queryFn: ({ signal }) => listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }, signal),
   });
 
-  function handleSearchSubmit(e: FormEvent) {
+  function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLiveSearch(search.trim());
+    const submittedSearch =
+      (e.currentTarget.elements.namedItem('user-search-input') as HTMLInputElement | null)?.value ??
+      search;
+    setSearch(submittedSearch);
+    setLiveSearch(submittedSearch.trim());
   }
 
   return (

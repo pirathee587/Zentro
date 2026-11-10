@@ -8,7 +8,7 @@ Related: #28 parcel status management, #58 event publishing, #61 delivery histor
 
 ## Overview
 
-The Tracking History service provides real-time parcel tracking queries and chronological milestone history for both public inquiries (privacy-preserving) and authenticated customers (`/mine`). It consumes domain events (`parcel.created`, `parcel.status.updated`) asynchronously from Kafka while providing local/direct fallback backfill from `parcel.parcel` for development and testing environments.
+The Tracking History service provides real-time parcel tracking queries and chronological milestone history for both public inquiries (privacy-preserving) and authenticated customers (`/mine`). It consumes domain events (`parcel.created`, `parcel.status.updated`) asynchronously from Kafka, persisting tracking milestones into its own service-owned database (`tracking_reporting_db`). S4 queries strictly its own tracking data; no direct cross-service database access or SQL backfill is performed.
 
 ---
 
@@ -46,14 +46,17 @@ Provides high-level tracking status for public tracking portals. Strictly protec
 
 ### 2. Public Tracking Event Milestones & Live Stream
 
-`GET /api/v1/tracking/{trackingRef}/events`
+`GET /api/v1/tracking/{trackingRef}/events`  
+`GET /api/v1/tracking/{trackingRef}/stream`
 
-Retrieves the chronological list of milestone tracking events for a parcel. Also supports Server-Sent Events (`text/event-stream`) for live updates.
+Retrieves the chronological list of milestone tracking events for a parcel (JSON). Also supports Server-Sent Events (`text/event-stream`) for live updates on either endpoint.
 
 | Item | Value |
 |---|---|
-| Roles | Public (No authentication required) |
+| Roles (JSON) | Public (No authentication required; SERVICE-only denied) |
+| Roles (SSE `text/event-stream`) | `CUSTOMER` (own), `MERCHANT` (own), `COURIER` (assigned), `DISPATCHER` (all) |
 | Content type | `application/json` or `text/event-stream` |
+| Security (SSE) | Valid Bearer JWT required; ownership verified; token expiration and authorization revalidated throughout connection lifecycle |
 
 #### Response `200` (application/json)
 

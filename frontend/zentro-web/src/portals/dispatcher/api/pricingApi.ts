@@ -222,16 +222,16 @@ export const PRICING_RULES_PATH = '/api/v1/admin/pricing-rules';
 export const ZONES_PATH = '/api/v1/zones';
 export const ESTIMATE_PATH = '/api/v1/parcels/estimate';
 
-export async function getPricingRule(): Promise<PricingRule> {
-  return toPricingRule((await apiClient.get<Record<string, unknown>>(PRICING_RULES_PATH)).data);
+export async function getPricingRule(signal?: AbortSignal): Promise<PricingRule> {
+  return toPricingRule((await apiClient.get<Record<string, unknown>>(PRICING_RULES_PATH, { signal })).data);
 }
 
 export async function updatePricingRule(request: PricingRuleUpdateRequest): Promise<PricingRule> {
   return toPricingRule((await apiClient.put<Record<string, unknown>>(PRICING_RULES_PATH, request)).data);
 }
 
-export async function getZones(): Promise<DeliveryZone[]> {
-  const data = (await apiClient.get<unknown>(ZONES_PATH)).data;
+export async function getZones(signal?: AbortSignal): Promise<DeliveryZone[]> {
+  const data = (await apiClient.get<unknown>(ZONES_PATH, { signal })).data;
   return Array.isArray(data) ? data.map((zone) => toZone(zone as Record<string, unknown>)) : [];
 }
 

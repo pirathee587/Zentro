@@ -35,6 +35,7 @@ class GatewayBehaviorTests {
   private static final String REQUEST_BODY = "{\"source\":\"gateway-test\",\"value\":7}";
 
   @Autowired WebTestClient client;
+  @Autowired org.springframework.cloud.gateway.config.GatewayProperties routeProperties;
   @LocalServerPort int port;
 
   @DynamicPropertySource
@@ -121,6 +122,51 @@ class GatewayBehaviorTests {
   }
 
   @Test
+  void realRouteConfigurationForwardsEveryPrefixToOnlyItsOrderedTarget() throws Exception {
+    Map<String, String> services = Map.of("identity", "S1", "parcel", "S2", "dispatch", "S3", "tracking", "S4", "notification", "S5");
+    for (var route : routeProperties.getRoutes()) for (String predicate : GatewayInventoryTests.paths(route)) {
+      clearRecordedRequests();
+      String path = predicate.replace("/**", "");
+      String role = path.contains("/admin/") || path.contains("/dispatch") || path.contains("/reports") ? "DISPATCHER"
+          : path.contains("/courier") ? "COURIER" : path.contains("/merchant/") ? "MERCHANT" : "CUSTOMER";
+      boolean tracking = path.equals("/api/v1/tracking");
+      if (tracking) path += "/ZTR-1234567890";
+      boolean post = path.equals("/api/v1/parcels");
+      String query = "?audit=144&preserved=yes";
+      var request = client.method(post ? HttpMethod.POST : HttpMethod.GET)
+          .uri(URI.create("http://localhost:" + port + path + query))
+          .header("Authorization", "Bearer test.ROLE_" + role)
+          .header("Host", "spoof.invalid")
+          .header("X-Forwarded-Host", "spoof.invalid")
+          .header("X-Forwarded-Prefix", "/internal")
+          .header("X-Forwarded-Proto", "https");
+      if (post) request.bodyValue(REQUEST_BODY);
+      request.exchange().expectStatus().isOk().expectBody(String.class).isEqualTo(services.get(route.getId()));
+      var received = upstreams.get(services.get(route.getId())).takeRequest(2, TimeUnit.SECONDS);
+      assertThat(received).isNotNull();
+      assertThat(received.getMethod()).isEqualTo(post ? "POST" : "GET");
+      assertThat(received.getPath()).isEqualTo(path + query);
+      assertThat(received.getBody().readUtf8()).isEqualTo(post ? REQUEST_BODY : "");
+      for (var server : upstreams.values()) assertThat(server.takeRequest(10, TimeUnit.MILLISECONDS)).isNull();
+    }
+  }
+
+  @Test
+  void internalPathsAndAuthenticationFailuresHaveCorrelationAndNeverReachUpstreams() throws Exception {
+    clearRecordedRequests();
+    for (String path : List.of("/actuator/env", "/management/health", "/v3/api-docs", "/v3/api-docs/internal",
+        "/swagger-ui/index.html", "/internal/health", "/error", "/outside-api")) {
+      client.get().uri(path).exchange().expectStatus().isNotFound()
+          .expectHeader().exists("X-Correlation-Id").expectBody().jsonPath("$.instance").isEqualTo(path);
+    }
+    client.get().uri("/api/v1/admin/users").exchange().expectStatus().isUnauthorized()
+        .expectHeader().exists("X-Correlation-Id");
+    client.get().uri("/api/v1/admin/users").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .exchange().expectStatus().isForbidden().expectHeader().exists("X-Correlation-Id");
+    for (var server : upstreams.values()) assertThat(server.takeRequest(10, TimeUnit.MILLISECONDS)).isNull();
+  }
+
+  @Test
   void unauthenticatedInvalidAndExpiredTokensAreRejectedOnProtectedRoutes() {
     client.get().uri("/api/v1/parcels").exchange().expectStatus().isUnauthorized();
     client.get().uri("/api/v1/parcels").header("Authorization", "Bearer invalid.token")
@@ -184,12 +230,13 @@ class GatewayBehaviorTests {
   }
 
   @Test
-  void unknownRoutesReturnSafeJson404ForAnonymousAndAuthenticatedCallers() {
-    for (WebTestClient.RequestHeadersSpec<?> request : List.of(
-        client.get().uri("/api/v1/not-a-route"),
-        client.get().uri("/api/v1/not-a-route").header("Authorization", "Bearer test.ROLE_CUSTOMER"))) {
-      request.exchange().expectStatus().isNotFound().expectHeader().contentType("application/problem+json")
-          .expectBody().jsonPath("$.status").isEqualTo(404).jsonPath("$.title").isEqualTo("Not Found")
+  void unknownApiRoutesFailClosedAndNonApiRoutesKeep404() {
+    for (boolean authenticated : List.of(false, true)) {
+      var request = client.get().uri("/api/v1/not-a-route");
+      if (authenticated) request.header("Authorization", "Bearer test.ROLE_CUSTOMER");
+      int expected = authenticated ? 403 : 401;
+      request.exchange().expectStatus().isEqualTo(expected).expectHeader().contentType("application/problem+json")
+          .expectHeader().exists("X-Correlation-Id").expectBody().jsonPath("$.status").isEqualTo(expected)
           .jsonPath("$.detail").value(value -> assertThat(value.toString()).doesNotContain("localhost", "808", "S1", "S2", "S3", "S4", "S5"));
     }
     client.get().uri("/missing").exchange().expectStatus().isNotFound()

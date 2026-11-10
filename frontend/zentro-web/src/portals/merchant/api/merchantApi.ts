@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { apiClient } from '@/shared/api/apiClient';
+import { apiClient, withBearerToken } from '@/shared/api/apiClient';
 
 export type MerchantApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -54,6 +53,7 @@ export type IssuedMerchantApiKey = {
 export type MerchantApiAuth = {
   accessToken?: string;
   refreshAccessToken?: (force?: boolean) => Promise<string | undefined>;
+  signal?: AbortSignal;
 };
 
 const MERCHANT_APPLICATION_PATH = '/api/v1/merchants/me';
@@ -74,31 +74,23 @@ async function withMerchantAuth<T>(
     return token;
   };
 
-  try {
-    return await request(await getToken());
-  } catch (error) {
-    if (!axios.isAxiosError(error) || error.response?.status !== 401 || !auth.refreshAccessToken) {
-      throw error;
-    }
-
-    return request(await getToken(true));
-  }
+  return request(await getToken());
 }
 
-function authorization(accessToken: string) {
-  return { headers: { Authorization: `Bearer ${accessToken}` } };
+function authorization(accessToken: string, signal?: AbortSignal) {
+  return withBearerToken(accessToken, signal ? { signal } : {});
 }
 
 export function getMerchantApplication(auth: MerchantApiAuth) {
   return withMerchantAuth(auth, async (token) =>
-    (await apiClient.get<MerchantApplication>(MERCHANT_APPLICATION_PATH, authorization(token))).data,
+    (await apiClient.get<MerchantApplication>(MERCHANT_APPLICATION_PATH, authorization(token, auth.signal))).data,
   );
 }
 
 export function getMerchantOrders(auth: MerchantApiAuth, limit = 50) {
   return withMerchantAuth(auth, async (token) =>
     (await apiClient.get<MerchantOrder[]>(MERCHANT_ORDERS_PATH, {
-      ...authorization(token),
+      ...authorization(token, auth.signal),
       params: { limit },
     })).data,
   );
@@ -115,7 +107,7 @@ export function createMerchantApplication(
 
 export function getMerchantApiKey(auth: MerchantApiAuth) {
   return withMerchantAuth(auth, async (token) =>
-    (await apiClient.get<MerchantApiKeyMetadata | null>(MERCHANT_API_KEY_PATH, authorization(token))).data,
+    (await apiClient.get<MerchantApiKeyMetadata | null>(MERCHANT_API_KEY_PATH, authorization(token, auth.signal))).data,
   );
 }
 

@@ -28,6 +28,8 @@ import {
   parseWeight,
 } from './sendParcelForm';
 import { AuthContext } from '@/shared/auth/authContext';
+import { invalidateAfterBooking } from '@/shared/api/queryInvalidation';
+import { queryClient } from '@/shared/api/queryClient';
 
 type Step = 1 | 2 | 3;
 
@@ -45,6 +47,8 @@ export const SendParcelPage: React.FC = () => {
 
   // Flow step: 1 = Details, 2 = Review, 3 = Booked
   const [step, setStep] = useState<Step>(1);
+  const stepTitle = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { stepTitle.current?.focus(); }, [step]);
 
   // Form state
   const [form, setForm] = useState<SendParcelForm>(() => {
@@ -169,6 +173,7 @@ export const SendParcelPage: React.FC = () => {
     const validationErrors = validateForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      setTimeout(() => document.getElementById(Object.keys(validationErrors)[0])?.focus(), 0);
       return;
     }
 
@@ -225,6 +230,7 @@ export const SendParcelPage: React.FC = () => {
       );
 
       idempotencyKeyRef.current = generateIdempotencyKey();
+      await invalidateAfterBooking(queryClient);
       setBookedParcel(result);
       setStep(3);
     } catch (err: unknown) {
@@ -292,22 +298,22 @@ export const SendParcelPage: React.FC = () => {
         <CardHeader>
           <div style={{ width: '100%' }}>
             {/* 3-Step Indicator Pills */}
-            <nav className="sd-step-pills" aria-label="Booking steps" style={{ marginBottom: '16px' }}>
-              <span className={`sd-step-pill ${step === 1 ? 'is-active' : step > 1 ? 'is-done' : ''}`}>
+            <ol className="sd-step-pills" aria-label="Booking steps" style={{ marginBottom: '16px' }}>
+              <li aria-current={step === 1 ? 'step' : undefined} className={`sd-step-pill ${step === 1 ? 'is-active' : step > 1 ? 'is-done' : ''}`}>
                 1 Details
-              </span>
-              <span className={`sd-step-pill ${step === 2 ? 'is-active' : step > 2 ? 'is-done' : ''}`}>
+              </li>
+              <li aria-current={step === 2 ? 'step' : undefined} className={`sd-step-pill ${step === 2 ? 'is-active' : step > 2 ? 'is-done' : ''}`}>
                 2 Review
-              </span>
-              <span className={`sd-step-pill ${step === 3 ? 'is-active' : ''}`}>
+              </li>
+              <li aria-current={step === 3 ? 'step' : undefined} className={`sd-step-pill ${step === 3 ? 'is-active' : ''}`}>
                 3 Booked
-              </span>
-            </nav>
-            <span className="sr-only">
+              </li>
+            </ol>
+            <h2 className="sr-only" tabIndex={-1} ref={stepTitle}>
               {step === 1 && 'Send a Parcel'}
               {step === 2 && 'Review Your Delivery'}
               {step === 3 && 'Delivery Confirmed!'}
-            </span>
+            </h2>
           </div>
         </CardHeader>
 
@@ -329,6 +335,7 @@ export const SendParcelPage: React.FC = () => {
                   <Field
                     label="Pickup Address"
                     id="pickupAddress"
+                    autoComplete="section-pickup street-address"
                     value={form.pickupAddress}
                     onChange={(e) => handleFieldChange('pickupAddress', e.target.value)}
                     onBlur={() => handleFieldBlur('pickupAddress')}
@@ -343,6 +350,7 @@ export const SendParcelPage: React.FC = () => {
                   <Field
                     label="Pickup Contact Phone"
                     id="pickupPhone"
+                    autoComplete="section-pickup tel"
                     type="tel"
                     value={form.pickupPhone}
                     onChange={(e) => handleFieldChange('pickupPhone', e.target.value)}
@@ -360,6 +368,7 @@ export const SendParcelPage: React.FC = () => {
                   </label>
                   <BaseSelect
                     id="destinationType"
+                    required
                     className="sd-input sd-select"
                     value={form.destinationType}
                     onChange={(e) => handleFieldChange('destinationType', e.target.value)}
@@ -377,6 +386,7 @@ export const SendParcelPage: React.FC = () => {
                   <Field
                     label="Drop-off Address"
                     id="dropoffAddress"
+                    autoComplete="section-recipient street-address"
                     value={form.dropoffAddress}
                     onChange={(e) => handleFieldChange('dropoffAddress', e.target.value)}
                     onBlur={() => handleFieldBlur('dropoffAddress')}
@@ -391,6 +401,7 @@ export const SendParcelPage: React.FC = () => {
                   <Field
                     label="Recipient Name"
                     id="recipientName"
+                    autoComplete="section-recipient name"
                     value={form.recipientName}
                     onChange={(e) => handleFieldChange('recipientName', e.target.value)}
                     onBlur={() => handleFieldBlur('recipientName')}
@@ -405,6 +416,7 @@ export const SendParcelPage: React.FC = () => {
                   <Field
                     label="Recipient Phone"
                     id="recipientPhone"
+                    autoComplete="section-recipient tel"
                     type="tel"
                     value={form.recipientPhone}
                     onChange={(e) => handleFieldChange('recipientPhone', e.target.value)}
@@ -422,6 +434,7 @@ export const SendParcelPage: React.FC = () => {
                   </label>
                   <BaseSelect
                     id="parcelSize"
+                    required
                     className="sd-input sd-select"
                     value={form.parcelSize}
                     onChange={(e) => handleFieldChange('parcelSize', e.target.value)}

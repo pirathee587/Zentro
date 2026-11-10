@@ -1,5 +1,7 @@
 package com.zentro.notificationintegration.webhook.entity;
 
+import com.zentro.notificationintegration.webhook.service.WebhookResponseClass;
+import com.zentro.notificationintegration.webhook.service.WebhookRetryPolicy;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -23,4 +25,16 @@ public record WebhookDelivery(
     OffsetDateTime nextAttemptAt,
     OffsetDateTime createdAt,
     OffsetDateTime updatedAt
-) {}
+) {
+  /**
+   * High-level response classification of the latest attempt.
+   * Null if the delivery is still pending and has not been attempted yet.
+   */
+  public String responseClass() {
+    if (attempts == 0) {
+      return null;
+    }
+    WebhookResponseClass rc = WebhookRetryPolicy.classifyResponse(responseStatus, lastError);
+    return rc == null ? null : rc.name();
+  }
+}

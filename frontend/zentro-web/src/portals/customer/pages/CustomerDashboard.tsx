@@ -214,6 +214,7 @@ export const CustomerDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="sd-grid-12" aria-busy="true" aria-label="Loading Customer Dashboard">
+        <h1 className="sr-only">Customer dashboard</h1>
         {/* Top row skeleton */}
         <div className="sd-col-span-12" style={{ marginBottom: '20px' }}>
           <Skeleton variant="text" width={260} height={42} style={{ marginBottom: 16 }} />
@@ -286,6 +287,7 @@ export const CustomerDashboard: React.FC = () => {
   if (error || !dashboard) {
     return (
       <div className="sd-grid-12">
+        <h1 className="sr-only">Customer dashboard</h1>
         <Card span={12}>
           <div className="dash-error-card" role="alert">
             <div className="dash-error-icon" aria-hidden="true">

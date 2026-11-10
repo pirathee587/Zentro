@@ -13,6 +13,17 @@ S2 uses a transactional outbox:
 
 The publisher is off unless `OUTBOX_PUBLISHER_ENABLED=true`, so no broker is needed for tests or for environments without Kafka. Events still accumulate in the outbox while it is off and are sent once it is enabled.
 
+## Atomicity guarantees
+
+Verified by the ZD-062 audit (#137, [report](../test-reports/zd-062-outbox-atomicity-audit.md)), including injected database failures before, during and at commit:
+
+- **Every producing write is atomic.** A customer booking, a merchant order and an accepted status change (with its history row) are committed in the same transaction as their outbox row. If any statement or the commit fails, neither the change nor the event exists, and the API answers `503`.
+- **No event without a change, no change without an event.** Idempotent replays, conflicts (`409`), validation errors (`422`), pricing failures and repeated or illegal status changes write no outbox row. Each stored parcel has exactly one `parcel.created`; each accepted status change has exactly one `parcel.status.updated`, in the same order as the status history.
+- **Committed events survive restarts.** Rows written while the publisher is off or while S2 is stopped stay in `parcel.outbox_event` and are published after the next start.
+- **At-least-once, never lost.** An event is marked published only after Kafka confirms it. If S2 stops after Kafka confirmed but before the mark is committed, the same event (same `eventId`) is sent again. Consumers must de-duplicate on `eventId`.
+- **Several instances are safe.** Rows are claimed with `FOR UPDATE SKIP LOCKED`; a row held by another transaction is skipped and picked up once that transaction ends.
+- **S2 is the only producer.** S1, S3, S4 and S5 publish no Kafka events; S3 status changes reach Kafka through S2's status API. `delivery.assigned` is not produced yet (open item for S3).
+
 ## Topics
 
 | Topic | Event type | Written when |
@@ -199,3 +210,15 @@ The producer uses `acks=all` and `enable.idempotence=true`.
 - **Local broker:** `backend/docker-compose.yml` has no Kafka service yet. Owner: @pirathee587. Until then, run `docker run -d --name zd23-kafka -p 9092:9092 apache/kafka:3.7.0`.
 - **Kubernetes/Helm:** the Kafka deployment and production topic settings belong to the deployment owner.
 - **Payload confirmation:** the payloads above, including the optional `merchantId` added in #32, still need confirmation from the S4 and S5 owners (@hephzibah-peries, @Deadsecnote1).
+
+## Correlation and tracing (#143)
+
+The outbox retains nullable diagnostic columns separately from the event JSON.
+The publisher restores that parent context and creates a fresh producer span
+for each attempt. Kafka adds `X-Correlation-Id`, `traceparent`, and optional
+`tracestate` alongside the existing event headers; keys, values, event IDs,
+schemaVersion, ordering and delivery guarantees are unchanged. S4 and both S5
+consumer groups extract validated headers into scoped consumer-attempt spans.
+Legacy messages/rows remain supported without metadata. No baggage or secrets
+are copied. See [observability](../architecture/observability.md) for validation,
+nullable migration names, retry/restart behavior and logging limitations.

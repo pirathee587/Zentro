@@ -29,7 +29,7 @@ class UpstreamResponseSanitizingFilterTest {
 
     assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
     String body = exchange.getResponse().getBodyAsString().block();
-    assertThat(body).contains("\"status\":502", "\"title\":\"Bad Gateway\"");
+    assertThat(body).contains("\"status\":502", "\"title\":\"Bad Gateway\"", "\"instance\":\"/api/v1/zones\"");
     assertThat(body).doesNotContain("host-db-01", "stack trace");
   }
 

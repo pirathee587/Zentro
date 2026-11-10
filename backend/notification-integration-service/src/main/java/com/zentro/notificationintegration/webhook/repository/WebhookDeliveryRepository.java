@@ -1,5 +1,7 @@
 package com.zentro.notificationintegration.webhook.repository;
 
+import com.zentro.security.observability.PropagationContext;
+import com.zentro.security.observability.PropagationMetadata;
 import com.zentro.notificationintegration.webhook.entity.WebhookDelivery;
 import com.zentro.notificationintegration.webhook.entity.WebhookDeliveryStatus;
 import java.time.OffsetDateTime;
@@ -13,6 +15,10 @@ import org.springframework.stereotype.Repository;
 /** JdbcTemplate access to notification.webhook_delivery. */
 @Repository
 public class WebhookDeliveryRepository {
+  private PropagationContext propagation = PropagationContext.noop();
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
+
   static final int MAX_ERROR_LENGTH = 500;
 
   /**
@@ -31,7 +37,14 @@ public class WebhookDeliveryRepository {
       String merchantId,
       String url,
       String secretCiphertext,
-      boolean subscriptionActive) {}
+      boolean subscriptionActive, PropagationMetadata propagation) {
+    public DeliveryAttempt(UUID id, UUID subscriptionId, UUID eventId, String eventType, UUID parcelId, String payload,
+        int attempts, OffsetDateTime createdAt, String merchantId, String url, String secretCiphertext, boolean subscriptionActive) {
+      this(id, subscriptionId, eventId, eventType, parcelId, payload, attempts, createdAt, merchantId, url, secretCiphertext,
+          subscriptionActive, new PropagationMetadata(eventId.toString(), null, null));
+    }
+    @Override public String toString() { return "DeliveryAttempt[id=" + id + ", eventId=" + eventId + "]"; }
+  }
 
   private static final RowMapper<WebhookDelivery> ROW_MAPPER = (rs, n) -> new WebhookDelivery(
       rs.getObject("id", UUID.class),
@@ -59,13 +72,14 @@ public class WebhookDeliveryRepository {
    */
   public Optional<UUID> insertPending(UUID subscriptionId, UUID eventId, String eventType, UUID parcelId,
       String payload, String payloadSha256, OffsetDateTime nextAttemptAt) {
+    var metadata = propagation.capture();
     return jdbc.queryForList("""
         INSERT INTO notification.webhook_delivery
-            (subscription_id, event_id, event_type, parcel_id, payload, payload_sha256, status, next_attempt_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
+            (subscription_id, event_id, event_type, parcel_id, payload, payload_sha256, status, next_attempt_at, correlation_id, traceparent, tracestate)
+        VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?)
         ON CONFLICT (subscription_id, event_id) DO NOTHING
         RETURNING id
-        """, UUID.class, subscriptionId, eventId, eventType, parcelId, payload, payloadSha256, nextAttemptAt)
+        """, UUID.class, subscriptionId, eventId, eventType, parcelId, payload, payloadSha256, nextAttemptAt, metadata.correlationId(), metadata.traceparent(), metadata.tracestate())
         .stream().findFirst();
   }
 
@@ -76,7 +90,7 @@ public class WebhookDeliveryRepository {
   public Optional<DeliveryAttempt> lockForAttempt(UUID id) {
     return jdbc.query("""
         SELECT d.id, d.subscription_id, d.event_id, d.event_type, d.parcel_id, d.payload, d.attempts, d.created_at,
-               s.merchant_id, s.url, s.secret_ciphertext, s.active
+               s.merchant_id, s.url, s.secret_ciphertext, s.active, d.correlation_id, d.traceparent, d.tracestate
           FROM notification.webhook_delivery d
           JOIN notification.webhook_subscription s ON s.id = d.subscription_id
          WHERE d.id = ? AND d.status IN ('PENDING', 'RETRY')
@@ -94,7 +108,9 @@ public class WebhookDeliveryRepository {
             rs.getString("merchant_id"),
             rs.getString("url"),
             rs.getString("secret_ciphertext"),
-            rs.getBoolean("active")),
+            rs.getBoolean("active"), new PropagationMetadata(
+                rs.getString("correlation_id") == null ? rs.getString("event_id") : rs.getString("correlation_id"),
+                rs.getString("traceparent"), rs.getString("tracestate"))),
         id).stream().findFirst();
   }
 

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { apiClient, friendlyApiError } from '@/shared/api/apiClient';
+import { apiClient, friendlyApiError, withBearerToken } from '@/shared/api/apiClient';
 
 export type CompletionState = 'PENDING' | 'COMPLETED' | 'REJECTED' | 'BLOCKED';
 export interface DeliverySummary {
@@ -12,26 +12,33 @@ export interface ProofResponse extends SubmitProofRequest {
   completionState: CompletionState; completedAt: string | null;
 }
 export const proofLimits = { recipientName: 100, notes: 500, proofReference: 200 } as const;
-const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
+const auth = (token: string, signal?: AbortSignal) => withBearerToken(token, signal ? { signal } : {});
 const path = (id: string) => `/api/v1/courier/deliveries/${encodeURIComponent(id)}`;
-export async function listDeliveries(token: string): Promise<DeliverySummary[]> {
-  return (await apiClient.get<DeliverySummary[]>('/api/v1/courier/deliveries', { headers: headers(token) })).data;
+export async function listDeliveries(token: string, signal?: AbortSignal): Promise<DeliverySummary[]> {
+  return (await apiClient.get<DeliverySummary[]>('/api/v1/courier/deliveries', auth(token, signal))).data;
 }
-export async function getDelivery(id: string, token: string): Promise<DeliverySummary> {
-  return (await apiClient.get<DeliverySummary>(path(id), { headers: headers(token) })).data;
+export async function getDelivery(id: string, token: string, signal?: AbortSignal): Promise<DeliverySummary> {
+  return (await apiClient.get<DeliverySummary>(path(id), auth(token, signal))).data;
 }
-export async function getProof(id: string, token: string): Promise<ProofResponse | null> {
-  try { return (await apiClient.get<ProofResponse>(`${path(id)}/proof`, { headers: headers(token) })).data; }
+export async function getProof(id: string, token: string, signal?: AbortSignal): Promise<ProofResponse | null> {
+  try { return (await apiClient.get<ProofResponse>(`${path(id)}/proof`, auth(token, signal))).data; }
   catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 404 && error.response.data?.code === 'PROOF_NOT_FOUND') return null;
     throw error;
   }
 }
 export async function submitProof(id: string, body: SubmitProofRequest, token: string): Promise<ProofResponse> {
-  return (await apiClient.post<ProofResponse>(`${path(id)}/proof`, body, { headers: headers(token) })).data;
+  return (await apiClient.post<ProofResponse>(`${path(id)}/proof`, body, auth(token))).data;
+}
+export function deliveryAccessDenied(error: unknown): boolean {
+  return axios.isAxiosError(error) && [403, 404].includes(error.response?.status ?? 0);
+}
+export function deliverySessionExpired(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 401;
 }
 export function deliveryError(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (error.response?.status === 403) return "You don't have access";
     if (error.response?.status === 409) return 'Proof is already recorded with different evidence. Refresh to view the saved proof.';
     if (error.response?.status === 404) return 'This delivery is no longer available to your account.';
     if (error.response?.status === 400) return 'Check the required fields and character limits.';

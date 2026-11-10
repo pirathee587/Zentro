@@ -70,6 +70,7 @@ Content-Type: application/json
       "status": "RETRY",
       "attempts": 2,
       "responseStatus": 503,
+      "responseClass": "RETRYABLE_FAILURE",
       "lastError": "HTTP 503",
       "nextAttemptAt": "2026-11-06T08:01:10Z",
       "createdAt": "2026-11-06T08:00:30Z",
@@ -126,21 +127,74 @@ X-SwiftDrop-Signature: sha256=5d2c...64 hex characters
 - **Headers:** `X-SwiftDrop-Timestamp` is unix seconds at the time of this attempt. `X-SwiftDrop-Signature` is `sha256=` + lowercase hex of HMAC-SHA256 over `"<timestamp>.<raw body>"`, keyed with the full secret string (`whsec_...`, UTF-8).
 - **Answer:** any `2xx` within 5 seconds. The response body is ignored.
 
-### Verifying the signature
+### Verifying the signature (receivers)
 
+The signing contract (#127, ZD-052) is unchanged since ZD-17. S5 signs every attempt, including retries, with a fresh timestamp. The reference implementation is `WebhookSignatureVerifier` (`notification-integration-service`, package `webhook.security`); S5's tests use it to prove every delivery and retry verifies.
+
+**Signed content.** The signed bytes are `<X-SwiftDrop-Timestamp>` + `.` + the raw request body, as UTF-8 bytes. The key is the full secret string including `whsec_` (UTF-8). The body is the event JSON exactly as sent: never re-serialise or pretty-print it before verifying. `Content-Type` is `application/json` without a `charset` parameter; the body is always UTF-8.
+
+**Header formats.**
+
+| Header | Format |
+|---|---|
+| `X-SwiftDrop-Timestamp` | Unix seconds, digits only (for example `1762416000`) |
+| `X-SwiftDrop-Signature` | `sha256=` followed by exactly 64 lowercase hex characters, one signature per request |
+| `X-SwiftDrop-Event-Id` | The event id (UUID); the same value as `eventId` in the body |
+
+**Steps.**
 1. Read the raw body bytes before parsing JSON.
-2. Compute `HMAC-SHA256(secret, timestamp + "." + body)` and compare it with the header using a constant-time comparison.
-3. Reject timestamps older than about 5 minutes, to stop replays.
-4. De-duplicate on `X-SwiftDrop-Event-Id`: the same event can arrive more than once.
+2. Reject the request if either header is missing, or if their format is not exactly as above.
+3. Compute `HMAC-SHA256(secret, timestamp + "." + body)`, write it as `sha256=` + lowercase hex, and compare it with the header using a **constant-time** comparison (for example `MessageDigest.isEqual`, `hmac.compare_digest`, `crypto.timingSafeEqual`). Never use `String.equals` or `==`.
+4. Reject the request if the timestamp is more than **300 seconds** older than your clock (replay window) or more than **60 seconds** in the future (clock skew). The timestamp is part of the signed content, so it cannot be changed without breaking the signature.
+5. Only after the signature is valid, de-duplicate on `X-SwiftDrop-Event-Id`. The same event can arrive more than once: retries and redeliveries have a new timestamp and signature but the same event id. Keep the ids you have processed for at least the replay window, and answer a duplicate with `2xx` without processing it again. Recording ids only after verification means a forged request cannot block a real event.
+6. Answer `2xx` within 5 seconds and do the slow work afterwards.
 
-With openssl (body saved to `body.json` exactly as received, no extra newline):
+**Failure meanings** (the `WebhookSignatureVerifier.Result` values):
+
+| Result | Meaning | Suggested response |
+|---|---|---|
+| `VALID` | Genuine and recent | Process, then `2xx` |
+| `MISSING_HEADER` | Timestamp or signature header absent or blank | `400`; not from S5 or stripped by a proxy |
+| `MALFORMED_TIMESTAMP` | Timestamp is not whole unix seconds | `400` |
+| `MALFORMED_SIGNATURE` | Not `sha256=` + 64 lowercase hex characters | `400` |
+| `SIGNATURE_MISMATCH` | Body or timestamp changed, wrong secret (for example after a rotation), or forged | `401`; check you use the current secret and the raw body |
+| `TIMESTAMP_TOO_OLD` | Genuine but older than 300 s: a replay, or a very slow queue on your side | `401`; do not process |
+| `TIMESTAMP_IN_FUTURE` | More than 60 s ahead: your clock is wrong, or the request was tampered with | `401`; check NTP on your server |
+
+Answering `4xx` (other than 408/429) makes S5 mark the delivery `FAILED`. A temporary problem on your side should answer `5xx` so S5 retries.
+
+**Java example** (same logic as `WebhookSignatureVerifier`, standard library only):
+
+```java
+static boolean verify(String secret, String timestamp, String signature, byte[] rawBody, long nowSeconds)
+    throws Exception {
+  if (timestamp == null || signature == null
+      || !timestamp.matches("[0-9]{1,12}") || !signature.matches("sha256=[0-9a-f]{64}")) {
+    return false;
+  }
+  Mac mac = Mac.getInstance("HmacSHA256");
+  mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+  mac.update((timestamp + ".").getBytes(StandardCharsets.UTF_8));
+  String expected = "sha256=" + HexFormat.of().formatHex(mac.doFinal(rawBody));
+  if (!MessageDigest.isEqual(expected.getBytes(StandardCharsets.US_ASCII),
+      signature.getBytes(StandardCharsets.US_ASCII))) {
+    return false;                                   // SIGNATURE_MISMATCH
+  }
+  long age = nowSeconds - Long.parseLong(timestamp);
+  return age <= 300 && age >= -60;                  // TIMESTAMP_TOO_OLD / TIMESTAMP_IN_FUTURE otherwise
+}
+```
+
+**With openssl** (body saved to `body.json` exactly as received, no extra newline):
 
 ```bash
 SECRET='whsec_...'
 TS='1762416000'                     # X-SwiftDrop-Timestamp
 { printf '%s.' "$TS"; cat body.json; } | openssl dgst -sha256 -hmac "$SECRET" | awk '{print "sha256=" $NF}'
-# must equal the X-SwiftDrop-Signature header
+# must equal the X-SwiftDrop-Signature header; then check that TS is within 300 s of `date +%s`
 ```
+
+**Secret rotation.** After `POST /api/v1/merchant/webhooks/secret`, the next attempt is signed only with the new secret. There is a single signature per request, so update the receiver right away (or accept either secret for a short time).
 
 ## Retries and timeouts
 
@@ -228,6 +282,8 @@ All settings come from environment variables. Names are listed in `backend/notif
 | Signal | Name |
 |---|---|
 | Counter | `zentro.webhooks.succeeded`, `zentro.webhooks.failed`, `zentro.webhooks.retried` |
+| Counter | `zentro.webhooks.attempts` (tags: `response_class`, `outcome`) |
+| Counter | `zentro.webhooks.terminal` (tag: `category`) |
 | Counter | `zentro.webhooks.skipped`: no `merchantId`, no active endpoint, or endpoint disabled |
 | Counter | `zentro.webhooks.duplicates`, `zentro.webhooks.rejected` (malformed events) |
 | Gauge | `zentro.webhooks.pending` (`PENDING` + `RETRY`), `zentro.webhooks.failed.total` |
@@ -251,3 +307,12 @@ Migration `V2__webhook_schema.sql` (schema `notification`):
 - **Schema confirmation:** the optional `merchantId` in both event schemas needs confirmation from the S4 and S5 owners (@hephzibah-peries, @Deadsecnote1).
 - **Encryption key rotation** with two active keys is not supported; see "Configuration".
 - **Deployment:** `WEBHOOK_SECRET_KEY` must be provided through the deployment's secret store (deployment owner).
+
+## Internal diagnostic context (#143)
+
+S5 stores Kafka correlation/W3C context in nullable internal delivery columns
+and restores it for every immediate or scheduled attempt. Retries keep the
+originating trace but create new span IDs. Legacy rows without metadata still
+work. The signed body, hash, event ID, signature headers and external webhook
+contract do not change; internal trace/correlation headers and baggage are not
+sent to merchant endpoints. See [observability](../architecture/observability.md).

@@ -153,16 +153,18 @@ git clone <repository-url> zentro
 cd zentro
 git checkout develop
 
-bash scripts/init-local.sh        # creates .env files with generated local passwords
-docker compose config             # validates the compose file
-docker compose up -d --build      # starts PostgreSQL x5, Kafka, Keycloak, services, gateway, frontend
-docker compose ps                 # all containers should be healthy
+# Copy templates and provision separate databases/Kafka first; see setup notes.
+docker compose config -q          # validates without printing resolved credentials
+docker compose up -d --build      # apps only; requires configured dependencies
+docker compose ps
 ```
+
+Follow [development configuration](docs/development/configuration.md) for template copying, Keycloak setup and port binding. See [production configuration and secret handling](docs/security/production-configuration.md) before deployment.
 
 Environment rules:
 
 - Only `.env.example` files are committed. Real `.env` files are git-ignored.
-- `.env.common` holds shared values: `KAFKA_BOOTSTRAP`, `JWT_ISSUER_URI`, `JWT_AUDIENCE`.
+- `.env.common` holds shared values: `KAFKA_BOOTSTRAP_SERVERS`, `JWT_ISSUER_URI`, `JWT_AUDIENCE`.
 - Each service has its own `.env` with `DB_URL`, `DB_USER`, `DB_PASSWORD`. A service receives only its own database credentials.
 
 ### Open the application

@@ -29,7 +29,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class TrackingServiceTest {
@@ -37,13 +36,12 @@ class TrackingServiceTest {
   @Mock private TrackingParcelRepository parcelRepository;
   @Mock private TrackingEventRepository eventRepository;
   @Mock private TrackingStreamService streamService;
-  @Mock private JdbcTemplate jdbcTemplate;
 
   private TrackingService trackingService;
 
   @BeforeEach
   void setUp() {
-    trackingService = new TrackingService(parcelRepository, eventRepository, streamService, jdbcTemplate);
+    trackingService = new TrackingService(parcelRepository, eventRepository, streamService);
   }
 
   @Test
@@ -177,6 +175,70 @@ class TrackingServiceTest {
     assertThat(saved.getStatus()).isEqualTo(TrackingStatus.IN_TRANSIT);
     assertThat(parcel.getStatus()).isEqualTo(TrackingStatus.IN_TRANSIT);
     verify(streamService).notifySubscribers(saved);
+  }
+
+  @Test
+  @DisplayName("getTrackingEvents throws TrackingNotFoundException when reference is absent from S4 repository")
+  void getTrackingEventsThrowsNotFoundWhenAbsent() {
+    when(parcelRepository.findByTrackingRef("ZT-NOTFOUND404")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> trackingService.getTrackingEvents("ZT-NOTFOUND404"))
+        .isInstanceOf(TrackingNotFoundException.class)
+        .hasMessageContaining("ZT-NOTFOUND404");
+  }
+
+  @Test
+  @DisplayName("getCustomerDeliveries returns empty page without errors when customer has no parcels")
+  void getCustomerDeliveriesReturnsEmptyPage() {
+    String customer = "customer-empty-user";
+    when(parcelRepository.findByCustomerSubject(eq(customer), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    CustomerDeliveryListResponse result = trackingService.getCustomerDeliveries(customer, 1, 10, null, null);
+
+    assertThat(result.total()).isEqualTo(0);
+    assertThat(result.content()).isEmpty();
+    assertThat(result.totalSpent()).isEqualByComparingTo(BigDecimal.ZERO);
+    assertThat(result.formattedTotalSpent()).isEqualTo("LKR 0.00");
+  }
+
+  @Test
+  @DisplayName("getCustomerDeliveries filters by status only when status provided")
+  void getCustomerDeliveriesFiltersByStatusOnly() {
+    String customer = "customer-user-1";
+    when(parcelRepository.findByCustomerSubjectAndStatus(eq(customer), eq(TrackingStatus.IN_TRANSIT), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    CustomerDeliveryListResponse result = trackingService.getCustomerDeliveries(customer, 1, 10, "IN_TRANSIT", null);
+
+    assertThat(result.total()).isEqualTo(0);
+    verify(parcelRepository).findByCustomerSubjectAndStatus(eq(customer), eq(TrackingStatus.IN_TRANSIT), any(Pageable.class));
+  }
+
+  @Test
+  @DisplayName("getCustomerDeliveries filters by query only when keyword query provided")
+  void getCustomerDeliveriesFiltersByQueryOnly() {
+    String customer = "customer-user-2";
+    when(parcelRepository.searchByCustomer(eq(customer), eq("Kandy"), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    CustomerDeliveryListResponse result = trackingService.getCustomerDeliveries(customer, 1, 10, null, "Kandy");
+
+    assertThat(result.total()).isEqualTo(0);
+    verify(parcelRepository).searchByCustomer(eq(customer), eq("Kandy"), any(Pageable.class));
+  }
+
+  @Test
+  @DisplayName("getCustomerDeliveries filters by both status and query when both provided")
+  void getCustomerDeliveriesFiltersByStatusAndQuery() {
+    String customer = "customer-user-3";
+    when(parcelRepository.searchByCustomerAndStatus(eq(customer), eq(TrackingStatus.DELIVERED), eq("ZT-123"), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    CustomerDeliveryListResponse result = trackingService.getCustomerDeliveries(customer, 1, 10, "DELIVERED", "ZT-123");
+
+    assertThat(result.total()).isEqualTo(0);
+    verify(parcelRepository).searchByCustomerAndStatus(eq(customer), eq(TrackingStatus.DELIVERED), eq("ZT-123"), any(Pageable.class));
   }
 }
 

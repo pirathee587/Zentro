@@ -46,6 +46,7 @@ export const Timeline: React.FC<TimelineProps> = ({ events, className = '' }) =>
           <div
             key={event.id || index}
             role="listitem"
+            aria-current={event.status === 'current' ? 'step' : undefined}
             className={`sd-timeline-item sd-timeline-status-${event.status} ${isLast ? 'is-last' : ''}`}
           >
             <div className="sd-timeline-node">

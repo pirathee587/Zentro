@@ -1,0 +1,36 @@
+/* Two-tone indicator stays discernible on both pale cards and dark hero/action surfaces. */
+:focus-visible {
+  outline: 2px solid var(--espresso) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 2px var(--white) !important;
+}
+.skip-to-content {
+  position: fixed; top: 8px; left: 8px; z-index: 10000;
+  padding: 12px 18px; background: var(--paper); color: var(--espresso);
+  transform: translateY(-200%);
+}
+.skip-to-content:focus { transform: translateY(0); }
+input:not(:disabled), select:not(:disabled), textarea:not(:disabled) { border-color: var(--muted); }
+.customer-portal :is(input, select, textarea):not(:disabled) { border-color: var(--mute); }
+.customer-portal :is(input, textarea)::placeholder { color: var(--mute); opacity: 1; }
+.customer-portal .sd-chat-input::placeholder { color: var(--panel-muted); }
+.customer-portal .sd-chat-input:not(:disabled) { border-color: var(--panel-muted); }
+:where(.merchant-portal, .courier-portal, .dispatcher-portal) :is(header, nav) { min-width: 0; }
+:where(.merchant-nav, .staff-nav) { flex-wrap: wrap; }
+:where(.merchant-secret-panel, .staff-modal, .staff-edit-panel) { min-width: 0; overflow-wrap: anywhere; }
+:where(.staff-modal, .staff-edit-panel) { max-height: calc(100dvh - 32px); overflow-y: auto; }
+:where(.sd-table-wrap, .merchant-orders-table-wrap) { max-width: 100%; overflow-x: auto; }
+.sd-step-pills { list-style: none; padding: 0; }
+.sd-toast-close { min-width: 24px; min-height: 24px; }
+@media (max-width: 640px) {
+  .sd-table .sd-col-route, .sd-table .sd-col-date { display: table-cell !important; }
+  .sd-history-search-wrap { min-width: 0; }
+  .sd-chat-input { min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight !important; box-shadow: none !important; }
+  :is(input, select, textarea, button) { border: 1px solid ButtonText; }
+}

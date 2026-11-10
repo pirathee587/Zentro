@@ -1,13 +1,13 @@
 package com.zentro.trackingreporting.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.listener.DefaultErrorHandler;
+import com.zentro.security.observability.SafeKafkaErrorHandler;
+import com.zentro.security.observability.PropagationContext;
 import org.springframework.util.backoff.FixedBackOff;
 
 /**
@@ -25,7 +25,9 @@ import org.springframework.util.backoff.FixedBackOff;
 @ConditionalOnProperty(prefix = "zentro.kafka", name = "enabled", havingValue = "true")
 public class KafkaConsumerConfig {
 
-  private static final Logger log = LoggerFactory.getLogger(KafkaConsumerConfig.class);
+  private PropagationContext propagation = PropagationContext.noop();
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
 
   @Bean
   DefaultErrorHandler trackingConsumerErrorHandler(
@@ -33,15 +35,12 @@ public class KafkaConsumerConfig {
       @Value("${zentro.kafka.consumer.retry.max-attempts:3}") int maxAttempts) {
     long attempts = Math.max(1, maxAttempts);
     FixedBackOff backOff = new FixedBackOff(intervalMs, attempts - 1);
-    DefaultErrorHandler handler = new DefaultErrorHandler(backOff);
+    DefaultErrorHandler handler = new SafeKafkaErrorHandler(backOff, propagation);
     handler.setLogLevel(org.springframework.kafka.KafkaException.Level.WARN);
     handler.addNotRetryableExceptions(
         JsonProcessingException.class,
         IllegalArgumentException.class
     );
-    handler.setRetryListeners((record, ex, attempt) -> log.warn(
-        "Tracking parcel event at {}-{}@{} failed processing (attempt {}): {}; will retry",
-        record.topic(), record.partition(), record.offset(), attempt, ex.getClass().getSimpleName()));
     return handler;
   }
 }

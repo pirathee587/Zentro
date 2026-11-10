@@ -4,3 +4,14 @@ target
 .env.*
 !.env.example
 *.log
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/*.dump
+**/*.backup
+**/*.pgdump
+**/*.sql.gz
+**/backups

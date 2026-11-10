@@ -33,8 +33,7 @@ export function useMerchantApplications() {
   return useQuery({
     queryKey: applicationsKey,
     enabled: Boolean(user?.accessToken),
-    retry: false,
-    queryFn: listMerchantApplications,
+    queryFn: ({ signal }) => listMerchantApplications(signal),
   });
 }
 

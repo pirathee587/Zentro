@@ -7,9 +7,9 @@ spring:
   application:
     name: tracking-reporting-service
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
     properties:
@@ -32,12 +32,17 @@ spring:
 
 zentro:
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
+    audience: ${JWT_AUDIENCE:zentro-api}
     jwks-uri: ${JWT_JWKS_URI:}
   kafka:
     enabled: ${KAFKA_CONSUMER_ENABLED:false}
 management:
+  tracing:
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
   endpoint:
     health:
       probes:
@@ -46,3 +51,7 @@ management:
     web:
       exposure:
         include: health,prometheus
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"
