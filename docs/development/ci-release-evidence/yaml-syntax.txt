@@ -1,0 +1,4 @@
+YAML syntax OK: .github/workflows/branch-name-check.yml
+YAML syntax OK: .github/workflows/ci.yml
+YAML syntax OK: .github/workflows/pr-linked-issue.yml
+YAML syntax OK: .github/workflows/task-status-sync.yml
