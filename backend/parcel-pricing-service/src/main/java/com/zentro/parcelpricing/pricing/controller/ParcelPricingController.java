@@ -145,8 +145,12 @@ public class ParcelPricingController {
           "Unsupported route and zone combination: SAME_CITY cannot span different delivery zones.");
     }
 
-    if (request.currency() != null && request.currency().isBlank()) {
-      fieldErrors.put("currency", "Currency cannot be blank.");
+    if (request.currency() != null) {
+      if (request.currency().isBlank()) {
+        fieldErrors.put("currency", "Currency cannot be blank.");
+      } else if (!request.currency().trim().matches("^[A-Za-z]{3}$")) {
+        fieldErrors.put("currency", "Currency must be a 3-letter ISO code.");
+      }
     }
 
     if (!fieldErrors.isEmpty()) {

@@ -238,4 +238,125 @@ class PricingServiceTest {
         eq("LKR")
     );
   }
+
+  @Test
+  @DisplayName("updateStandardRule throws PricingValidationException when currency is unsupported")
+  void updateStandardRuleThrowsWhenCurrencyIsUnsupported() {
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        new BigDecimal("580.00"),
+        new BigDecimal("1.00"),
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "USD"
+    );
+
+    com.zentro.parcelpricing.exception.PricingValidationException ex = assertThrows(
+        com.zentro.parcelpricing.exception.PricingValidationException.class,
+        () -> pricingService.updateStandardRule(update)
+    );
+    assertTrue(ex.fieldErrors().containsKey("currency"));
+    assertTrue(ex.getMessage().contains("Unsupported currency 'USD'"));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule throws PricingValidationException when base fee is zero or negative")
+  void updateStandardRuleThrowsWhenBaseFeeIsZeroOrNegative() {
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        BigDecimal.ZERO,
+        new BigDecimal("1.00"),
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "LKR"
+    );
+
+    com.zentro.parcelpricing.exception.PricingValidationException ex = assertThrows(
+        com.zentro.parcelpricing.exception.PricingValidationException.class,
+        () -> pricingService.updateStandardRule(update)
+    );
+    assertEquals("Base fee must be greater than zero.", ex.fieldErrors().get("baseFee"));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule throws PricingValidationException when amount exceeds maximum limit")
+  void updateStandardRuleThrowsWhenAmountExceedsMaximumLimit() {
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        new BigDecimal("1500000.00"),
+        new BigDecimal("1.00"),
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "LKR"
+    );
+
+    com.zentro.parcelpricing.exception.PricingValidationException ex = assertThrows(
+        com.zentro.parcelpricing.exception.PricingValidationException.class,
+        () -> pricingService.updateStandardRule(update)
+    );
+    assertEquals("Base fee cannot exceed 1,000,000.00.", ex.fieldErrors().get("baseFee"));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule throws PricingValidationException when included weight is zero or negative")
+  void updateStandardRuleThrowsWhenIncludedWeightIsZeroOrNegative() {
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        new BigDecimal("550.00"),
+        BigDecimal.ZERO,
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "LKR"
+    );
+
+    com.zentro.parcelpricing.exception.PricingValidationException ex = assertThrows(
+        com.zentro.parcelpricing.exception.PricingValidationException.class,
+        () -> pricingService.updateStandardRule(update)
+    );
+    assertEquals("Included weight must be greater than zero.", ex.fieldErrors().get("includedWeightKg"));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule throws PricingValidationException when included weight exceeds 100 kg")
+  void updateStandardRuleThrowsWhenIncludedWeightExceedsLimit() {
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        new BigDecimal("550.00"),
+        new BigDecimal("105.00"),
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "LKR"
+    );
+
+    com.zentro.parcelpricing.exception.PricingValidationException ex = assertThrows(
+        com.zentro.parcelpricing.exception.PricingValidationException.class,
+        () -> pricingService.updateStandardRule(update)
+    );
+    assertEquals("Included weight cannot exceed 100.00 kg.", ex.fieldErrors().get("includedWeightKg"));
+  }
+
+  @Test
+  @DisplayName("updateStandardRule throws PricingValidationException when amount has more than 2 decimal places")
+  void updateStandardRuleThrowsWhenAmountHasMoreThanTwoDecimals() {
+    PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
+        new BigDecimal("550.125"),
+        new BigDecimal("1.00"),
+        new BigDecimal("130.00"),
+        new BigDecimal("420.00"),
+        new BigDecimal("320.00"),
+        new BigDecimal("15.00"),
+        "LKR"
+    );
+
+    com.zentro.parcelpricing.exception.PricingValidationException ex = assertThrows(
+        com.zentro.parcelpricing.exception.PricingValidationException.class,
+        () -> pricingService.updateStandardRule(update)
+    );
+    assertEquals("Base fee must have at most 2 decimal places.", ex.fieldErrors().get("baseFee"));
+  }
 }

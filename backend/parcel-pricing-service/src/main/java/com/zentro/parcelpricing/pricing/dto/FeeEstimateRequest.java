@@ -1,22 +1,24 @@
 package com.zentro.parcelpricing.pricing.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.zentro.parcelpricing.parcel.entity.DestinationType;
 import com.zentro.parcelpricing.parcel.entity.ParcelSize;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import com.zentro.parcelpricing.validation.CodePointSize;
-import java.math.BigDecimal;
 import com.zentro.parcelpricing.validation.ParcelWeight;
 import com.zentro.parcelpricing.validation.StrictDecimalDeserializer;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.zentro.parcelpricing.validation.StrictTextDeserializer;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Pattern;
+import java.math.BigDecimal;
 
 public record FeeEstimateRequest(
     @CodePointSize(max = 100, message = "Pickup city must be at most 100 characters")
-    @JsonDeserialize(using = com.zentro.parcelpricing.validation.StrictTextDeserializer.class)
+    @JsonDeserialize(using = StrictTextDeserializer.class)
     String pickupCity,
     @CodePointSize(max = 100, message = "Delivery city must be at most 100 characters")
-    @JsonDeserialize(using = com.zentro.parcelpricing.validation.StrictTextDeserializer.class)
+    @JsonDeserialize(using = StrictTextDeserializer.class)
     String deliveryCity,
     DestinationType destinationType,
     ParcelSize parcelSize,
@@ -24,7 +26,7 @@ public record FeeEstimateRequest(
     @JsonDeserialize(using = StrictDecimalDeserializer.class)
     BigDecimal weightKg,
     @CodePointSize(max = 100, message = "Parcel category must be at most 100 characters")
-    @JsonDeserialize(using = com.zentro.parcelpricing.validation.StrictTextDeserializer.class)
+    @JsonDeserialize(using = StrictTextDeserializer.class)
     String parcelCategory,
     Boolean isExpress,
     @DecimalMin(value = "0.00", message = "Distance cannot be negative")
@@ -48,13 +50,14 @@ public record FeeEstimateRequest(
     @JsonDeserialize(using = StrictDecimalDeserializer.class)
     BigDecimal heightCm,
     @CodePointSize(max = 64, message = "Origin zone must be at most 64 characters")
-    @JsonDeserialize(using = com.zentro.parcelpricing.validation.StrictTextDeserializer.class)
+    @JsonDeserialize(using = StrictTextDeserializer.class)
     String originZone,
     @CodePointSize(max = 64, message = "Destination zone must be at most 64 characters")
-    @JsonDeserialize(using = com.zentro.parcelpricing.validation.StrictTextDeserializer.class)
+    @JsonDeserialize(using = StrictTextDeserializer.class)
     String destinationZone,
+    @Pattern(regexp = "^[A-Za-z]{3}$", message = "Currency must be a 3-letter ISO code")
     @CodePointSize(max = 10, message = "Currency must be at most 10 characters")
-    @JsonDeserialize(using = com.zentro.parcelpricing.validation.StrictTextDeserializer.class)
+    @JsonDeserialize(using = StrictTextDeserializer.class)
     String currency
 ) {
   public boolean hasDimensions() {
