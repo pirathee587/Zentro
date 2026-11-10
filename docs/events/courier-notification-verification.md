@@ -10,7 +10,7 @@ The envelope used by published S2 events has `eventId` (UUID), `eventType` (stri
 |---|---|---|---|---|---|
 | `parcel.created` | `parcel.created` | S2 `ParcelBookingService` / `MerchantOrderService` | Parcel UUID (`aggregateId`) | `trackingRef` (string), `status` = `CREATED`, `source` (`CUSTOMER_BOOKING` or `MERCHANT_ORDER`), `occurredAt` (date-time); optional `merchantId` (string) for merchant parcels | Yes; booking/order and event are stored atomically. Not emitted for idempotent replay. |
 | `parcel.status.updated` | `parcel.status.updated` | S2 `ParcelStatusService` | Parcel UUID (`aggregateId`) | `trackingRef` (string), `previousStatus` and `status` (status enum), `actorRole` (string), `occurredAt` (date-time); `failureReason` (string) only for `FAILED`; optional `merchantId` (string) | Yes; status, history and event are stored atomically after an accepted change. No event for rejected or unchanged status. |
-| Courier assignment | None published by S3 | S3 assignment flow persists through `AssignmentRepository.insert` | No event key | No event payload | No assignment outbox event is present in the inspected flow. |
+| Courier assignment lifecycle | `delivery.assigned`, `delivery.reassigned`, `delivery.cancelled` | S3 assignment lifecycle transaction | Parcel UUID (`aggregateId`) | `action`, `oldCourierId`, `newCourierId`, `actorSubject` | S3 `dispatch.outbox_event`; publisher is disabled by default and emits when `OUTBOX_ENABLED=true`. |
 
 `contracts/events/delivery-assigned.schema.json` currently references only the generic envelope and defines no event payload. It is not evidence of a published assignment event. The S3 assignment row is keyed by parcel ID and stores courier profile/user identifiers in S3's own database; S5 must not read that database.
 
@@ -40,7 +40,7 @@ The initial send occurs after the database transaction commits. Retryable sender
 
 | ID | Classification | Finding |
 |---|---|---|
-| CNV-1 | Verified gap | S3 assignment persistence publishes no Kafka assignment event; the checked-in assignment schema defines no payload fields. |
+| CNV-1 | Resolved in S3 | Assignment, reassignment, and cancellation persist audit and outbox rows atomically; the configured publisher emits the versioned lifecycle event. |
 | CNV-2 | Verified gap | S5 has no assignment consumer, courier-specific template, or courier recipient resolution. |
 | CNV-3 | Verified gap | `parcel.status.updated` has no courier identifier or contact; its current notifications use customer-facing templates. |
 | CNV-4 | OK | S2 accepted status changes and corresponding outbox records commit atomically; rejected and unchanged changes do not publish. |
@@ -48,7 +48,7 @@ The initial send occurs after the database transaction commits. Retryable sender
 
 ## Decisions required before implementation
 
-1. **Assignment event and assignment lifecycle.** Approve an event contract and decide reassignment/unassignment semantics (including whether any old assignee is informed). Once approved, specify event identity and parcel ordering consistently with the contract owner. Do not infer fields from the current generic schema.
+1. **Assignment event consumers.** S5 consumers still need an approved courier-recipient lookup and notification behavior if assignment lifecycle notifications are required. S3 does not publish personal contact data.
 2. **Courier contact resolution.** Choose one approved approach:
    - **S1 internal API lookup (proposed):** S5 resolves the courier's contact through an authorized S1 API. This keeps personal data out of Kafka, at the cost of a runtime dependency on S1 and an API contract/availability path.
    - **Contact in event:** include an approved destination in the event. This avoids a lookup at consumption time but puts personal data in the Kafka topic and expands the event contract, retention and access exposure.

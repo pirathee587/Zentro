@@ -688,7 +688,7 @@
       "post": {
         "operationId": "assignCourier",
         "summary": "Assign a parcel to a courier",
-        "description": "Actor is read from the JWT subject. Assignment is not reassignment; an existing parcel assignment conflicts. Allowed roles: DISPATCHER.",
+        "description": "Actor is read from the JWT subject. An existing parcel assignment conflicts. Allowed roles: DISPATCHER.",
         "tags": [
           "S3"
         ],
@@ -869,6 +869,319 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dispatch/assignments/{parcelId}/reassign": {
+      "post": {
+        "operationId": "reassignCourier",
+        "summary": "Reassign an assigned parcel to an eligible courier",
+        "description": "Actor is read from the JWT subject. The prior and new courier IDs are recorded in S3 audit and outbox records. Allowed roles: DISPATCHER.",
+        "tags": [
+          "S3"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Assignment"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current resource state",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "parcelId",
+            "in": "path",
+            "required": true,
+            "description": "parcelId identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReassignRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dispatch/assignments/{parcelId}": {
+      "delete": {
+        "operationId": "cancelAssignment",
+        "summary": "Cancel an active parcel assignment",
+        "description": "Actor is read from the JWT subject. Cancellation writes an audit and outbox record atomically. Allowed roles: DISPATCHER.",
+        "tags": [
+          "S3"
+        ],
+        "responses": {
+          "204": {
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Gateway correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "parcelId",
+            "in": "path",
+            "required": true,
+            "description": "parcelId identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+          }
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -1573,6 +1886,18 @@
         },
         "required": [
           "parcelId",
+          "courierId"
+        ]
+      },
+      "ReassignRequest": {
+        "type": "object",
+        "properties": {
+          "courierId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
           "courierId"
         ]
       },

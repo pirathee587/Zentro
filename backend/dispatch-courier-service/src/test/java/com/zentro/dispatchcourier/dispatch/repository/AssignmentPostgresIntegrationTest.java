@@ -44,7 +44,9 @@ class AssignmentPostgresIntegrationTest {
     repository = new AssignmentRepository(jdbc, new DataSourceTransactionManager(dataSource));
   }
 
-  @BeforeEach void reset() { jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.delivery_assignment"); }
+  @BeforeEach void reset() {
+    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
+  }
 
   @Test void competingServicesCommitExactlyOneAssignmentAndExcludeItFromQueue() throws Exception {
     var barrier = new CyclicBarrier(2);
@@ -81,6 +83,29 @@ class AssignmentPostgresIntegrationTest {
         parcelId, UUID.randomUUID(), UUID.randomUUID(), "loser")).isInstanceOf(DataIntegrityViolationException.class);
     assertThat(saved.assignedAt()).isNotNull();
     assertThat(jdbc.queryForObject("SELECT assigned_by_subject FROM dispatch.delivery_assignment", String.class)).isEqualTo("winner");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(1);
+  }
+
+  @Test void reassignmentAndCancellationWriteAuditedEventsAtomically() {
+    var replacement = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Replacement", true, "ACTIVE");
+    repository.insert(parcelId, courier, "dispatcher");
+    var reassigned = repository.reassign(parcelId, replacement, "dispatcher");
+    assertThat(reassigned.courierId()).isEqualTo(replacement.id());
+    repository.cancel(parcelId, "dispatcher");
+    assertThat(repository.exists(parcelId)).isFalse();
+    assertThat(jdbc.queryForList("SELECT action, old_courier_profile_id, new_courier_profile_id FROM dispatch.assignment_audit"))
+        .extracting(row -> row.get("action"))
+        .containsExactly("ASSIGNED", "REASSIGNED", "CANCELLED");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(3);
+  }
+
+  @Test void cancellationOfMissingAssignmentFailsWithoutAuditOrEvent() {
+    assertThatThrownBy(() -> repository.cancel(parcelId, "dispatcher"))
+        .isInstanceOfSatisfying(DispatchException.class,
+            error -> assertThat(error.code()).isEqualTo("DELIVERY_NOT_ASSIGNED"));
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isZero();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isZero();
   }
 
   @Test void failedTransactionRollsBackAndNextRequestCanAssign() {
@@ -135,4 +160,3 @@ class AssignmentPostgresIntegrationTest {
     }
   }
 }
-

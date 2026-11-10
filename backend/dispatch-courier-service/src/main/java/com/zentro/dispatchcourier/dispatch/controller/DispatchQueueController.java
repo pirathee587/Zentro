@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -56,5 +58,19 @@ public class DispatchQueueController {
       @Valid @RequestBody AssignRequest request) {
     var result = service.assign(request.parcelId(), request.courierId(), jwt.getSubject(), jwt.getTokenValue());
     return ResponseEntity.status(201).body(result);
+  }
+
+  public record ReassignRequest(@NotNull UUID courierId) {}
+
+  @PostMapping("/assignments/{parcelId}/reassign")
+  public AssignmentRepository.Assignment reassign(@AuthenticationPrincipal Jwt jwt,
+      @PathVariable UUID parcelId, @Valid @RequestBody ReassignRequest request) {
+    return service.reassign(parcelId, request.courierId(), jwt.getSubject(), jwt.getTokenValue());
+  }
+
+  @DeleteMapping("/assignments/{parcelId}")
+  public ResponseEntity<Void> cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID parcelId) {
+    service.cancel(parcelId, jwt.getSubject(), jwt.getTokenValue());
+    return ResponseEntity.noContent().build();
   }
 }

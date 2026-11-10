@@ -54,6 +54,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | GET `/api/v1/dispatch/eligible-couriers?parcelId=…` | S3 | D → D | operational data | D | D |
 | GET `/api/v1/dispatch/workload` | S3 | D → D | platform workload | D | D |
 | POST `/api/v1/dispatch/assignments` | S3 | D → D | assignment controlled by dispatcher | D | D |
+| POST `/api/v1/dispatch/assignments/{parcelId}/reassign` | S3 | D → D | replaces the existing assignment after fresh courier eligibility verification; audit and event are atomic | D | D |
+| DELETE `/api/v1/dispatch/assignments/{parcelId}` | S3 | D → D | cancels only an existing S3 assignment; audit and event are atomic | D | D |
 | GET `/api/v1/courier/deliveries` | S3 | CO → CO | assigned deliveries only, looked up via authenticated courier profile | CO | CO |
 | GET `/api/v1/courier/deliveries/{parcelId}` | S3 | CO → CO | assignment courier ID and user ID must match caller | CO (own assignment) | same |
 | GET `/api/v1/courier/deliveries/{parcelId}/proof` | S3 | CO → CO | assignment checked before proof lookup | CO (own assignment) | same |

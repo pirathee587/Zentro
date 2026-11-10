@@ -26,6 +26,12 @@ zentro:
     issuer-uri: ${JWT_ISSUER_URI}
     audience: ${JWT_AUDIENCE}
     jwks-uri: ${JWT_JWKS_URI:}
+  outbox:
+    enabled: ${OUTBOX_ENABLED:false}
+    topics:
+      delivery.assigned: ${DELIVERY_ASSIGNED_TOPIC:delivery.assigned}
+      delivery.reassigned: ${DELIVERY_REASSIGNED_TOPIC:delivery.reassigned}
+      delivery.cancelled: ${DELIVERY_CANCELLED_TOPIC:delivery.cancelled}
 management:
   endpoint:
     health:

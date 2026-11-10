@@ -133,6 +133,7 @@ SCHEMAS = {
     },
     "dispatch": {
         "AssignRequest": obj({"parcelId": UUID, "courierId": UUID}, ("parcelId", "courierId")),
+        "ReassignRequest": obj({"courierId": UUID}, ("courierId",)),
         "Assignment": obj({"parcelId": UUID, "courierId": UUID, "courierUserId": UUID, "assignedBy": STR, "assignedAt": DATE}),
         "DispatchParcel": obj({"parcelId": UUID, "trackingReference": STR, "pickupSummary": STR, "dropoffSummary": STR, "createdAt": DATE}),
         "DispatchQueue": obj({"items": arr({"$ref": "#/components/schemas/DispatchParcel"}), "total": {"type": ["integer", "null"]},
@@ -224,7 +225,9 @@ OPS = {
     ("get","/api/v1/dispatch/unassigned","getUnassignedQueueAlias","List unassigned parcels (alias)","DISPATCHER",200,"DispatchQueue","Alias of /api/v1/dispatch/queue.",[("search","string",False,0,200,""),("from","string",False,None,None,None),("to","string",False,None,None,None),("sort","string",False,None,None,"newest")],None,[],[400,401,403,503],[]),
     ("get","/api/v1/dispatch/eligible-couriers","listEligibleCouriers","List eligible couriers for a parcel","DISPATCHER",200,"CourierList","Requires parcelId; S3 verifies parcel eligibility through its configured parcel-source integration.",[("parcelId","string",True,None,None,None)],None,[],[400,401,403,404,409,503],[]),
     ("get","/api/v1/dispatch/workload","getCourierWorkload","Read courier workload","DISPATCHER",200,"Workload","Optional name search and availability filter.",[("search","string",False,0,200,""),("availability","string",False,None,None,"")],None,[],[400,401,403,503],[]),
-    ("post","/api/v1/dispatch/assignments","assignCourier","Assign a parcel to a courier","DISPATCHER",201,"Assignment","Actor is read from the JWT subject. Assignment is not reassignment; an existing parcel assignment conflicts.",[],"AssignRequest",[],[400,401,403,404,409,422,503],[]),
+    ("post","/api/v1/dispatch/assignments","assignCourier","Assign a parcel to a courier","DISPATCHER",201,"Assignment","Actor is read from the JWT subject. An existing parcel assignment conflicts.",[],"AssignRequest",[],[400,401,403,404,409,422,503],[]),
+    ("post","/api/v1/dispatch/assignments/{parcelId}/reassign","reassignCourier","Reassign an assigned parcel to an eligible courier","DISPATCHER",200,"Assignment","Actor is read from the JWT subject. The prior and new courier IDs are recorded in S3 audit and outbox records.",[],"ReassignRequest",[],[400,401,403,404,409,503],[]),
+    ("delete","/api/v1/dispatch/assignments/{parcelId}","cancelAssignment","Cancel an active parcel assignment","DISPATCHER",204,None,"Actor is read from the JWT subject. Cancellation writes an audit and outbox record atomically.",[] ,None,[],[401,403,404,503],[]),
     ("get","/api/v1/courier/deliveries","listCourierDeliveries","List the authenticated courier's assignments","COURIER",200,"DeliverySummaryList","Only assignments belonging to the token courier are returned.",[],None,[],[401,403,503],[]),
     ("get","/api/v1/courier/deliveries/{parcelId}","getCourierDelivery","Read an assigned delivery","COURIER",200,"DeliverySummary","Both courier profile id and user id must match the authenticated courier.",[],None,[],[400,401,403,404,503],[]),
     ("get","/api/v1/courier/deliveries/{parcelId}/proof","getDeliveryProof","Read proof of delivery","COURIER",200,"ProofResponse","Only the courier assigned to the parcel can read proof. Cache-Control is no-store.",[],None,[],[400,401,403,404,503],["Cache-Control"]),

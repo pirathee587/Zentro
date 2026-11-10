@@ -76,6 +76,14 @@ class DispatchQueueControllerTest {
     mvc.perform(get("/api/v1/dispatch/eligible-couriers").param("parcelId", PARCEL)
         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role))))
         .andExpect(status().isForbidden());
+    mvc.perform(post("/api/v1/dispatch/assignments/" + PARCEL + "/reassign")
+        .contentType("application/json").content("{\"courierId\":\"" + COURIER + "\"}")
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role))))
+        .andExpect(status().isForbidden());
+    mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+        .delete("/api/v1/dispatch/assignments/" + PARCEL)
+        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role))))
+        .andExpect(status().isForbidden());
     verifyNoInteractions(assignments, identity, source);
   }
 
@@ -105,6 +113,15 @@ class DispatchQueueControllerTest {
 
   @Test void anonymousCannotAssign() throws Exception {
     mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test void anonymousCannotReassignOrCancel() throws Exception {
+    mvc.perform(post("/api/v1/dispatch/assignments/" + PARCEL + "/reassign")
+        .contentType("application/json").content("{\"courierId\":\"" + COURIER + "\"}"))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+        .delete("/api/v1/dispatch/assignments/" + PARCEL))
         .andExpect(status().isUnauthorized());
   }
 

@@ -26,4 +26,13 @@ public interface ParcelSource {
    * Missing -> 404, stale/ineligible -> 409, unverified/unavailable -> 503.
    */
   <T> T withEligibleParcel(UUID parcelId, String bearerToken, Function<Parcel, T> action);
+
+  /**
+   * Invoke the callback only for a parcel whose assignment lifecycle is still
+   * owned by S3. Adapters may use a conditional claim or an equivalent
+   * authenticated lifecycle check.
+   */
+  default <T> T withAssignedParcel(UUID parcelId, String bearerToken, Function<Parcel, T> action) {
+    return withEligibleParcel(parcelId, bearerToken, action);
+  }
 }

@@ -101,9 +101,7 @@ public class DispatchService {
   }
 
   public AssignmentRepository.Assignment assign(UUID parcelId, UUID courierId, String subject, String token) {
-    if (subject == null || subject.isBlank() || subject.length() > 255) {
-      throw new DispatchException(HttpStatus.UNAUTHORIZED, "INVALID_SUBJECT", "A valid dispatcher subject is required.");
-    }
+    validateSubject(subject);
     if (assignments.exists(parcelId)) throw DispatchException.assigned();
     return parcels.withEligibleParcel(parcelId, token, parcel -> {
       if (parcel == null || !parcelId.equals(parcel.parcelId())) throw invalidSource();
@@ -120,5 +118,42 @@ public class DispatchService {
       }
       return assignments.insert(parcelId, courier, subject);
     });
+  }
+
+  public AssignmentRepository.Assignment reassign(UUID parcelId, UUID courierId, String subject, String token) {
+    validateSubject(subject);
+    if (!assignments.exists(parcelId)) {
+      throw new DispatchException(HttpStatus.NOT_FOUND, "DELIVERY_NOT_ASSIGNED",
+          "The delivery has no active assignment.");
+    }
+    return parcels.withAssignedParcel(parcelId, token, parcel -> {
+      IdentityCourierClient.Courier courier;
+      try {
+        courier = identity.requireEligible(courierId, token);
+      } catch (ResponseStatusException error) {
+        String code = switch (error.getStatusCode().value()) {
+          case 409 -> "COURIER_INELIGIBLE";
+          case 404 -> "COURIER_NOT_FOUND";
+          default -> "COURIER_VERIFICATION_FAILED";
+        };
+        throw new DispatchException(HttpStatus.valueOf(error.getStatusCode().value()), code, error.getReason());
+      }
+      return assignments.reassign(parcelId, courier, subject);
+    });
+  }
+
+  public void cancel(UUID parcelId, String subject, String token) {
+    validateSubject(subject);
+    parcels.withAssignedParcel(parcelId, token, parcel -> {
+      assignments.cancel(parcelId, subject);
+      return null;
+    });
+  }
+
+  private static void validateSubject(String subject) {
+    if (subject == null || subject.isBlank() || subject.length() > 255) {
+      throw new DispatchException(HttpStatus.UNAUTHORIZED, "INVALID_SUBJECT",
+          "A valid dispatcher subject is required.");
+    }
   }
 }
