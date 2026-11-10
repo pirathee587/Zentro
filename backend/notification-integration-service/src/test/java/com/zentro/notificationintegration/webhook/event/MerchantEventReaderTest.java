@@ -49,12 +49,13 @@ class MerchantEventReaderTest {
   }
 
   @Test
-  @DisplayName("A customer event (no merchantId, or null) has a null merchantId")
+  @DisplayName("An absent merchantId is a customer event; explicit null violates the approved string schema")
   void customerEvent() {
     assertThat(reader.read("parcel.status.updated", statusEvent().toString()).merchantId()).isNull();
     ObjectNode withNull = statusEvent();
     ((ObjectNode) withNull.get("payload")).putNull("merchantId");
-    assertThat(reader.read("parcel.status.updated", withNull.toString()).merchantId()).isNull();
+    assertThatThrownBy(() -> reader.read("parcel.status.updated", withNull.toString()))
+        .isInstanceOf(MalformedEventException.class).hasMessage("invalid merchantId");
   }
 
   @Test

@@ -92,7 +92,8 @@ public class ParcelEventParser {
       String actor = text(payload, "actorRole");
       if (actor.length() > 32 || !actor.matches("[A-Z][A-Z_]*")) throw new MalformedEventException("invalid actorRole");
     }
-    if (payload.has("merchantId") && text(payload, "merchantId").length() > 255)
+    JsonNode merchant = payload.get("merchantId");
+    if (merchant != null && (!merchant.isTextual() || merchant.textValue().isBlank() || merchant.textValue().length() > 255))
       throw new MalformedEventException("invalid merchantId");
     String trackingRef = text(payload, "trackingRef");
     if (!TRACKING_REF.matcher(trackingRef).matches()) {
