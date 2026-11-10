@@ -24,5 +24,6 @@ public record UpdateCourierProfileRequest(
     @Size(max = 200, message = "Name must not exceed 200 characters")
     String name,
 
+    @Pattern(regexp = "^(\\+?[0-9]{9,15})?$", message = "Phone must be a valid phone number (9-15 digits, optional leading +)")
     @Size(max = 32, message = "Phone must not exceed 32 characters")
     String phone) {}
