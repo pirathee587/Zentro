@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.zentro.identitypartner.user.dto.UserProfile;
+import com.zentro.identitypartner.user.exception.InvalidUserInputException;
 import com.zentro.identitypartner.user.service.UserProfileService;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -22,6 +23,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -214,6 +217,46 @@ class CourierProfileServiceTest {
     assertThat(results).isNotNull();
 
     verify(jdbc).query(anyString(), any(RowMapper.class), any(Object[].class));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"ACTIVE", "DISABLED", "SUSPENDED", "active", "disabled", "suspended"})
+  void listCouriersAcceptsValidStatuses(String validStatus) {
+    when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of());
+
+    List<CourierProfile> results = service.listCouriers(validStatus, null, null, null);
+    assertThat(results).isNotNull();
+
+    verify(jdbc).query(anyString(), any(RowMapper.class), any(Object[].class));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", "   "})
+  void listCouriersHandlesBlankStatusWithoutStatusFilter(String blankStatus) {
+    when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of());
+
+    List<CourierProfile> results = service.listCouriers(blankStatus, null, null, null);
+    assertThat(results).isNotNull();
+
+    verify(jdbc).query(anyString(), any(RowMapper.class), any(Object[].class));
+  }
+
+  @Test
+  void listCouriersHandlesNullStatusWithoutStatusFilter() {
+    when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class))).thenReturn(List.of());
+
+    List<CourierProfile> results = service.listCouriers(null, null, null, null);
+    assertThat(results).isNotNull();
+
+    verify(jdbc).query(anyString(), any(RowMapper.class), any(Object[].class));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"INVALID", "SUPERUSER", "DELETED", "UNKNOWN"})
+  void listCouriersThrowsInvalidUserInputExceptionOnInvalidStatus(String invalidStatus) {
+    assertThatThrownBy(() -> service.listCouriers(invalidStatus, null, null, null))
+        .isInstanceOf(InvalidUserInputException.class)
+        .hasMessage("Invalid status: must be ACTIVE, DISABLED or SUSPENDED.");
   }
 }
 

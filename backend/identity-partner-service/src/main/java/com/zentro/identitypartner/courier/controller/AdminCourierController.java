@@ -4,6 +4,7 @@ package com.zentro.identitypartner.courier.controller;
 import com.zentro.identitypartner.courier.dto.CourierProfile;
 import com.zentro.identitypartner.courier.dto.UpdateCourierProfileRequest;
 import com.zentro.identitypartner.courier.service.CourierProfileService;
+import com.zentro.identitypartner.user.validation.UserInputRules;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +33,8 @@ public class AdminCourierController {
       @RequestParam(name = "active", required = false) Boolean active,
       @RequestParam(name = "zone", required = false) String zone,
       @RequestParam(name = "search", required = false) String search) {
-    return courierService.listCouriers(status, active, zone, search);
+    String validatedStatus = UserInputRules.statusFilter(status);
+    return courierService.listCouriers(validatedStatus, active, zone, search);
   }
 
   @GetMapping("/{courierId}")
