@@ -61,6 +61,7 @@ public class ParcelEventParser {
     }
     // The approved envelope is unversioned and has no schemaVersion property.
     if (envelope.has("schemaVersion")) throw new MalformedEventException("unsupported schema version");
+    allowed(envelope, Set.of("eventId", "eventType", "aggregateId", "occurredAt", "payload"));
 
     UUID eventId = uuid(envelope, "eventId");
     String eventType = text(envelope, "eventType");
@@ -78,6 +79,21 @@ public class ParcelEventParser {
     if (payload == null || !payload.isObject()) {
       throw new MalformedEventException("missing payload");
     }
+    allowed(payload, PARCEL_CREATED.equals(eventType)
+        ? Set.of("trackingRef", "status", "source", "occurredAt", "merchantId")
+        : Set.of("trackingRef", "status", "previousStatus", "actorRole", "occurredAt", "failureReason", "merchantId"));
+    if (!timestamp(payload, "occurredAt").toInstant().equals(occurredAt.toInstant()))
+      throw new MalformedEventException("event timestamps disagree");
+    if (PARCEL_CREATED.equals(eventType)) {
+      if (!Set.of("CUSTOMER_BOOKING", "MERCHANT_ORDER").contains(text(payload, "source")))
+        throw new MalformedEventException("invalid source");
+    } else {
+      if (!STATUSES.contains(text(payload, "previousStatus"))) throw new MalformedEventException("invalid previousStatus");
+      String actor = text(payload, "actorRole");
+      if (actor.length() > 32 || !actor.matches("[A-Z][A-Z_]*")) throw new MalformedEventException("invalid actorRole");
+    }
+    if (payload.has("merchantId") && text(payload, "merchantId").length() > 255)
+      throw new MalformedEventException("invalid merchantId");
     String trackingRef = text(payload, "trackingRef");
     if (!TRACKING_REF.matcher(trackingRef).matches()) {
       throw new MalformedEventException("invalid trackingRef");
@@ -119,6 +135,12 @@ public class ParcelEventParser {
       throw new MalformedEventException("missing " + field);
     }
     return value.asText();
+  }
+
+  private static void allowed(JsonNode node, Set<String> fields) {
+    var names = node.fieldNames();
+    while (names.hasNext()) if (!fields.contains(names.next()))
+      throw new MalformedEventException("unexpected event field");
   }
 
   private static UUID uuid(JsonNode node, String field) {

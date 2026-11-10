@@ -71,6 +71,7 @@ public class TrackingKafkaConsumer {
     if (message == null || message.length() > 65536) throw new IllegalArgumentException();
     JsonNode e = mapper.readTree(message);
     if (e == null || !e.isObject() || e.has("schemaVersion")) throw new IllegalArgumentException();
+    allowed(e, java.util.Set.of("eventId", "eventType", "aggregateId", "occurredAt", "payload"));
     String type = text(e, "eventType", 100);
     if (!("parcel.created".equals(type) || "parcel.status.updated".equals(type)) || !type.equals(topic))
       throw new IllegalArgumentException();
@@ -78,6 +79,10 @@ public class TrackingKafkaConsumer {
     UUID parcel = uuid(e, "aggregateId");
     Instant time = Instant.parse(text(e, "occurredAt", 40));
     JsonNode p = e.path("payload");
+    allowed(p, "parcel.created".equals(type)
+        ? java.util.Set.of("trackingRef", "status", "source", "occurredAt", "merchantId")
+        : java.util.Set.of("trackingRef", "status", "previousStatus", "actorRole", "occurredAt", "failureReason", "merchantId"));
+    if (p.has("merchantId")) text(p, "merchantId", 255);
     String ref = text(p, "trackingRef", 13);
     if (!ref.matches("ZT-[0-9A-HJKMNP-TV-Z]{10}")) throw new IllegalArgumentException();
     TrackingStatus status = TrackingStatus.valueOf(text(p, "status", 32));
@@ -111,6 +116,11 @@ public class TrackingKafkaConsumer {
     UUID uuid = UUID.fromString(value);
     if (!uuid.toString().equalsIgnoreCase(value)) throw new IllegalArgumentException();
     return uuid;
+  }
+
+  private void allowed(JsonNode node, java.util.Set<String> fields) {
+    var names = node.fieldNames();
+    while (names.hasNext()) if (!fields.contains(names.next())) throw new IllegalArgumentException();
   }
 
   private record Event(UUID id, UUID parcel, String ref, TrackingStatus status, String previous,
