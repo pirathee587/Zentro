@@ -855,6 +855,8 @@ Rules:
 
 # 15. TESTING STANDARDS
 
+Local gateway performance smoke tests are opt-in with Maven's `perf` profile and are excluded from the default build. Follow [performance smoke testing](docs/testing/performance-smoke-tests.md) for the disposable fixture, bounded commands, reference evidence and unresolved API gaps. These developer-machine numbers are not production capacity; no performance CI job is enabled.
+
 ## Backend
 
 Use:

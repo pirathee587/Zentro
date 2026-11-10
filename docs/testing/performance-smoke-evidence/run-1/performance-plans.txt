@@ -1,0 +1,42 @@
+S4 owning-database plans; same predicates/order as repository, full entity projection.
+SELECT * FROM tracking.tracking_parcel WHERE customer_subject='3d010438-2d39-4dd4-8193-0ba5fb50fdc8' ORDER BY created_at DESC OFFSET 0 LIMIT 20
+Limit  (cost=0.29..3.84 rows=20 width=2237) (actual time=0.055..0.064 rows=20 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan using idx_tracking_parcel_customer on tracking_parcel  (cost=0.29..1067.51 rows=6000 width=2237) (actual time=0.053..0.059 rows=20 loops=1)
+        Index Cond: ((customer_subject)::text = '3d010438-2d39-4dd4-8193-0ba5fb50fdc8'::text)
+        Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=240
+Planning Time: 2.298 ms
+Execution Time: 0.129 ms
+SELECT * FROM tracking.tracking_parcel WHERE customer_subject='3d010438-2d39-4dd4-8193-0ba5fb50fdc8' ORDER BY created_at DESC OFFSET 5000 LIMIT 20
+Limit  (cost=889.64..893.20 rows=20 width=2237) (actual time=2.433..2.443 rows=20 loops=1)
+  Buffers: shared hit=228
+  ->  Index Scan using idx_tracking_parcel_customer on tracking_parcel  (cost=0.29..1067.51 rows=6000 width=2237) (actual time=0.084..2.054 rows=5020 loops=1)
+        Index Cond: ((customer_subject)::text = '3d010438-2d39-4dd4-8193-0ba5fb50fdc8'::text)
+        Buffers: shared hit=228
+Planning Time: 0.177 ms
+Execution Time: 2.531 ms
+SELECT count(*) FROM tracking.tracking_parcel WHERE customer_subject='3d010438-2d39-4dd4-8193-0ba5fb50fdc8'
+Aggregate  (cost=408.29..408.30 rows=1 width=8) (actual time=2.580..2.581 rows=1 loops=1)
+  Buffers: shared hit=91
+  ->  Index Only Scan using idx_tracking_parcel_customer on tracking_parcel  (cost=0.29..393.29 rows=6000 width=0) (actual time=0.097..1.938 rows=6000 loops=1)
+        Index Cond: (customer_subject = '3d010438-2d39-4dd4-8193-0ba5fb50fdc8'::text)
+        Heap Fetches: 0
+        Buffers: shared hit=91
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.224 ms
+Execution Time: 2.680 ms
+SELECT * FROM tracking.tracking_event WHERE tracking_ref IN ('PERF-1','PERF-2') ORDER BY occurred_at ASC
+Sort  (cost=14.47..14.48 rows=2 width=1334) (actual time=0.204..0.205 rows=2 loops=1)
+  Sort Key: occurred_at
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=11
+  ->  Index Scan using idx_tracking_event_ref_time on tracking_event  (cost=0.29..14.46 rows=2 width=1334) (actual time=0.092..0.111 rows=2 loops=1)
+        Index Cond: ((tracking_ref)::text = ANY ('{PERF-1,PERF-2}'::text[]))
+        Buffers: shared hit=8
+Planning:
+  Buffers: shared hit=134
+Planning Time: 2.694 ms
+Execution Time: 0.276 ms

@@ -1,0 +1,6 @@
+/home/piratheepan/Desktop/Zentro/backend/merchant-order-webhook-e2e/target/gc-api-gateway.log pauses=27 totalMs=169.973 maxMs=14.391
+/home/piratheepan/Desktop/Zentro/backend/merchant-order-webhook-e2e/target/gc-dispatch-courier-service.log pauses=141 totalMs=1176.480 maxMs=296.038
+/home/piratheepan/Desktop/Zentro/backend/merchant-order-webhook-e2e/target/gc-identity-partner-service.log pauses=282 totalMs=2474.042 maxMs=332.968
+/home/piratheepan/Desktop/Zentro/backend/merchant-order-webhook-e2e/target/gc-notification-integration-service.log pauses=43 totalMs=211.972 maxMs=11.640
+/home/piratheepan/Desktop/Zentro/backend/merchant-order-webhook-e2e/target/gc-parcel-pricing-service.log pauses=44 totalMs=324.226 maxMs=43.946
+/home/piratheepan/Desktop/Zentro/backend/merchant-order-webhook-e2e/target/gc-tracking-reporting-service.log pauses=78 totalMs=339.340 maxMs=18.022
