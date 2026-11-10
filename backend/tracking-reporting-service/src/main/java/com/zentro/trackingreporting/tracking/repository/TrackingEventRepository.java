@@ -11,6 +11,8 @@ public interface TrackingEventRepository extends JpaRepository<TrackingEvent, UU
 
   List<TrackingEvent> findByTrackingRefOrderByOccurredAtAsc(String trackingRef);
 
+  List<TrackingEvent> findByTrackingRefInOrderByOccurredAtAsc(List<String> trackingRefs);
+
   List<TrackingEvent> findByParcelIdOrderByOccurredAtAsc(UUID parcelId);
 
   boolean existsByEventId(UUID eventId);

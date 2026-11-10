@@ -1,0 +1,5 @@
+PERF_SEED trackingParcels=10000 events=10000 elapsedMs=312.017
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 132.1 s -- in com.zentro.e2e.PerformanceSmokeIT
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+[INFO] Total time:  02:18 min

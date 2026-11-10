@@ -178,5 +178,17 @@ class IntegrationAttemptControllerTest {
         .andExpect(status().isBadRequest());
     verifyNoInteractions(notificationRepository, webhookDeliveryRepository);
   }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"/api/v1/admin/notification-attempts", "/api/v1/admin/webhook-deliveries"})
+  void bothHistoriesRejectUnsafePagination(String path) throws Exception {
+    var auth = jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"));
+    for (String size : List.of("0", "-1", "100000", "abc", "2147483648")) {
+      mvc.perform(get(path).param("size", size).with(auth)).andExpect(status().isBadRequest());
+    }
+    mvc.perform(get(path).param("page", "-1").with(auth)).andExpect(status().isBadRequest());
+    mvc.perform(get(path).param("page", "abc").with(auth)).andExpect(status().isBadRequest());
+    verifyNoInteractions(notificationRepository, webhookDeliveryRepository);
+  }
 }
 

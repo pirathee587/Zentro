@@ -1,0 +1,521 @@
+
+Seed rows=100; repository query plans in each owning database.
+identity_db
+SELECT u.id,u.keycloak_subject,u.email,u.display_name,u.phone,u.account_status,coalesce(m.status,'') AS merchant_status
+FROM identity.app_user u LEFT JOIN identity.merchant_application m ON m.app_user_id=u.id WHERE 1=1 ORDER BY u.created_at DESC
+Sort  (cost=10.97..11.23 rows=102 width=693) (actual time=0.185..0.195 rows=102 loops=1)
+  Sort Key: u.created_at DESC
+  Sort Method: quicksort  Memory: 34kB
+  Buffers: shared hit=7
+  ->  Hash Left Join  (cost=4.27..7.57 rows=102 width=693) (actual time=0.077..0.120 rows=102 loops=1)
+        Hash Cond: (u.id = m.app_user_id)
+        Buffers: shared hit=4
+        ->  Seq Scan on app_user u  (cost=0.00..3.02 rows=102 width=661) (actual time=0.005..0.026 rows=102 loops=1)
+              Buffers: shared hit=2
+        ->  Hash  (cost=3.01..3.01 rows=101 width=24) (actual time=0.051..0.052 rows=101 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 14kB
+              Buffers: shared hit=2
+              ->  Seq Scan on merchant_application m  (cost=0.00..3.01 rows=101 width=24) (actual time=0.005..0.021 rows=101 loops=1)
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=306
+Planning Time: 2.353 ms
+Execution Time: 0.291 ms
+identity_db
+SELECT cp.id AS profile_id,u.id AS user_id,u.email,u.display_name,u.phone,u.account_status,cp.is_active,
+cp.assigned_zone,cp.vehicle_type,cp.created_at,cp.updated_at FROM identity.app_user u
+INNER JOIN identity.courier_profile cp ON cp.app_user_id=u.id WHERE 1=1 ORDER BY cp.created_at DESC
+Sort  (cost=10.93..11.19 rows=101 width=894) (actual time=0.231..0.237 rows=101 loops=1)
+  Sort Key: cp.created_at DESC
+  Sort Method: quicksort  Memory: 35kB
+  Buffers: shared hit=7
+  ->  Hash Join  (cost=4.27..7.57 rows=101 width=894) (actual time=0.058..0.086 rows=101 loops=1)
+        Hash Cond: (u.id = cp.app_user_id)
+        Buffers: shared hit=4
+        ->  Seq Scan on app_user u  (cost=0.00..3.02 rows=102 width=633) (actual time=0.003..0.015 rows=102 loops=1)
+              Buffers: shared hit=2
+        ->  Hash  (cost=3.01..3.01 rows=101 width=277) (actual time=0.037..0.038 rows=101 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 17kB
+              Buffers: shared hit=2
+              ->  Seq Scan on courier_profile cp  (cost=0.00..3.01 rows=101 width=277) (actual time=0.004..0.015 rows=101 loops=1)
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=315
+Planning Time: 1.357 ms
+Execution Time: 0.292 ms
+identity_db
+SELECT id,app_user_id,business_name,business_reg_no,contact_phone,status,rejection_reason,suspension_reason,created_at,reviewed_at
+FROM identity.merchant_application ORDER BY created_at
+Sort  (cost=6.37..6.62 rows=101 width=1124) (actual time=0.099..0.107 rows=101 loops=1)
+  Sort Key: created_at
+  Sort Method: quicksort  Memory: 35kB
+  Buffers: shared hit=5
+  ->  Seq Scan on merchant_application  (cost=0.00..3.01 rows=101 width=1124) (actual time=0.014..0.036 rows=101 loops=1)
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=166
+Planning Time: 1.106 ms
+Execution Time: 0.176 ms
+dispatch_courier_db
+SELECT a.parcel_id,a.courier_profile_id,a.assigned_at,p.id AS proof_id,p.completion_state
+FROM dispatch.delivery_assignment a LEFT JOIN dispatch.proof_of_delivery p ON p.parcel_id=a.parcel_id
+WHERE a.courier_profile_id='040e9c94-5ef3-4498-b500-f82b55597571' AND a.courier_user_id='fbe0a328-6314-4cc6-b372-f6e212ae910f' ORDER BY a.assigned_at DESC,a.parcel_id
+Sort  (cost=17.52..17.77 rows=99 width=106) (actual time=0.160..0.167 rows=100 loops=1)
+  Sort Key: a.assigned_at DESC, a.parcel_id
+  Sort Method: quicksort  Memory: 31kB
+  Buffers: shared hit=8
+  ->  Hash Left Join  (cost=10.45..14.24 rows=99 width=106) (actual time=0.022..0.044 rows=100 loops=1)
+        Hash Cond: (a.parcel_id = p.parcel_id)
+        Buffers: shared hit=2
+        ->  Seq Scan on delivery_assignment a  (cost=0.00..3.51 rows=99 width=40) (actual time=0.007..0.019 rows=100 loops=1)
+              Filter: ((courier_profile_id = '040e9c94-5ef3-4498-b500-f82b55597571'::uuid) AND (courier_user_id = 'fbe0a328-6314-4cc6-b372-f6e212ae910f'::uuid))
+              Rows Removed by Filter: 1
+              Buffers: shared hit=2
+        ->  Hash  (cost=10.20..10.20 rows=20 width=82) (actual time=0.001..0.002 rows=0 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              ->  Seq Scan on proof_of_delivery p  (cost=0.00..10.20 rows=20 width=82) (actual time=0.001..0.001 rows=0 loops=1)
+Planning:
+  Buffers: shared hit=202
+Planning Time: 0.812 ms
+Execution Time: 0.246 ms
+dispatch_courier_db
+SELECT courier_profile_id,COUNT(*) AS assignment_count FROM dispatch.delivery_assignment GROUP BY courier_profile_idHashAggregate  (cost=3.51..3.53 rows=2 width=24) (actual time=0.042..0.047 rows=2 loops=1)
+  Group Key: courier_profile_id
+  Batches: 1  Memory Usage: 24kB
+  Buffers: shared hit=2
+  ->  Seq Scan on delivery_assignment  (cost=0.00..3.01 rows=101 width=16) (actual time=0.005..0.020 rows=101 loops=1)
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=89
+Planning Time: 0.711 ms
+Execution Time: 0.225 ms
+parcel_pricing_db
+SELECT id,tracking_ref,merchant_id,external_order_ref,sender_name,sender_phone,sender_address,sender_city,
+recipient_name,recipient_phone,recipient_address,recipient_city,weight_kg,size,category,description,destination_type,
+is_express,notes,fee,currency,estimated_days,status,request_hash,created_at,updated_at
+FROM parcel.parcel WHERE merchant_id='e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36' ORDER BY created_at DESC LIMIT 50
+Limit  (cost=8.58..8.71 rows=50 width=1947) (actual time=0.167..0.177 rows=50 loops=1)
+  Buffers: shared hit=7
+  ->  Sort  (cost=8.58..8.83 rows=100 width=1947) (actual time=0.166..0.172 rows=50 loops=1)
+        Sort Key: created_at DESC
+        Sort Method: quicksort  Memory: 50kB
+        Buffers: shared hit=7
+        ->  Seq Scan on parcel  (cost=0.00..5.26 rows=100 width=1947) (actual time=0.011..0.050 rows=100 loops=1)
+              Filter: ((merchant_id)::text = 'e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36'::text)
+              Rows Removed by Filter: 1
+              Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=243
+Planning Time: 1.769 ms
+Execution Time: 0.255 ms
+tracking_reporting_db
+SELECT * FROM tracking.tracking_event WHERE tracking_ref='PERF-HISTORY' ORDER BY occurred_at ASCSort  (cost=140.59..140.84 rows=100 width=1332) (actual time=0.076..0.084 rows=100 loops=1)
+  Sort Key: occurred_at
+  Sort Method: quicksort  Memory: 35kB
+  Buffers: shared hit=7
+  ->  Bitmap Heap Scan on tracking_event  (cost=5.06..137.27 rows=100 width=1332) (actual time=0.024..0.036 rows=100 loops=1)
+        Recheck Cond: ((tracking_ref)::text = 'PERF-HISTORY'::text)
+        Heap Blocks: exact=2
+        Buffers: shared hit=4
+        ->  Bitmap Index Scan on idx_tracking_event_ref_time  (cost=0.00..5.04 rows=100 width=0) (actual time=0.018..0.021 rows=100 loops=1)
+              Index Cond: ((tracking_ref)::text = 'PERF-HISTORY'::text)
+              Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=161
+Planning Time: 0.579 ms
+Execution Time: 0.143 ms
+parcel_pricing_db
+SELECT id,code,name,description,active FROM pricing.delivery_zone WHERE active=true ORDER BY name ASCSort  (cost=6.57..6.84 rows=105 width=91) (actual time=0.139..0.147 rows=105 loops=1)
+  Sort Key: name
+  Sort Method: quicksort  Memory: 32kB
+  Buffers: shared hit=5
+  ->  Seq Scan on delivery_zone  (cost=0.00..3.05 rows=105 width=91) (actual time=0.010..0.029 rows=105 loops=1)
+        Filter: active
+        Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=102
+Planning Time: 0.800 ms
+Execution Time: 0.222 ms
+
+Seed rows=1000; repository query plans in each owning database.
+identity_db
+SELECT u.id,u.keycloak_subject,u.email,u.display_name,u.phone,u.account_status,coalesce(m.status,'') AS merchant_status
+FROM identity.app_user u LEFT JOIN identity.merchant_application m ON m.app_user_id=u.id WHERE 1=1 ORDER BY u.created_at DESC
+Sort  (cost=114.14..116.64 rows=1002 width=694) (actual time=1.557..1.617 rows=1002 loops=1)
+  Sort Key: u.created_at DESC
+  Sort Method: quicksort  Memory: 125kB
+  Buffers: shared hit=32
+  ->  Hash Right Join  (cost=36.55..64.19 rows=1002 width=694) (actual time=0.599..1.060 rows=1002 loops=1)
+        Hash Cond: (m.app_user_id = u.id)
+        Buffers: shared hit=29
+        ->  Seq Scan on merchant_application m  (cost=0.00..25.01 rows=1001 width=24) (actual time=0.004..0.117 rows=1001 loops=1)
+              Buffers: shared hit=15
+        ->  Hash  (cost=24.02..24.02 rows=1002 width=662) (actual time=0.567..0.567 rows=1002 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 109kB
+              Buffers: shared hit=14
+              ->  Seq Scan on app_user u  (cost=0.00..24.02 rows=1002 width=662) (actual time=0.019..0.217 rows=1002 loops=1)
+                    Buffers: shared hit=14
+Planning:
+  Buffers: shared hit=310
+Planning Time: 3.039 ms
+Execution Time: 1.882 ms
+identity_db
+SELECT cp.id AS profile_id,u.id AS user_id,u.email,u.display_name,u.phone,u.account_status,cp.is_active,
+cp.assigned_zone,cp.vehicle_type,cp.created_at,cp.updated_at FROM identity.app_user u
+INNER JOIN identity.courier_profile cp ON cp.app_user_id=u.id WHERE 1=1 ORDER BY cp.created_at DESC
+Sort  (cost=110.07..112.57 rows=1001 width=895) (actual time=1.364..1.422 rows=1001 loops=1)
+  Sort Key: cp.created_at DESC
+  Sort Method: quicksort  Memory: 126kB
+  Buffers: shared hit=28
+  ->  Hash Join  (cost=33.52..60.18 rows=1001 width=895) (actual time=0.474..0.891 rows=1001 loops=1)
+        Hash Cond: (u.id = cp.app_user_id)
+        Buffers: shared hit=25
+        ->  Seq Scan on app_user u  (cost=0.00..24.02 rows=1002 width=634) (actual time=0.006..0.114 rows=1002 loops=1)
+              Buffers: shared hit=14
+        ->  Hash  (cost=21.01..21.01 rows=1001 width=277) (actual time=0.440..0.441 rows=1001 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 95kB
+              Buffers: shared hit=11
+              ->  Seq Scan on courier_profile cp  (cost=0.00..21.01 rows=1001 width=277) (actual time=0.009..0.158 rows=1001 loops=1)
+                    Buffers: shared hit=11
+Planning:
+  Buffers: shared hit=319
+Planning Time: 3.089 ms
+Execution Time: 1.608 ms
+identity_db
+SELECT id,app_user_id,business_name,business_reg_no,contact_phone,status,rejection_reason,suspension_reason,created_at,reviewed_at
+FROM identity.merchant_application ORDER BY created_at
+Sort  (cost=74.90..77.40 rows=1001 width=1124) (actual time=0.675..0.730 rows=1001 loops=1)
+  Sort Key: created_at
+  Sort Method: quicksort  Memory: 126kB
+  Buffers: shared hit=18
+  ->  Seq Scan on merchant_application  (cost=0.00..25.01 rows=1001 width=1124) (actual time=0.017..0.233 rows=1001 loops=1)
+        Buffers: shared hit=15
+Planning:
+  Buffers: shared hit=166
+Planning Time: 1.391 ms
+Execution Time: 0.891 ms
+dispatch_courier_db
+SELECT a.parcel_id,a.courier_profile_id,a.assigned_at,p.id AS proof_id,p.completion_state
+FROM dispatch.delivery_assignment a LEFT JOIN dispatch.proof_of_delivery p ON p.parcel_id=a.parcel_id
+WHERE a.courier_profile_id='040e9c94-5ef3-4498-b500-f82b55597571' AND a.courier_user_id='fbe0a328-6314-4cc6-b372-f6e212ae910f' ORDER BY a.assigned_at DESC,a.parcel_id
+Sort  (cost=90.87..93.37 rows=999 width=106) (actual time=1.151..1.211 rows=1000 loops=1)
+  Sort Key: a.assigned_at DESC, a.parcel_id
+  Sort Method: quicksort  Memory: 87kB
+  Buffers: shared hit=19
+  ->  Hash Left Join  (cost=10.45..41.10 rows=999 width=106) (actual time=0.040..0.360 rows=1000 loops=1)
+        Hash Cond: (a.parcel_id = p.parcel_id)
+        Buffers: shared hit=13
+        ->  Seq Scan on delivery_assignment a  (cost=0.00..28.02 rows=999 width=40) (actual time=0.010..0.167 rows=1000 loops=1)
+              Filter: ((courier_profile_id = '040e9c94-5ef3-4498-b500-f82b55597571'::uuid) AND (courier_user_id = 'fbe0a328-6314-4cc6-b372-f6e212ae910f'::uuid))
+              Rows Removed by Filter: 1
+              Buffers: shared hit=13
+        ->  Hash  (cost=10.20..10.20 rows=20 width=82) (actual time=0.002..0.003 rows=0 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              ->  Seq Scan on proof_of_delivery p  (cost=0.00..10.20 rows=20 width=82) (actual time=0.002..0.002 rows=0 loops=1)
+Planning:
+  Buffers: shared hit=202
+Planning Time: 1.981 ms
+Execution Time: 1.368 ms
+dispatch_courier_db
+SELECT courier_profile_id,COUNT(*) AS assignment_count FROM dispatch.delivery_assignment GROUP BY courier_profile_idHashAggregate  (cost=28.02..28.04 rows=2 width=24) (actual time=0.226..0.231 rows=2 loops=1)
+  Group Key: courier_profile_id
+  Batches: 1  Memory Usage: 24kB
+  Buffers: shared hit=13
+  ->  Seq Scan on delivery_assignment  (cost=0.00..23.01 rows=1001 width=16) (actual time=0.004..0.087 rows=1001 loops=1)
+        Buffers: shared hit=13
+Planning:
+  Buffers: shared hit=89
+Planning Time: 0.510 ms
+Execution Time: 0.368 ms
+parcel_pricing_db
+SELECT id,tracking_ref,merchant_id,external_order_ref,sender_name,sender_phone,sender_address,sender_city,
+recipient_name,recipient_phone,recipient_address,recipient_city,weight_kg,size,category,description,destination_type,
+is_express,notes,fee,currency,estimated_days,status,request_hash,created_at,updated_at
+FROM parcel.parcel WHERE merchant_id='e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36' ORDER BY created_at DESC LIMIT 50
+Limit  (cost=0.15..5.44 rows=50 width=1949) (actual time=0.025..0.053 rows=50 loops=1)
+  Buffers: shared hit=4
+  ->  Index Scan using idx_parcel_merchant_created on parcel  (cost=0.15..105.96 rows=1000 width=1949) (actual time=0.023..0.048 rows=50 loops=1)
+        Index Cond: ((merchant_id)::text = 'e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36'::text)
+        Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=243
+Planning Time: 1.262 ms
+Execution Time: 0.098 ms
+tracking_reporting_db
+SELECT * FROM tracking.tracking_event WHERE tracking_ref='PERF-HISTORY' ORDER BY occurred_at ASCSort  (cost=253.36..255.86 rows=1000 width=1333) (actual time=0.491..0.547 rows=1000 loops=1)
+  Sort Key: occurred_at
+  Sort Method: quicksort  Memory: 126kB
+  Buffers: shared hit=24
+  ->  Bitmap Heap Scan on tracking_event  (cost=44.03..203.53 rows=1000 width=1333) (actual time=0.125..0.238 rows=1000 loops=1)
+        Recheck Cond: ((tracking_ref)::text = 'PERF-HISTORY'::text)
+        Heap Blocks: exact=14
+        Buffers: shared hit=21
+        ->  Bitmap Index Scan on idx_tracking_event_ref_time  (cost=0.00..43.78 rows=1000 width=0) (actual time=0.112..0.117 rows=1000 loops=1)
+              Index Cond: ((tracking_ref)::text = 'PERF-HISTORY'::text)
+              Buffers: shared hit=7
+Planning:
+  Buffers: shared hit=161
+Planning Time: 1.415 ms
+Execution Time: 0.749 ms
+parcel_pricing_db
+SELECT id,code,name,description,active FROM pricing.delivery_zone WHERE active=true ORDER BY name ASCSort  (cost=72.16..74.68 rows=1005 width=92) (actual time=1.357..1.410 rows=1005 loops=1)
+  Sort Key: name
+  Sort Method: quicksort  Memory: 102kB
+  Buffers: shared hit=15
+  ->  Seq Scan on delivery_zone  (cost=0.00..22.05 rows=1005 width=92) (actual time=0.011..0.181 rows=1005 loops=1)
+        Filter: active
+        Buffers: shared hit=12
+Planning:
+  Buffers: shared hit=102
+Planning Time: 0.883 ms
+Execution Time: 1.565 ms
+
+Seed rows=5000; repository query plans in each owning database.
+identity_db
+SELECT u.id,u.keycloak_subject,u.email,u.display_name,u.phone,u.account_status,coalesce(m.status,'') AS merchant_status
+FROM identity.app_user u LEFT JOIN identity.merchant_application m ON m.app_user_id=u.id WHERE 1=1 ORDER BY u.created_at DESC
+Sort  (cost=622.02..634.53 rows=5002 width=696) (actual time=7.540..7.758 rows=5002 loops=1)
+  Sort Key: u.created_at DESC
+  Sort Method: quicksort  Memory: 700kB
+  Buffers: shared hit=142
+  ->  Hash Right Join  (cost=179.55..314.69 rows=5002 width=696) (actual time=3.530..5.633 rows=5002 loops=1)
+        Hash Cond: (m.app_user_id = u.id)
+        Buffers: shared hit=139
+        ->  Seq Scan on merchant_application m  (cost=0.00..122.01 rows=5001 width=24) (actual time=0.008..0.517 rows=5001 loops=1)
+              Buffers: shared hit=72
+        ->  Hash  (cost=117.02..117.02 rows=5002 width=664) (actual time=3.459..3.460 rows=5002 loops=1)
+              Buckets: 8192  Batches: 1  Memory Usage: 572kB
+              Buffers: shared hit=67
+              ->  Seq Scan on app_user u  (cost=0.00..117.02 rows=5002 width=664) (actual time=0.009..1.156 rows=5002 loops=1)
+                    Buffers: shared hit=67
+Planning:
+  Buffers: shared hit=310
+Planning Time: 1.994 ms
+Execution Time: 8.477 ms
+identity_db
+SELECT cp.id AS profile_id,u.id AS user_id,u.email,u.display_name,u.phone,u.account_status,cp.is_active,
+cp.assigned_zone,cp.vehicle_type,cp.created_at,cp.updated_at FROM identity.app_user u
+INNER JOIN identity.courier_profile cp ON cp.app_user_id=u.id WHERE 1=1 ORDER BY cp.created_at DESC
+Sort  (cost=2568.95..2581.45 rows=5001 width=896) (actual time=4.320..4.500 rows=5001 loops=1)
+  Sort Key: cp.created_at DESC
+  Sort Method: quicksort  Memory: 700kB
+  Buffers: shared hit=122
+  ->  Hash Join  (cost=164.52..294.68 rows=5001 width=896) (actual time=1.697..2.938 rows=5001 loops=1)
+        Hash Cond: (u.id = cp.app_user_id)
+        Buffers: shared hit=119
+        ->  Seq Scan on app_user u  (cost=0.00..117.02 rows=5002 width=635) (actual time=0.006..0.351 rows=5002 loops=1)
+              Buffers: shared hit=67
+        ->  Hash  (cost=102.01..102.01 rows=5001 width=277) (actual time=1.637..1.637 rows=5001 loops=1)
+              Buckets: 8192  Batches: 1  Memory Usage: 494kB
+              Buffers: shared hit=52
+              ->  Seq Scan on courier_profile cp  (cost=0.00..102.01 rows=5001 width=277) (actual time=0.008..0.555 rows=5001 loops=1)
+                    Buffers: shared hit=52
+Planning:
+  Buffers: shared hit=319
+Planning Time: 2.707 ms
+Execution Time: 4.805 ms
+identity_db
+SELECT id,app_user_id,business_name,business_reg_no,contact_phone,status,rejection_reason,suspension_reason,created_at,reviewed_at
+FROM identity.merchant_application ORDER BY created_at
+Sort  (cost=2893.27..2905.77 rows=5001 width=1124) (actual time=3.374..3.724 rows=5001 loops=1)
+  Sort Key: created_at
+  Sort Method: quicksort  Memory: 700kB
+  Buffers: shared hit=75
+  ->  Seq Scan on merchant_application  (cost=0.00..122.01 rows=5001 width=1124) (actual time=0.013..0.989 rows=5001 loops=1)
+        Buffers: shared hit=72
+Planning:
+  Buffers: shared hit=166
+Planning Time: 0.970 ms
+Execution Time: 4.250 ms
+dispatch_courier_db
+SELECT a.parcel_id,a.courier_profile_id,a.assigned_at,p.id AS proof_id,p.completion_state
+FROM dispatch.delivery_assignment a LEFT JOIN dispatch.proof_of_delivery p ON p.parcel_id=a.parcel_id
+WHERE a.courier_profile_id='040e9c94-5ef3-4498-b500-f82b55597571' AND a.courier_user_id='fbe0a328-6314-4cc6-b372-f6e212ae910f' ORDER BY a.assigned_at DESC,a.parcel_id
+Sort  (cost=467.72..480.22 rows=4999 width=106) (actual time=5.495..5.697 rows=5000 loops=1)
+  Sort Key: a.assigned_at DESC, a.parcel_id
+  Sort Method: quicksort  Memory: 505kB
+  Buffers: shared hit=68
+  ->  Hash Left Join  (cost=10.45..160.60 rows=4999 width=106) (actual time=0.044..1.858 rows=5000 loops=1)
+        Hash Cond: (a.parcel_id = p.parcel_id)
+        Buffers: shared hit=62
+        ->  Seq Scan on delivery_assignment a  (cost=0.00..137.01 rows=4999 width=40) (actual time=0.013..0.885 rows=5000 loops=1)
+              Filter: ((courier_profile_id = '040e9c94-5ef3-4498-b500-f82b55597571'::uuid) AND (courier_user_id = 'fbe0a328-6314-4cc6-b372-f6e212ae910f'::uuid))
+              Rows Removed by Filter: 1
+              Buffers: shared hit=62
+        ->  Hash  (cost=10.20..10.20 rows=20 width=82) (actual time=0.003..0.004 rows=0 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              ->  Seq Scan on proof_of_delivery p  (cost=0.00..10.20 rows=20 width=82) (actual time=0.002..0.003 rows=0 loops=1)
+Planning:
+  Buffers: shared hit=202
+Planning Time: 3.216 ms
+Execution Time: 5.998 ms
+dispatch_courier_db
+SELECT courier_profile_id,COUNT(*) AS assignment_count FROM dispatch.delivery_assignment GROUP BY courier_profile_idHashAggregate  (cost=137.01..137.03 rows=2 width=24) (actual time=1.098..1.103 rows=2 loops=1)
+  Group Key: courier_profile_id
+  Batches: 1  Memory Usage: 24kB
+  Buffers: shared hit=62
+  ->  Seq Scan on delivery_assignment  (cost=0.00..112.01 rows=5001 width=16) (actual time=0.006..0.448 rows=5001 loops=1)
+        Buffers: shared hit=62
+Planning:
+  Buffers: shared hit=89
+Planning Time: 0.744 ms
+Execution Time: 1.301 ms
+parcel_pricing_db
+SELECT id,tracking_ref,merchant_id,external_order_ref,sender_name,sender_phone,sender_address,sender_city,
+recipient_name,recipient_phone,recipient_address,recipient_city,weight_kg,size,category,description,destination_type,
+is_express,notes,fee,currency,estimated_days,status,request_hash,created_at,updated_at
+FROM parcel.parcel WHERE merchant_id='e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36' ORDER BY created_at DESC LIMIT 50
+Limit  (cost=0.28..5.40 rows=50 width=1951) (actual time=0.053..0.083 rows=50 loops=1)
+  Buffers: shared hit=5
+  ->  Index Scan using idx_parcel_merchant_created on parcel  (cost=0.28..511.66 rows=5000 width=1951) (actual time=0.052..0.078 rows=50 loops=1)
+        Index Cond: ((merchant_id)::text = 'e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36'::text)
+        Buffers: shared hit=5
+Planning:
+  Buffers: shared hit=243
+Planning Time: 1.871 ms
+Execution Time: 0.143 ms
+tracking_reporting_db
+SELECT * FROM tracking.tracking_event WHERE tracking_ref='PERF-HISTORY' ORDER BY occurred_at ASCIndex Scan using idx_tracking_event_ref_time on tracking_event  (cost=0.29..668.10 rows=5000 width=1333) (actual time=0.043..0.853 rows=5000 loops=1)
+  Index Cond: ((tracking_ref)::text = 'PERF-HISTORY'::text)
+  Buffers: shared hit=93
+Planning:
+  Buffers: shared hit=161
+Planning Time: 1.190 ms
+Execution Time: 1.080 ms
+parcel_pricing_db
+SELECT id,code,name,description,active FROM pricing.delivery_zone WHERE active=true ORDER BY name ASCSort  (cost=414.59..427.10 rows=5005 width=94) (actual time=5.456..5.648 rows=5005 loops=1)
+  Sort Key: name
+  Sort Method: quicksort  Memory: 583kB
+  Buffers: shared hit=60
+  ->  Seq Scan on delivery_zone  (cost=0.00..107.05 rows=5005 width=94) (actual time=0.008..0.488 rows=5005 loops=1)
+        Filter: active
+        Buffers: shared hit=57
+Planning:
+  Buffers: shared hit=102
+Planning Time: 0.475 ms
+Execution Time: 5.973 ms
+
+Seed rows=10000; repository query plans in each owning database.
+identity_db
+SELECT u.id,u.keycloak_subject,u.email,u.display_name,u.phone,u.account_status,coalesce(m.status,'') AS merchant_status
+FROM identity.app_user u LEFT JOIN identity.merchant_application m ON m.app_user_id=u.id WHERE 1=1 ORDER BY u.created_at DESC
+Sort  (cost=4372.85..4397.86 rows=10002 width=696) (actual time=9.690..10.047 rows=10002 loops=1)
+  Sort Key: u.created_at DESC
+  Sort Method: quicksort  Memory: 1400kB
+  Buffers: shared hit=280
+  ->  Hash Right Join  (cost=359.04..628.32 rows=10002 width=696) (actual time=3.533..6.582 rows=10002 loops=1)
+        Hash Cond: (m.app_user_id = u.id)
+        Buffers: shared hit=277
+        ->  Seq Scan on merchant_application m  (cost=0.00..243.01 rows=10001 width=24) (actual time=0.007..0.726 rows=10001 loops=1)
+              Buffers: shared hit=143
+        ->  Hash  (cost=234.02..234.02 rows=10002 width=664) (actual time=3.434..3.434 rows=10002 loops=1)
+              Buckets: 16384  Batches: 1  Memory Usage: 1144kB
+              Buffers: shared hit=134
+              ->  Seq Scan on app_user u  (cost=0.00..234.02 rows=10002 width=664) (actual time=0.011..1.157 rows=10002 loops=1)
+                    Buffers: shared hit=134
+Planning:
+  Buffers: shared hit=310
+Planning Time: 2.961 ms
+Execution Time: 11.063 ms
+identity_db
+SELECT cp.id AS profile_id,u.id AS user_id,u.email,u.display_name,u.phone,u.account_status,cp.is_active,
+cp.assigned_zone,cp.vehicle_type,cp.created_at,cp.updated_at FROM identity.app_user u
+INNER JOIN identity.courier_profile cp ON cp.app_user_id=u.id WHERE 1=1 ORDER BY cp.created_at DESC
+Sort  (cost=5187.77..5212.77 rows=10001 width=896) (actual time=10.565..10.947 rows=10001 loops=1)
+  Sort Key: cp.created_at DESC
+  Sort Method: quicksort  Memory: 1400kB
+  Buffers: shared hit=241
+  ->  Hash Join  (cost=329.02..589.31 rows=10001 width=896) (actual time=4.060..7.444 rows=10001 loops=1)
+        Hash Cond: (u.id = cp.app_user_id)
+        Buffers: shared hit=238
+        ->  Seq Scan on app_user u  (cost=0.00..234.02 rows=10002 width=635) (actual time=0.006..0.859 rows=10002 loops=1)
+              Buffers: shared hit=134
+        ->  Hash  (cost=204.01..204.01 rows=10001 width=277) (actual time=3.972..3.973 rows=10001 loops=1)
+              Buckets: 16384  Batches: 1  Memory Usage: 988kB
+              Buffers: shared hit=104
+              ->  Seq Scan on courier_profile cp  (cost=0.00..204.01 rows=10001 width=277) (actual time=0.008..1.461 rows=10001 loops=1)
+                    Buffers: shared hit=104
+Planning:
+  Buffers: shared hit=319
+Planning Time: 2.763 ms
+Execution Time: 11.574 ms
+identity_db
+SELECT id,app_user_id,business_name,business_reg_no,contact_phone,status,rejection_reason,suspension_reason,created_at,reviewed_at
+FROM identity.merchant_application ORDER BY created_at
+Sort  (cost=5831.97..5856.97 rows=10001 width=1124) (actual time=4.184..4.573 rows=10001 loops=1)
+  Sort Key: created_at
+  Sort Method: quicksort  Memory: 1400kB
+  Buffers: shared hit=146
+  ->  Seq Scan on merchant_application  (cost=0.00..243.01 rows=10001 width=1124) (actual time=0.018..1.249 rows=10001 loops=1)
+        Buffers: shared hit=143
+Planning:
+  Buffers: shared hit=166
+Planning Time: 1.303 ms
+Execution Time: 4.980 ms
+dispatch_courier_db
+SELECT a.parcel_id,a.courier_profile_id,a.assigned_at,p.id AS proof_id,p.completion_state
+FROM dispatch.delivery_assignment a LEFT JOIN dispatch.proof_of_delivery p ON p.parcel_id=a.parcel_id
+WHERE a.courier_profile_id='040e9c94-5ef3-4498-b500-f82b55597571' AND a.courier_user_id='fbe0a328-6314-4cc6-b372-f6e212ae910f' ORDER BY a.assigned_at DESC,a.parcel_id
+Sort  (cost=975.04..1000.03 rows=9999 width=106) (actual time=7.169..7.567 rows=10000 loops=1)
+  Sort Key: a.assigned_at DESC, a.parcel_id
+  Sort Method: quicksort  Memory: 1010kB
+  Buffers: shared hit=130
+  ->  Hash Left Join  (cost=10.45..310.72 rows=9999 width=106) (actual time=0.024..1.939 rows=10000 loops=1)
+        Hash Cond: (a.parcel_id = p.parcel_id)
+        Buffers: shared hit=124
+        ->  Seq Scan on delivery_assignment a  (cost=0.00..274.01 rows=9999 width=40) (actual time=0.007..0.919 rows=10000 loops=1)
+              Filter: ((courier_profile_id = '040e9c94-5ef3-4498-b500-f82b55597571'::uuid) AND (courier_user_id = 'fbe0a328-6314-4cc6-b372-f6e212ae910f'::uuid))
+              Rows Removed by Filter: 1
+              Buffers: shared hit=124
+        ->  Hash  (cost=10.20..10.20 rows=20 width=82) (actual time=0.001..0.002 rows=0 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 8kB
+              ->  Seq Scan on proof_of_delivery p  (cost=0.00..10.20 rows=20 width=82) (actual time=0.001..0.001 rows=0 loops=1)
+Planning:
+  Buffers: shared hit=202
+Planning Time: 0.961 ms
+Execution Time: 8.001 ms
+dispatch_courier_db
+SELECT courier_profile_id,COUNT(*) AS assignment_count FROM dispatch.delivery_assignment GROUP BY courier_profile_idHashAggregate  (cost=274.01..274.03 rows=2 width=24) (actual time=2.007..2.012 rows=2 loops=1)
+  Group Key: courier_profile_id
+  Batches: 1  Memory Usage: 24kB
+  Buffers: shared hit=124
+  ->  Seq Scan on delivery_assignment  (cost=0.00..224.01 rows=10001 width=16) (actual time=0.004..0.795 rows=10001 loops=1)
+        Buffers: shared hit=124
+Planning:
+  Buffers: shared hit=89
+Planning Time: 0.549 ms
+Execution Time: 2.159 ms
+parcel_pricing_db
+SELECT id,tracking_ref,merchant_id,external_order_ref,sender_name,sender_phone,sender_address,sender_city,
+recipient_name,recipient_phone,recipient_address,recipient_city,weight_kg,size,category,description,destination_type,
+is_express,notes,fee,currency,estimated_days,status,request_hash,created_at,updated_at
+FROM parcel.parcel WHERE merchant_id='e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36' ORDER BY created_at DESC LIMIT 50
+Limit  (cost=0.29..5.31 rows=50 width=1951) (actual time=0.042..0.080 rows=50 loops=1)
+  Buffers: shared hit=5
+  ->  Index Scan using idx_parcel_merchant_created on parcel  (cost=0.29..1005.35 rows=10000 width=1951) (actual time=0.040..0.074 rows=50 loops=1)
+        Index Cond: ((merchant_id)::text = 'e791b9a6-d640-4a7a-88bd-a9c9a4f9bb36'::text)
+        Buffers: shared hit=5
+Planning:
+  Buffers: shared hit=243
+Planning Time: 1.782 ms
+Execution Time: 0.141 ms
+tracking_reporting_db
+SELECT * FROM tracking.tracking_event WHERE tracking_ref='PERF-HISTORY' ORDER BY occurred_at ASCIndex Scan using idx_tracking_event_ref_time on tracking_event  (cost=0.29..1015.07 rows=10000 width=1334) (actual time=0.035..2.159 rows=10000 loops=1)
+  Index Cond: ((tracking_ref)::text = 'PERF-HISTORY'::text)
+  Buffers: shared hit=185
+Planning:
+  Buffers: shared hit=161
+Planning Time: 1.122 ms
+Execution Time: 2.725 ms
+parcel_pricing_db
+SELECT id,code,name,description,active FROM pricing.delivery_zone WHERE active=true ORDER BY name ASCSort  (cost=878.80..903.82 rows=10005 width=94) (actual time=22.562..23.154 rows=10005 loops=1)
+  Sort Key: name
+  Sort Method: quicksort  Memory: 1166kB
+  Buffers: shared hit=117
+  ->  Seq Scan on delivery_zone  (cost=0.00..214.05 rows=10005 width=94) (actual time=0.017..2.311 rows=10005 loops=1)
+        Filter: active
+        Buffers: shared hit=114
+Planning:
+  Buffers: shared hit=102
+Planning Time: 1.384 ms
+Execution Time: 23.947 ms
