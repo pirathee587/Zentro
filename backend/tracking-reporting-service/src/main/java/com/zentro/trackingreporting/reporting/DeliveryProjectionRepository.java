@@ -38,7 +38,7 @@ public class DeliveryProjectionRepository {
         WHERE p.parcel_id = ?
         """, parcelId);
     // For terminal parcels current state agrees with the chosen terminal contribution.
-    jdbc.update("UPDATE tracking.delivery_projection SET current_status = terminal_status WHERE parcel_id = ? AND terminal_at IS NOT NULL", parcelId);
+    jdbc.update("UPDATE tracking.delivery_projection SET current_status = terminal_status, current_at = terminal_at WHERE parcel_id = ? AND terminal_at IS NOT NULL", parcelId);
     Map<String, Object> after = jdbc.queryForMap("SELECT * FROM tracking.delivery_projection WHERE parcel_id = ?", parcelId);
     var deltas = new TreeMap<java.time.LocalDate, long[]>();
     contributions(before, -1, deltas);
@@ -61,7 +61,10 @@ public class DeliveryProjectionRepository {
           failure_reason = CASE WHEN p.terminal_status = 'FAILED' THEN
             (SELECT failure_reason FROM tracking.tracking_event WHERE parcel_id = p.parcel_id
              AND event_id IS NOT NULL AND status IN ('DELIVERED','FAILED') ORDER BY occurred_at, event_id LIMIT 1) ELSE NULL END
-        FROM tracking.delivery_projection p WHERE p.parcel_id = ? AND t.parcel_id = p.parcel_id
+        FROM tracking.delivery_projection p WHERE p.parcel_id = ?
+          AND (t.parcel_id = p.parcel_id OR t.parcel_id IS NULL)
+          AND t.tracking_ref IN (SELECT tracking_ref FROM tracking.tracking_event
+                                WHERE parcel_id = p.parcel_id AND event_id IS NOT NULL)
         """, parcelId);
   }
 
