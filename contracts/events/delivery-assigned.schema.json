@@ -1,1 +1,19 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","allOf":[{"$ref":"event-envelope.schema.json"}],"title":"delivery.assigned"}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "delivery.assigned",
+  "allOf": [{"$ref": "event-envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "delivery.assigned"},
+    "payload": {
+      "type": "object",
+      "required": ["action", "newCourierId", "actorSubject"],
+      "properties": {
+        "action": {"const": "ASSIGNED"},
+        "oldCourierId": {"type": ["string", "null"], "format": "uuid"},
+        "newCourierId": {"type": "string", "format": "uuid"},
+        "actorSubject": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,7 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS dispatch;
 
--- Initial assignment only. No cross-service foreign keys or inferred lifecycle rules.
--- Reassignment/release needs a separately agreed lifecycle and a future migration.
 CREATE TABLE dispatch.delivery_assignment (
     parcel_id UUID PRIMARY KEY,
     courier_profile_id UUID NOT NULL,

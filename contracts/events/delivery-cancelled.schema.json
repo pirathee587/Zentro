@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "delivery.cancelled",
+  "allOf": [{"$ref": "event-envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "delivery.cancelled"},
+    "payload": {
+      "type": "object",
+      "required": ["action", "oldCourierId", "actorSubject"],
+      "properties": {
+        "action": {"const": "CANCELLED"},
+        "oldCourierId": {"type": "string", "format": "uuid"},
+        "newCourierId": {"type": ["string", "null"], "format": "uuid"},
+        "actorSubject": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

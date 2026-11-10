@@ -39,6 +39,10 @@ class DispatchServiceTest {
       Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
       return action.apply(parcel);
     }).when(source).withEligibleParcel(eq(parcelId), eq("token"), any());
+    doAnswer(call -> {
+      Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
+      return action.apply(parcel);
+    }).when(source).withAssignedParcel(eq(parcelId), eq("token"), any());
   }
 
   @Test void workloadUsesAssignmentCountsAndIdentityAvailability() {
@@ -112,6 +116,34 @@ class DispatchServiceTest {
     when(assignments.exists(parcelId)).thenReturn(true);
     assertCode(() -> service.assign(parcelId, courierId, "dispatcher", "token"), "DELIVERY_ALREADY_ASSIGNED");
     verifyNoInteractions(source, identity);
+  }
+
+  @Test void reassignRequiresFreshEligibleCourierAndUsesDispatcherSubject() {
+    var replacement = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(),
+        "Replacement", true, "ACTIVE");
+    var saved = new AssignmentRepository.Assignment(parcelId, replacement.id(), replacement.userId(),
+        "dispatcher", Instant.now());
+    when(assignments.exists(parcelId)).thenReturn(true);
+    when(identity.requireEligible(replacement.id(), "token")).thenReturn(replacement);
+    when(assignments.reassign(parcelId, replacement, "dispatcher")).thenReturn(saved);
+
+    assertThat(service.reassign(parcelId, replacement.id(), "dispatcher", "token")).isSameAs(saved);
+    verify(assignments).reassign(parcelId, replacement, "dispatcher");
+  }
+
+  @Test void reassignRejectsInvalidDispatcherSubjectBeforeRemoteCalls() {
+    assertCode(() -> service.reassign(parcelId, courierId, " ", "token"), "INVALID_SUBJECT");
+    verifyNoInteractions(identity, assignments);
+  }
+
+  @Test void reassignRejectsMissingAssignmentBeforeCheckingReplacementCourier() {
+    assertCode(() -> service.reassign(parcelId, courierId, "dispatcher", "token"), "DELIVERY_NOT_ASSIGNED");
+    verifyNoInteractions(identity);
+  }
+
+  @Test void cancellationUsesAuthenticatedDispatcherSubject() {
+    service.cancel(parcelId, "dispatcher", "token");
+    verify(assignments).cancel(parcelId, "dispatcher");
   }
 
   @ParameterizedTest @ValueSource(ints = {404, 409, 503})

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "delivery.reassigned",
+  "allOf": [{"$ref": "event-envelope.schema.json"}],
+  "properties": {
+    "eventType": {"const": "delivery.reassigned"},
+    "payload": {
+      "type": "object",
+      "required": ["action", "oldCourierId", "newCourierId", "actorSubject"],
+      "properties": {
+        "action": {"const": "REASSIGNED"},
+        "oldCourierId": {"type": "string", "format": "uuid"},
+        "newCourierId": {"type": "string", "format": "uuid"},
+        "actorSubject": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}
