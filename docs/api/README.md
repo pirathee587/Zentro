@@ -10,6 +10,8 @@ The checked-in OpenAPI 3.1 JSON files are the REST contract for paths as clients
 | S4 Tracking & Reporting | `/api/v1/tracking/**`; the gateway also reserves `/api/v1/reports/**`, with no active report controller | [`tracking.openapi.json`](openapi/tracking.openapi.json) |
 | S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
 
+S3's [workload metric definitions](dispatcher-workload.md) explain lifetime assignment counts, courier totals, timezone/reassignment limitations and #134 verification evidence.
+
 The generator inventory and guard are maintained in [`build_openapi.py`](build_openapi.py). To regenerate the committed artifacts and verify that their operations match the real controller mappings:
 
 ```sh
@@ -47,9 +49,11 @@ There is no ADMIN role. Operational administration is DISPATCHER-only. The gatew
 
 Errors use `application/problem+json` with the Spring ProblemDetail fields `type`, `title`, `status`, `detail`, and `instance` where the producing handler supplies them. Some business handlers add `code`, `fieldErrors`, `invalidFields`, or transition fields. `fieldErrors` keys are request field names.
 
-Validation status is endpoint-specific: parcel booking and merchant-order validation use 422; fee estimate and most parameter/request-shape failures use 400. This contract preserves those differences. Gateway failures can be 502, 503, or 504; rate limiting can return 429. A known gateway sanitizer issue omits `instance` on sanitized upstream 5xx errors.
+Validation status is endpoint-specific: parcel booking and merchant-order validation use 422; fee estimate and most parameter/request-shape failures use 400. This contract preserves those differences. Gateway failures can be 502, 503, or 504; rate limiting can return 429. Gateway sanitized upstream 5xx problems now include `instance` (#144).
 
-The gateway generates or forwards `X-Correlation-Id` and returns it on the response. Tracking paths are rate-limited to the configured 30 requests/minute default; other paths use the configured 300 requests/minute default. CORS origins are controlled by `CORS_ALLOWED_ORIGINS`; the checked-in default is localhost ports 3000 and 5173. These are implementation defaults, not availability guarantees.
+Release note (#144): unlisted `/api/v1/**` paths deliberately return 401 for anonymous requests or 403 for authenticated requests instead of 404, with safe problem+json and a correlation ID. Listed public and role routes retain their policy; unserved non-API paths retain 404. Customer-portal real mode supports estimate and booking only; dormant `/api/v1/customer/*` real calls have no gateway route. This gateway fallback is not an operation in the service OpenAPI files; resource-level 404 responses in those files remain valid.
+
+The gateway validates or generates `X-Correlation-Id` and returns the accepted ID on the response. Safe non-UUID identifiers remain valid; missing, duplicate or unsafe values become UUIDs. See [HTTP correlation and tracing](../architecture/observability.md) for the exact 128-character policy and internal propagation boundaries. Tracking paths are rate-limited to the configured 30 requests/minute default; other paths use the configured 300 requests/minute default. CORS origins are controlled by `CORS_ALLOWED_ORIGINS`; the checked-in default is localhost ports 3000 and 5173. These are implementation defaults, not availability guarantees.
 
 `Idempotency-Key` on customer booking is optional and 1–100 nonblank characters when supplied. A newly created booking is 201 with `Location`; a matching replay is 200 without `Location`; same key with different input is 409.
 
@@ -64,7 +68,7 @@ Existing endpoint guides remain useful for workflows and detailed operational be
 | ID | Severity | Finding | Status |
 |---|---|---|---|
 | API-2 | Medium | All five services currently permit anonymous `/v3/api-docs/**` in either the shared S1/S2/S5 security starter or S3/S4 security configuration, but no springdoc dependency or handler exists. Exposure tests check each service: `/v3/api-docs` returns 404 in S1/S2/S3/S5 and a generic 500 Problem Details response in S4; `/swagger-ui/index.html` returns 401 in all five. No spec content is served. Decision recorded: keep runtime docs absent; revisit protection if a handler is proposed later. | Decision recorded; no runtime change |
-| API-3 | Medium | Gateway sanitization of an upstream 5xx response omits ProblemDetail `instance`; a gateway test is skipped for this known shape mismatch. | Follow-up issue |
+| API-3 | Medium | Gateway upstream 5xx sanitizer now uses ProblemWriter and includes `instance`; the strict shape test is re-enabled. | Fixed in #144; actual results in gateway audit |
 | API-4 | Low | `docs/api/notifications.md` said S5 had no HTTP endpoints while listing its HTTP routes in the same document. | Fixed |
 
 S1's existing `RoleBasedAuthorizationMatrixTests.merchantCanIssueOrRotateApiKey` asserts both `Cache-Control: no-store` and `Pragma: no-cache`; the corresponding operation documents both headers.

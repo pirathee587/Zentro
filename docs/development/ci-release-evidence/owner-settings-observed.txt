@@ -1,0 +1,16 @@
+Read-only observations, 2026-11-10; no setting was changed.
+develop classic protection: HTTP 404, Branch not protected.
+develop effective rules: [].
+main branch lookup: HTTP 404, Branch not found (main rules not established).
+Repository default branch: develop.
+Default workflow permissions: read; can_approve_pull_request_reviews: false.
+Environments: copilot only; protection_rules: []. No production approval environment observed.
+secret_scanning: enabled; secret_scanning_push_protection: enabled.
+dependabot_security_updates: disabled.
+secret_scanning_non_provider_patterns: disabled; secret_scanning_validity_checks: disabled.
+Repository releases: 0; local project tags: none.
+Approved required-check policy and effective owner/organisation security settings remain owner actions.
+Base CI metadata: success, https://github.com/pirathee587/Zentro/actions/runs/42775047287
+Base CI source SHA: 055da427a2af414c18ec44aed06efb7dcf77da9b
+Jobs: Frontend checks, Backend checks, CI result; all success.
+gh run view --log redirected to a local file produced an empty file; remote per-module counts were NOT verified.

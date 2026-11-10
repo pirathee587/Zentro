@@ -35,4 +35,35 @@ describe('RoleGuard', () => {
     render(guarded(['MERCHANT'], ['MERCHANT'], 'ACTIVE'));
     expect(screen.getByText('Denied')).toBeInTheDocument();
   });
+
+  describe('customer applicant on the merchant dashboard', () => {
+    const atDashboard = (user: Auth['user'], path = '/merchant/dashboard') => {
+      const value: Auth = { user, setUser: () => undefined, login: async () => undefined, register: async () => undefined, logout: async () => undefined, loading: false };
+      return <MemoryRouter initialEntries={[path]}><AuthContext.Provider value={value}><Routes><Route element={<RoleGuard roles={['MERCHANT']} />}><Route path="/merchant/dashboard/*" element={<p>Dashboard</p>} /></Route><Route path="/forbidden" element={<p>Denied</p>} /></Routes></AuthContext.Provider></MemoryRouter>;
+    };
+    const applicant = (merchantStatus: MerchantStatus | undefined, profileLoaded: boolean): Auth['user'] =>
+      ({ id: 'applicant', roles: ['CUSTOMER'], accessToken: '', accountStatus: profileLoaded ? 'ACTIVE' : undefined, merchantStatus, profileLoaded });
+
+    it('waits for the profile instead of denying a reload of the dashboard', () => {
+      render(atDashboard(applicant(undefined, false)));
+      expect(screen.getByRole('status', { name: 'Checking merchant approval' })).toBeInTheDocument();
+      expect(screen.queryByText('Denied')).not.toBeInTheDocument();
+    });
+
+    it('shows the pending dashboard once the profile reports PENDING', () => {
+      const { rerender } = render(atDashboard(applicant(undefined, false)));
+      rerender(atDashboard(applicant('PENDING', true)));
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    });
+
+    it.each([['REJECTED'], [undefined]] as const)('denies the dashboard once the profile reports %s', (status) => {
+      render(atDashboard(applicant(status, true)));
+      expect(screen.getByText('Denied')).toBeInTheDocument();
+    });
+
+    it('does not wait on deeper merchant pages that a pending applicant cannot use', () => {
+      render(atDashboard(applicant(undefined, false), '/merchant/dashboard/webhooks'));
+      expect(screen.getByText('Denied')).toBeInTheDocument();
+    });
+  });
 });

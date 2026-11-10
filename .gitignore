@@ -14,4 +14,16 @@ node_modules/
 dist/
 coverage/
 .DS_Store
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pgdump
+*.dump
+*.backup
+*.sql.gz
 
+
+ci-reports/

@@ -1,6 +1,8 @@
 package com.zentro.identitypartner.grpc.server;
 
 import com.zentro.identitypartner.grpc.security.GrpcSecurityInterceptor;
+import com.zentro.identitypartner.grpc.security.GrpcPropagationInterceptor;
+import com.zentro.security.observability.PropagationContext;
 import com.zentro.identitypartner.grpc.service.IdentityPartnerGrpcService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -23,11 +25,19 @@ public class IdentityPartnerGrpcServer {
   private final IdentityPartnerGrpcService service;
   private final GrpcSecurityInterceptor securityInterceptor;
   private Server server;
+  private final GrpcPropagationInterceptor propagationInterceptor;
 
   public IdentityPartnerGrpcServer(
       @Value("${grpc.server.port:9081}") int port,
       IdentityPartnerGrpcService service,
       GrpcSecurityInterceptor securityInterceptor) {
+    this(port, service, securityInterceptor, new GrpcPropagationInterceptor(PropagationContext.noop()));
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public IdentityPartnerGrpcServer(@Value("${grpc.server.port:9081}") int port, IdentityPartnerGrpcService service,
+      GrpcSecurityInterceptor securityInterceptor, GrpcPropagationInterceptor propagationInterceptor) {
+    this.propagationInterceptor = propagationInterceptor;
     this.port = port;
     this.service = service;
     this.securityInterceptor = securityInterceptor;
@@ -38,6 +48,7 @@ public class IdentityPartnerGrpcServer {
     server = ServerBuilder.forPort(port)
         .addService(service)
         .intercept(securityInterceptor)
+        .intercept(propagationInterceptor)
         .build()
         .start();
     log.info("IdentityPartner gRPC server started, listening on port {}", server.getPort());

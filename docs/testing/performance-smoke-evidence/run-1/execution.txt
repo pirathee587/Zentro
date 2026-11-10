@@ -1,0 +1,6 @@
+PERF_SEED trackingParcels=10000 events=10000 elapsedMs=356.861
+[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 181.2 s <<< FAILURE! -- in com.zentro.e2e.PerformanceSmokeIT
+[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+[INFO] Total time:  03:06 min
+4eec084a22bc39cae901194ad5898c36d27fa61c
+35dd9732d2026c58955dfb9affb925b9a332de1db8d5d53a83f00db4412cadb5  backend/merchant-order-webhook-e2e/src/test/resources/performance-smoke.properties

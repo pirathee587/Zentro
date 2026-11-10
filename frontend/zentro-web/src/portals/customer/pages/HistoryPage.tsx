@@ -278,16 +278,16 @@ export const HistoryPage: React.FC = () => {
 
           {/* Table Container */}
           {(loading || parcels.length > 0) && !error && (
-            <div className="sd-table-wrap">
+            <div className="sd-table-wrap" role="region" aria-label="Delivery history table scroll area" tabIndex={0}>
               <table className="sd-table" aria-label="Deliveries table">
                 <thead>
                   <tr>
-                    <th>Tracking no.</th>
-                    <th className="sd-col-route">Route</th>
-                    <th className="sd-col-date">Date</th>
-                    <th>Status</th>
-                    <th>Fee</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th scope="col">Tracking no.</th>
+                    <th scope="col" className="sd-col-route">Route</th>
+                    <th scope="col" className="sd-col-date">Date</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Fee</th>
+                    <th scope="col" style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
 

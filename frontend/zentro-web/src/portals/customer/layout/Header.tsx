@@ -101,20 +101,24 @@ export const Header: React.FC = () => {
           </BaseButton>
 
           {/* Profile button (circular, --card background) */}
-          <div className="sd-profile-menu-wrap" ref={profileRef}>
+          <div className="sd-profile-menu-wrap" ref={profileRef} onKeyDown={event => {
+            if (event.key === 'Escape' && profileOpen) {
+              event.preventDefault(); setProfileOpen(false); profileRef.current?.querySelector('button')?.focus();
+            }
+          }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setProfileOpen(false); }}>
             <BaseButton
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
               className="sd-icon-btn sd-profile-btn"
               aria-label="User profile options"
               aria-expanded={profileOpen}
-              aria-haspopup="menu"
+              aria-controls="customer-profile-panel"
             >
               <UserIcon size={22} strokeWidth={2} />
             </BaseButton>
 
             {profileOpen && (
-              <div className="sd-profile-menu" role="menu">
+              <div className="sd-profile-menu" id="customer-profile-panel">
                 <div className="sd-profile-info">
                   <div className="sd-profile-name">{displayName}</div>
                   <div className="sd-profile-role">{displayRole}</div>
@@ -127,7 +131,6 @@ export const Header: React.FC = () => {
                     setProfileOpen(false);
                     void logout();
                   }}
-                  role="menuitem"
                 >
                   Sign out
                 </BaseButton>

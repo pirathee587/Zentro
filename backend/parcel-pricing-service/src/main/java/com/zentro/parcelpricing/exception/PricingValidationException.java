@@ -11,7 +11,7 @@ public class PricingValidationException extends RuntimeException {
 
   public PricingValidationException(String message, Map<String, String> fieldErrors) {
     super(message);
-    this.fieldErrors = Map.copyOf(fieldErrors);
+    this.fieldErrors = java.util.Collections.unmodifiableMap(new java.util.TreeMap<>(fieldErrors));
   }
 
   public Map<String, String> fieldErrors() {

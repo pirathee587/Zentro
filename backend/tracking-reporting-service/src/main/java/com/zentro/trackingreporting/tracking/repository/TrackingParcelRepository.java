@@ -22,6 +22,42 @@ public interface TrackingParcelRepository extends JpaRepository<TrackingParcel, 
 
   Page<TrackingParcel> findByCustomerSubjectAndStatus(String customerSubject, TrackingStatus status, Pageable pageable);
 
+  Page<TrackingParcel> findByMerchantSubject(String merchantSubject, Pageable pageable);
+
+  Page<TrackingParcel> findByMerchantSubjectAndStatus(String merchantSubject, TrackingStatus status, Pageable pageable);
+
+  Page<TrackingParcel> findByCourierSubject(String courierSubject, Pageable pageable);
+
+  Page<TrackingParcel> findByCourierSubjectAndStatus(String courierSubject, TrackingStatus status, Pageable pageable);
+
+  @Query("SELECT p FROM TrackingParcel p WHERE (p.customerSubject = :subject OR p.merchantSubject = :subject) ")
+  Page<TrackingParcel> findByCustomerOrMerchantSubject(@Param("subject") String subject, Pageable pageable);
+
+  @Query("SELECT p FROM TrackingParcel p WHERE (p.customerSubject = :subject OR p.merchantSubject = :subject) AND p.status = :status")
+  Page<TrackingParcel> findByCustomerOrMerchantSubjectAndStatus(@Param("subject") String subject, @Param("status") TrackingStatus status, Pageable pageable);
+
+  @Query("SELECT p FROM TrackingParcel p WHERE (p.customerSubject = :subject OR p.merchantSubject = :subject) " +
+         "AND (LOWER(p.trackingRef) LIKE LOWER(CONCAT('%', :query, '%')) " +
+         "OR LOWER(p.recipientName) LIKE LOWER(CONCAT('%', :query, '%')) " +
+         "OR LOWER(p.recipientCity) LIKE LOWER(CONCAT('%', :query, '%')) " +
+         "OR LOWER(p.senderCity) LIKE LOWER(CONCAT('%', :query, '%')))")
+  Page<TrackingParcel> searchByCustomerOrMerchant(
+      @Param("subject") String subject,
+      @Param("query") String query,
+      Pageable pageable);
+
+  @Query("SELECT p FROM TrackingParcel p WHERE (p.customerSubject = :subject OR p.merchantSubject = :subject) " +
+         "AND p.status = :status " +
+         "AND (LOWER(p.trackingRef) LIKE LOWER(CONCAT('%', :query, '%')) " +
+         "OR LOWER(p.recipientName) LIKE LOWER(CONCAT('%', :query, '%')) " +
+         "OR LOWER(p.recipientCity) LIKE LOWER(CONCAT('%', :query, '%')) " +
+         "OR LOWER(p.senderCity) LIKE LOWER(CONCAT('%', :query, '%')))")
+  Page<TrackingParcel> searchByCustomerOrMerchantAndStatus(
+      @Param("subject") String subject,
+      @Param("status") TrackingStatus status,
+      @Param("query") String query,
+      Pageable pageable);
+
   @Query("SELECT p FROM TrackingParcel p WHERE p.customerSubject = :customerSubject " +
          "AND (LOWER(p.trackingRef) LIKE LOWER(CONCAT('%', :query, '%')) " +
          "OR LOWER(p.recipientName) LIKE LOWER(CONCAT('%', :query, '%')) " +

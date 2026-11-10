@@ -30,6 +30,7 @@ public class DispatchQueueController {
   public DispatchQueueController(DispatchService service) { this.service = service; }
 
   @GetMapping({"/queue", "/unassigned"})
+  @PreAuthorize("hasRole('DISPATCHER') and @dispatchPermissions.has(authentication, 'DISPATCH_VIEW')")
   public DispatchService.Queue queue(@AuthenticationPrincipal Jwt jwt,
       @RequestParam(name = "search", defaultValue = "") String search,
       @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -39,12 +40,14 @@ public class DispatchQueueController {
   }
 
   @GetMapping("/eligible-couriers")
+  @PreAuthorize("hasRole('DISPATCHER') and @dispatchPermissions.has(authentication, 'DISPATCH_VIEW')")
   public List<IdentityCourierClient.Courier> couriers(@AuthenticationPrincipal Jwt jwt,
       @RequestParam(name = "parcelId") UUID parcelId) {
     return service.couriers(parcelId, jwt.getTokenValue());
   }
 
   @GetMapping("/workload")
+  @PreAuthorize("hasRole('DISPATCHER') and @dispatchPermissions.has(authentication, 'DISPATCH_VIEW')")
   public DispatchService.Workload workload(@AuthenticationPrincipal Jwt jwt,
       @RequestParam(name = "search", defaultValue = "") String search,
       @RequestParam(name = "availability", defaultValue = "") String availability) {
@@ -54,6 +57,7 @@ public class DispatchQueueController {
   public record AssignRequest(@NotNull UUID parcelId, @NotNull UUID courierId) {}
 
   @PostMapping("/assignments")
+  @PreAuthorize("hasRole('DISPATCHER') and @dispatchPermissions.has(authentication, 'DISPATCH_ASSIGN')")
   public ResponseEntity<AssignmentRepository.Assignment> assign(@AuthenticationPrincipal Jwt jwt,
       @Valid @RequestBody AssignRequest request) {
     var result = service.assign(request.parcelId(), request.courierId(), jwt.getSubject(), jwt.getTokenValue());

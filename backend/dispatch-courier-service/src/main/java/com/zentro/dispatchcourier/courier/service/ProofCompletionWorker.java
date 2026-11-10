@@ -1,5 +1,6 @@
 package com.zentro.dispatchcourier.courier.service;
 
+import com.zentro.security.observability.PropagationContext;
 import com.zentro.dispatchcourier.courier.repository.ProofRepository;
 import com.zentro.dispatchcourier.exception.CompletionFailure;
 import org.slf4j.Logger;
@@ -14,6 +15,10 @@ import org.springframework.stereotype.Component;
 @EnableScheduling
 @ConditionalOnProperty(prefix = "zentro.pod", name = "worker-enabled", havingValue = "true", matchIfMissing = true)
 public class ProofCompletionWorker {
+  private PropagationContext propagation = PropagationContext.noop();
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
+
   private static final Logger log = LoggerFactory.getLogger(ProofCompletionWorker.class);
   private final ProofRepository proofs;
   private final ParcelStatusClient parcels;
@@ -39,17 +44,19 @@ public class ProofCompletionWorker {
     }
   }
   public void process(ProofRepository.Claim claim) {
-    String state = "COMPLETED";
-    String code = null;
-    try { parcels.complete(claim.parcelId()); }
-    catch (CompletionFailure error) { state = error.state(); code = error.code(); }
-    if ("PENDING".equals(state) && claim.attempts() >= maxAttempts) {
-      state = "BLOCKED";
-      code = "RETRY_EXHAUSTED";
+    try (var work = propagation.start(claim.propagation(), "proof.complete", null); var scope = work.scope()) {
+      String state = "COMPLETED";
+      String code = null;
+      try { parcels.complete(claim.parcelId()); }
+      catch (CompletionFailure error) { work.failed(); state = error.state(); code = error.code(); }
+      if ("PENDING".equals(state) && claim.attempts() >= maxAttempts) {
+        state = "BLOCKED";
+        code = "RETRY_EXHAUSTED";
+      }
+      long delay = Math.min(300, 5L * (1L << Math.min(claim.attempts() - 1, 6)));
+      proofs.finish(claim, state, code, delay);
+      if ("BLOCKED".equals(state) || "REJECTED".equals(state))
+        log.warn("POD completion requires attention: proofId={} state={} code={}", claim.proofId(), state, code);
     }
-    long delay = Math.min(300, 5L * (1L << Math.min(claim.attempts() - 1, 6)));
-    proofs.finish(claim, state, code, delay);
-    if ("BLOCKED".equals(state) || "REJECTED".equals(state))
-      log.warn("POD completion requires attention: proofId={} state={} code={}", claim.proofId(), state, code);
   }
 }

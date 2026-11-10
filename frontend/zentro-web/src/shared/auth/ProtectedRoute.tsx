@@ -8,7 +8,7 @@ export function ProtectedRoute() {
   useEffect(() => {
     if (!user) {
       const path = location.pathname;
-      const entryPoint = /^\/(admin|courier|staff)(\/|$)/.test(path) ? 'staff' : path.startsWith('/merchant') ? 'merchant' : 'customer';
+      const entryPoint = /^\/(admin|courier|dispatcher|staff)(\/|$)/.test(path) ? 'staff' : path.startsWith('/merchant') ? 'merchant' : 'customer';
       void login(path + location.search, undefined, entryPoint);
     }
   }, [login, location.pathname, location.search, user]);

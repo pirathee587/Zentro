@@ -1,0 +1,10 @@
+name: Synthetic safe fixture
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: echo 'Synthetic fixture; never dispatched'

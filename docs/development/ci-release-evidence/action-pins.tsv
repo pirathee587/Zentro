@@ -1,0 +1,6 @@
+action	originalRef	verifiedCommit	proof
+actions/checkout	v4	11d5960a326750d5838078e36cf38b85af677262	Official refs/tags/v4 API; fetched Git object and inspected action.yml
+actions/setup-java	v4	cf277c60eb25467037889841efdb72551f06f6c3	Official refs/tags/v4 API; fetched Git object and inspected action.yml
+actions/setup-node	v4	49933ea5288caeca8642d1e84afbd3f7d6820020	Official refs/tags/v4 API; fetched Git object and inspected action.yml
+actions/upload-artifact	v4	ea165f8d65b6e75b540449e92b4886f43607fa02	Official refs/tags/v4 API; fetched Git object and inspected action.yml
+actions/github-script	existing SHA	60a0d83039c74a4aee543508d2ffcb1c3799cdea	Existing repository pin retained

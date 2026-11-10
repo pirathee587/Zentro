@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(__file__).resolve().parent / "openapi"
+CORRELATION_SCHEMA = {"type": "string", "minLength": 1, "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
 
 
 def field(kind="string", **kw):
@@ -39,9 +41,9 @@ PROBLEM = obj({
     "currentStatus": STR, "requestedStatus": STR, "allowedNext": arr(STR),
 }, ("title", "status", "detail"))
 
-CONTACT = obj({"name": field(maxLength=100), "phone": field(pattern=r"^[\s-]*(\+94|0)([\s-]*\d){9}[\s-]*$"),
-               "address": field(minLength=8, maxLength=255), "city": {"type": ["string", "null"], "maxLength": 100}}, ("name", "phone", "address"))
-PARCEL = obj({"weightKg": field("number", minimum=0.1, maximum=20), "category": field(minLength=1, maxLength=40),
+CONTACT = obj({"name": field(maxLength=100), "phone": field(description="Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."),
+               "address": field(minLength=8, maxLength=255, description="Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."), "city": {"type": ["string", "null"], "maxLength": 100}}, ("name", "phone", "address"))
+PARCEL = obj({"weightKg": field("number", minimum=0.1, maximum=20, multipleOf=0.0001), "category": field(minLength=1, maxLength=40),
               "size": {"type": ["string", "null"], "enum": ["SMALL", "MEDIUM", "LARGE", None]},
               "description": {"type": ["string", "null"], "maxLength": 255}}, ("weightKg", "category"))
 BOOKING_REQUEST = obj({"sender": CONTACT, "recipient": CONTACT, "parcel": PARCEL,
@@ -116,10 +118,10 @@ SCHEMAS = {
         "FeeEstimateRequest": obj({"pickupCity": {"type": ["string", "null"], "maxLength": 100}, "deliveryCity": {"type": ["string", "null"], "maxLength": 100},
             "destinationType": {"type": ["string", "null"], "enum": ["SAME_CITY", "OTHER_DISTRICT", None]},
             "parcelSize": {"type": ["string", "null"], "enum": ["SMALL", "MEDIUM", "LARGE", None]},
-            "weightKg": {"type": ["number", "null"], "minimum": 0.01, "maximum": 100}, "parcelCategory": {"type": ["string", "null"], "maxLength": 100},
-            "isExpress": {"type": ["boolean", "null"]}, "distanceKm": {"type": ["number", "null"], "minimum": 0, "maximum": 2000},
-            "lengthCm": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 500}, "widthCm": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 500},
-            "heightCm": {"type": ["number", "null"], "exclusiveMinimum": 0, "maximum": 500}, "originZone": {"type": ["string", "null"], "maxLength": 64},
+            "weightKg": {"type": ["number", "null"], "minimum": 0.1, "maximum": 20, "multipleOf": 0.0001}, "parcelCategory": {"type": ["string", "null"], "maxLength": 100},
+            "isExpress": {"type": ["boolean", "null"]}, "distanceKm": {"type": ["number", "null"], "minimum": 0, "maximum": 2000, "multipleOf": 0.0001},
+            "lengthCm": {"type": ["number", "null"], "minimum": 0.01, "maximum": 500, "multipleOf": 0.0001}, "widthCm": {"type": ["number", "null"], "minimum": 0.01, "maximum": 500, "multipleOf": 0.0001},
+            "heightCm": {"type": ["number", "null"], "minimum": 0.01, "maximum": 500, "multipleOf": 0.0001}, "originZone": {"type": ["string", "null"], "maxLength": 64},
             "destinationZone": {"type": ["string", "null"], "maxLength": 64}, "currency": {"type": ["string", "null"], "maxLength": 10}}),
         "FeeEstimateResponse": obj({"fee": DEC, "formattedFee": STR, "currency": STR, "estimatedDays": INT,
                                      "breakdown": obj({"baseFee": DEC, "weightFee": DEC, "distanceSurcharge": DEC, "expressFee": DEC})}),
@@ -139,9 +141,12 @@ SCHEMAS = {
         "DispatchQueue": obj({"items": arr({"$ref": "#/components/schemas/DispatchParcel"}), "total": {"type": ["integer", "null"]},
                                "matchingTotal": {"type": ["integer", "null"]}, "complete": BOOL}),
         "Courier": obj({"id": UUID, "userId": UUID, "email": STR, "name": STR, "phone": STR, "active": BOOL, "accountStatus": STR}),
-        "CourierWorkload": obj({"courierId": UUID, "userId": UUID, "name": STR, "active": BOOL, "accountStatus": STR,
-                                "assignmentCount": INT, "availability": field(enum=["AVAILABLE", "UNAVAILABLE"])}),
-        "Workload": obj({"items": arr({"$ref": "#/components/schemas/CourierWorkload"}), "total": INT, "overloadConfigured": BOOL}),
+        "CourierWorkload": obj({"courierId": UUID, "userId": UUID, "name": NULLSTR, "active": BOOL, "accountStatus": STR,
+                                "assignmentCount": field("integer", format="int64", minimum=0, description="Lifetime S3 assignment rows for this courier; includes completed proofs, with no date or parcel-status filter."),
+                                "availability": field(enum=["AVAILABLE", "UNAVAILABLE"], description="AVAILABLE only when the S1 courier is active and accountStatus is ACTIVE; not a capacity metric.")}),
+        "Workload": obj({"items": arr({"$ref": "#/components/schemas/CourierWorkload"}),
+                         "total": field("integer", format="int64", minimum=0, description="Courier rows after search and availability filtering, not a delivery total."),
+                         "overloadConfigured": field("boolean", const=False, description="No capacity threshold is configured.")}),
         "DeliverySummary": obj({"parcelId": UUID, "courierId": UUID, "assignedAt": DATE, "proofId": {"anyOf": [UUID, {"type": "null"}]}, "completionState": NULLSTR}),
         "SubmitProofRequest": obj({"recipientName": {"type": ["string", "null"], "maxLength": 100}, "notes": {"type": ["string", "null"], "maxLength": 500},
                                     "proofReference": {"type": ["string", "null"], "maxLength": 200}}, ("recipientName", "proofReference")),
@@ -294,8 +299,8 @@ def make_operation(service, row):
         params.append({"name": name, "in": "query", "required": required,
                        "description": f"{name} filter or pagination parameter.", "schema": schema})
     params.append({"name": "X-Correlation-Id", "in": "header", "required": False,
-        "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
-        "schema": {"type": "string", "format": "uuid"}, "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"})
+        "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+        "schema": CORRELATION_SCHEMA, "example": "request-123"})
     for name, typ, required, minimum, maximum, _ in headers:
         params.append({"name": name, "in": "header", "required": required,
             "description": "Optional booking idempotency key; blank values are rejected.",
@@ -312,7 +317,7 @@ def make_operation(service, row):
         else:
             resp["content"] = {"application/json": {"schema": schema_ref(response_schema)}}
     if success in (200, 201):
-        resp["headers"] = {"X-Correlation-Id": {"description": "Gateway correlation identifier.", "schema": {"type": "string", "format": "uuid"}}}
+        resp["headers"] = {"X-Correlation-Id": {"description": "Accepted correlation identifier.", "schema": CORRELATION_SCHEMA}}
         for h in response_headers:
             resp["headers"][h] = {"description": "Response header emitted by the operation.", "schema": {"type": "string"}}
             if h == "Cache-Control": resp["headers"][h]["example"] = "no-store"
@@ -328,7 +333,7 @@ def make_operation(service, row):
         responses[str(code)] = error_response(code)
     # Correlation id is assigned by the gateway on both success and error responses.
     for r in responses.values():
-        r.setdefault("headers", {})["X-Correlation-Id"] = {"description": "Gateway correlation identifier.", "schema": {"type": "string", "format": "uuid"}}
+        r.setdefault("headers", {})["X-Correlation-Id"] = {"description": "Accepted correlation identifier.", "schema": CORRELATION_SCHEMA}
     op = {"operationId": opid, "summary": summary, "description": description + (f" Allowed roles: {roles}." if roles != "PUBLIC" else " Public: anonymous and human access; SERVICE-only tokens are denied."),
           "tags": [SERVICE_INFO[service][1]], "responses": responses}
     if params: op["parameters"] = params
@@ -429,7 +434,7 @@ def validate():
     errors = []
     for service in OPS:
         spec_path = OUT / f"{service}.openapi.json"
-        spec = json.loads(spec_path.read_text())
+        spec = json.loads(spec_path.read_text(encoding="utf-8"))
         actual = set()
         for path, item in spec.get("paths", {}).items():
             for method, op in item.items():
@@ -470,7 +475,7 @@ def validate():
 def generate():
     OUT.mkdir(parents=True, exist_ok=True)
     for service in OPS:
-        (OUT / f"{service}.openapi.json").write_text(json.dumps(build(service), indent=2, ensure_ascii=False) + "\n")
+        (OUT / f"{service}.openapi.json").write_text(json.dumps(build(service), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Generated {len(OPS)} service OpenAPI artifacts in {OUT.relative_to(ROOT)}")
 
 

@@ -1,18 +1,21 @@
 package com.zentro.parcelpricing.pricing.service;
 
 import com.zentro.parcelpricing.pricing.rules.PricingCalculationEngine;
-
 import com.zentro.parcelpricing.pricing.rules.PricingRule;
 import com.zentro.parcelpricing.pricing.dto.FeeEstimateRequest;
 import com.zentro.parcelpricing.pricing.dto.FeeEstimateResponse;
 import com.zentro.parcelpricing.pricing.dto.PricingRuleUpdateRequest;
 import com.zentro.parcelpricing.exception.PricingUnavailableException;
+import com.zentro.parcelpricing.exception.PricingValidationException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,6 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PricingService {
   private static final RowMapper<PricingRule> RULE_MAPPER = PricingService::mapRule;
+  private static final BigDecimal MAX_AMOUNT = new BigDecimal("1000000.00");
+  private static final BigDecimal MAX_PER_KM_RATE = new BigDecimal("100000.00");
+  private static final BigDecimal MAX_INCLUDED_WEIGHT_KG = new BigDecimal("100.00");
 
   private final JdbcTemplate jdbc;
   private final PricingCalculationEngine calculationEngine;
@@ -77,12 +83,19 @@ public class PricingService {
     if (update == null) {
       throw new IllegalArgumentException("Pricing rule update request cannot be null.");
     }
-    String currency = (update.currency() != null && !update.currency().isBlank())
-        ? update.currency()
-        : "LKR";
 
-    PricingRule current = getActiveRule();
-    OffsetDateTime now = OffsetDateTime.now();
+    validateRuleAmounts(update);
+
+    String currency = "LKR";
+    if (update.currency() != null && !update.currency().isBlank()) {
+      String trimmed = update.currency().trim().toUpperCase(Locale.ROOT);
+      if (!"LKR".equals(trimmed)) {
+        throw new PricingValidationException(
+            "Unsupported currency '" + update.currency().trim() + "'. Only 'LKR' is supported.",
+            Map.of("currency", "Unsupported currency '" + update.currency().trim() + "'. Only 'LKR' is supported."));
+      }
+      currency = trimmed;
+    }
 
     try {
       jdbc.update("""
@@ -115,6 +128,78 @@ public class PricingService {
           "Failed to persist pricing rule update to database.",
           ex);
     }
+  }
+
+  private static void validateRuleAmounts(PricingRuleUpdateRequest update) {
+    Map<String, String> errors = new LinkedHashMap<>();
+
+    if (update.baseFee() == null) {
+      errors.put("baseFee", "Base fee is required.");
+    } else if (update.baseFee().compareTo(BigDecimal.ZERO) <= 0) {
+      errors.put("baseFee", "Base fee must be greater than zero.");
+    } else if (update.baseFee().compareTo(MAX_AMOUNT) > 0) {
+      errors.put("baseFee", "Base fee cannot exceed 1,000,000.00.");
+    } else if (hasMoreThanTwoDecimals(update.baseFee())) {
+      errors.put("baseFee", "Base fee must have at most 2 decimal places.");
+    }
+
+    if (update.includedWeightKg() == null) {
+      errors.put("includedWeightKg", "Included weight is required.");
+    } else if (update.includedWeightKg().compareTo(BigDecimal.ZERO) <= 0) {
+      errors.put("includedWeightKg", "Included weight must be greater than zero.");
+    } else if (update.includedWeightKg().compareTo(MAX_INCLUDED_WEIGHT_KG) > 0) {
+      errors.put("includedWeightKg", "Included weight cannot exceed 100.00 kg.");
+    } else if (hasMoreThanTwoDecimals(update.includedWeightKg())) {
+      errors.put("includedWeightKg", "Included weight must have at most 2 decimal places.");
+    }
+
+    if (update.additionalWeightRatePerKg() == null) {
+      errors.put("additionalWeightRatePerKg", "Rate per additional kg is required.");
+    } else if (update.additionalWeightRatePerKg().compareTo(BigDecimal.ZERO) < 0) {
+      errors.put("additionalWeightRatePerKg", "Rate per additional kg cannot be negative.");
+    } else if (update.additionalWeightRatePerKg().compareTo(MAX_AMOUNT) > 0) {
+      errors.put("additionalWeightRatePerKg", "Rate per additional kg cannot exceed 1,000,000.00.");
+    } else if (hasMoreThanTwoDecimals(update.additionalWeightRatePerKg())) {
+      errors.put("additionalWeightRatePerKg", "Rate per additional kg must have at most 2 decimal places.");
+    }
+
+    if (update.distanceSurchargeOtherDistrict() == null) {
+      errors.put("distanceSurchargeOtherDistrict", "Other-district surcharge is required.");
+    } else if (update.distanceSurchargeOtherDistrict().compareTo(BigDecimal.ZERO) < 0) {
+      errors.put("distanceSurchargeOtherDistrict", "Other-district surcharge cannot be negative.");
+    } else if (update.distanceSurchargeOtherDistrict().compareTo(MAX_AMOUNT) > 0) {
+      errors.put("distanceSurchargeOtherDistrict", "Other-district surcharge cannot exceed 1,000,000.00.");
+    } else if (hasMoreThanTwoDecimals(update.distanceSurchargeOtherDistrict())) {
+      errors.put("distanceSurchargeOtherDistrict", "Other-district surcharge must have at most 2 decimal places.");
+    }
+
+    if (update.expressSurcharge() == null) {
+      errors.put("expressSurcharge", "Express surcharge is required.");
+    } else if (update.expressSurcharge().compareTo(BigDecimal.ZERO) < 0) {
+      errors.put("expressSurcharge", "Express surcharge cannot be negative.");
+    } else if (update.expressSurcharge().compareTo(MAX_AMOUNT) > 0) {
+      errors.put("expressSurcharge", "Express surcharge cannot exceed 1,000,000.00.");
+    } else if (hasMoreThanTwoDecimals(update.expressSurcharge())) {
+      errors.put("expressSurcharge", "Express surcharge must have at most 2 decimal places.");
+    }
+
+    if (update.perKmRate() == null) {
+      errors.put("perKmRate", "Rate per km is required.");
+    } else if (update.perKmRate().compareTo(BigDecimal.ZERO) < 0) {
+      errors.put("perKmRate", "Rate per km cannot be negative.");
+    } else if (update.perKmRate().compareTo(MAX_PER_KM_RATE) > 0) {
+      errors.put("perKmRate", "Rate per km cannot exceed 100,000.00.");
+    } else if (hasMoreThanTwoDecimals(update.perKmRate())) {
+      errors.put("perKmRate", "Rate per km must have at most 2 decimal places.");
+    }
+
+    if (!errors.isEmpty()) {
+      throw new PricingValidationException(errors.values().iterator().next(), errors);
+    }
+  }
+
+  private static boolean hasMoreThanTwoDecimals(BigDecimal value) {
+    return value.scale() > 2 && value.stripTrailingZeros().scale() > 2;
   }
 
   private static PricingRule mapRule(ResultSet rs, int rowNum) throws SQLException {

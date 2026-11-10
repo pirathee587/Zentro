@@ -2,18 +2,20 @@ name: PR linked issue
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
     types: [opened, edited, synchronize, reopened]
 
 permissions:
-  issues: write
-  pull-requests: write
   contents: read
 
 jobs:
   pr-linked-issue:
     name: pr-linked-issue
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     steps:
       - name: Validate linked issue reference
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea

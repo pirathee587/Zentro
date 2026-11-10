@@ -153,16 +153,18 @@ git clone <repository-url> zentro
 cd zentro
 git checkout develop
 
-bash scripts/init-local.sh        # creates .env files with generated local passwords
-docker compose config             # validates the compose file
-docker compose up -d --build      # starts PostgreSQL x5, Kafka, Keycloak, services, gateway, frontend
-docker compose ps                 # all containers should be healthy
+# Copy templates and provision separate databases/Kafka first; see setup notes.
+docker compose config -q          # validates without printing resolved credentials
+docker compose up -d --build      # apps only; requires configured dependencies
+docker compose ps
 ```
+
+Follow [development configuration](docs/development/configuration.md) for template copying, Keycloak setup and port binding. See [production configuration and secret handling](docs/security/production-configuration.md) before deployment.
 
 Environment rules:
 
 - Only `.env.example` files are committed. Real `.env` files are git-ignored.
-- `.env.common` holds shared values: `KAFKA_BOOTSTRAP`, `JWT_ISSUER_URI`, `JWT_AUDIENCE`.
+- `.env.common` holds shared values: `KAFKA_BOOTSTRAP_SERVERS`, `JWT_ISSUER_URI`, `JWT_AUDIENCE`.
 - Each service has its own `.env` with `DB_URL`, `DB_USER`, `DB_PASSWORD`. A service receives only its own database credentials.
 
 ### Open the application
@@ -318,7 +320,7 @@ After rebuilding the frontend, use a hard refresh (`Ctrl + Shift + R`) to clear 
 
 ## Contributing
 
-1. Branch from `develop`: `feature/<area>-<task>`.
+1. Branch from `develop`: `<type>/<issue-number>-<short-name>` (for example `feature/123-add-login`; types: feature, fix, chore, hotfix, docs).
 2. Commit with Conventional Commits, for example `feat(parcel): add fee estimate`.
 3. Open a Pull Request to `develop`. At least one reviewer must approve.
 4. Never commit `.env` files, passwords, keys, `target/` or `node_modules/`.
@@ -330,6 +332,7 @@ After rebuilding the frontend, use a hard refresh (`Ctrl + Shift + R`) to clear 
 - [System architecture](docs/architecture/)
 - [API specifications](docs/api/)
 - [Test reports](docs/test-reports/)
+- [CI artifacts and release verification](docs/development/ci-and-release.md): build-only checks, reproducibility evidence and pending release-owner decisions
 
 <div align="center">
 

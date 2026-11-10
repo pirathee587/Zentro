@@ -1,6 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiClient, withBearerToken } from '@/shared/api/apiClient';
 import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
+import { useAuth } from '@/shared/auth/useAuth';
 
 export const courierWorkloadKey = ['dispatcher', 'workload'] as const;
 export const workloadQueryKey = (params?: { search?: string; availability?: 'available' | 'unavailable' }, userId?: string) =>
@@ -25,10 +27,19 @@ const responseSchema = z.object({
 export type CourierWorkload = z.infer<typeof workloadSchema>;
 
 export async function getCourierWorkload(
-  params: { search?: string; availability?: 'available' | 'unavailable' },
+  params: { search?: string; availability?: 'available' | 'unavailable' } = {},
   token?: string,
   signal?: AbortSignal,
 ) {
   const response = await apiClient.get('/api/v1/dispatch/workload', { params, ...withBearerToken(token), signal });
   return responseSchema.parse(response.data);
+}
+
+export function useCourierWorkload(params: { search?: string; availability?: 'available' | 'unavailable' } = {}) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: workloadQueryKey(params, user?.id),
+    enabled: Boolean(user?.accessToken),
+    queryFn: ({ signal }) => getCourierWorkload(params, user?.accessToken, signal),
+  });
 }

@@ -33,6 +33,20 @@ export type MerchantOrderStatus =
   | 'DELIVERED'
   | 'FAILED';
 
+export type MerchantOrderContact = {
+  name: string;
+  phone: string;
+  address: string;
+  city: string | null;
+};
+
+export type MerchantOrderParcel = {
+  weightKg: number;
+  category: string;
+  size: 'SMALL' | 'MEDIUM' | 'LARGE' | null;
+  description: string | null;
+};
+
 export type MerchantOrder = {
   id: string;
   trackingRef: string;
@@ -43,6 +57,9 @@ export type MerchantOrder = {
   currency: string;
   estimatedDays: number;
   createdAt: string;
+  sender: MerchantOrderContact;
+  recipient: MerchantOrderContact;
+  parcel: MerchantOrderParcel;
 };
 
 export type IssuedMerchantApiKey = {
@@ -93,6 +110,21 @@ export function getMerchantOrders(auth: MerchantApiAuth, limit = 50) {
       ...authorization(token, auth.signal),
       params: { limit },
     })).data,
+  );
+}
+
+export function isMerchantOrderId(orderId: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+}
+
+/** Read an owned order by its UUID, not its tracking or external reference. */
+export async function getMerchantOrder(auth: MerchantApiAuth, orderId: string): Promise<MerchantOrder> {
+  if (!isMerchantOrderId(orderId)) {
+    throw new Error('A valid order UUID is required.');
+  }
+
+  return withMerchantAuth(auth, async (token) =>
+    (await apiClient.get<MerchantOrder>(`${MERCHANT_ORDERS_PATH}/${orderId}`, authorization(token, auth.signal))).data,
   );
 }
 

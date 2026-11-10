@@ -1,0 +1,3 @@
+tracking-reporting-service: lag drained to zero
+notification-integration-service: lag drained to zero
+merchant-webhooks: lag drained to zero

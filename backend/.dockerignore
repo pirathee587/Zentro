@@ -9,3 +9,14 @@
 **/*.md
 **/.DS_Store
 **/*.log
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/*.dump
+**/*.backup
+**/*.pgdump
+**/*.sql.gz
+**/backups

@@ -1,27 +1,34 @@
 server:
   port: ${SERVER_PORT:8081}
 spring:
+  application:
+    name: identity-partner-service
   config:
-    import: optional:file:./.env[.properties],optional:file:../../infra/keycloak/.env[.properties]
+    import: optional:file:./.env[.properties]
   datasource:
-    url: ${DB_URL:${KC_DB_URL}}
-    username: ${DB_USER:${KC_DB_USERNAME}}
-    password: ${DB_PASSWORD:${KC_DB_PASSWORD}}
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
   flyway:
     schemas: identity
     default-schema: identity
     create-schemas: true
 zentro:
   security:
-    issuer-uri: ${JWT_ISSUER_URI}
-    audience: ${JWT_AUDIENCE}
+    issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
+    audience: ${JWT_AUDIENCE:zentro-api}
     jwks-uri: ${JWT_JWKS_URI:}
-    internal-token: ${INTERNAL_SERVICE_TOKEN:zentro-internal-service-secret}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:}
 grpc:
   server:
     port: ${GRPC_SERVER_PORT:9081}
     enabled: ${GRPC_SERVER_ENABLED:true}
 management:
+  tracing:
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
   endpoint:
     health:
       probes:
@@ -30,3 +37,7 @@ management:
     web:
       exposure:
         include: health
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"

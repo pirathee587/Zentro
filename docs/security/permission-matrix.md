@@ -62,8 +62,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | POST `/api/v1/courier/deliveries/{parcelId}/proof` | S3 | CO → CO | assignment checked before evidence write; S3 calls S2 as SERVICE | CO (own assignment) | same |
 | GET `/api/v1/tracking/mine` | S4 | C,M → C,M | filter uses JWT subject; customer/merchant cannot supply another owner | C,M (own records) | C,M (own records) |
 | GET `/api/v1/tracking/{trackingRef}` | S4 | public except S-only → public except S-only | Public tracking reference; response omits names, contact details, full addresses, fees | anon,C,M,CO,D,roleless | same; S-only denied |
-| GET `/api/v1/tracking/{trackingRef}/events` | S4 | public except S-only → public except S-only | Public tracking reference; public event data | anon,C,M,CO,D,roleless | same; S-only denied |
-| GET `/api/v1/tracking/{trackingRef}/stream` | S4 | public except S-only → public except S-only | Public tracking reference; public event stream | anon,C,M,CO,D,roleless | same; S-only denied |
+| GET `/api/v1/tracking/{trackingRef}/events` | S4 | public except S-only → public except S-only (JSON); C,M,CO,D (SSE) | Public tracking milestones for JSON; if SSE (text/event-stream), requires JWT and ownership/assigned check | anon,C,M,CO,D,roleless (JSON) / C,M,CO,D (SSE) | same; S-only denied |
+| GET `/api/v1/tracking/{trackingRef}/stream` | S4 | C,M,CO,D → C,M,CO,D + owner/assigned check | Live tracking stream; token required; ownership/assignment strictly enforced; safe payload only | C,M (own), CO (assigned), D | C,M (own), CO (assigned), D; anon & S-only denied |
 | GET `/api/v1/merchant/webhooks` | S5 | M → M | merchant ID is JWT `sub` | M | M |
 | POST `/api/v1/merchant/webhooks` | S5 | M → M | merchant ID is JWT `sub`; approved/active check | M (approved/active) | M (approved/active) |
 | DELETE `/api/v1/merchant/webhooks` | S5 | M → M | merchant ID is JWT `sub` | M | M |
@@ -75,6 +75,8 @@ The role columns show **current behavior after this branch's fixes**. The expect
 `*` Effective claims can include CUSTOMER alongside another role because CUSTOMER is a Keycloak default role. Whether a COURIER or DISPATCHER who also has CUSTOMER may book a personal parcel or submit a merchant application is an owner decision; the endpoint checks the CUSTOMER claim and then scopes the resulting resource to the token subject.
 
 Gateway-configured `/api/v1/admin/zones/**` and `/api/v1/admin/audit-logs/**` prefixes have no matching controller endpoint in the audited services. They return an upstream 404 rather than exposing an unguarded controller. They are not counted as endpoints. No S4 report controller exists despite the gateway's reserved `/api/v1/reports/**` route.
+
+#144 gateway update: unlisted `/api/v1/**` paths now fail closed with safe problem+json and correlation ID: 401 for anonymous requests, 403 for every authenticated role. This is a deliberate change from unknown-path 404; listed/reserved prefixes keep their existing role rules and downstream resource 404 behavior. Unserved non-API paths retain local 404. See [the route audit](../architecture/gateway-routes.md) for tests and the dormant customer legacy-path finding.
 
 ## Findings
 

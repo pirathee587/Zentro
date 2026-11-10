@@ -356,6 +356,7 @@ class MerchantWebhookApiTest {
     assertThat(first.get("items")).hasSize(2);
     assertThat(first.get("items").get(0).get("status").asText()).isEqualTo("FAILED");
     assertThat(first.get("items").get(0).get("responseStatus").asInt()).isEqualTo(200);
+    assertThat(first.get("items").get(0).get("responseClass").asText()).isEqualTo("SUCCESSFUL");
     assertThat(first.get("items").get(0).has("payload")).isFalse();
     JsonNode second = json(perform(get(PATH + "/deliveries").param("page", "1").param("size", "2"), auth));
     assertThat(second.get("items")).hasSize(1);
@@ -363,6 +364,61 @@ class MerchantWebhookApiTest {
 
     assertThat(json(perform(get(PATH + "/deliveries").param("size", "1000"), auth)).get("size").asInt()).isEqualTo(100);
     assertThat(perform(get(PATH + "/deliveries").param("page", "x"), auth).getStatus()).isEqualTo(400);
+    assertThat(json(perform(get(PATH + "/deliveries"), auth)).get("size").asInt()).isEqualTo(20);
+    assertThat(json(perform(get(PATH + "/deliveries").param("page", "-1").param("size", "0"), auth))
+        .get("size").asInt()).isEqualTo(1);
+    assertThat(json(perform(get(PATH + "/deliveries").param("size", "-1"), auth)).get("size").asInt()).isEqualTo(1);
+    assertThat(json(perform(get(PATH + "/deliveries").param("page", "2147483647"), auth)).get("items")).isEmpty();
+    assertThat(json(perform(get(PATH + "/deliveries").param("page", "2").param("size", "2"), auth)).get("items")).isEmpty();
+    assertThat(json(perform(get(PATH + "/deliveries").param("page", "0").param("size", "2"), auth)).get("items"))
+        .isEqualTo(first.get("items"));
+  }
+
+  @Test
+  void tiedHistoryPagesHaveNoOverlapOrGapsAndRespectMerchantOwnership() throws Exception {
+    String owner = merchant("SYNTHETIC-page-owner");
+    String other = merchant("SYNTHETIC-page-other");
+    register(owner, URL_A);
+    register(other, URL_B);
+    UUID subscription = subscriptionId("SYNTHETIC-page-owner");
+    for (int i = 0; i < 5; i++) insertDelivery(subscription, "SUCCEEDED", 1);
+    for (int i = 0; i < 2; i++) insertDelivery(subscriptionId("SYNTHETIC-page-other"), "SUCCEEDED", 1);
+    jdbc.update("UPDATE notification.webhook_delivery SET created_at='2026-01-01T00:00:00Z'::timestamptz");
+    var expected = jdbc.queryForList("SELECT id::text FROM notification.webhook_delivery WHERE subscription_id=? ORDER BY created_at DESC,id",
+        String.class, subscription);
+    var seen = new java.util.ArrayList<String>();
+    for (int page = 0; page < 3; page++) {
+      var response = json(perform(get(PATH + "/deliveries").param("page", Integer.toString(page)).param("size", "2"), owner));
+      assertThat(response.path("total").asInt()).isEqualTo(5);
+      response.path("items").forEach(item -> seen.add(item.path("id").asText()));
+      assertThat(json(perform(get(PATH + "/deliveries").param("page", Integer.toString(page)).param("size", "2"), owner)))
+          .isEqualTo(response);
+    }
+    assertThat(seen).containsExactlyElementsOf(expected).doesNotHaveDuplicates();
+    assertThat(json(perform(get(PATH + "/deliveries").param("page", "3").param("size", "2"), owner)).path("items")).isEmpty();
+
+    jdbc.update("DELETE FROM notification.notification_attempt");
+    jdbc.update("""
+        INSERT INTO notification.notification_attempt(event_id,event_type,parcel_id,tracking_ref,parcel_status,message,status,created_at)
+        SELECT gen_random_uuid(),'parcel.created',gen_random_uuid(),'SYNTHETIC-'||n,'CREATED','SYNTHETIC','SENT',
+          '2026-01-01T00:00:00Z'::timestamptz FROM generate_series(1,7)n
+        """);
+    String dispatcher = token("SYNTHETIC-dispatcher", "DISPATCHER");
+    for (String route : List.of("notification-attempts", "webhook-deliveries")) {
+      for (String array : List.of("notifications", "webhooks")) {
+        String table = array.equals("notifications") ? "notification_attempt" : "webhook_delivery";
+        var allIds = jdbc.queryForList("SELECT id::text FROM notification." + table + " ORDER BY created_at DESC,id", String.class);
+        var actual = new java.util.ArrayList<String>();
+        for (int page = 0; page < 4; page++) {
+          var response = json(perform(get("/api/v1/admin/" + route).param("page", Integer.toString(page)).param("size", "2"), dispatcher));
+          response.path(array).forEach(item -> actual.add(item.path("id").asText()));
+        }
+        assertThat(actual).containsExactlyElementsOf(allIds).doesNotHaveDuplicates();
+        assertThat(json(perform(get("/api/v1/admin/" + route).param("page", "4").param("size", "2"), dispatcher)).path(array)).isEmpty();
+      }
+      assertThat(json(perform(get("/api/v1/admin/" + route), dispatcher)).path("size").asInt()).isEqualTo(25);
+      assertThat(json(perform(get("/api/v1/admin/" + route).param("size", "100"), dispatcher)).path("size").asInt()).isEqualTo(100);
+    }
   }
 
   @Test

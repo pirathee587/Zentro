@@ -3,6 +3,8 @@ server:
   compression:
     enabled: false
 spring:
+  reactor:
+    context-propagation: auto
   config:
     import: optional:file:./.env[.properties]
   application:
@@ -44,6 +46,11 @@ spring:
           issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
           jwk-set-uri: ${JWT_JWKS_URI:}
 management:
+  tracing:
+    propagation:
+      type: w3c
+    baggage:
+      enabled: false
   prometheus:
     metrics:
       export:
@@ -69,3 +76,7 @@ zentro:
     tracking-per-minute: ${RATE_LIMIT_TRACKING_PER_MINUTE:30}
     default-per-minute: ${RATE_LIMIT_DEFAULT_PER_MINUTE:300}
     trust-forwarded-for: ${TRUST_X_FORWARDED_FOR:false}
+
+logging:
+  pattern:
+    level: "%5p [correlationId=%X{correlationId:-}]"

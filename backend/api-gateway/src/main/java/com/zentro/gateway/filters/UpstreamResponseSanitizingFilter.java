@@ -1,7 +1,7 @@
 package com.zentro.gateway.filters;
 
 import com.zentro.gateway.constants.GatewayConstants;
-import java.nio.charset.StandardCharsets;
+import com.zentro.gateway.exception.ProblemWriter;
 import org.reactivestreams.Publisher;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -19,9 +19,6 @@ import reactor.core.publisher.Mono;
 
 @Component
 public class UpstreamResponseSanitizingFilter implements GlobalFilter, Ordered {
-  private static final byte[] SAFE_ERROR = ("{\"type\":\"about:blank\",\"title\":\"Bad Gateway\","
-      + "\"status\":502,\"detail\":\"The upstream service returned an error.\"}")
-      .getBytes(StandardCharsets.UTF_8);
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -34,8 +31,8 @@ public class UpstreamResponseSanitizingFilter implements GlobalFilter, Ordered {
           getHeaders().remove(HttpHeaders.CONTENT_LENGTH);
           getHeaders().remove(HttpHeaders.CONTENT_ENCODING);
           getHeaders().setContentType(MediaType.valueOf(GatewayConstants.PROBLEM_JSON_MEDIA_TYPE));
-          getHeaders().setContentLength(SAFE_ERROR.length);
-          return super.writeWith(Mono.just(bufferFactory().wrap(SAFE_ERROR.clone())));
+          return ProblemWriter.write(getDelegate(), HttpStatus.BAD_GATEWAY, "Bad Gateway",
+              "The upstream service returned an error.", exchange.getRequest().getPath().value());
         }));
       }
 

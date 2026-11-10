@@ -27,9 +27,7 @@ public final class JwtTokenValidator implements OAuth2TokenValidator<Jwt> {
   public OAuth2TokenValidatorResult validate(Jwt token) {
     OAuth2TokenValidatorResult issuerResult = issuerValidator.validate(token);
     if (issuerResult.hasErrors()) {
-      log.warn("JWT issuer/time validation failed: issuer={} expectedIssuer={} expiresAt={} errors={}",
-          token.getIssuer(), expectedIssuer, token.getExpiresAt(),
-          issuerResult.getErrors().stream().map(OAuth2Error::getErrorCode).toList());
+      log.warn("JWT validation failed: category=issuer_or_time");
       return issuerResult;
     }
 
@@ -38,8 +36,7 @@ public final class JwtTokenValidator implements OAuth2TokenValidator<Jwt> {
       return OAuth2TokenValidatorResult.success();
     }
 
-    log.warn("JWT audience validation failed: issuer={} audiences={} requiredAudience={}",
-        token.getIssuer(), audiences, requiredAudience);
+    log.warn("JWT validation failed: category=audience");
     return OAuth2TokenValidatorResult.failure(
         new OAuth2Error("invalid_token", "Required audience is missing", null));
   }

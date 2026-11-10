@@ -70,7 +70,7 @@ public class GatewaySecurityConfig {
                 .access(RoleAuthorizationManager.humanAuthenticated())
             .pathMatchers("/actuator/prometheus")
                 .access(RoleAuthorizationManager.humanAuthenticated())
-            .pathMatchers("/api/v1/**").permitAll()
+            .pathMatchers("/api/v1/**").denyAll()
             .anyExchange().denyAll())
         .oauth2ResourceServer(resource -> resource.authenticationEntryPoint(entry).accessDeniedHandler(denied)
             .jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))

@@ -61,6 +61,29 @@ describe('shared API client', () => {
     await expect(pending).resolves.toMatchObject({ category: 'canceled' });
   });
 
+  it.each([
+    [401, 'Unauthorized', /session has expired/i],
+    [403, 'Forbidden', /does not have permission/i],
+  ] as const)('turns a gateway %i problem response into a safe message without retrying or signing out', async (status, title, message) => {
+    let calls = 0;
+    setAccessToken('customer-token');
+    apiClient.defaults.adapter = (async (config) => {
+      calls += 1;
+      const response = { data: { type: 'about:blank', title, status, detail: 'internal policy ROLE_DISPATCHER required', instance: '/api/v1/admin/users' }, status, statusText: title, headers: { 'content-type': 'application/problem+json' }, config };
+      throw new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, undefined, response);
+    }) as AxiosAdapter;
+
+    const failure = await apiClient.get('/api/v1/admin/users').catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(ApiClientError);
+    expect(failure).toMatchObject({ category: 'http', status, problem: { title } });
+    const shown = friendlyApiError(failure, 'Fallback');
+    expect(shown).toMatch(message);
+    expect(shown).not.toMatch(/ROLE_DISPATCHER|policy|\/api\//);
+    expect(calls).toBe(1);
+    expect(getAccessToken()).toBe('customer-token');
+  });
+
   it('preserves safe auth and connection messages without logging response data', () => {
     const log = vi.spyOn(console, 'log');
     const warn = vi.spyOn(console, 'warn');

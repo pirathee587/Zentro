@@ -787,6 +787,8 @@ Test colocation is an accepted and preferred convention. Keep component tests cl
 
 Before considering a frontend change complete, run applicable ESLint, TypeScript type-check, unit/component tests and production build commands defined by the actual `package.json`. Do not claim checks passed unless they were executed successfully.
 
+See `docs/development/accessibility.md` for WCAG 2.2 AA review patterns, token contrast evidence and the manual verification checklist. DOM tests do not verify browser layout, screen readers or device rendering.
+
 ## Mandatory Frontend Refactoring Workflow
 
 Before changing frontend architecture:
@@ -852,6 +854,8 @@ Rules:
 ---
 
 # 15. TESTING STANDARDS
+
+Local gateway performance smoke tests are opt-in with Maven's `perf` profile and are excluded from the default build. Follow [performance smoke testing](docs/testing/performance-smoke-tests.md) for the disposable fixture, bounded commands, reference evidence and unresolved API gaps. These developer-machine numbers are not production capacity; no performance CI job is enabled.
 
 ## Backend
 
@@ -972,6 +976,8 @@ Never log passwords, tokens or secrets.
 
 ## GitHub Actions
 
+Current CI is build/test only. Follow [CI artifacts and release verification](docs/development/ci-and-release.md) for check coverage, reproducibility, traceability and owner actions. A release/tag convention remains an explicit owner decision; CI must not publish or deploy without approval.
+
 Expected pipeline:
 
 1. Checkout.
@@ -1033,8 +1039,10 @@ Recommended branches:
 - `main` — stable production branch.
 - `develop` — integration branch.
 - `feature/*` — new features.
-- `bugfix/*` — bug fixes.
+- `fix/*` — bug fixes.
 - `hotfix/*` — urgent production fixes.
+
+Branches must match `<type>/<issue-number>-<short-name>`; the enforced types are `feature`, `fix`, `chore`, `hotfix` and `docs`.
 
 Use Conventional Commits.
 
@@ -1333,3 +1341,7 @@ Before creating new helper code:
 6. Add tests for important utility functions.
 
 Always prioritize maintainability, cohesion and separation of concerns.
+
+## Configuration and secret audit guidance
+
+Use [development configuration](docs/development/configuration.md) for local template copying and loopback-bound Compose ports. Review [production configuration and secret handling](docs/security/production-configuration.md) for environment ownership, deployment assumptions, guards and incident response. Development Compose and the committed development realm export are not production deployment templates.

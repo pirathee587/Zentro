@@ -116,8 +116,7 @@ public class MerchantOrderService {
           writeCreatedEvent(inserted);
           return inserted;
         });
-        log.info("Merchant order created: id={} merchantId={} externalRef={} trackingRef={}",
-            saved.id(), merchantId, saved.externalOrderRef(), saved.trackingRef());
+        log.info("Merchant order created: id={} trackingRef={}", saved.id(), saved.trackingRef());
         return new OrderResult(MerchantOrderResponse.from(saved), true);
       } catch (DuplicateKeyException ex) {
         if (MerchantOrderRepository.isMerchantExternalRefDuplicate(ex)) {

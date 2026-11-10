@@ -1,18 +1,19 @@
 name: zentro-backend
+# DEVELOPMENT ONLY. Published ports default to loopback via BIND_ADDRESS.
 
 # Run from backend/:  docker compose up -d --build
 # Requires the Keycloak stack (infra/keycloak) to be running; its default network is joined below.
 services:
   identity-partner-service:
     build:
-      context: .
-      dockerfile: identity-partner-service/Dockerfile
+      context: ..
+      dockerfile: backend/identity-partner-service/Dockerfile
     container_name: zentro-identity-partner-service
     env_file:
       - path: ./identity-partner-service/.env
         required: true
     ports:
-      - "8081:8081"
+      - "${BIND_ADDRESS:-127.0.0.1}:8081:8081"
     networks: [zentro, keycloak]
     restart: unless-stopped
 
@@ -25,7 +26,7 @@ services:
       - path: ./api-gateway/.env
         required: true
     ports:
-      - "8080:8080"
+      - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       identity-partner-service:
         condition: service_healthy

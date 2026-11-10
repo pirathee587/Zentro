@@ -14,6 +14,7 @@
     <module>dispatch-courier-service</module>
     <module>tracking-reporting-service</module>
     <module>notification-integration-service</module>
+    <module>merchant-order-webhook-e2e</module>
   </modules>
   <properties>
     <java.version>21</java.version>
@@ -22,6 +23,10 @@
     <junit.version>5.10.3</junit.version>
     <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+    <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+    <!-- Stable source-controlled archive epoch; not a release date or tag policy. -->
+    <project.build.outputTimestamp>2026-11-10T07:24:13Z</project.build.outputTimestamp>
+    <build.revision>unknown</build.revision>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -36,6 +41,16 @@
   <build>
     <pluginManagement>
         <plugins>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven-jar-plugin.version}</version>
+                <configuration>
+                    <archive><manifestEntries>
+                        <Build-Revision>${build.revision}</Build-Revision>
+                        <Implementation-Version>${project.version}</Implementation-Version>
+                    </manifestEntries></archive>
+                </configuration>
+            </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>

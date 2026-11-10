@@ -38,10 +38,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               },
               "Location": {
@@ -64,10 +66,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -83,10 +87,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -102,10 +108,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -121,10 +129,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -140,10 +150,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -159,10 +171,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -178,10 +192,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -192,12 +208,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           },
           {
             "name": "Idempotency-Key",
@@ -249,10 +267,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -268,10 +288,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -287,10 +309,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -306,10 +330,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -325,10 +351,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -339,12 +367,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "requestBody": {
@@ -384,10 +414,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -403,10 +435,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -422,10 +456,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -441,10 +477,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -460,10 +498,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -474,12 +514,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "requestBody": {
@@ -519,10 +561,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -538,10 +582,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -557,10 +603,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -576,10 +624,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -595,10 +645,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -614,10 +666,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -633,10 +687,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -652,10 +708,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -677,12 +735,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "requestBody": {
@@ -722,10 +782,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -741,10 +803,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -760,10 +824,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -779,10 +845,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -793,12 +861,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "security": [
@@ -828,10 +898,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -847,10 +919,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -866,10 +940,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -885,10 +961,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -899,12 +977,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "security": [
@@ -932,10 +1012,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -951,10 +1033,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -970,10 +1054,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -989,10 +1075,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1008,10 +1096,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1022,12 +1112,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "requestBody": {
@@ -1067,10 +1159,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               },
               "Location": {
@@ -1093,10 +1187,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1112,10 +1208,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1131,10 +1229,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1150,10 +1250,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1169,10 +1271,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1188,10 +1292,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1207,10 +1313,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1226,10 +1334,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1240,12 +1350,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "requestBody": {
@@ -1283,10 +1395,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1302,10 +1416,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1321,10 +1437,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1340,10 +1458,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1359,10 +1479,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1383,12 +1505,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "security": [
@@ -1418,10 +1542,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1437,10 +1563,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1456,10 +1584,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1475,10 +1605,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1494,10 +1626,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1513,10 +1647,12 @@
             },
             "headers": {
               "X-Correlation-Id": {
-                "description": "Gateway correlation identifier.",
+                "description": "Accepted correlation identifier.",
                 "schema": {
                   "type": "string",
-                  "format": "uuid"
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
                 }
               }
             }
@@ -1538,12 +1674,14 @@
             "name": "X-Correlation-Id",
             "in": "header",
             "required": false,
-            "description": "Optional correlation identifier. The gateway generates a UUID when absent or blank and returns it in the response header.",
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
             },
-            "example": "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+            "example": "request-123"
           }
         ],
         "security": [
@@ -1636,12 +1774,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -1666,12 +1805,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -1693,7 +1833,8 @@
               "weightKg": {
                 "type": "number",
                 "minimum": 0.1,
-                "maximum": 20
+                "maximum": 20,
+                "multipleOf": 0.0001
               },
               "category": {
                 "type": "string",
@@ -1791,12 +1932,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -1821,12 +1963,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -1848,7 +1991,8 @@
               "weightKg": {
                 "type": "number",
                 "minimum": 0.1,
-                "maximum": 20
+                "maximum": 20,
+                "multipleOf": 0.0001
               },
               "category": {
                 "type": "string",
@@ -1899,12 +2043,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -1929,12 +2074,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -1956,7 +2102,8 @@
               "weightKg": {
                 "type": "number",
                 "minimum": 0.1,
-                "maximum": 20
+                "maximum": 20,
+                "multipleOf": 0.0001
               },
               "category": {
                 "type": "string",
@@ -2061,12 +2208,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -2091,12 +2239,13 @@
               },
               "phone": {
                 "type": "string",
-                "pattern": "^[\\s-]*(\\+94|0)([\\s-]*\\d){9}[\\s-]*$"
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
               },
               "address": {
                 "type": "string",
                 "minLength": 8,
-                "maxLength": 255
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
               },
               "city": {
                 "type": [
@@ -2118,7 +2267,8 @@
               "weightKg": {
                 "type": "number",
                 "minimum": 0.1,
-                "maximum": 20
+                "maximum": 20,
+                "multipleOf": 0.0001
               },
               "category": {
                 "type": "string",
@@ -2258,8 +2408,9 @@
               "number",
               "null"
             ],
-            "minimum": 0.01,
-            "maximum": 100
+            "minimum": 0.1,
+            "maximum": 20,
+            "multipleOf": 0.0001
           },
           "parcelCategory": {
             "type": [
@@ -2280,31 +2431,35 @@
               "null"
             ],
             "minimum": 0,
-            "maximum": 2000
+            "maximum": 2000,
+            "multipleOf": 0.0001
           },
           "lengthCm": {
             "type": [
               "number",
               "null"
             ],
-            "exclusiveMinimum": 0,
-            "maximum": 500
+            "minimum": 0.01,
+            "maximum": 500,
+            "multipleOf": 0.0001
           },
           "widthCm": {
             "type": [
               "number",
               "null"
             ],
-            "exclusiveMinimum": 0,
-            "maximum": 500
+            "minimum": 0.01,
+            "maximum": 500,
+            "multipleOf": 0.0001
           },
           "heightCm": {
             "type": [
               "number",
               "null"
             ],
-            "exclusiveMinimum": 0,
-            "maximum": 500
+            "minimum": 0.01,
+            "maximum": 500,
+            "multipleOf": 0.0001
           },
           "originZone": {
             "type": [

@@ -45,19 +45,19 @@ public class TrackingKafkaConsumer {
       @Header(name = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
       @Header(name = "eventId", required = false) String headerEventId) {
 
+    UUID eventId = null;
     try {
       JsonNode envelope = objectMapper.readTree(message);
       if (envelope == null || !envelope.isObject()) {
-        log.warn("Discarding malformed envelope (not an object): {}", message);
+        log.warn("Tracking event discarded: category=invalid_envelope");
         return;
       }
 
       String eventIdStr = envelope.has("eventId") ? envelope.get("eventId").asText() : headerEventId;
-      UUID eventId;
       try {
         eventId = (eventIdStr != null && !eventIdStr.isBlank()) ? UUID.fromString(eventIdStr) : UUID.randomUUID();
       } catch (IllegalArgumentException ex) {
-        log.warn("Discarding event with invalid eventId: {}", eventIdStr);
+        log.warn("Tracking event discarded: category=invalid_event_id");
         return;
       }
 
@@ -74,7 +74,7 @@ public class TrackingKafkaConsumer {
         try {
           parcelId = UUID.fromString(aggregateIdStr);
         } catch (IllegalArgumentException ex) {
-          log.warn("Malformed aggregateId in event {}: {}", eventId, aggregateIdStr);
+          log.warn("Tracking event fallback: category=invalid_aggregate_id eventId={}", eventId);
         }
       }
       Instant occurredAt = Instant.now();
@@ -82,19 +82,19 @@ public class TrackingKafkaConsumer {
         try {
           occurredAt = Instant.parse(envelope.get("occurredAt").asText());
         } catch (Exception ex) {
-          log.warn("Malformed occurredAt in event {}: {}", eventId, envelope.get("occurredAt").asText());
+          log.warn("Tracking event fallback: category=invalid_occurred_at eventId={}", eventId);
         }
       }
 
       JsonNode payload = envelope.get("payload");
       if (payload == null) {
-        log.warn("Discarding malformed envelope without payload: {}", message);
+        log.warn("Tracking event discarded: category=missing_payload eventId={}", eventId);
         return;
       }
 
       String trackingRef = payload.has("trackingRef") ? payload.get("trackingRef").asText() : null;
       if (trackingRef == null || trackingRef.isBlank()) {
-        log.warn("Discarding event without trackingRef: {}", message);
+        log.warn("Tracking event discarded: category=missing_tracking_ref eventId={}", eventId);
         return;
       }
 
@@ -119,10 +119,11 @@ public class TrackingKafkaConsumer {
       );
 
       processedEventRepository.save(new ProcessedEvent(CONSUMER_NAME, eventId));
-      log.info("Successfully processed tracking event {} for {}", eventId, trackingRef);
+      log.info("Tracking event processed: eventId={}", eventId);
 
     } catch (Exception e) {
-      log.error("Failed to process incoming parcel event: {}", message, e);
+      // Payloads and exception chains can contain secrets. Preserve the cause for retry classification only.
+      log.error("Tracking event failed: category=processing_error eventId={}", eventId);
       throw new RuntimeException("Error processing Kafka tracking event", e);
     }
   }

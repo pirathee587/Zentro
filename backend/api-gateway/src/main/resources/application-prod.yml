@@ -1,0 +1,6 @@
+# Explicit opt-in production profile. Metrics exposure is a deployment-owner decision.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

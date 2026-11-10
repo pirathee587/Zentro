@@ -1,0 +1,254 @@
+[
+  {
+    "theme": "light",
+    "pair": "body/bg1",
+    "before": 13.693,
+    "after": 13.693,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "muted/bg1",
+    "before": 4.174,
+    "after": 4.629,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "body/bg2",
+    "before": 14.213,
+    "after": 14.213,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "muted/bg2",
+    "before": 4.333,
+    "after": 4.805,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "body/chip",
+    "before": 16.483,
+    "after": 16.483,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "muted/chip",
+    "before": 5.025,
+    "after": 5.572,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "body/card-over-bg1",
+    "before": 15.385,
+    "after": 15.385,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "muted/card-over-bg1",
+    "before": 4.69,
+    "after": 5.201,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "body/card-over-bg2",
+    "before": 15.586,
+    "after": 15.586,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "muted/card-over-bg2",
+    "before": 4.751,
+    "after": 5.269,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "delivered-chip",
+    "before": 12.947,
+    "after": 12.947,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "accent-chip",
+    "before": 11.502,
+    "after": 11.502,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "failed-chip",
+    "before": 8.213,
+    "after": 8.213,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "panel-body",
+    "before": 12.947,
+    "after": 12.947,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "panel-muted",
+    "before": 2.818,
+    "after": 5.94,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "chat-placeholder",
+    "before": 4.155,
+    "after": 7.149,
+    "threshold": 4.5
+  },
+  {
+    "theme": "light",
+    "pair": "input-boundary/chip",
+    "before": 1.315,
+    "after": 5.572,
+    "threshold": 3
+  },
+  {
+    "theme": "dark",
+    "pair": "body/bg1",
+    "before": 15.176,
+    "after": 15.176,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "muted/bg1",
+    "before": 6.993,
+    "after": 6.993,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "body/bg2",
+    "before": 12.902,
+    "after": 12.902,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "muted/bg2",
+    "before": 5.945,
+    "after": 5.945,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "body/chip",
+    "before": 10.686,
+    "after": 10.686,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "muted/chip",
+    "before": 4.924,
+    "after": 4.924,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "body/card-over-bg1",
+    "before": 12.902,
+    "after": 12.902,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "muted/card-over-bg1",
+    "before": 5.945,
+    "after": 5.945,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "body/card-over-bg2",
+    "before": 12.902,
+    "after": 12.902,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "muted/card-over-bg2",
+    "before": 5.945,
+    "after": 5.945,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "delivered-chip",
+    "before": 13.329,
+    "after": 13.329,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "accent-chip",
+    "before": 8.623,
+    "after": 8.623,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "failed-chip",
+    "before": 8.213,
+    "after": 8.213,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "panel-body",
+    "before": 1.141,
+    "after": 16.393,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "panel-muted",
+    "before": 7.521,
+    "after": 7.521,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "chat-placeholder",
+    "before": 4.155,
+    "after": 7.149,
+    "threshold": 4.5
+  },
+  {
+    "theme": "dark",
+    "pair": "input-boundary/chip",
+    "before": 1.509,
+    "after": 4.924,
+    "threshold": 3
+  },
+  {
+    "theme": "shared",
+    "pair": "focus-indicator/light-surface",
+    "before": 1.77,
+    "after": 17.463,
+    "threshold": 3
+  },
+  {
+    "theme": "shared",
+    "pair": "focus-indicator/dark-surface",
+    "before": 9.556,
+    "after": 17.928,
+    "threshold": 3
+  }
+]

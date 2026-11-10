@@ -7,6 +7,7 @@ import com.zentro.identitypartner.courier.dto.CourierGrpcResponse;
 import com.zentro.identitypartner.courier.dto.UpdateCourierProfileRequest;
 import com.zentro.identitypartner.user.dto.UserProfile;
 import com.zentro.identitypartner.user.service.UserProfileService;
+import com.zentro.identitypartner.user.validation.UserInputRules;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -134,9 +135,10 @@ public class CourierProfileService {
 
     List<Object> params = new ArrayList<>();
 
-    if (status != null && !status.isBlank()) {
+    String statusFilter = UserInputRules.statusFilter(status);
+    if (statusFilter != null) {
       sql.append(" AND u.account_status = ?");
-      params.add(status.trim().toUpperCase());
+      params.add(statusFilter);
     }
     if (active != null) {
       if (active) {

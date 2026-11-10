@@ -2,11 +2,13 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
 import './dispatcher.css';
+import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 
 export function DispatcherLayout() {
   const { logout, user } = useAuth();
 
   return <div className="dispatcher-portal">
+    <RouteAccessibility portal="Dispatcher overview" />
     <header className="dispatcher-header">
       <Link className="staff-brand" to="/dispatcher" aria-label="Zentro dispatch home">
         <span className="staff-brand-mark">z</span><span>zentro <small>dispatch</small></span>
