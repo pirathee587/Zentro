@@ -143,7 +143,7 @@ class TrackingKafkaConsumerTest {
     String message = """
         {"eventId": "%s", "eventType": "parcel.status.updated", "aggregateId": "%s",
          "occurredAt": "2026-11-04T12:00:00Z",
-         "payload": {"trackingRef": "ZT-7K3QX9M2PA", "status": "DELIVERED"}}
+         "payload": {"trackingRef": "ZT-7K3QX9M2PA", "previousStatus": "OUT_FOR_DELIVERY", "status": "DELIVERED", "actorRole": "DISPATCHER"}}
         """.formatted(eventId, UUID.randomUUID());
     when(processedEventRepository.existsByConsumerNameAndEventId("tracking-reporting-service", eventId))
         .thenReturn(false);
@@ -187,41 +187,191 @@ class TrackingKafkaConsumerTest {
   }
 
   @Test
-  @DisplayName("Handles malformed aggregateId and occurredAt gracefully without throwing")
-  void handlesMalformedAggregateIdAndOccurredAtGracefully() {
+  @DisplayName("Discards event when aggregateId or occurredAt is malformed")
+  void discardsMalformedAggregateIdAndOccurredAt() {
+    UUID eventId = UUID.randomUUID();
+    String messageBadAggregate = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "invalid-uuid",
+          "occurredAt": "2026-11-04T12:00:00Z",
+          "payload": {
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "DELIVERED",
+            "actorRole": "DISPATCHER"
+          }
+        }
+        """.formatted(eventId);
+
+    consumer.onParcelEvent(messageBadAggregate, "parcel.status.updated", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+
+    String messageBadDate = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "%s",
+          "occurredAt": "invalid-date",
+          "payload": {
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "DELIVERED",
+            "actorRole": "DISPATCHER"
+          }
+        }
+        """.formatted(eventId, UUID.randomUUID());
+
+    consumer.onParcelEvent(messageBadDate, "parcel.status.updated", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Discards event when envelope eventId conflicts with header eventId")
+  void discardsConflictingEventId() {
+    UUID envelopeId = UUID.randomUUID();
+    UUID headerId = UUID.randomUUID();
+    String message = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "%s",
+          "occurredAt": "2026-11-04T12:00:00Z",
+          "payload": {
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "DELIVERED",
+            "actorRole": "DISPATCHER"
+          }
+        }
+        """.formatted(envelopeId, UUID.randomUUID());
+
+    consumer.onParcelEvent(message, "parcel.status.updated", headerId.toString());
+
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Discards event when schemaVersion is unsupported")
+  void discardsUnsupportedSchemaVersion() {
     UUID eventId = UUID.randomUUID();
     String message = """
         {
           "eventId": "%s",
           "eventType": "parcel.status.updated",
-          "aggregateId": "invalid-uuid",
-          "occurredAt": "invalid-date",
+          "aggregateId": "%s",
+          "occurredAt": "2026-11-04T12:00:00Z",
           "payload": {
-            "trackingRef": "ZT-GRACEFUL01",
-            "status": "DELIVERED"
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "DELIVERED",
+            "actorRole": "DISPATCHER"
           }
         }
-        """.formatted(eventId);
+        """.formatted(eventId, UUID.randomUUID());
 
-    when(processedEventRepository.existsByConsumerNameAndEventId("tracking-reporting-service", eventId))
-        .thenReturn(false);
+    consumer.onParcelEvent(message, "parcel.status.updated", eventId.toString(), "2");
 
-    consumer.onParcelEvent(message, "parcel.status.updated", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
 
-    verify(trackingService).recordEvent(
-        eq("ZT-GRACEFUL01"),
-        eq(null),
-        eq(TrackingStatus.DELIVERED),
-        eq(null),
-        eq("SYSTEM"),
-        eq("Delivered"),
-        eq("Parcel successfully delivered to recipient"),
-        eq(null),
-        eq(null),
-        any(),
-        eq(eventId)
-    );
-    verify(processedEventRepository).save(any(ProcessedEvent.class));
+  @Test
+  @DisplayName("Discards event when trackingRef format does not match Crockford base32 regex")
+  void discardsInvalidTrackingRefFormat() {
+    UUID eventId = UUID.randomUUID();
+    String message = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "%s",
+          "occurredAt": "2026-11-04T12:00:00Z",
+          "payload": {
+            "trackingRef": "INVALID-REF-123",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "DELIVERED",
+            "actorRole": "DISPATCHER"
+          }
+        }
+        """.formatted(eventId, UUID.randomUUID());
+
+    consumer.onParcelEvent(message, "parcel.status.updated", eventId.toString(), "1");
+
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Discards event when status is unrecognized")
+  void discardsInvalidStatus() {
+    UUID eventId = UUID.randomUUID();
+    String message = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "%s",
+          "occurredAt": "2026-11-04T12:00:00Z",
+          "payload": {
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "FLYING",
+            "actorRole": "DISPATCHER"
+          }
+        }
+        """.formatted(eventId, UUID.randomUUID());
+
+    consumer.onParcelEvent(message, "parcel.status.updated", eventId.toString(), "1");
+
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("Discards FAILED event missing failureReason, and DELIVERED event with unexpected failureReason")
+  void failureReasonValidation() {
+    UUID eventId1 = UUID.randomUUID();
+    String messageFailedMissing = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "%s",
+          "occurredAt": "2026-11-04T12:00:00Z",
+          "payload": {
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "FAILED",
+            "actorRole": "DISPATCHER"
+          }
+        }
+        """.formatted(eventId1, UUID.randomUUID());
+
+    consumer.onParcelEvent(messageFailedMissing, "parcel.status.updated", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+    UUID eventId2 = UUID.randomUUID();
+    String messageDeliveredWithReason = """
+        {
+          "eventId": "%s",
+          "eventType": "parcel.status.updated",
+          "aggregateId": "%s",
+          "occurredAt": "2026-11-04T12:00:00Z",
+          "payload": {
+            "trackingRef": "ZT-7K3QX9M2PA",
+            "previousStatus": "OUT_FOR_DELIVERY",
+            "status": "DELIVERED",
+            "actorRole": "DISPATCHER",
+            "failureReason": "should not be here"
+          }
+        }
+        """.formatted(eventId2, UUID.randomUUID());
+
+    consumer.onParcelEvent(messageDeliveredWithReason, "parcel.status.updated", null);
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    verify(processedEventRepository, never()).save(any());
   }
 }
 

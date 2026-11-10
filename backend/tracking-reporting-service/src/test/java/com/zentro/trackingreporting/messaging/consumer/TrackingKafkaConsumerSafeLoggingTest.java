@@ -41,9 +41,9 @@ class TrackingKafkaConsumerSafeLoggingTest {
         Arguments.of("\"" + SECRET + "\"", null, "invalid_envelope"),
         Arguments.of("{\"eventId\":\"" + SECRET + "\"}", null, "invalid_event_id"),
         Arguments.of("{}", SECRET, "invalid_event_id"),
-        Arguments.of("{\"eventId\":\"" + EVENT_ID + "\",\"secret\":\"" + SECRET + "\"}",
+        Arguments.of("{\"eventId\":\"" + EVENT_ID + "\",\"eventType\":\"parcel.created\",\"aggregateId\":\"" + UUID.randomUUID() + "\",\"occurredAt\":\"2026-11-04T12:00:00Z\",\"secret\":\"" + SECRET + "\"}",
             null, "missing_payload"),
-        Arguments.of("{\"eventId\":\"" + EVENT_ID + "\",\"payload\":{\"secret\":\"" + SECRET + "\"}}",
+        Arguments.of("{\"eventId\":\"" + EVENT_ID + "\",\"eventType\":\"parcel.created\",\"aggregateId\":\"" + UUID.randomUUID() + "\",\"occurredAt\":\"2026-11-04T12:00:00Z\",\"payload\":{\"secret\":\"" + SECRET + "\"}}",
             null, "missing_tracking_ref"));
   }
 
@@ -69,17 +69,29 @@ class TrackingKafkaConsumerSafeLoggingTest {
 
   @Test
   void fallbackAndSuccessLogsExcludeUnvalidatedValues(CapturedOutput output) {
-    String message = """
-        {"eventId":"%s", "aggregateId":"%s", "occurredAt":"%s",
+    String malformed = """
+        {"eventId":"%s", "eventType":"parcel.status.updated", "aggregateId":"%s", "occurredAt":"%s",
          "payload":{"trackingRef":"%s", "status":"DELIVERED"}}
         """.formatted(EVENT_ID, SECRET, SECRET, SECRET);
 
-    consumer.onParcelEvent(message, "parcel.status.updated", null);
+    consumer.onParcelEvent(malformed, "parcel.status.updated", null);
 
-    assertThat(output.getAll()).contains("category=invalid_aggregate_id", "category=invalid_occurred_at",
-        "Tracking event processed: eventId=" + EVENT_ID).doesNotContain(SECRET);
+    assertThat(output.getAll()).contains("category=invalid_aggregate_id").doesNotContain(SECRET);
+    verify(repository, never()).save(any());
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+    UUID parcelId = UUID.randomUUID();
+    String validWithSecret = """
+        {"eventId":"%s", "eventType":"parcel.status.updated", "aggregateId":"%s",
+         "occurredAt":"2026-11-04T12:00:00Z",
+         "payload":{"trackingRef":"ZT-7K3QX9M2PA", "previousStatus":"OUT_FOR_DELIVERY", "status":"DELIVERED", "actorRole":"DISPATCHER", "unvalidatedField":"%s"}}
+        """.formatted(EVENT_ID, parcelId, SECRET);
+
+    consumer.onParcelEvent(validWithSecret, "parcel.status.updated", null);
+
+    assertThat(output.getAll()).contains("Tracking event processed: eventId=" + EVENT_ID).doesNotContain(SECRET);
     verify(repository).save(any());
-    verify(trackingService).recordEvent(org.mockito.ArgumentMatchers.eq(SECRET), org.mockito.ArgumentMatchers.isNull(),
+    verify(trackingService).recordEvent(org.mockito.ArgumentMatchers.eq("ZT-7K3QX9M2PA"), org.mockito.ArgumentMatchers.eq(parcelId),
         any(), any(), any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.eq(EVENT_ID));
   }
 
@@ -90,8 +102,10 @@ class TrackingKafkaConsumerSafeLoggingTest {
     when(trackingService.recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(failure);
     String message = """
-        {"eventId":"%s", "payload":{"trackingRef":"%s", "status":"DELIVERED"}}
-        """.formatted(EVENT_ID, SECRET);
+        {"eventId":"%s", "eventType":"parcel.status.updated", "aggregateId":"%s",
+         "occurredAt":"2026-11-04T12:00:00Z",
+         "payload":{"trackingRef":"ZT-7K3QX9M2PA", "previousStatus":"OUT_FOR_DELIVERY", "status":"DELIVERED", "actorRole":"DISPATCHER"}}
+        """.formatted(EVENT_ID, UUID.randomUUID());
 
     assertThatThrownBy(() -> consumer.onParcelEvent(message, "parcel.status.updated", null))
         .isInstanceOf(RuntimeException.class).hasCause(failure);
