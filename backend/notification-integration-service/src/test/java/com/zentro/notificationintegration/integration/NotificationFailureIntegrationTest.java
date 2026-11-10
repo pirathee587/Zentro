@@ -35,7 +35,7 @@ class NotificationFailureIntegrationTest extends AbstractNotificationIntegration
 
     Map<String, Object> row = awaitRow(eventId, "FAILED");
     assertThat(row.get("attempts")).isEqualTo(3);
-    assertThat((String) row.get("last_error")).startsWith("NotificationSendException");
+    assertThat((String) row.get("last_error")).isEqualTo("Provider delivery failed");
     assertThat(row.get("next_attempt_at")).isNull();
 
     assertThat(health.health().getStatus()).isEqualTo(Status.DOWN);

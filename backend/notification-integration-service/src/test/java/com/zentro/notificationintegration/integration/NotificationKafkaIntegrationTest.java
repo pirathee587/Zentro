@@ -16,6 +16,37 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /** Consumer enabled, mock sender working: success, duplicates, skipped statuses, malformed messages, security. */
 class NotificationKafkaIntegrationTest extends AbstractNotificationIntegrationTest {
+  @Autowired com.zentro.notificationintegration.notification.service.NotificationService service;
+  @Autowired com.zentro.notificationintegration.messaging.event.ParcelEventParser parser;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
+
+  @Test
+  void concurrentClaimsAndFailureAfterEffectCommitOnlyOneLogicalDelivery() throws Exception {
+    UUID eventId = UUID.randomUUID();
+    var event = parser.parse(CREATED_TOPIC, createdEvent(eventId, UUID.randomUUID(), newTrackingRef()));
+    org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(tx -> {
+          service.handle(event);
+          throw new IllegalStateException("synthetic failure after effect");
+        })).isInstanceOf(IllegalStateException.class);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM notification.processed_event WHERE event_id = ?", Long.class, eventId)).isZero();
+    assertThat(rowsFor(eventId)).isEmpty();
+    try (var executor = java.util.concurrent.Executors.newFixedThreadPool(6)) {
+      var tasks = new java.util.ArrayList<java.util.concurrent.Callable<Void>>();
+      for (int i = 0; i < 12; i++) tasks.add(() -> { service.handle(event); return null; });
+      for (var result : executor.invokeAll(tasks)) result.get(30, java.util.concurrent.TimeUnit.SECONDS);
+    }
+    awaitRow(eventId, "SENT");
+    assertThat(rowsFor(eventId)).hasSize(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM notification.delivery_attempt_history WHERE event_id = ?", Long.class, eventId)).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+        "UPDATE notification.delivery_attempt_history SET outcome = 'FAILED' WHERE event_id = ?", eventId))
+        .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+        "DELETE FROM notification.delivery_attempt_history WHERE event_id = ?", eventId))
+        .isInstanceOf(org.springframework.dao.DataAccessException.class);
+  }
+
   @Autowired MockMvc mvc;
   @Autowired MeterRegistry registry;
 
