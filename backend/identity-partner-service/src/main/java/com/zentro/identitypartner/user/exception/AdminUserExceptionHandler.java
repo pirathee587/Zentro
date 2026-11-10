@@ -1,5 +1,10 @@
 package com.zentro.identitypartner.user.exception;
 
+import com.zentro.identitypartner.courier.controller.AdminCourierController;
+import com.zentro.identitypartner.courier.controller.CourierSelfProfileController;
+import com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationController;
+import com.zentro.identitypartner.merchant.controller.MerchantApiKeyController;
+import com.zentro.identitypartner.merchant.controller.MerchantApplicationController;
 import com.zentro.identitypartner.user.controller.AdminUserController;
 import com.zentro.identitypartner.user.controller.UserProfileController;
 import java.util.LinkedHashMap;
@@ -20,11 +25,20 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Errors of the user-management APIs as {@code application/problem+json} with a {@code code} and, for validation
- * errors, {@code fieldErrors} keyed by request field. Messages name the rule only: never submitted names or phone
- * numbers, user ids, Keycloak subjects, SQL or stack traces. 401 and 403 keep coming from the security starter.
+ * Standard RFC 7807 problem details error responses for Identity Partner Service APIs.
+ * Includes error {@code code} and, for validation errors, {@code fieldErrors} keyed by request field.
+ * Messages name the rule only: never submitted names or phone numbers, user ids, Keycloak subjects,
+ * SQL or stack traces. 401 and 403 keep coming from the security starter.
  */
-@RestControllerAdvice(assignableTypes = {AdminUserController.class, UserProfileController.class})
+@RestControllerAdvice(assignableTypes = {
+    AdminUserController.class,
+    UserProfileController.class,
+    MerchantApplicationController.class,
+    AdminMerchantApplicationController.class,
+    MerchantApiKeyController.class,
+    AdminCourierController.class,
+    CourierSelfProfileController.class
+})
 public class AdminUserExceptionHandler {
   private static final Logger log = LoggerFactory.getLogger(AdminUserExceptionHandler.class);
 
@@ -56,6 +70,12 @@ public class AdminUserExceptionHandler {
     if ("userId".equals(ex.getName())) {
       return problem(HttpStatus.BAD_REQUEST, "INVALID_USER_ID", "The user id must be a UUID.");
     }
+    if ("applicationId".equals(ex.getName())) {
+      return problem(HttpStatus.BAD_REQUEST, "INVALID_APPLICATION_ID", "The application id must be a UUID.");
+    }
+    if ("courierId".equals(ex.getName())) {
+      return problem(HttpStatus.BAD_REQUEST, "INVALID_COURIER_ID", "The courier id must be a UUID.");
+    }
     return problem(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "A request parameter has an invalid value.");
   }
 
@@ -69,21 +89,37 @@ public class AdminUserExceptionHandler {
     return problem(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", UserNotFoundException.MESSAGE);
   }
 
-  /** Other status exceptions thrown by the user services; their reasons are fixed rule texts. */
+  /** Other status exceptions thrown by the services; their reasons are fixed rule texts. */
   @ExceptionHandler(ResponseStatusException.class)
   ResponseEntity<ProblemDetail> status(ResponseStatusException ex) {
     HttpStatusCode code = ex.getStatusCode();
-    if (code.value() == HttpStatus.NOT_FOUND.value()) {
+    if (ex instanceof UserNotFoundException) {
       return problem(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", UserNotFoundException.MESSAGE);
     }
+    if (code.value() == HttpStatus.NOT_FOUND.value()) {
+      String reason = ex.getReason();
+      if (reason == null || "User not found".equalsIgnoreCase(reason.trim()) || "User does not exist".equalsIgnoreCase(reason.trim())) {
+        return problem(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", UserNotFoundException.MESSAGE);
+      }
+      return problem(HttpStatus.NOT_FOUND, "NOT_FOUND", reason);
+    }
     String detail = ex.getReason() == null ? "The request could not be completed." : ex.getReason();
-    String errorCode = code.is4xxClientError() ? "REQUEST_REJECTED" : "USERS_UNAVAILABLE";
+    String errorCode;
+    if (code.value() == HttpStatus.BAD_REQUEST.value()) {
+      errorCode = "VALIDATION_FAILED";
+    } else if (code.value() == HttpStatus.CONFLICT.value()) {
+      errorCode = "CONFLICT";
+    } else if (code.is4xxClientError()) {
+      errorCode = "REQUEST_REJECTED";
+    } else {
+      errorCode = "SERVICE_UNAVAILABLE";
+    }
     return problem(code, errorCode, detail);
   }
 
   @ExceptionHandler(DataAccessException.class)
   ResponseEntity<ProblemDetail> database(DataAccessException ex) {
-    log.warn("User management request failed on the database: {}", ex.getClass().getSimpleName());
+    log.warn("Database request failed on the database: {}", ex.getClass().getSimpleName());
     return problem(HttpStatus.SERVICE_UNAVAILABLE, "USERS_UNAVAILABLE",
         "User data is temporarily unavailable. Please try again.");
   }
