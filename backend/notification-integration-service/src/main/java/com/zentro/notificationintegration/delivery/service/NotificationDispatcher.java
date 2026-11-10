@@ -59,7 +59,7 @@ public class NotificationDispatcher {
         metrics.sent();
       } catch (Exception ex) {
         work.failed();
-        String error = ex.getClass().getSimpleName() + (ex.getMessage() == null ? "" : ": " + ex.getMessage());
+        String error = "Provider delivery failed";
         if (attempt >= retry.maxAttempts()) {
           repository.markFailed(row.id(), attempt, error);
           metrics.failed();
