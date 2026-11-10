@@ -1,0 +1,6 @@
+name: Synthetic pin-policy fixture
+on: pull_request
+jobs:
+  test:
+    steps:
+      - uses: actions/checkout@v4

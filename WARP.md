@@ -976,6 +976,8 @@ Never log passwords, tokens or secrets.
 
 ## GitHub Actions
 
+Current CI is build/test only. Follow [CI artifacts and release verification](docs/development/ci-and-release.md) for check coverage, reproducibility, traceability and owner actions. A release/tag convention remains an explicit owner decision; CI must not publish or deploy without approval.
+
 Expected pipeline:
 
 1. Checkout.
@@ -1037,8 +1039,10 @@ Recommended branches:
 - `main` — stable production branch.
 - `develop` — integration branch.
 - `feature/*` — new features.
-- `bugfix/*` — bug fixes.
+- `fix/*` — bug fixes.
 - `hotfix/*` — urgent production fixes.
+
+Branches must match `<type>/<issue-number>-<short-name>`; the enforced types are `feature`, `fix`, `chore`, `hotfix` and `docs`.
 
 Use Conventional Commits.
 

@@ -1,0 +1,2 @@
+sourceSHA=50715b5a46f2c5971b6fd60cbf9484dac0ad4642
+command=mvn --batch-mode --no-transfer-progress -DskipTests -Dbuild.revision=SOURCE_SHA clean package

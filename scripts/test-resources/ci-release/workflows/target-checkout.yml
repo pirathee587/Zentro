@@ -1,0 +1,7 @@
+name: Synthetic rejection fixture
+on:
+  pull_request_target:
+jobs:
+  test:
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
