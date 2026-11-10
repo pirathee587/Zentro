@@ -156,8 +156,13 @@ public class TrackingService {
       paged = Page.empty(pageable);
     }
 
+    // Fetch histories for this bounded page together, retaining each history's existing time order.
+    java.util.Map<String, List<TrackingEvent>> histories = paged.isEmpty() ? java.util.Map.of()
+        : eventRepository.findByTrackingRefInOrderByOccurredAtAsc(
+            paged.getContent().stream().map(TrackingParcel::getTrackingRef).toList()).stream()
+            .collect(java.util.stream.Collectors.groupingBy(TrackingEvent::getTrackingRef));
     List<CustomerDeliveryResponse> list = paged.getContent().stream().map(parcel -> {
-      List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(parcel.getTrackingRef());
+      List<TrackingEvent> events = histories.getOrDefault(parcel.getTrackingRef(), List.of());
       List<TrackingMilestoneDto> timeline = buildTimeline(parcel, events);
       return toCustomerResponse(parcel, timeline);
     }).toList();
