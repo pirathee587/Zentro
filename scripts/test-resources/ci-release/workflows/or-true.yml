@@ -1,0 +1,7 @@
+name: Synthetic rejection fixture
+on: pull_request
+jobs:
+  test:
+    steps:
+      - run: |
+          false || true
