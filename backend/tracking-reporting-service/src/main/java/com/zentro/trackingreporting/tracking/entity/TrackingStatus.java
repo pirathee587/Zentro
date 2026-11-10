@@ -32,16 +32,13 @@ public enum TrackingStatus {
 
   public static TrackingStatus fromString(String value) {
     if (value == null || value.isBlank()) {
-      return CREATED;
+      return null;
     }
     String normalized = value.trim().toUpperCase().replace("-", "_").replace(" ", "_");
     try {
       return TrackingStatus.valueOf(normalized);
     } catch (IllegalArgumentException e) {
-      if (normalized.contains("DELIVER")) return DELIVERED;
-      if (normalized.contains("FAIL") || normalized.contains("CANCEL")) return FAILED;
-      if (normalized.contains("TRANSIT") || normalized.contains("PICK")) return IN_TRANSIT;
-      return CREATED;
+      return null;
     }
   }
 }

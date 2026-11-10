@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -130,15 +131,23 @@ public class TrackingService {
 
     if (hasStatus && hasQuery) {
       TrackingStatus status = TrackingStatus.fromString(statusFilter);
-      paged = parcelRepository.searchByCustomerAndStatus(customerSubject, status, query.trim(), pageable);
-      if (paged == null) {
-        paged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+      if (status == null) {
+        paged = new PageImpl<>(List.of(), pageable, 0);
+      } else {
+        paged = parcelRepository.searchByCustomerAndStatus(customerSubject, status, query.trim(), pageable);
+        if (paged == null) {
+          paged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+        }
       }
     } else if (hasStatus) {
       TrackingStatus status = TrackingStatus.fromString(statusFilter);
-      paged = parcelRepository.findByCustomerSubjectAndStatus(customerSubject, status, pageable);
-      if (paged == null) {
-        paged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+      if (status == null) {
+        paged = new PageImpl<>(List.of(), pageable, 0);
+      } else {
+        paged = parcelRepository.findByCustomerSubjectAndStatus(customerSubject, status, pageable);
+        if (paged == null) {
+          paged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+        }
       }
     } else if (hasQuery) {
       paged = parcelRepository.searchByCustomer(customerSubject, query.trim(), pageable);
