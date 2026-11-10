@@ -313,6 +313,22 @@ class WebhookDeliveryIntegrationTest {
     assertThat(history).extracting(r -> r.get("terminal")).containsExactly(false, true);
   }
 
+  @Test void allEightFailedWebhookAttemptsRemainInHistoryAtExhaustion() throws Exception {
+    String[] merchant = newMerchant(500, 500, 500, 500, 500, 500, 500, 500);
+    UUID event = UUID.randomUUID(), parcel = UUID.randomUUID();
+    send(STATUS_TOPIC, parcel, statusEvent(event, parcel, "PICKED_UP", merchant[0]));
+    assertThat(awaitDelivery(event, "FAILED")).containsEntry("attempts", 8);
+    var history = jdbc.queryForList("SELECT attempt_number, http_status, terminal, next_retry_at FROM notification.delivery_attempt_history WHERE event_id = ? ORDER BY attempt_number", event);
+    assertThat(history).hasSize(8);
+    for (int i = 0; i < 8; i++) {
+      assertThat(history.get(i)).containsEntry("attempt_number", i + 1).containsEntry("http_status", 500)
+          .containsEntry("terminal", i == 7);
+      if (i == 7) assertThat(history.get(i).get("next_retry_at")).isNull();
+      else assertThat(history.get(i).get("next_retry_at")).isNotNull();
+    }
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM notification.webhook_delivery WHERE event_id = ?", Long.class, event)).isEqualTo(1);
+  }
+
   @Test
   @DisplayName("400: FAILED at once with the response code; no further attempts")
   void clientErrorFailsPermanently() throws Exception {
