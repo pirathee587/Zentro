@@ -32,8 +32,8 @@ Verified by the ZD-062 audit (#137, [report](../test-reports/zd-062-outbox-atomi
 | `parcel.status.updated` | `parcel.status.updated` | An accepted status change (`PATCH /api/v1/parcels/{parcelId}/status`, `changed: true`). Not for repeats or rejected changes. |
 
 **Not published by S2:**
-- `delivery.assigned` belongs to S3 dispatch.
-- `delivery.failed` is not published separately. A failed delivery is a `parcel.status.updated` event with `payload.status = FAILED` and a `failureReason`. Consumers filter on that.
+- `delivery.assigned` belongs to S3 dispatch. `contracts/events/delivery-assigned.schema.json` defines a generic envelope stub; no service currently produces or consumes this topic.
+- `delivery.failed` is not published separately. `contracts/events/delivery-failed.schema.json` defines a generic envelope stub; a failed delivery in runtime is represented by a `parcel.status.updated` event with `payload.status = FAILED` and a `failureReason`. Consumers filter on that.
 - `.DLT` topics are not used. Events that cannot be sent stay in the outbox as dead rows that can be replayed (see "Failures").
 
 **Topic creation:** when the publisher is enabled, S2 creates missing topics with `OUTBOX_TOPIC_PARTITIONS` (default 3) and `OUTBOX_TOPIC_REPLICAS` (default 1). This is for local runs. Production partitions, replication and retention belong to the deployment owner, and S2 never changes existing topics.
@@ -85,6 +85,31 @@ Verified by the ZD-062 audit (#137, [report](../test-reports/zd-062-outbox-atomi
 | `merchantId` | string | Optional (#32). Present only when `source` is `MERCHANT_ORDER`: the merchant account id. |
 
 **Personal data:** payloads never contain names, phone numbers, addresses, notes, customer ids or the id of the user who made a change. The only account identifier is the optional `merchantId` of merchant parcels, which S5 needs to find the merchant's webhook endpoint (#32). The change is additive: existing consumers ignore the field. Consumers that need contact details must ask S2 through an authorised API. The producer contract test (`ParcelEventContractTest`) enforces this together with the schemas.
+
+## Schema versioning and contract compatibility (#138)
+
+Kafka event schemas follow Draft 2020-12 specifications under `contracts/events/` (`event-envelope.schema.json`, `parcel-created.schema.json`, `parcel-status-updated.schema.json`).
+
+### Schema versioning rules
+- **Header location:** The schema version is conveyed exclusively in the Kafka record header `schemaVersion`. It is **not** included in the envelope body, preserving strict schema validation (`additionalProperties: false`).
+- **Supported version:** Version `"1"` is the currently supported schema version across S2, S4, and S5.
+- **Legacy messages:** If the `schemaVersion` header is absent (e.g. legacy records or direct integration tests), consumers default to version `"1"` for backward compatibility.
+- **Unsupported versions:** If a record carries an unsupported version (such as `"2"`, `"0"`, or `"abc"`), consumers reject it:
+  - **S4 (Tracking):** Discards the record as non-retryable with structured log `category=unsupported_schema_version`.
+  - **S5 (Notifications & Webhooks):** Rejects the record with `MalformedEventException("unsupported schemaVersion")`, writes it to `notification.rejected_event`, and acknowledges the offset.
+
+### Event identity and timestamps
+- **Event ID:** Must be a valid UUID string in the envelope root `eventId`. If header `eventId` is present, it must match the envelope `eventId`. Conflicting IDs cause consumer rejection (`category=conflicting_event_id` in S4, `conflicting eventId` in S5). Consumers never generate fallback UUIDs.
+- **Timestamp:** Envelope `occurredAt` must be an RFC-3339 UTC timestamp string. Missing or malformed timestamps are rejected (`category=missing_occurred_at` / `category=invalid_occurred_at` in S4, `invalid occurredAt` in S5); fallback to `Instant.now()` is prohibited.
+
+### Required payload fields and conditional rules
+- **`parcel.created`:** Requires `trackingRef` (`^ZT-[0-9A-HJKMNP-TV-Z]{10}$`), `status` (`CREATED`), `source` (`CUSTOMER_BOOKING` or `MERCHANT_ORDER`), and `occurredAt`. Optional `merchantId` (1-255 characters).
+- **`parcel.status.updated`:** Requires `trackingRef` (`^ZT-[0-9A-HJKMNP-TV-Z]{10}$`), `previousStatus`, `status` (`CREATED`, `PICKED_UP`, `IN_TRANSIT`, `OUT_FOR_DELIVERY`, `DELIVERED`, `FAILED`), `actorRole` (`^[A-Z][A-Z_]*$`), and `occurredAt`. Optional `merchantId`.
+- **Conditional `failureReason`:** Required (1-200 characters) if and only if `status == FAILED`. Prohibited on any non-FAILED status.
+
+### Forward and backward compatibility
+- **Additive changes:** Consumers ignore additional unmapped properties in the payload safely (forward compatibility).
+- **Delivery lifecycle events:** `contracts/events/delivery-assigned.schema.json` and `delivery-failed.schema.json` are schema stubs for future S3 integration. S3 does not currently emit Kafka events; live deliveries use REST/internal services, and failed deliveries use `parcel.status.updated` with `status = FAILED`.
 
 ## Delivery guarantees
 
