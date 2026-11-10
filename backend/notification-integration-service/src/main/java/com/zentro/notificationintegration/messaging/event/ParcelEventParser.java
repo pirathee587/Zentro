@@ -52,7 +52,8 @@ public class ParcelEventParser {
     if (message.length() > 65536) throw new MalformedEventException("message too large");
     JsonNode envelope;
     try {
-      envelope = objectMapper.readTree(message);
+      envelope = objectMapper.reader().with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+          .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION).readTree(message);
     } catch (JsonProcessingException ex) {
       throw new MalformedEventException("not valid JSON");
     }

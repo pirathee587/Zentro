@@ -62,14 +62,16 @@ public class TrackingKafkaConsumer {
     if (processed.claim("tracking-reporting-service", event.id()) == 0) return;
     projections.lock(event.parcel());
     tracking.recordEvent(event.ref(), event.parcel(), event.status(), event.previous(), event.actor(),
-        event.status().defaultTitle(), event.status().defaultDescription(), event.reason(), null, event.time(), event.id());
+        event.status().defaultTitle(), event.reason() != null ? event.reason() : event.status().defaultDescription(),
+        event.reason(), null, event.time(), event.id());
     processed.flush(); // history must be visible to the JDBC projection update in this same transaction
     projections.refresh(event.parcel());
   }
 
   private Event parse(String message, String topic) throws JsonProcessingException {
     if (message == null || message.length() > 65536) throw new IllegalArgumentException();
-    JsonNode e = mapper.readTree(message);
+    JsonNode e = mapper.reader().with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+        .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION).readTree(message);
     if (e == null || !e.isObject() || e.has("schemaVersion")) throw new IllegalArgumentException();
     allowed(e, java.util.Set.of("eventId", "eventType", "aggregateId", "occurredAt", "payload"));
     String type = text(e, "eventType", 100);
