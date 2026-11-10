@@ -27,6 +27,16 @@ class ParcelEventParserTest {
         .isInstanceOf(MalformedEventException.class).hasMessage("message too large");
   }
 
+  @Test void fieldsOutsideApprovedSchemaAndMissingRequiredFieldsAreRejected() {
+    for (String field : new String[]{"source", "occurredAt"}) {
+      var event = createdEvent(); payload(event).remove(field);
+      assertThatThrownBy(() -> parser.parse("parcel.created", event.toString())).isInstanceOf(MalformedEventException.class);
+    }
+    var event = createdEvent(); payload(event).put("syntheticPrivateField", "must-not-store");
+    assertThatThrownBy(() -> parser.parse("parcel.created", event.toString()))
+        .isInstanceOf(MalformedEventException.class).hasMessage("unexpected event field");
+  }
+
   static ObjectNode statusEvent(String status, String failureReason) {
     ObjectNode envelope = MAPPER.createObjectNode()
         .put("eventId", EVENT_ID)

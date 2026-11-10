@@ -30,5 +30,15 @@ class AttemptHistoryMigrationIntegrationTest {
         .containsEntry("attempt_number", 1).containsEntry("policy_attempt_number", 6).containsEntry("outcome", "SENT");
     assertThat(jdbc.queryForObject("SELECT message FROM notification.notification_attempt WHERE id = ?", String.class, id))
         .isEqualTo("Synthetic legacy summary");
+    jdbc.execute("""
+        INSERT INTO notification.delivery_attempt_history
+          (delivery_kind, delivery_id, event_id, attempt_number, policy_attempt_number, outcome, response_class, started_at, finished_at, terminal)
+        SELECT 'NOTIFICATION', gen_random_uuid(), gen_random_uuid(), 1, 1, 'SENT', 'SUCCESS', now(), now(), true
+        FROM generate_series(1, 10000)
+        """);
+    jdbc.execute("ANALYZE notification.delivery_attempt_history");
+    var plan = jdbc.queryForList("EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM notification.delivery_attempt_history WHERE delivery_kind = 'NOTIFICATION' AND delivery_id = ? ORDER BY attempt_number", String.class, id);
+    System.out.println("S5_ATTEMPT_EXPLAIN " + String.join(" | ", plan));
+    assertThat(String.join(" ", plan)).contains("delivery_attempt_history_pkey");
   }
 }

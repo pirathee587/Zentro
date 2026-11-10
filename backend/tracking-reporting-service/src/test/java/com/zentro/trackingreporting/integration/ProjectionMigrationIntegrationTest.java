@@ -27,5 +27,14 @@ class ProjectionMigrationIntegrationTest {
     assertThat(jdbc.queryForMap("SELECT * FROM tracking.delivery_daily_metrics"))
         .containsEntry("created", 1L).containsEntry("delivered", 1L).containsEntry("active", 0L);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM tracking.tracking_event", Long.class)).isEqualTo(2);
+    jdbc.execute("""
+        INSERT INTO tracking.tracking_event(event_id, parcel_id, tracking_ref, status, title)
+        SELECT gen_random_uuid(), gen_random_uuid(), 'ZT-7K3QX9M2PA', 'CREATED', 'Synthetic plan fixture'
+        FROM generate_series(1, 10000)
+        """);
+    jdbc.execute("ANALYZE tracking.tracking_event");
+    var plan = jdbc.queryForList("EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tracking.tracking_event WHERE parcel_id = ? AND event_id IS NOT NULL ORDER BY occurred_at, event_id", String.class, parcel);
+    System.out.println("S4_HISTORY_EXPLAIN " + String.join(" | ", plan));
+    assertThat(String.join(" ", plan)).contains("idx_tracking_event_parcel_time");
   }
 }
