@@ -9,6 +9,8 @@ $LASTEXITCODE
 
 The default repository root is resolved from the script location, independent of the current directory. An alternate checkout can be selected with `-RepositoryRoot <directory>`.
 
+Root initialization runs after parameter binding for Windows PowerShell 5.1 standalone `-File` compatibility. Missing prerequisites produce normal `FAIL`/`SKIP` check lines and exit `1`; an exception before any check lines is a script execution failure, not evidence that prerequisites were validated.
+
 ## Results
 
 - `PASS`: a prerequisite succeeded, a declared health test/volume satisfies WARP.md section 18's configuration requirement, dependency references form an acyclic graph, or a restart policy is declared. This is not runtime verification.
@@ -87,3 +89,5 @@ powershell.exe -NoProfile -File .\scripts\Test-ComposePreflight.Tests.ps1
 No Pester installation is needed. Tests mock Docker discovery/invocations and use GUID-named temporary fixtures, cleaned up only within the OS temporary directory. They cover success, missing/broken CLI, missing Compose, unreachable daemon, failed configuration, missing environment/Compose files, command allowlisting, working-directory restoration and unchanged fixture contents. Source-model cases cover declared/missing/disabled health checks, dependency conditions, probe labels, naming/ports, malformed/empty models, parser exceptions, unavailable flags and secret suppression. Warnings-only success and source-failure exit behavior are also checked. Harmless child PowerShell processes verify native stdout/stderr suppression and exit-code handling; they do not invoke Docker.
 
 Additional source fixtures cover valid/missing graph references, cycles, external versus declared dependency candidates, named/external/undeclared/anonymous volumes, bind mounts (including Windows paths), memory-backed mounts, restart policies and clean-start-plan outcomes. Existing resource-name/port, malformed-model and suppressed-diagnostic tests remain in the same focused suite. No real Docker resources are used by these tests.
+
+Standalone regression cases copy the script into a temporary checkout layout and put a test-only Docker command shim on the child process PATH. They exercise the exact documented invocation without `-RepositoryRoot`, explicit-root success, missing-prerequisite exit `1`, and unchanged fixture inputs. Real environment files and Docker resources are not used; the test runner restores its PATH and working directory.

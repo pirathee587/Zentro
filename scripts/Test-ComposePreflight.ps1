@@ -1,8 +1,14 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$RepositoryRoot
 )
+
+# Resolve the script location after binding; Windows PowerShell 5.1 may not yet
+# populate $PSScriptRoot while evaluating a parameter's default expression.
+if (-not $PSBoundParameters.ContainsKey('RepositoryRoot')) {
+    $RepositoryRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+}
 
 function Get-PreflightDockerCommand {
     $command = Get-Command docker -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1

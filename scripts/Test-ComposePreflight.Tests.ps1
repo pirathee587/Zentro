@@ -193,6 +193,75 @@ try {
     Assert-True (@(Get-ChildItem -LiteralPath $fixture -Recurse -File -Force).Count -eq $files.Count) 'Unexpected fixture files'
     $passed++
     Write-Output 'PASS fixture files unchanged'
+
+    # Run the actual -File entry point from a disposable checkout layout. A PATH
+    # shim replaces only Docker, so parameter binding and root resolution are real.
+    $entryScripts = Join-Path $fixture 'scripts'
+    $mockBin = Join-Path $fixture 'mock-bin'
+    $null = New-Item -ItemType Directory -Path $entryScripts
+    $null = New-Item -ItemType Directory -Path $mockBin
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Test-ComposePreflight.ps1') -Destination $entryScripts
+    $dockerShim = @'
+@echo off
+if "%~1"=="--version" exit /b 0
+if "%~1"=="info" exit /b 0
+if not "%~1"=="compose" exit /b 97
+if "%~2"=="version" exit /b 0
+if "%~2 %~3"=="config --help" (
+  echo --no-env-resolution
+  exit /b 0
+)
+if "%~2"=="--env-file" (
+  echo {"services":{"fixture":{"image":"fixture"}}}
+  exit /b 0
+)
+if "%~2"=="-f" exit /b 0
+exit /b 97
+'@
+    [IO.File]::WriteAllText((Join-Path $mockBin 'docker.cmd'), $dockerShim)
+    $originalPath = $env:PATH
+    try {
+        $env:PATH = $mockBin + ';' + $originalPath
+        Push-Location -LiteralPath $fixture
+        try {
+            # Exact documented invocation, with no RepositoryRoot argument.
+            $standalone = @(powershell.exe -NoProfile -File .\scripts\Test-ComposePreflight.ps1 2>&1)
+            Assert-True ($LASTEXITCODE -eq 0) 'Standalone process did not exit 0'
+            Assert-True (@($standalone | Where-Object { $_ -notmatch '^(PASS|FAIL|WARN|SKIP) ' }).Count -eq 0) 'Standalone initialization/runtime error'
+            Assert-True (@($standalone | Where-Object { $_ -match '^PASS backend/.*/\.env:' }).Count -eq 6) 'Default root did not find fixture environment files'
+            Assert-True (@($standalone | Where-Object { $_ -match '^PASS Docker daemon:' }).Count -eq 1) 'Standalone did not reach checks'
+            $passed++
+            Write-Output 'PASS exact standalone invocation and default-root process exit 0'
+
+            $missingEnv = Join-Path $fixture 'backend/tracking-reporting-service/.env'
+            Move-Item -LiteralPath $missingEnv -Destination ($missingEnv + '.held')
+            try {
+                $standalone = @(powershell.exe -NoProfile -File .\scripts\Test-ComposePreflight.ps1 2>&1)
+                Assert-True ($LASTEXITCODE -eq 1) 'Missing prerequisite process did not exit 1'
+                Assert-True (@($standalone | Where-Object { $_ -notmatch '^(PASS|FAIL|WARN|SKIP) ' }).Count -eq 0) 'Validation failure became an initialization/runtime error'
+                Assert-True (@($standalone | Where-Object { $_ -eq 'FAIL backend/tracking-reporting-service/.env: Required environment file missing.' }).Count -eq 1) 'Missing prerequisite not reported'
+            }
+            finally { Move-Item -LiteralPath ($missingEnv + '.held') -Destination $missingEnv }
+            $passed++
+            Write-Output 'PASS standalone missing-prerequisite process exit 1'
+        }
+        finally { Pop-Location }
+
+        # An explicit fixture root must override the real checkout's default.
+        $standalone = @(& $shell -NoProfile -File (Join-Path $PSScriptRoot 'Test-ComposePreflight.ps1') -RepositoryRoot $fixture 2>&1)
+        Assert-True ($LASTEXITCODE -eq 0) 'Explicit fixture root did not exit 0'
+        Assert-True (@($standalone | Where-Object { $_ -match '^PASS backend/.*/\.env:' }).Count -eq 6) 'Explicit fixture root was not used'
+        Assert-True (($standalone -join "`n") -notmatch 'synthetic-private-value') 'Standalone leaked fixture values'
+        $passed++
+        Write-Output 'PASS explicit-root standalone process exit 0'
+        foreach ($relative in $files) {
+            Assert-True ((Get-FileHash -LiteralPath (Join-Path $fixture $relative)).Hash -eq $before[$relative]) 'Standalone changed fixture inputs'
+        }
+        Assert-True (@(Get-ChildItem -LiteralPath $fixture -Recurse -File -Force).Count -eq ($files.Count + 2)) 'Standalone created unexpected fixture files'
+        $passed++
+        Write-Output 'PASS standalone fixture inputs unchanged'
+    }
+    finally { $env:PATH = $originalPath }
     Write-Output "$passed tests passed; 0 failed."
 }
 finally {
