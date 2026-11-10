@@ -242,14 +242,34 @@ List and detail return the status stored by S2 at the time of the read. They pro
 
 These endpoints do not support pagination, live SSE tracking or merchant-initiated status mutation. S4 tracking is a separate contract and projection dependency; this document does not establish its readiness or change its ownership. See [tracking-history.md](tracking-history.md) and [parcel-status.md](parcel-status.md) for the separate tracking and authorized status-update contracts.
 
-## 8. Proposed Issue #153 Frontend Integration Boundary
+## 8. Issue #153 Frontend API/Query Integration and UI Handoff
 
-For [Issue #153](https://github.com/pirathee587/Zentro/issues/153), the proposed foundation is typed, authenticated list/detail reads using the existing S2 endpoints, with cancellation, principal-scoped caching and safe error propagation. This is a proposal for coordination with [Issue #238](https://github.com/pirathee587/Zentro/issues/238), not an agreed reassignment of either issue's acceptance criteria or ownership.
+The [Issue #153](https://github.com/pirathee587/Zentro/issues/153) API/query foundation is implemented: authenticated list/detail reads use the existing S2 endpoints, complete response types, request cancellation, principal-scoped caching and shared error handling. This describes the implemented code and the work boundary for this handoff; it does not claim that #153 is merged, closed or independently approved.
 
-- Keep merchant operations and DTOs in `frontend/zentro-web/src/portals/merchant/api/merchantApi.ts`. Reuse `MerchantOrderStatus`, `MerchantOrder`, `MerchantApiAuth`, the existing authentication helper and `getMerchantOrders()`. The current frontend order type covers summary fields only; future detail integration must represent the nested fields and nullability above.
-- Reuse `useMerchantOrdersQuery()` in `portals/merchant/hooks/useMerchantQueries.ts`, shared query-key factories and `principalCacheScope`. A future detail query must distinguish the order ID and principal; propagate TanStack Query's `AbortSignal` to the existing Axios client.
-- Use the centralized `shared/api/apiClient.ts`, existing bearer-token flow, error normalization and singleton query defaults. Do not introduce another client, log private order data or automatically replay rejected 401/403 requests. See [frontend-api.md](../development/frontend-api.md).
-- Coordinate detail pages, routes, navigation, list refactoring, presentation, tracking links and pagination with #238 before changing overlapping UI. This documentation commit assigns none of those features and implements no frontend behavior.
-- Keep this foundation independent of S4 projection fixes, SSE, database/schema changes, new endpoints and merchant status mutation. Preserve all five service boundaries and database-per-service ownership.
+### 8.1 Implemented API and Query Behavior
 
-Existing tests to preserve and reuse include frontend `merchantApi.test.ts` (authenticated list and authorization failures), `DashboardPage.test.tsx` (loading, empty, error/retry and status display), shared API/query-key tests, and backend `MerchantOrderControllerTest`, `MerchantOrderServiceTest`, `MerchantOrderIntegrationTest`, `IdentityMerchantClientResilienceTest` and `MerchantOrderOutboxAtomicityIntegrationTest`. Preserve their authorization, ownership, failure and transaction coverage when later adding detail integration; this documentation update does not claim new test execution or issue completion.
+- `frontend/zentro-web/src/portals/merchant/api/merchantApi.ts` implements `getMerchantOrders(auth, limit)` and `getMerchantOrder(auth, orderId)`. Both return the shared typed `MerchantOrder` response: `id`, `trackingRef`, `externalOrderRef`, `merchantId`, `status`, `fee`, `currency`, `estimatedDays`, `createdAt`, `sender`, `recipient` and `parcel`. The nested `MerchantOrderContact` and `MerchantOrderParcel` types match Section 3.3, including nullable contact `city`, parcel `size` and parcel `description`.
+- Both operations use `MerchantOrderStatus`: `CREATED`, `PICKED_UP`, `IN_TRANSIT`, `OUT_FOR_DELIVERY`, `DELIVERED` and `FAILED`. The client preserves response values without converting unexpected wire statuses to a supported state. TypeScript types document the contract; they do not provide runtime response validation.
+- The exported `isMerchantOrderId()` validates the existing case-insensitive UUID format of 8-4-4-4-12 hexadecimal digits, without trimming or accepting tracking/external references. `getMerchantOrder()` rejects invalid IDs before authentication or transport; the detail hook reuses the same validator.
+- `portals/merchant/hooks/useMerchantQueries.ts` provides `useMerchantOrdersQuery()` and `useMerchantOrderQuery(orderId, enabled)`. The detail query runs automatically only when authentication is no longer loading, a stable user ID and access token are present, the UUID is valid and the caller enables it. Explicit detail refetches also guard missing authentication; API validation still rejects invalid IDs.
+- Query keys use the existing `shared/api/queryKeys.ts` factories and `principalCacheScope(user.id)`. Detail keys distinguish both order UUID and an opaque, stable process-local namespace for the principal. List and detail keys are separate; neither contains raw access tokens or the raw principal ID. Switching principal selects a different cache entry instead of using the previous merchant's details as placeholder data.
+- Both query hooks pass TanStack Query's `AbortSignal` through the API operation to the centralized Axios client. Authentication reuses `MerchantApiAuth`, the existing token acquisition/refresh callback and bearer headers. Missing tokens reject before transport. Shared `ApiClientError` normalization and singleton query defaults remain in effect: 401/403/404 responses are not automatically retried, while network and HTTP 5xx failures have at most two retries. See [frontend-api.md](../development/frontend-api.md).
+
+### 8.2 Status Refresh and Work Boundary
+
+Order statuses are persisted snapshots as described in Section 7, not guaranteed real-time updates. The query results expose TanStack Query's explicit `refetch()` for another read. Refreshing detail does not automatically refresh the separately cached list. This work adds no polling, live tracking or SSE integration and no merchant status mutation.
+
+| Issue | Work boundary |
+|---|---|
+| #153 | Merchant API/query integration, security-aware principal-scoped caching, status contract and focused tests |
+| [#238](https://github.com/pirathee587/Zentro/issues/238), owned by @Niro0526 | Merchant UI pages, routes, navigation, loading/error presentation, tracking links and pagination |
+
+Consumers should reuse these API operations and hooks when implementing #238. This handoff records the task boundary without asserting separate owner sign-off. S4 projection fixes remain separate. No new endpoint, database/schema change or service-boundary change is part of this integration; the five services retain database-per-service ownership.
+
+### 8.3 Tests and Remaining Limitations
+
+Frontend `merchantApi.test.ts`, `merchantOrderDetail.test.ts` and `useMerchantQueries.test.tsx` cover authenticated reads, nested response typing, all six status values, unexpected-status preservation, invalid IDs, missing authentication, cancellation, authorization/not-found errors, transient failures, bounded retries and principal switching. Shared API/query-key tests and existing `DashboardPage.test.tsx` coverage remain reusable. Existing backend `MerchantOrderControllerTest`, `MerchantOrderServiceTest`, `MerchantOrderIntegrationTest`, `IdentityMerchantClientResilienceTest` and `MerchantOrderOutboxAtomicityIntegrationTest` preserve authorization, ownership, failure and transaction coverage.
+
+Successful cached data can remain available after a failed refresh, including an authorization failure. Cached data is not evidence of current backend authorization or freshness. #238 must handle refresh errors and cached-data presentation explicitly; the query layer does not automatically erase a previously successful snapshot on every error.
+
+Focused frontend tests use mocked authentication and transport adapters; they do not verify a deployed Keycloak-to-gateway-to-S2 workflow. Deployed end-to-end verification, final acceptance evidence and independent review remain outstanding. This documentation update does not claim additional test execution, deployed verification or issue completion.
