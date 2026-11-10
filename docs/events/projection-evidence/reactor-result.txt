@@ -1,0 +1,17 @@
+[INFO] Reactor Summary for Zentro Backend 0.1.0-SNAPSHOT:
+[INFO] 
+[INFO] Zentro Backend ..................................... SUCCESS [  0.001 s]
+[INFO] Zentro Security Starter ............................ SUCCESS [  6.691 s]
+[INFO] api-gateway ........................................ SUCCESS [02:17 min]
+[INFO] identity-partner-service ........................... SUCCESS [ 25.985 s]
+[INFO] parcel-pricing-service ............................. SUCCESS [02:16 min]
+[INFO] dispatch-courier-service ........................... SUCCESS [01:46 min]
+[INFO] tracking-reporting-service ......................... SUCCESS [ 40.376 s]
+[INFO] notification-integration-service ................... SUCCESS [01:55 min]
+[INFO] Merchant order and webhook end-to-end tests ........ SUCCESS [  0.063 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  09:29 min
+[INFO] Finished at: 2026-11-10T17:31:44+05:30
+[INFO] ------------------------------------------------------------------------

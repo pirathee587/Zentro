@@ -1,0 +1,20 @@
+Base develop: 6666863a79dbc8549fc723d33cbf1406866e8ffd
+Final tested source: 52821547576b88aef401fcda2cb5777c86c19115
+Final full command, from backend/: mvn --batch-mode test package
+Final result: BUILD SUCCESS, 09:29 min, 2157 tests, 0 failures, 0 errors, 0 skipped in the seven executed test modules.
+Final run finished: 2026-11-10T17:31:44+05:30.
+Separate merchant-order/webhook E2E tests NOT RUN: default profile skips them; -DrunE2E was not selected. Performance profile NOT RUN.
+All executed Testcontainers cases ran; no disabledWithoutDocker skip was observed. No containers remained running after the final run.
+
+Other actual verification attempts (not substituted for the final run):
+- Initial diagnostic compile failed while existing consumer tests still used the old constructor; tests were updated.
+- Initial broad module diagnostic was interrupted after old error-text assertions failed and a Kafka startup exited 126: /testcontainers_start.sh: Text file busy. Not claimed as passing.
+- Focused guard/migration regression: BUILD SUCCESS, 26.507 seconds.
+- S4/S5 module run: BUILD SUCCESS, 02:23 min; security starter 62, S4 98, S5 430, all failures/errors/skips zero (earlier implementation snapshot).
+- First full reactor: BUILD FAILURE, 09:26 min; two S5 assertions expected the pre-existing missing-eventId category. Validation order was corrected to retain that category.
+- Corrected S4/S5 test/package run: BUILD SUCCESS, 02:33 min; security starter 62, S4 99, S5 431, all failures/errors/skips zero.
+- Final duplicate/trailing JSON unit guard run: BUILD SUCCESS, 6.584 seconds.
+- Final-source full attempt: BUILD FAILURE, 05:28 min; unchanged S2 OutboxRestartRecoveryIntegrationTest could not start Kafka (exit 126, Text file busy). No business assertion failed. Later modules were not reached in that attempt.
+- Confirmation full reactor: BUILD SUCCESS, 09:29 min; final source and all final test cases. Per-module XML totals and reactor output are in adjacent files.
+
+All databases/brokers/receivers were disposable test infrastructure. Raw logs remain outside Git; only safe summaries and synthetic query plans are included here.
