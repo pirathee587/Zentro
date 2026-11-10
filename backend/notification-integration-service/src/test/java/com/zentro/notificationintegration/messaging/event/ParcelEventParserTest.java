@@ -28,6 +28,9 @@ class ParcelEventParserTest {
   }
 
   @Test void fieldsOutsideApprovedSchemaAndMissingRequiredFieldsAreRejected() {
+    for (String message : new String[]{createdEvent().toString() + " {}",
+        createdEvent().toString().replace("\"eventId\":", "\"eventId\":\"duplicate-value\",\"eventId\":")})
+      assertThatThrownBy(() -> parser.parse("parcel.created", message)).isInstanceOf(MalformedEventException.class);
     for (String field : new String[]{"source", "occurredAt"}) {
       var event = createdEvent(); payload(event).remove(field);
       assertThatThrownBy(() -> parser.parse("parcel.created", event.toString())).isInstanceOf(MalformedEventException.class);

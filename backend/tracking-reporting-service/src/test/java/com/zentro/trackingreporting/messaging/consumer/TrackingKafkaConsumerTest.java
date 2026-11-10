@@ -81,7 +81,8 @@ class TrackingKafkaConsumerTest {
 
   @Test void unknownVersionTypeStatusWrongTypesAndOversizeAreSkipped() throws Exception {
     String v = valid();
-    for (String value : new String[]{v.replace("\"eventId\":", "\"schemaVersion\":2,\"eventId\":"),
+    for (String value : new String[]{v + " {}", v.replace("\"eventId\":", "\"eventId\":\"duplicate-value\",\"eventId\":"),
+        v.replace("\"eventId\":", "\"schemaVersion\":2,\"eventId\":"),
         v.replace("parcel.created", "delivery.assigned"), v.replace("CREATED", "unknown"),
         v.replace("\"CUSTOMER_BOOKING\"", "123"), v.replace("2026-11-05T08:00:00Z", "invalid-time"), "x".repeat(65537)}) {
       consumer.onParcelEvent(value, "parcel.created", null);
