@@ -140,6 +140,33 @@ try {
         @{ Name = 'rejected'; Json = 'synthetic-private-value'; Status = 'FAIL'; Check = 'source inspection' },
         @{ Name = 'exception'; Json = ''; Status = 'FAIL'; Check = 'source inspection' },
         @{ Name = 'unsupported'; Json = ''; Status = 'SKIP'; Check = 'source inspection' }
+        @{ Name = 'valid-graph'; Json = '{"services":{"a":{"depends_on":{"b":{"condition":"service_started"}}},"b":{}}}'; Status = 'PASS'; Check = 'dependency graph' },
+        @{ Name = 'missing-reference'; Json = '{"services":{"a":{"depends_on":["absent"]}}}'; Status = 'FAIL'; Check = 'dependency graph'; Detail = 'absent' },
+        @{ Name = 'missing-long-reference'; Json = '{"services":{"a":{"depends_on":{"absent":{"condition":"service_healthy"}}}}}'; Status = 'FAIL'; Check = 'dependency graph' },
+        @{ Name = 'optional-reference'; Json = '{"services":{"a":{"depends_on":{"absent":{"condition":"service_healthy","required":false}}}}}'; Status = 'WARN'; Check = 'dependency graph'; Detail = 'optional dependency is absent' },
+        @{ Name = 'cycle'; Json = '{"services":{"a":{"depends_on":["b"]},"b":{"depends_on":["a"]}}}'; Status = 'FAIL'; Check = 'dependency graph'; Detail = 'cycle' },
+        @{ Name = 'self-cycle'; Json = '{"services":{"a":{"depends_on":["a"]}}}'; Status = 'FAIL'; Check = 'dependency graph'; Detail = 'cycle' },
+        @{ Name = 'external-database'; Json = '{"services":{"identity-partner-service":{}}}'; Status = 'WARN'; Check = 'identity-partner-service database prerequisite'; Detail = 'supplied separately' },
+        @{ Name = 'external-kafka'; Json = '{"services":{"tracking-reporting-service":{}}}'; Status = 'WARN'; Check = 'tracking-reporting-service Kafka prerequisite'; Detail = 'when.*enabled' },
+        @{ Name = 'external-keycloak'; Json = '{"services":{"api-gateway":{}}}'; Status = 'WARN'; Check = 'api-gateway Keycloak prerequisite'; Detail = 'not.*runtime failure' },
+        @{ Name = 'declared-database'; Json = '{"services":{"identity-partner-service":{},"storage":{"image":"postgres:16"}}}'; Status = 'WARN'; Check = 'identity-partner-service database prerequisite'; Detail = 'candidate dependency is declared' },
+        @{ Name = 'declared-kafka'; Json = '{"services":{"tracking-reporting-service":{},"broker":{"image":"apache/kafka:example"}}}'; Status = 'WARN'; Check = 'tracking-reporting-service Kafka prerequisite'; Detail = 'candidate dependency is declared' },
+        @{ Name = 'declared-keycloak'; Json = '{"services":{"api-gateway":{},"auth":{"image":"quay.io/keycloak/keycloak:example"}}}'; Status = 'WARN'; Check = 'api-gateway Keycloak prerequisite'; Detail = 'candidate dependency is declared' },
+        @{ Name = 'named-volume'; Json = '{"services":{"keycloak":{"volumes":["data:/data"]}},"volumes":{"data":{}}}'; Status = 'PASS'; Check = 'keycloak persistence'; Detail = 'not verified' },
+        @{ Name = 'long-volume'; Json = '{"services":{"keycloak":{"volumes":[{"type":"volume","source":"data","target":"/data"}]}},"volumes":{"data":{}}}'; Status = 'PASS'; Check = 'keycloak persistence' },
+        @{ Name = 'external-volume'; Json = '{"services":{"keycloak":{"volumes":["data:/data"]}},"volumes":{"data":{"external":true}}}'; Status = 'WARN'; Check = 'keycloak persistence'; Detail = 'Externally managed' },
+        @{ Name = 'undeclared-volume'; Json = '{"services":{"keycloak":{"volumes":["data:/data"]}}}'; Status = 'FAIL'; Check = 'keycloak persistence' },
+        @{ Name = 'bind-mount'; Json = '{"services":{"keycloak":{"volumes":["./synthetic-private-value:/config:ro"]}}}'; Status = 'WARN'; Check = 'keycloak persistence'; Detail = 'Bind mount' },
+        @{ Name = 'long-bind'; Json = '{"services":{"keycloak":{"volumes":[{"type":"bind","source":"synthetic-private-value","target":"/config","read_only":true}]}}}'; Status = 'WARN'; Check = 'keycloak persistence'; Detail = 'Bind mount' },
+        @{ Name = 'windows-bind'; Json = '{"services":{"keycloak":{"volumes":["C:\\synthetic-private-value:/config:ro"]}}}'; Status = 'WARN'; Check = 'keycloak persistence'; Detail = 'Bind mount' },
+        @{ Name = 'anonymous-volume'; Json = '{"services":{"keycloak":{"volumes":["/data"]}}}'; Status = 'WARN'; Check = 'keycloak persistence'; Detail = 'Anonymous' },
+        @{ Name = 'tmpfs'; Json = '{"services":{"keycloak":{"volumes":[{"type":"tmpfs","target":"/data"}]}}}'; Status = 'WARN'; Check = 'keycloak persistence'; Detail = 'not durable' },
+        @{ Name = 'no-local-data'; Json = '{"services":{"identity-partner-service":{}}}'; Status = 'WARN'; Check = 'identity-partner-service persistence'; Detail = 'separately configured database' },
+        @{ Name = 'restart-present'; Json = '{"services":{"keycloak":{"restart":"unless-stopped"}}}'; Status = 'PASS'; Check = 'keycloak restart policy'; Detail = 'does not prove recovery' },
+        @{ Name = 'restart-absent'; Json = '{"services":{"keycloak":{}}}'; Status = 'WARN'; Check = 'keycloak restart policy' },
+        @{ Name = 'restart-no'; Json = '{"services":{"keycloak":{"restart":"no"}}}'; Status = 'WARN'; Check = 'keycloak restart policy' },
+        @{ Name = 'clean-start-warning'; Json = '{"services":{"keycloak":{}}}'; Status = 'WARN'; Check = 'clean-start plan'; Detail = 'cannot certify repeatability' },
+        @{ Name = 'clean-start-failure'; Json = '{"services":{"a":{"depends_on":["absent"]}}}'; Status = 'FAIL'; Check = 'clean-start plan' }
     )
     foreach ($case in $cases) {
         $script:sourceCase = $case.Name
@@ -156,6 +183,7 @@ try {
                 Assert-True (@($findings | Where-Object Check -eq $check).Count -eq 1) 'Isolation finding missing'
             }
         }
+        if ($case.Name -eq 'optional-reference') { Assert-True (@($findings | Where-Object Status -eq 'FAIL').Count -eq 0) 'Optional missing dependency failed' }
         $passed++
         Write-Output ('PASS source ' + $case.Name)
     }
