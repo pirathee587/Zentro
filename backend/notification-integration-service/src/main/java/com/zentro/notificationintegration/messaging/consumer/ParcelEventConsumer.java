@@ -49,7 +49,20 @@ public class ParcelEventConsumer {
   public void onParcelEvent(ConsumerRecord<String, String> record, Acknowledgment ack) {
     ParcelEvent event;
     try {
+      String schemaVersion = headerString(record, "schemaVersion");
+      ParcelEventParser.validateSchemaVersion(schemaVersion);
       event = parser.parse(record.topic(), record.value());
+      String headerEventId = headerString(record, "eventId");
+      if (headerEventId != null && !headerEventId.isBlank()) {
+        try {
+          UUID hId = UUID.fromString(headerEventId);
+          if (!hId.equals(event.eventId())) {
+            throw new MalformedEventException("conflicting eventId");
+          }
+        } catch (IllegalArgumentException ex) {
+          throw new MalformedEventException("invalid header eventId");
+        }
+      }
     } catch (MalformedEventException ex) {
       service.reject(record.topic(), record.partition(), record.offset(), ex.getMessage());
       ack.acknowledge();
@@ -67,5 +80,15 @@ public class ParcelEventConsumer {
         log.warn("First delivery attempt for notification {} postponed: {}", id, ex.getClass().getSimpleName());
       }
     });
+  }
+
+  private static String headerString(ConsumerRecord<?, ?> record, String headerName) {
+    if (record == null || record.headers() == null) {
+      return null;
+    }
+    org.apache.kafka.common.header.Header header = record.headers().lastHeader(headerName);
+    return (header != null && header.value() != null)
+        ? new String(header.value(), java.nio.charset.StandardCharsets.UTF_8)
+        : null;
   }
 }
