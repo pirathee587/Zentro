@@ -210,6 +210,70 @@ class AdminCourierControllerTest {
 
       verify(courierService).listCouriers("ACTIVE", true, "Colombo", "Sunil");
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ACTIVE", "DISABLED", "SUSPENDED", "active", "disabled", "suspended"})
+    void dispatcherCanListCouriersWithSupportedStatus(String statusValue) throws Exception {
+      when(courierService.listCouriers(eq(statusValue.toUpperCase()), any(), any(), any())).thenReturn(List.of());
+
+      mvc.perform(get("/api/v1/admin/couriers")
+          .param("status", statusValue)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isOk());
+
+      verify(courierService).listCouriers(eq(statusValue.toUpperCase()), any(), any(), any());
+    }
+
+    @Test
+    void dispatcherCanListCouriersWithOmittedStatus() throws Exception {
+      when(courierService.listCouriers(null, null, null, null)).thenReturn(List.of());
+
+      mvc.perform(get("/api/v1/admin/couriers")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isOk());
+
+      verify(courierService).listCouriers(null, null, null, null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void dispatcherCanListCouriersWithEmptyStatus(String emptyStatus) throws Exception {
+      when(courierService.listCouriers(null, null, null, null)).thenReturn(List.of());
+
+      mvc.perform(get("/api/v1/admin/couriers")
+          .param("status", emptyStatus)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isOk());
+
+      verify(courierService).listCouriers(null, null, null, null);
+    }
+
+    @Test
+    void listCouriersRejectsInvalidStatusWithProblemDetails() throws Exception {
+      mvc.perform(get("/api/v1/admin/couriers")
+          .param("status", "BOGUS_STATUS")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.title").value("Bad Request"))
+          .andExpect(jsonPath("$.status").value(400))
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+          .andExpect(jsonPath("$.fieldErrors.status").value("Invalid status: must be ACTIVE, DISABLED or SUSPENDED."));
+
+      verifyNoInteractions(courierService);
+    }
+
+    @Test
+    void getCourierRejectsMalformedUuidWithProblemDetails() throws Exception {
+      mvc.perform(get("/api/v1/admin/couriers/not-a-valid-uuid")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.title").value("Bad Request"))
+          .andExpect(jsonPath("$.status").value(400))
+          .andExpect(jsonPath("$.code").value("INVALID_COURIER_ID"))
+          .andExpect(jsonPath("$.detail").value("The courier id must be a UUID."));
+
+      verifyNoInteractions(courierService);
+    }
   }
 
   @Nested
@@ -272,6 +336,69 @@ class AdminCourierControllerTest {
           .contentType("application/json")
           .content(String.format("{\"name\":\"%s\",\"phone\":\"%s\",\"assignedZone\":\"%s\"}", tooLongName, tooLongPhone, tooLongZone)))
           .andExpect(status().isBadRequest());
+
+      verifyNoInteractions(courierService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"+94771234567", "0771234567", "+14155552671", "94771234567"})
+    void updateAcceptsValidPhoneFormats(String validPhone) throws Exception {
+      OffsetDateTime now = OffsetDateTime.now();
+      when(courierService.updateCourierProfile(eq(COURIER_ID), any(UpdateCourierProfileRequest.class))).thenReturn(
+          new CourierProfile(COURIER_ID, USER_ID, "sunil@zentro.lk", "Sunil P.", validPhone, true, "ACTIVE", "Colombo", "VAN", now, now)
+      );
+
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content(String.format("{\"phone\":\"%s\"}", validPhone)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.phone").value(validPhone));
+
+      verify(courierService).updateCourierProfile(eq(COURIER_ID), any(UpdateCourierProfileRequest.class));
+    }
+
+    @Test
+    void updateAllowsOmittedOrNullOrEmptyPhone() throws Exception {
+      OffsetDateTime now = OffsetDateTime.now();
+      when(courierService.updateCourierProfile(eq(COURIER_ID), any(UpdateCourierProfileRequest.class))).thenReturn(
+          new CourierProfile(COURIER_ID, USER_ID, "sunil@zentro.lk", "Sunil P.", null, true, "ACTIVE", "Colombo", "VAN", now, now)
+      );
+
+      // Null phone
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"name\":\"Sunil\",\"phone\":null}"))
+          .andExpect(status().isOk());
+
+      // Empty string phone
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"name\":\"Sunil\",\"phone\":\"\"}"))
+          .andExpect(status().isOk());
+
+      // Omitted phone
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content("{\"name\":\"Sunil\"}"))
+          .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-phone", "123", "12345678", "1234567890123456", "phone+123", "++94771234567"})
+    void updateFailsValidationForInvalidPhoneFormat(String invalidPhone) throws Exception {
+      mvc.perform(patch("/api/v1/admin/couriers/" + COURIER_ID)
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER")))
+          .contentType("application/json")
+          .content(String.format("{\"phone\":\"%s\"}", invalidPhone)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.title").value("Bad Request"))
+          .andExpect(jsonPath("$.status").value(400))
+          .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+          .andExpect(jsonPath("$.fieldErrors.phone").value("Phone must be a valid phone number (9-15 digits, optional leading +)"));
 
       verifyNoInteractions(courierService);
     }
