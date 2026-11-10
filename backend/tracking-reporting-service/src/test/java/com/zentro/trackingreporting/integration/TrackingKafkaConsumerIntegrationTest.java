@@ -169,7 +169,9 @@ class TrackingKafkaConsumerIntegrationTest {
     String ref = newTrackingRef();
     String message = statusEventJson(eventId, parcelId, ref, "IN_TRANSIT", "PICKED_UP");
 
-    kafka.send(STATUS_TOPIC, parcelId.toString(), message).get();
+    var record = new org.apache.kafka.clients.producer.ProducerRecord<String,String>(STATUS_TOPIC, parcelId.toString(), message);
+    record.headers().add("schemaVersion", new byte[]{'1'});
+    kafka.send(record).get();
 
     await().atMost(WAIT).until(() ->
         !trackingEventRepository.findByTrackingRefOrderByOccurredAtAsc(ref).isEmpty());
