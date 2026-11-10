@@ -3,18 +3,19 @@ name: Task status sync
 on:
   create:
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
     types: [opened, ready_for_review, closed]
 
 permissions:
-  issues: write
-  pull-requests: write
   contents: read
 
 jobs:
   sync-task-status:
     name: sync-task-status
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Sync issue status
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea

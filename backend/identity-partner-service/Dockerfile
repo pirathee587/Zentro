@@ -1,5 +1,6 @@
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
+ARG GIT_SHA=unknown
 COPY backend/pom.xml backend/pom.xml
 COPY backend/libs/zentro-security-starter/pom.xml backend/libs/zentro-security-starter/pom.xml
 COPY backend/api-gateway/pom.xml backend/api-gateway/pom.xml
@@ -10,10 +11,11 @@ COPY backend/tracking-reporting-service/pom.xml backend/tracking-reporting-servi
 COPY backend/notification-integration-service/pom.xml backend/notification-integration-service/pom.xml
 COPY backend/ backend/
 COPY contracts/ contracts/
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q -Dmaven.wagon.http.retryHandler.count=5 -f backend/pom.xml -pl identity-partner-service -am package -DskipTests && JAR_FILE="$(find backend/identity-partner-service/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)" && test -n "$JAR_FILE" && cp "$JAR_FILE" /workspace/app.jar
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q -Dbuild.revision="$GIT_SHA" -Dmaven.wagon.http.retryHandler.count=5 -f backend/pom.xml -pl identity-partner-service -am package -DskipTests && JAR_FILE="$(find backend/identity-partner-service/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)" && test -n "$JAR_FILE" && cp "$JAR_FILE" /workspace/app.jar
 FROM eclipse-temurin:21-jre-alpine
-ARG GIT_SHA=dev
-LABEL org.opencontainers.image.title="Zentro Identity Partner Service" org.opencontainers.image.source="https://github.com/zentro/zentro" org.opencontainers.image.revision="${GIT_SHA}"
+ARG GIT_SHA=unknown
+ARG APP_VERSION=unknown
+LABEL org.opencontainers.image.title="Zentro Identity Partner Service" org.opencontainers.image.source="https://github.com/pirathee587/Zentro" org.opencontainers.image.revision="${GIT_SHA}" org.opencontainers.image.version="${APP_VERSION}"
 RUN addgroup -S -g 1001 zentro && adduser -S -D -H -u 1001 -G zentro zentro
 WORKDIR /app
 COPY --from=build /workspace/app.jar /app/app.jar

@@ -49,6 +49,7 @@ public class MerchantWebhookConsumer {
   public void onParcelEvent(ConsumerRecord<String, String> record, Acknowledgment ack) {
     MerchantParcelEvent event;
     try {
+      ParcelEventParser.validateVersion(record.headers());
       String schemaVersion = headerString(record, "schemaVersion");
       ParcelEventParser.validateSchemaVersion(schemaVersion);
       event = reader.read(record.topic(), record.value());

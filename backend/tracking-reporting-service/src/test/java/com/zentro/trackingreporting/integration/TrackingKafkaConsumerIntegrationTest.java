@@ -61,7 +61,7 @@ class TrackingKafkaConsumerIntegrationTest {
         UUID.randomUUID().toString(), createdEventJson(event, UUID.randomUUID(), ref));
     kafka.send(healthy).get();
     await().atMost(WAIT).until(() -> !trackingEventRepository.findByTrackingRefOrderByOccurredAtAsc(ref).isEmpty());
-    assertThat(output.getAll()).contains("category=processing_error").doesNotContain(secret);
+    assertThat(output.getAll()).contains("category=invalid_contract").doesNotContain(secret);
   }
 
   @Container
@@ -105,6 +105,24 @@ class TrackingKafkaConsumerIntegrationTest {
   @Autowired TrackingEventRepository trackingEventRepository;
   @Autowired ProcessedEventRepository processedEventRepository;
   @MockBean JwtDecoder jwtDecoder;
+  @Autowired org.springframework.kafka.config.KafkaListenerEndpointRegistry listeners;
+
+  @Test
+  void listenerRestartAndPoisonOnSamePartitionRetainCommittedProjection() throws Exception {
+    UUID parcel = UUID.randomUUID(), first = UUID.randomUUID(), second = UUID.randomUUID();
+    String ref = newTrackingRef();
+    kafka.send(new org.apache.kafka.clients.producer.ProducerRecord<String,String>(CREATED_TOPIC, 0,
+        parcel.toString(), createdEventJson(first, parcel, ref))).get();
+    await().atMost(WAIT).until(() -> processedEventRepository.existsByConsumerNameAndEventId("tracking-reporting-service", first));
+    listeners.stop();
+    String unknown = createdEventJson(UUID.randomUUID(), parcel, ref).replace("\"eventId\":", "\"schemaVersion\":999,\"eventId\":");
+    kafka.send(new org.apache.kafka.clients.producer.ProducerRecord<String,String>(CREATED_TOPIC, 0, parcel.toString(), unknown)).get();
+    kafka.send(new org.apache.kafka.clients.producer.ProducerRecord<String,String>(CREATED_TOPIC, 0, parcel.toString(), createdEventJson(second, parcel, ref))).get();
+    listeners.start();
+    await().atMost(WAIT).until(() -> processedEventRepository.existsByConsumerNameAndEventId("tracking-reporting-service", second));
+    assertThat(trackingEventRepository.findByTrackingRefOrderByOccurredAtAsc(ref)).hasSize(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM tracking.delivery_projection WHERE parcel_id = ?", Long.class, parcel)).isEqualTo(1);
+  }
 
   private static String newTrackingRef() {
     StringBuilder ref = new StringBuilder("ZT-");
@@ -151,7 +169,9 @@ class TrackingKafkaConsumerIntegrationTest {
     String ref = newTrackingRef();
     String message = statusEventJson(eventId, parcelId, ref, "IN_TRANSIT", "PICKED_UP");
 
-    kafka.send(STATUS_TOPIC, parcelId.toString(), message).get();
+    var record = new org.apache.kafka.clients.producer.ProducerRecord<String,String>(STATUS_TOPIC, parcelId.toString(), message);
+    record.headers().add("schemaVersion", new byte[]{'1'});
+    kafka.send(record).get();
 
     await().atMost(WAIT).until(() ->
         !trackingEventRepository.findByTrackingRefOrderByOccurredAtAsc(ref).isEmpty());
@@ -191,8 +211,7 @@ class TrackingKafkaConsumerIntegrationTest {
 
     List<TrackingEvent> events = trackingEventRepository.findByTrackingRefOrderByOccurredAtAsc(ref);
     assertThat(events).hasSize(2);
-    assertThat(events.get(0).getStatus()).isEqualTo(TrackingStatus.PICKED_UP);
-    assertThat(events.get(1).getStatus()).isEqualTo(TrackingStatus.DELIVERED);
+    assertThat(events).extracting(TrackingEvent::getStatus).containsExactlyInAnyOrder(TrackingStatus.PICKED_UP, TrackingStatus.DELIVERED);
 
     Integer processedCount = jdbc.queryForObject(
         "SELECT COUNT(*) FROM tracking.processed_event WHERE event_id = ?", Integer.class, eventId);

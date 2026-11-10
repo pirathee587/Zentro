@@ -42,6 +42,7 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
 
   @BeforeEach
   void setUp() {
+    org.mockito.Mockito.lenient().when(processedEventRepository.claim(any(), any())).thenReturn(1);
     consumer = new TrackingKafkaConsumer(trackingService, processedEventRepository, objectMapper);
   }
 
@@ -86,7 +87,7 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
     verify(trackingService).recordEvent(
         eq(TRACKING_REF), eq(PARCEL_ID), eq(TrackingStatus.CREATED),
         eq(null), eq("SYSTEM"), any(), any(), eq(null), eq(null), any(), eq(EVENT_ID));
-    verify(processedEventRepository).save(any(ProcessedEvent.class));
+    verify(processedEventRepository).claim("tracking-reporting-service", EVENT_ID);
   }
 
   @Test
@@ -98,7 +99,7 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
     verify(trackingService).recordEvent(
         eq(TRACKING_REF), eq(PARCEL_ID), eq(TrackingStatus.CREATED),
         eq(null), eq("SYSTEM"), any(), any(), eq(null), eq(null), any(), eq(EVENT_ID));
-    verify(processedEventRepository).save(any(ProcessedEvent.class));
+    verify(processedEventRepository).claim("tracking-reporting-service", EVENT_ID);
   }
 
   @Test
@@ -110,7 +111,7 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
     verify(trackingService).recordEvent(
         eq(TRACKING_REF), eq(PARCEL_ID), eq(TrackingStatus.IN_TRANSIT),
         eq("PICKED_UP"), eq("DISPATCHER"), any(), any(), eq(null), eq(null), any(), eq(EVENT_ID));
-    verify(processedEventRepository).save(any(ProcessedEvent.class));
+    verify(processedEventRepository).claim("tracking-reporting-service", EVENT_ID);
   }
 
   @Test
@@ -316,24 +317,23 @@ class TrackingKafkaConsumerSchemaCompatibilityTest {
   }
 
   @Test
-  @DisplayName("Additive unmapped properties do not break consumer (forward compatibility)")
-  void forwardCompatibleAdditiveProperties() {
+  @DisplayName("Additive unmapped properties are rejected per approved schema")
+  void unmappedAdditivePropertiesRejected(CapturedOutput output) {
     ObjectNode envelope = validStatusEnvelope("IN_TRANSIT", null);
     envelope.put("unmappedEnvelopeField", "extra-data");
     ((ObjectNode) envelope.get("payload")).put("unmappedPayloadField", "extra-data");
 
     consumer.onParcelEvent(envelope.toString(), "parcel.status.updated", EVENT_ID.toString(), "1");
 
-    verify(trackingService).recordEvent(
-        eq(TRACKING_REF), eq(PARCEL_ID), eq(TrackingStatus.IN_TRANSIT),
-        eq("PICKED_UP"), eq("DISPATCHER"), any(), any(), eq(null), eq(null), any(), eq(EVENT_ID));
+    assertThat(output.getAll()).contains("category=invalid_contract");
+    verify(trackingService, never()).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
   @DisplayName("Already processed event is skipped for idempotency")
   void duplicateEventSkipped() {
-    when(processedEventRepository.existsByConsumerNameAndEventId("tracking-reporting-service", EVENT_ID))
-        .thenReturn(true);
+    when(processedEventRepository.claim(any(), eq(EVENT_ID)))
+        .thenReturn(0);
 
     consumer.onParcelEvent(validCreatedEnvelope().toString(), "parcel.created", EVENT_ID.toString(), "1");
 

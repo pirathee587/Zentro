@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, main]
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
 
 permissions:
   contents: read
@@ -23,26 +23,56 @@ jobs:
         working-directory: frontend/zentro-web
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/zentro-web/package-lock.json
-
+      - name: Set up Java for report sanitization
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Install dependencies
         run: npm ci
-
       - name: Run frontend tests
-        run: npm test
-
+        run: npm test -- --reporter=default --reporter=junit --outputFile=reports/vitest.xml
       - name: Run lint
         run: npm run lint
-
+      - name: Type-check frontend
+        run: npm run type-check
       - name: Build production bundle
         run: npm run build
+      - name: Record frontend artifact inputs
+        run: |
+          mkdir -p ../../ci-reports/frontend-build
+          node -p '"version=" + JSON.parse(require("fs").readFileSync("package.json", "utf8")).version' > ../../ci-reports/frontend-build/inputs.txt
+          printf 'commit=%s\nrun=%s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> ../../ci-reports/frontend-build/inputs.txt
+      - name: Sanitize frontend test reports
+        if: always()
+        working-directory: .
+        run: java scripts/ci/ArtifactInventory.java sanitize frontend/zentro-web/reports ci-reports/frontend
+      - name: Upload frontend test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-test-reports
+          path: ci-reports/frontend/*.xml
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Upload frontend build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-build-${{ github.sha }}
+          path: |
+            frontend/zentro-web/dist/
+            ci-reports/frontend-build/inputs.txt
+          retention-days: 7
+          if-no-files-found: error
 
   backend:
     name: Backend checks
@@ -53,33 +83,96 @@ jobs:
         working-directory: backend
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
           cache-dependency-path: backend/**/pom.xml
-
+      - name: Require Docker for Testcontainers
+        run: docker info
       - name: Run Maven tests, package all modules, and verify cross-service E2E
-        run: mvn --batch-mode --no-transfer-progress -DrunE2E verify
-
+        run: mvn --batch-mode --no-transfer-progress "-Dbuild.revision=$GITHUB_SHA" -DrunE2E verify
+      - name: Sanitize backend test reports
+        if: always()
+        working-directory: .
+        run: java scripts/ci/ArtifactInventory.java sanitize backend ci-reports/backend
       - name: Upload backend test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: backend-test-reports
           path: |
-            backend/**/target/surefire-reports/*.xml
+            ci-reports/backend/*.xml
+            backend/parcel-pricing-service/target/site/jacoco/jacoco.xml
           if-no-files-found: ignore
           retention-days: 7
+      - name: Record packaged artifact inputs and hashes
+        working-directory: .
+        run: |
+          mkdir -p ci-reports/build
+          printf 'commit=%s\nrun=%s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > ci-reports/build/inputs.txt
+          find backend -type f -path '*/target/*.jar' ! -path 'backend/merchant-order-webhook-e2e/*' -print0 | sort -z | xargs -0 sha256sum > ci-reports/build/sha256.txt
+      - name: Upload packaged backend artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-build-${{ github.sha }}
+          path: |
+            ci-reports/build/
+            backend/api-gateway/target/*.jar
+            backend/identity-partner-service/target/*.jar
+            backend/parcel-pricing-service/target/*.jar
+            backend/dispatch-courier-service/target/*.jar
+            backend/tracking-reporting-service/target/*.jar
+            backend/notification-integration-service/target/*.jar
+            backend/libs/zentro-security-starter/target/*.jar
+          retention-days: 7
+          if-no-files-found: error
+
+  build-validation:
+    name: Build metadata checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test verification guards and negative fixtures
+        run: scripts/test-ci-release.sh
+      - name: Check development metadata and workflow safety
+        run: scripts/verify-ci-release.sh check .
+      - name: Validate Compose without environment files or interpolation
+        run: |
+          docker compose --env-file /dev/null -f backend/docker-compose.yml config --no-env-resolution --no-interpolate --quiet
+          docker compose --env-file /dev/null -f infra/keycloak/docker-compose.keycloak.yml config --no-env-resolution --no-interpolate --quiet
+
+  container-builds:
+    name: Container build checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build all application images locally, inspect labels, then remove them
+        run: scripts/check-container-builds.sh "$RUNNER_TEMP/container-build-evidence"
 
   ci-result:
     name: CI result
     if: ${{ always() }}
-    needs: [frontend, backend]
+    needs: [frontend, backend, build-validation, container-builds]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -87,17 +180,13 @@ jobs:
         env:
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
+          METADATA_RESULT: ${{ needs.build-validation.result }}
+          CONTAINERS_RESULT: ${{ needs.container-builds.result }}
         run: |
-          {
-            echo '## CI result'
-            echo
-            echo "- Frontend checks: **${FRONTEND_RESULT}**"
-            echo "- Backend checks: **${BACKEND_RESULT}**"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ "$FRONTEND_RESULT" != 'success' || "$BACKEND_RESULT" != 'success' ]]; then
-            echo 'At least one required CI job did not succeed.'
-            exit 1
-          fi
-
-          echo 'Frontend and backend checks both succeeded.'
+          printf 'Frontend: %s\nBackend: %s\nMetadata: %s\nContainers: %s\n' "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$CONTAINERS_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          for result in "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$CONTAINERS_RESULT"; do
+            if [[ "$result" != success ]]; then
+              echo 'A required CI job did not succeed.'
+              exit 1
+            fi
+          done

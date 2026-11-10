@@ -148,7 +148,7 @@ class ParcelEventConsumerSchemaCompatibilityTest {
 
     notificationConsumer.onParcelEvent(rec, ack);
 
-    verify(notificationService).reject(eq("parcel.created"), eq(0), eq(100L), eq("unsupported schemaVersion"));
+    verify(notificationService).reject(eq("parcel.created"), eq(0), eq(100L), eq("unsupported schema version"));
     verify(ack).acknowledge();
     verify(notificationService, never()).handle(any());
   }
@@ -207,7 +207,7 @@ class ParcelEventConsumerSchemaCompatibilityTest {
 
     webhookConsumer.onParcelEvent(rec, ack);
 
-    verify(webhookService).reject(eq("parcel.status.updated"), eq(0), eq(100L), eq("unsupported schemaVersion"));
+    verify(webhookService).reject(eq("parcel.status.updated"), eq(0), eq(100L), eq("unsupported schema version"));
     verify(ack).acknowledge();
     verify(webhookService, never()).handle(any());
   }

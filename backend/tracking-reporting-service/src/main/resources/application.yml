@@ -25,6 +25,7 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
+      enable-auto-commit: false
       group-id: ${KAFKA_CONSUMER_GROUP:tracking-reporting-service}
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer

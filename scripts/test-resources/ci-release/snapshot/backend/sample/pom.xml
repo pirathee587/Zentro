@@ -1,0 +1,1 @@
+<project><modelVersion>4.0.0</modelVersion><parent><groupId>fixture</groupId><artifactId>fixture-parent</artifactId><version>3.2.1-SNAPSHOT</version></parent><artifactId>sample</artifactId></project>

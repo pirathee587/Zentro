@@ -1,0 +1,8 @@
+libs/zentro-security-starter	tests=62	failures=0	errors=0	skipped=0
+api-gateway	tests=210	failures=0	errors=0	skipped=0
+identity-partner-service	tests=420	failures=0	errors=0	skipped=0
+parcel-pricing-service	tests=675	failures=0	errors=0	skipped=0
+dispatch-courier-service	tests=259	failures=0	errors=0	skipped=0
+tracking-reporting-service	tests=99	failures=0	errors=0	skipped=0
+notification-integration-service	tests=432	failures=0	errors=0	skipped=0
+Total tests=2157

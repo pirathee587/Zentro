@@ -1,0 +1,1 @@
+PASS: whole-JAR hashes and complete entry inventories match (nothing ignored)

@@ -3,15 +3,13 @@ package com.zentro.trackingreporting.messaging.consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zentro.trackingreporting.messaging.idempotency.ProcessedEvent;
-import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.messaging.idempotency.ProcessedEventRepository;
+import com.zentro.trackingreporting.reporting.DeliveryProjectionRepository;
+import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.tracking.service.TrackingService;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,246 +23,186 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 @ConditionalOnProperty(prefix = "zentro.kafka", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class TrackingKafkaConsumer {
-
   private static final Logger log = LoggerFactory.getLogger(TrackingKafkaConsumer.class);
-  private static final String CONSUMER_NAME = "tracking-reporting-service";
+  private final TrackingService tracking;
+  private final ProcessedEventRepository processed;
+  private final ObjectMapper mapper;
+  private final DeliveryProjectionRepository projections;
 
-  public static final String PARCEL_CREATED = "parcel.created";
-  public static final String PARCEL_STATUS_UPDATED = "parcel.status.updated";
-  public static final String SUPPORTED_SCHEMA_VERSION = "1";
-
-  private static final Pattern TRACKING_REF_PATTERN = Pattern.compile("^ZT-[0-9A-HJKMNP-TV-Z]{10}$");
-  private static final Pattern ACTOR_ROLE_PATTERN = Pattern.compile("^[A-Z][A-Z_]*$");
-  private static final Set<String> ALLOWED_SOURCES = Set.of("CUSTOMER_BOOKING", "MERCHANT_ORDER");
-  private static final int MAX_FAILURE_REASON = 200;
-
-  private final TrackingService trackingService;
-  private final ProcessedEventRepository processedEventRepository;
-  private final ObjectMapper objectMapper;
-
-  public TrackingKafkaConsumer(
-      TrackingService trackingService,
-      ProcessedEventRepository processedEventRepository,
-      ObjectMapper objectMapper) {
-    this.trackingService = trackingService;
-    this.processedEventRepository = processedEventRepository;
-    this.objectMapper = objectMapper;
+  public TrackingKafkaConsumer(TrackingService tracking, ProcessedEventRepository processed, ObjectMapper mapper) {
+    this(tracking, processed, mapper, null);
   }
 
+  public TrackingKafkaConsumer(TrackingService tracking, ProcessedEventRepository processed, ObjectMapper mapper,
+      DeliveryProjectionRepository projections) {
+    this.tracking = tracking;
+    this.processed = processed;
+    this.mapper = mapper;
+    this.projections = projections;
+  }
+
+  @Transactional
   public void onParcelEvent(String message, String topic, String headerEventId) {
     onParcelEvent(message, topic, headerEventId, null);
   }
 
   @KafkaListener(topics = {"parcel.created", "parcel.status.updated"}, groupId = "${spring.kafka.consumer.group-id:tracking-reporting-service}")
   @Transactional
-  public void onParcelEvent(
-      @Payload String message,
+  public void onParcelEvent(@Payload String message,
       @Header(name = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
       @Header(name = "eventId", required = false) String headerEventId,
-      @Header(name = "schemaVersion", required = false) Object headerSchemaVersion) {
-
-    // 1. Schema version validation from record header (missing is accepted as legacy v1)
-    String schemaVersion = extractHeaderString(headerSchemaVersion);
-    if (schemaVersion != null && !SUPPORTED_SCHEMA_VERSION.equals(schemaVersion)) {
-      log.warn("Tracking event discarded: category=unsupported_schema_version");
+      @Header(name = "schemaVersion", required = false) Object schemaVersionHeader) {
+    String schemaVersion = extractHeaderString(schemaVersionHeader);
+    if (schemaVersion != null && !"1".equals(schemaVersion)) {
+      log.warn("Tracking event discarded: category=unsupported_version category=unsupported_schema_version");
       return;
     }
-
-    UUID eventId = null;
+    Event event;
     try {
-      // 2. Parse envelope JSON
-      JsonNode envelope = objectMapper.readTree(message);
-      if (envelope == null || !envelope.isObject()) {
-        log.warn("Tracking event discarded: category=invalid_envelope");
-        return;
-      }
-
-      // 3. Event ID validation & conflict detection
-      String envelopeEventId = textOrNull(envelope, "eventId");
-      String cleanHeaderEventId = (headerEventId != null && !headerEventId.isBlank()) ? headerEventId.trim() : null;
-
-      if (envelopeEventId != null && cleanHeaderEventId != null && !envelopeEventId.equals(cleanHeaderEventId)) {
-        log.warn("Tracking event discarded: category=conflicting_event_id");
-        return;
-      }
-
-      String eventIdStr = envelopeEventId != null ? envelopeEventId : cleanHeaderEventId;
-      if (eventIdStr == null) {
-        log.warn("Tracking event discarded: category=missing_event_id");
-        return;
-      }
-
-      try {
-        eventId = UUID.fromString(eventIdStr);
-      } catch (IllegalArgumentException ex) {
-        log.warn("Tracking event discarded: category=invalid_event_id");
-        return;
-      }
-
-      // De-duplicate on eventId
-      if (processedEventRepository.existsByConsumerNameAndEventId(CONSUMER_NAME, eventId)) {
-        log.debug("Skipping already processed event: {}", eventId);
-        return;
-      }
-
-      // 4. Event type validation
-      String eventType = textOrNull(envelope, "eventType");
-      if (eventType == null) {
-        log.warn("Tracking event discarded: category=missing_event_type eventId={}", eventId);
-        return;
-      }
-      if (!PARCEL_CREATED.equals(eventType) && !PARCEL_STATUS_UPDATED.equals(eventType)) {
-        log.warn("Tracking event discarded: category=unsupported_event_type eventId={}", eventId);
-        return;
-      }
-      if (topic != null && !topic.isBlank() && !topic.equals(eventType)) {
-        log.warn("Tracking event discarded: category=mismatched_event_type eventId={}", eventId);
-        return;
-      }
-
-      // 5. Aggregate ID validation
-      String aggregateIdStr = textOrNull(envelope, "aggregateId");
-      if (aggregateIdStr == null) {
-        log.warn("Tracking event discarded: category=missing_aggregate_id eventId={}", eventId);
-        return;
-      }
-      UUID parcelId;
-      try {
-        parcelId = UUID.fromString(aggregateIdStr);
-      } catch (IllegalArgumentException ex) {
-        log.warn("Tracking event discarded: category=invalid_aggregate_id eventId={}", eventId);
-        return;
-      }
-
-      // 6. OccurredAt timestamp validation
-      String occurredAtStr = textOrNull(envelope, "occurredAt");
-      if (occurredAtStr == null) {
-        log.warn("Tracking event discarded: category=missing_occurred_at eventId={}", eventId);
-        return;
-      }
-      Instant occurredAt;
-      try {
-        occurredAt = Instant.parse(occurredAtStr);
-      } catch (Exception ex) {
-        log.warn("Tracking event discarded: category=invalid_occurred_at eventId={}", eventId);
-        return;
-      }
-
-      // 7. Payload validation
-      JsonNode payload = envelope.get("payload");
-      if (payload == null || !payload.isObject()) {
-        log.warn("Tracking event discarded: category=missing_payload eventId={}", eventId);
-        return;
-      }
-
-      // 8. Tracking reference validation
-      String trackingRef = textOrNull(payload, "trackingRef");
-      if (trackingRef == null) {
-        log.warn("Tracking event discarded: category=missing_tracking_ref eventId={}", eventId);
-        return;
-      }
-      if (!TRACKING_REF_PATTERN.matcher(trackingRef).matches()) {
-        log.warn("Tracking event discarded: category=invalid_tracking_ref eventId={}", eventId);
-        return;
-      }
-
-      // 9. Status validation
-      String statusStr = textOrNull(payload, "status");
-      if (statusStr == null) {
-        log.warn("Tracking event discarded: category=missing_status eventId={}", eventId);
-        return;
-      }
-      TrackingStatus status = TrackingStatus.fromString(statusStr);
-      if (status == null) {
-        log.warn("Tracking event discarded: category=invalid_status eventId={}", eventId);
-        return;
-      }
-      if (PARCEL_CREATED.equals(eventType) && status != TrackingStatus.CREATED) {
-        log.warn("Tracking event discarded: category=invalid_status eventId={}", eventId);
-        return;
-      }
-
-      // 10. Source validation for parcel.created
-      if (PARCEL_CREATED.equals(eventType)) {
-        String source = textOrNull(payload, "source");
-        if (source == null) {
-          log.warn("Tracking event discarded: category=missing_source eventId={}", eventId);
-          return;
-        }
-        if (!ALLOWED_SOURCES.contains(source)) {
-          log.warn("Tracking event discarded: category=invalid_source eventId={}", eventId);
-          return;
-        }
-      }
-
-      // 11. PreviousStatus and ActorRole validation for parcel.status.updated
-      String previousStatus = null;
-      String actorRole = "SYSTEM";
-      if (PARCEL_STATUS_UPDATED.equals(eventType)) {
-        String prevStr = textOrNull(payload, "previousStatus");
-        if (prevStr == null) {
-          log.warn("Tracking event discarded: category=missing_previous_status eventId={}", eventId);
-          return;
-        }
-        TrackingStatus prevStatus = TrackingStatus.fromString(prevStr);
-        if (prevStatus == null) {
-          log.warn("Tracking event discarded: category=invalid_previous_status eventId={}", eventId);
-          return;
-        }
-        previousStatus = prevStatus.name();
-
-        String roleStr = textOrNull(payload, "actorRole");
-        if (roleStr == null) {
-          log.warn("Tracking event discarded: category=missing_actor_role eventId={}", eventId);
-          return;
-        }
-        if (!ACTOR_ROLE_PATTERN.matcher(roleStr).matches()) {
-          log.warn("Tracking event discarded: category=invalid_actor_role eventId={}", eventId);
-          return;
-        }
-        actorRole = roleStr;
-      }
-
-      // 12. Failure reason conditional validation
-      String failureReason = null;
-      JsonNode reasonNode = payload.get("failureReason");
-      if (status == TrackingStatus.FAILED) {
-        if (reasonNode == null || reasonNode.isNull() || !reasonNode.isTextual() || reasonNode.asText().isBlank()) {
-          log.warn("Tracking event discarded: category=missing_failure_reason eventId={}", eventId);
-          return;
-        }
-        failureReason = reasonNode.asText();
-        if (failureReason.codePointCount(0, failureReason.length()) > MAX_FAILURE_REASON) {
-          log.warn("Tracking event discarded: category=invalid_failure_reason eventId={}", eventId);
-          return;
-        }
-      } else if (reasonNode != null && !reasonNode.isNull()) {
-        log.warn("Tracking event discarded: category=unexpected_failure_reason eventId={}", eventId);
-        return;
-      }
-
-      trackingService.recordEvent(
-          trackingRef,
-          parcelId,
-          status,
-          previousStatus,
-          actorRole,
-          status.defaultTitle(),
-          failureReason != null ? failureReason : status.defaultDescription(),
-          failureReason,
-          null,
-          occurredAt,
-          eventId
-      );
-
-      processedEventRepository.save(new ProcessedEvent(CONSUMER_NAME, eventId));
-      log.info("Tracking event processed: eventId={}", eventId);
-
-    } catch (Exception e) {
-      // Payloads and exception chains can contain secrets. Preserve the cause for retry classification only.
-      log.error("Tracking event failed: category=processing_error eventId={}", eventId);
-      throw new RuntimeException("Error processing Kafka tracking event", e);
+      event = parse(message, topic);
+    } catch (ContractException ex) {
+      log.warn("Tracking event discarded: category=invalid_contract category={}", ex.category);
+      return;
+    } catch (JsonProcessingException | IllegalArgumentException | java.time.DateTimeException ex) {
+      log.warn("Tracking event discarded: category=invalid_contract");
+      return;
     }
+    if (headerEventId != null && !headerEventId.isBlank()) {
+      try {
+        UUID hId = UUID.fromString(headerEventId.trim());
+        if (!hId.equals(event.id())) {
+          log.warn("Tracking event discarded: category=invalid_contract category=conflicting_event_id");
+          return;
+        }
+      } catch (IllegalArgumentException ex) {
+        log.warn("Tracking event discarded: category=invalid_contract category=invalid_header_event_id category=invalid_event_id");
+        return;
+      }
+    }
+    // An INSERT ON CONFLICT waits for a concurrent claimant's commit or rollback.
+    if (processed != null && processed.claim("tracking-reporting-service", event.id()) == 0) return;
+    if (projections != null) {
+      projections.lock(event.parcel());
+    }
+    tracking.recordEvent(event.ref(), event.parcel(), event.status(), event.previous(), event.actor(),
+        event.status().defaultTitle(), event.reason() != null ? event.reason() : event.status().defaultDescription(),
+        event.reason(), null, event.time(), event.id());
+    if (processed != null) {
+      processed.flush(); // history must be visible to the JDBC projection update in this same transaction
+    }
+    if (projections != null) {
+      projections.refresh(event.parcel());
+    }
+  }
+
+  private Event parse(String message, String topic) throws JsonProcessingException {
+    if (message == null || message.length() > 65536) throw new ContractException("invalid_contract");
+    JsonNode e;
+    try {
+      e = mapper.reader().with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+          .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION).readTree(message);
+    } catch (JsonProcessingException ex) {
+      throw ex;
+    }
+    if (e == null || !e.isObject()) throw new ContractException("invalid_envelope");
+    if (e.has("schemaVersion")) throw new ContractException("unsupported_schema_version");
+    allowed(e, java.util.Set.of("eventId", "eventType", "aggregateId", "occurredAt", "payload"));
+
+    if (!e.has("eventId") || e.get("eventId").isNull()) throw new ContractException("missing_event_id");
+    UUID id;
+    try {
+      id = uuid(e, "eventId");
+    } catch (Exception ex) {
+      throw new ContractException("invalid_event_id");
+    }
+
+    if (!e.has("eventType") || e.get("eventType").isNull()) throw new ContractException("missing_event_type");
+    String type = text(e, "eventType", 100);
+    if (!("parcel.created".equals(type) || "parcel.status.updated".equals(type)) || !type.equals(topic)) {
+      throw new ContractException("mismatched_event_type");
+    }
+
+    if (!e.has("aggregateId") || e.get("aggregateId").isNull()) throw new ContractException("missing_aggregate_id");
+    UUID parcel;
+    try {
+      parcel = uuid(e, "aggregateId");
+    } catch (Exception ex) {
+      throw new ContractException("invalid_aggregate_id");
+    }
+
+    if (!e.has("occurredAt") || e.get("occurredAt").isNull()) throw new ContractException("missing_occurred_at");
+    Instant time;
+    try {
+      time = Instant.parse(text(e, "occurredAt", 40));
+    } catch (Exception ex) {
+      throw new ContractException("invalid_occurred_at");
+    }
+
+    JsonNode p = e.path("payload");
+    if (p == null || !p.isObject()) throw new ContractException("missing_payload");
+    allowed(p, "parcel.created".equals(type)
+        ? java.util.Set.of("trackingRef", "status", "source", "occurredAt", "merchantId")
+        : java.util.Set.of("trackingRef", "status", "previousStatus", "actorRole", "occurredAt", "failureReason", "merchantId"));
+    if (p.has("merchantId")) text(p, "merchantId", 255);
+
+    if (!p.has("trackingRef") || p.get("trackingRef").isNull() || !p.get("trackingRef").isTextual()) {
+      throw new ContractException("missing_tracking_ref");
+    }
+    String ref = p.get("trackingRef").asText();
+    if (!ref.matches("ZT-[0-9A-HJKMNP-TV-Z]{10}")) {
+      throw new ContractException("invalid_tracking_ref");
+    }
+
+    if (!p.has("status") || p.get("status").isNull()) throw new ContractException("missing_status");
+    TrackingStatus status;
+    try {
+      status = TrackingStatus.valueOf(text(p, "status", 32));
+    } catch (Exception ex) {
+      throw new ContractException("invalid_status");
+    }
+
+    if (p.has("occurredAt") && !p.get("occurredAt").isNull()) {
+      Instant payloadTime;
+      try {
+        payloadTime = Instant.parse(text(p, "occurredAt", 40));
+      } catch (Exception ex) {
+        throw new ContractException("invalid_occurred_at");
+      }
+      if (!time.equals(payloadTime)) throw new ContractException("invalid_contract");
+    }
+
+    String previous = null;
+    String actor = "SYSTEM";
+    if ("parcel.created".equals(type)) {
+      if (status != TrackingStatus.CREATED) throw new ContractException("invalid_status");
+      if (!p.has("source") || p.get("source").isNull()) throw new ContractException("missing_source");
+      String source = text(p, "source", 32);
+      if (!(source.equals("CUSTOMER_BOOKING") || source.equals("MERCHANT_ORDER"))) {
+        throw new ContractException("invalid_source");
+      }
+    } else {
+      if (p.has("previousStatus") && !p.get("previousStatus").isNull()) {
+        try {
+          previous = TrackingStatus.valueOf(text(p, "previousStatus", 32)).name();
+        } catch (Exception ex) {
+          throw new ContractException("invalid_status");
+        }
+      }
+      if (p.has("actorRole") && !p.get("actorRole").isNull()) {
+        actor = text(p, "actorRole", 32);
+        if (!actor.matches("[A-Z][A-Z_]*")) throw new ContractException("invalid_actor_role");
+      }
+    }
+    String reason = null;
+    if (status == TrackingStatus.FAILED) {
+      if (!p.has("failureReason") || p.get("failureReason").isNull() || p.get("failureReason").asText().isBlank()) {
+        throw new ContractException("missing_failure_reason");
+      }
+      reason = text(p, "failureReason", 200);
+    } else if (p.has("failureReason") && !p.get("failureReason").isNull()) {
+      throw new ContractException("unexpected_failure_reason");
+    }
+    return new Event(id, parcel, ref, status, previous, actor, reason, time);
   }
 
   private static String extractHeaderString(Object header) {
@@ -277,16 +215,33 @@ public class TrackingKafkaConsumer {
     return header.toString();
   }
 
-  private static String textOrNull(JsonNode node, String field) {
-    if (node == null || !node.has(field)) {
-      return null;
-    }
-    JsonNode val = node.get(field);
-    if (val == null || val.isNull() || !val.isTextual()) {
-      return null;
-    }
-    String s = val.asText();
-    return s.isBlank() ? null : s;
+  private String text(JsonNode node, String key, int max) {
+    JsonNode value = node.get(key);
+    if (value == null || !value.isTextual() || value.textValue().isBlank() || value.textValue().length() > max)
+      throw new IllegalArgumentException();
+    return value.textValue();
   }
-}
 
+  private UUID uuid(JsonNode node, String key) {
+    String value = text(node, key, 36);
+    UUID uuid = UUID.fromString(value);
+    if (!uuid.toString().equalsIgnoreCase(value)) throw new IllegalArgumentException();
+    return uuid;
+  }
+
+  private void allowed(JsonNode node, java.util.Set<String> fields) {
+    var names = node.fieldNames();
+    while (names.hasNext()) if (!fields.contains(names.next())) throw new IllegalArgumentException();
+  }
+
+  static class ContractException extends IllegalArgumentException {
+    final String category;
+    ContractException(String category) {
+      super(category);
+      this.category = category;
+    }
+  }
+
+  private record Event(UUID id, UUID parcel, String ref, TrackingStatus status, String previous,
+                       String actor, String reason, Instant time) {}
+}

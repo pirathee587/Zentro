@@ -240,7 +240,14 @@ public class TrackingService {
     }
 
     // Notify live streaming SSE subscribers
-    streamService.notifySubscribers(savedEvent);
+    if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+      org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+          new org.springframework.transaction.support.TransactionSynchronization() {
+            @Override public void afterCommit() { streamService.notifySubscribers(savedEvent); }
+          });
+    } else {
+      streamService.notifySubscribers(savedEvent);
+    }
 
     return savedEvent;
   }
