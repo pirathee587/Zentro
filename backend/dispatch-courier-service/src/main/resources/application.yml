@@ -14,6 +14,8 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
 zentro:
+  dispatch:
+    max-courier-workload: ${MAX_COURIER_WORKLOAD:10}
   correlation:
     internal-base-urls:
       - ${zentro.identity.base-url}

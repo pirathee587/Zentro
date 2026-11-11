@@ -8,7 +8,10 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,11 +26,19 @@ public class DispatchService {
   private final ParcelSource parcels;
   private final AssignmentRepository assignments;
   private final IdentityCourierClient identity;
+  private final int maxCourierWorkload;
 
   public DispatchService(ParcelSource parcels, AssignmentRepository assignments, IdentityCourierClient identity) {
+    this(parcels, assignments, identity, 10);
+  }
+
+  @Autowired
+  public DispatchService(ParcelSource parcels, AssignmentRepository assignments, IdentityCourierClient identity,
+      @Value("${zentro.dispatch.max-courier-workload:10}") int maxCourierWorkload) {
     this.parcels = parcels;
     this.assignments = assignments;
     this.identity = identity;
+    this.maxCourierWorkload = maxCourierWorkload;
   }
 
   public Queue queue(String token, String search, LocalDate from, LocalDate to, String sort) {
@@ -71,8 +82,46 @@ public class DispatchService {
     if (assignments.exists(parcelId)) throw DispatchException.assigned();
     return parcels.withEligibleParcel(parcelId, token, parcel -> {
       if (parcel == null || !parcelId.equals(parcel.parcelId())) throw invalidSource();
-      return identity.listEligible(token);
+      var counts = assignments.assignmentCounts();
+      return identity.listEligible(token).stream()
+          .filter(DispatchService::eligible)
+          .filter(courier -> isWorkloadEligible(courier, counts))
+          .filter(courier -> isServiceAreaEligible(courier, parcel))
+          .toList();
     });
+  }
+
+  public static boolean isServiceAreaEligible(IdentityCourierClient.Courier courier, ParcelSource.Parcel parcel) {
+    if (courier == null || courier.assignedZone() == null || courier.assignedZone().isBlank()) {
+      return true;
+    }
+    if (parcel == null) {
+      return false;
+    }
+    String courierZone = courier.assignedZone().trim();
+    String parcelArea = parcel.effectiveServiceArea();
+    if (parcelArea == null || parcelArea.isBlank()) {
+      return true;
+    }
+    String normCourierZone = courierZone.toLowerCase(Locale.ROOT);
+    String normParcelArea = parcelArea.toLowerCase(Locale.ROOT);
+    return normCourierZone.equals(normParcelArea)
+        || normParcelArea.contains(normCourierZone)
+        || normCourierZone.contains(normParcelArea);
+  }
+
+  private boolean isWorkloadEligible(IdentityCourierClient.Courier courier, Map<UUID, Long> counts) {
+    if (maxCourierWorkload <= 0 || courier == null || courier.id() == null) {
+      return true;
+    }
+    return counts.getOrDefault(courier.id(), 0L) < maxCourierWorkload;
+  }
+
+  private boolean isWorkloadExceeded(UUID courierId) {
+    if (maxCourierWorkload <= 0 || courierId == null) {
+      return false;
+    }
+    return assignments.getAssignmentCount(courierId) >= maxCourierWorkload;
   }
 
   public Workload workload(String token, String search, String availability) {
@@ -117,6 +166,18 @@ public class DispatchService {
           default -> "COURIER_VERIFICATION_FAILED";
         };
         throw new DispatchException(HttpStatus.valueOf(error.getStatusCode().value()), code, error.getReason());
+      }
+      if (!eligible(courier)) {
+        throw new DispatchException(HttpStatus.CONFLICT, "COURIER_INELIGIBLE",
+            "This courier is no longer active or available for assignment.");
+      }
+      if (!isServiceAreaEligible(courier, parcel)) {
+        throw new DispatchException(HttpStatus.CONFLICT, "COURIER_INELIGIBLE",
+            "Courier service area does not match delivery destination.");
+      }
+      if (isWorkloadExceeded(courier.id())) {
+        throw new DispatchException(HttpStatus.CONFLICT, "COURIER_INELIGIBLE",
+            "Courier has reached maximum assignment workload capacity.");
       }
       return assignments.insert(parcelId, courier, subject);
     });

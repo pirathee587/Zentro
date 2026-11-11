@@ -200,4 +200,43 @@ class DispatchQueueControllerTest {
         .andExpect(status().isCreated()).andExpect(jsonPath("$.courierId").value(COURIER))
         .andExpect(jsonPath("$.assignedBy").value("dispatcher-subject"));
   }
+
+  @Test void courierIneligibleDueToServiceAreaMismatchReturns409() throws Exception {
+    var parcelId = java.util.UUID.fromString(PARCEL); var courierId = java.util.UUID.fromString(COURIER);
+    var parcel = new ParcelSource.Parcel(parcelId, "TEST", "Colombo", "Kandy", java.time.Instant.now());
+    doAnswer(call -> {
+      java.util.function.Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
+      return action.apply(parcel);
+    }).when(source).withEligibleParcel(any(), anyString(), any());
+    var courier = new IdentityCourierClient.Courier(courierId, java.util.UUID.randomUUID(), "Test", true, "ACTIVE", "Galle");
+    when(identity.requireEligible(eq(courierId), anyString())).thenReturn(courier);
+
+    mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
+        .with(jwt().jwt(token -> token.subject("dispatcher-subject")
+            .claim("permissions", java.util.List.of("DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("COURIER_INELIGIBLE"));
+    verify(assignments, never()).insert(any(), any(), any());
+  }
+
+  @Test void courierIneligibleDueToWorkloadCapacityReturns409() throws Exception {
+    var parcelId = java.util.UUID.fromString(PARCEL); var courierId = java.util.UUID.fromString(COURIER);
+    var parcel = new ParcelSource.Parcel(parcelId, "TEST", "Colombo", "Kandy", java.time.Instant.now());
+    doAnswer(call -> {
+      java.util.function.Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
+      return action.apply(parcel);
+    }).when(source).withEligibleParcel(any(), anyString(), any());
+    var courier = new IdentityCourierClient.Courier(courierId, java.util.UUID.randomUUID(), "Test", true, "ACTIVE", "Kandy");
+    when(identity.requireEligible(eq(courierId), anyString())).thenReturn(courier);
+    when(assignments.getAssignmentCount(courierId)).thenReturn(10L);
+
+    mvc.perform(post("/api/v1/dispatch/assignments").contentType("application/json").content(BODY)
+        .with(jwt().jwt(token -> token.subject("dispatcher-subject")
+            .claim("permissions", java.util.List.of("DISPATCH_ASSIGN")))
+        .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("COURIER_INELIGIBLE"));
+    verify(assignments, never()).insert(any(), any(), any());
+  }
 }

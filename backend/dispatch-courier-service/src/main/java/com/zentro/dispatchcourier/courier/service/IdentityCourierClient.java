@@ -33,7 +33,11 @@ public class IdentityCourierClient {
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public record Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus) {}
+  public record Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus, String assignedZone) {
+    public Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus) {
+      this(id, userId, name, active, accountStatus, null);
+    }
+  }
 
   /** Resolve the authenticated courier, never the dispatcher-only directory. */
   public Courier currentCourier(String bearerToken) {
@@ -108,7 +112,7 @@ public class IdentityCourierClient {
         && courier.active() != null && courier.accountStatus() != null;
   }
 
-  private static boolean eligible(Courier courier) {
+  public static boolean eligible(Courier courier) {
     return Boolean.TRUE.equals(courier.active()) && "ACTIVE".equalsIgnoreCase(courier.accountStatus());
   }
 
