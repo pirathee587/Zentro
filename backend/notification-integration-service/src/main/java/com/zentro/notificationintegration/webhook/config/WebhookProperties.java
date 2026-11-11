@@ -47,10 +47,6 @@ public record WebhookProperties(
       }
     }
 
-    public Retry(int maxAttempts, long pollIntervalMs, long baseDelayMs, long maxDelayMs) {
-      this(maxAttempts, pollIntervalMs, baseDelayMs, maxDelayMs, 2.0);
-    }
-
     /** Delay after {@code failedAttempts} failures, capped at the maximum. */
     public Duration delayAfter(int failedAttempts) {
       double delay = baseDelayMs;
