@@ -23,6 +23,7 @@ export const portalRoutes: RouteObject[] = [
       { path: 'reports', element: <ReportsPage /> },
       { path: 'users', element: <UsersPage /> },
       { path: 'merchant-approvals', element: <MerchantApprovalsPage /> },
+      { path: 'partner-approvals', element: <MerchantApprovalsPage /> },
       { path: 'zones-pricing', element: <ZonesPricingPage /> },
       { path: 'integration-attempts', element: <IntegrationAttemptsPage /> },
     ],
