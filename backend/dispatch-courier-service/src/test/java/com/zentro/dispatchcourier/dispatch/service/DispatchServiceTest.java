@@ -168,6 +168,55 @@ class DispatchServiceTest {
     verifyNoInteractions(callback);
   }
 
+  @Test void courierInactiveOrNonActiveAccountStatusRejected() {
+    var inactive = new IdentityCourierClient.Courier(courierId, UUID.randomUUID(), "Courier", false, "ACTIVE", "Kandy");
+    when(identity.requireEligible(courierId, "token")).thenReturn(inactive);
+    assertCode(() -> service.assign(parcelId, courierId, "dispatcher", "token"), "COURIER_INELIGIBLE");
+    verify(assignments, never()).insert(any(), any(), any());
+
+    var suspended = new IdentityCourierClient.Courier(courierId, UUID.randomUUID(), "Courier", true, "SUSPENDED", "Kandy");
+    when(identity.requireEligible(courierId, "token")).thenReturn(suspended);
+    assertCode(() -> service.assign(parcelId, courierId, "dispatcher", "token"), "COURIER_INELIGIBLE");
+    verify(assignments, never()).insert(any(), any(), any());
+  }
+
+  @Test void courierServiceAreaMismatchRejected() {
+    var mismatched = new IdentityCourierClient.Courier(courierId, UUID.randomUUID(), "Courier", true, "ACTIVE", "Galle");
+    when(identity.requireEligible(courierId, "token")).thenReturn(mismatched);
+    assertCode(() -> service.assign(parcelId, courierId, "dispatcher", "token"), "COURIER_INELIGIBLE");
+    verify(assignments, never()).insert(any(), any(), any());
+  }
+
+  @Test void courierServiceAreaMatchAccepted() {
+    var matched = new IdentityCourierClient.Courier(courierId, UUID.randomUUID(), "Courier", true, "ACTIVE", "Kandy");
+    when(identity.requireEligible(courierId, "token")).thenReturn(matched);
+    var saved = new AssignmentRepository.Assignment(parcelId, courierId, matched.userId(), "dispatcher", Instant.now());
+    when(assignments.insert(parcelId, matched, "dispatcher")).thenReturn(saved);
+    assertThat(service.assign(parcelId, courierId, "dispatcher", "token")).isSameAs(saved);
+    verify(assignments).insert(parcelId, matched, "dispatcher");
+  }
+
+  @Test void courierWorkloadExceededRejected() {
+    when(identity.requireEligible(courierId, "token")).thenReturn(courier);
+    when(assignments.getAssignmentCount(courierId)).thenReturn(10L);
+    assertCode(() -> service.assign(parcelId, courierId, "dispatcher", "token"), "COURIER_INELIGIBLE");
+    verify(assignments, never()).insert(any(), any(), any());
+  }
+
+  @Test void couriersFiltersByWorkloadAndServiceAreaAndAvailability() {
+    var c1 = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Matching", true, "ACTIVE", "Kandy");
+    var c2 = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "WrongZone", true, "ACTIVE", "Colombo");
+    var c3 = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Overloaded", true, "ACTIVE", "Kandy");
+    var c4 = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Inactive", false, "ACTIVE", "Kandy");
+    var c5 = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Unrestricted", true, "ACTIVE", null);
+
+    when(identity.listEligible("token")).thenReturn(List.of(c1, c2, c3, c4, c5));
+    when(assignments.assignmentCounts()).thenReturn(Map.of(c3.id(), 10L, c1.id(), 2L));
+
+    var eligible = service.couriers(parcelId, "token");
+    assertThat(eligible).containsExactly(c1, c5);
+  }
+
   private static void assertCode(Runnable operation, String code) {
     assertThatThrownBy(operation::run).isInstanceOfSatisfying(DispatchException.class,
         ex -> assertThat(ex.code()).isEqualTo(code));

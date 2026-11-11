@@ -12,7 +12,18 @@ import java.util.function.Function;
  */
 public interface ParcelSource {
   record Parcel(UUID parcelId, String trackingReference, String pickupSummary,
-                String dropoffSummary, Instant createdAt) {}
+                String dropoffSummary, Instant createdAt, String serviceArea) {
+    public Parcel(UUID parcelId, String trackingReference, String pickupSummary,
+                  String dropoffSummary, Instant createdAt) {
+      this(parcelId, trackingReference, pickupSummary, dropoffSummary, createdAt, null);
+    }
+
+    public String effectiveServiceArea() {
+      if (serviceArea != null && !serviceArea.isBlank()) return serviceArea.trim();
+      if (dropoffSummary != null && !dropoffSummary.isBlank()) return dropoffSummary.trim();
+      return pickupSummary != null ? pickupSummary.trim() : null;
+    }
+  }
   /** Complete means a fully reconciled source, not one page of candidates. */
   record Snapshot(List<Parcel> parcels, boolean complete) {}
 

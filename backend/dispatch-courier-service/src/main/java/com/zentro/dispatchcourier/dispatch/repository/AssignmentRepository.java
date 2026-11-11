@@ -74,6 +74,14 @@ public class AssignmentRepository {
         .stream().collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
+  public long getAssignmentCount(UUID courierProfileId) {
+    if (courierProfileId == null) return 0L;
+    Long count = jdbc.queryForObject(
+        "SELECT COUNT(*) FROM dispatch.delivery_assignment WHERE courier_profile_id = ?",
+        Long.class, courierProfileId);
+    return count != null ? count : 0L;
+  }
+
   /** Unique parcel key is the arbiter even when two independent requests race. */
   public Assignment insert(UUID parcelId, IdentityCourierClient.Courier courier, String subject) {
     return transactions.execute(status -> {
