@@ -79,7 +79,7 @@ class WebhookRetryTestingTest {
       false,
       ENCRYPTION_KEY,
       "merchant-webhooks",
-      new WebhookProperties.Retry(8, 5000, 10000, 1800000), // 8 max attempts, base 10s, cap 30m
+      new WebhookProperties.Retry(8, 5000, 10000, 1800000, 2.0), // 8 max attempts, base 10s, cap 30m
       new WebhookProperties.Http(2000, 5000),
       new WebhookProperties.Health(60, 10));
 
@@ -196,7 +196,7 @@ class WebhookRetryTestingTest {
     @Test
     @DisplayName("Exponential backoff is strictly capped at 30 minutes (1800s)")
     void backoffCapAt30Minutes() {
-      WebhookProperties.Retry customRetry = new WebhookProperties.Retry(25, 5000, 10000, 1800000);
+      WebhookProperties.Retry customRetry = new WebhookProperties.Retry(25, 5000, 10000, 1800000, 2.0);
       assertThat(customRetry.delayAfter(8)).isEqualTo(Duration.ofSeconds(1280));
       assertThat(customRetry.delayAfter(9)).isEqualTo(Duration.ofSeconds(1800)); // 2560s capped to 1800s
       assertThat(customRetry.delayAfter(20)).isEqualTo(Duration.ofSeconds(1800));

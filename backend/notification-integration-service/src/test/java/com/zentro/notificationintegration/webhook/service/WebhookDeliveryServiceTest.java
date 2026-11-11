@@ -76,7 +76,7 @@ class WebhookDeliveryServiceTest {
   private final WebhookDeliveryRepository deliveries = mock(WebhookDeliveryRepository.class);
   private final WebhookHttpSender sender = mock(WebhookHttpSender.class);
   private final WebhookProperties properties = new WebhookProperties(true, false, KEY, "merchant-webhooks",
-      new WebhookProperties.Retry(8, 5000, 10000, 1800000), new WebhookProperties.Http(2000, 5000),
+      new WebhookProperties.Retry(8, 5000, 10000, 1800000, 2.0), new WebhookProperties.Http(2000, 5000),
       new WebhookProperties.Health(60, 10));
   private final WebhookSecretCipher cipher = new WebhookSecretCipher(properties);
   private final SimpleMeterRegistry registry = new SimpleMeterRegistry();

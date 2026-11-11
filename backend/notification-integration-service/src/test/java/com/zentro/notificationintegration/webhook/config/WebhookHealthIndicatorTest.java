@@ -23,7 +23,7 @@ class WebhookHealthIndicatorTest {
   private static final Instant NOW = Instant.parse("2026-11-06T08:00:00Z");
   private final WebhookDeliveryRepository repository = mock(WebhookDeliveryRepository.class);
   private final WebhookHealthIndicator indicator = new WebhookHealthIndicator(repository,
-      new WebhookProperties(true, false, "", "merchant-webhooks", new WebhookProperties.Retry(8, 5000, 10000, 1800000),
+      new WebhookProperties(true, false, "", "merchant-webhooks", new WebhookProperties.Retry(8, 5000, 10000, 1800000, 2.0),
           new WebhookProperties.Http(2000, 5000), new WebhookProperties.Health(60, 10)),
       Clock.fixed(NOW, ZoneOffset.UTC));
 

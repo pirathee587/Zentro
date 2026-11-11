@@ -217,14 +217,17 @@ TS='1762416000'                     # X-SwiftDrop-Timestamp
 
 A delivery that fails permanently stays as a `FAILED` row in `notification.webhook_delivery`, with its attempts, last response code and error. It is logged at ERROR level and turns the `webhooks` health component DOWN for an hour. A Kafka `.DLT` topic is not used, because the failure happens on the outbound HTTP call, not while reading Kafka.
 
-Retry a merchant's failed deliveries after the cause is fixed:
+Dispatcher replay of a failed delivery is controlled by S5 and requires a backend JWT with `ROLE_DISPATCHER`:
 
-```sql
-UPDATE notification.webhook_delivery
-   SET status = 'RETRY', attempts = 0, next_attempt_at = now(), updated_at = now()
- WHERE status = 'FAILED' AND last_error IS DISTINCT FROM 'Subscription disabled'
-   AND subscription_id = (SELECT id FROM notification.webhook_subscription WHERE merchant_id = '<merchant id>');
+```http
+POST /api/v1/admin/webhook-deliveries/{deliveryId}/replay
+Authorization: Bearer <dispatcher access token>
 ```
+
+The operation returns `204` and atomically resets an eligible `FAILED` delivery to `RETRY` with attempt count zero.
+Deliveries closed as `Subscription disabled` cannot be replayed. Each delivery can be replayed once; unknown,
+non-FAILED, disabled, or already replayed deliveries are rejected. The original stored payload and signing behavior
+are unchanged.
 
 Inspect recent deliveries:
 
@@ -265,7 +268,8 @@ All settings come from environment variables. Names are listed in `backend/notif
 | `WEBHOOK_CONSUMER_GROUP` | `merchant-webhooks` | Kafka consumer group of the webhook listener |
 | `WEBHOOK_MAX_ATTEMPTS` | `8` | Attempts before a delivery is `FAILED` |
 | `WEBHOOK_RETRY_POLL_MS` | `5000` | Pause between retry rounds |
-| `WEBHOOK_RETRY_BASE_DELAY_MS` | `10000` | Delay after the first failed attempt (doubles per attempt) |
+| `WEBHOOK_RETRY_BASE_DELAY_MS` | `10000` | Delay after the first failed attempt |
+| `WEBHOOK_RETRY_MULTIPLIER` | `2.0` | Exponential multiplier between retry delays |
 | `WEBHOOK_RETRY_MAX_DELAY_MS` | `1800000` | Retry delay limit (30 min) |
 | `WEBHOOK_CONNECT_TIMEOUT_MS` | `2000` | Connect timeout |
 | `WEBHOOK_READ_TIMEOUT_MS` | `5000` | Response timeout |

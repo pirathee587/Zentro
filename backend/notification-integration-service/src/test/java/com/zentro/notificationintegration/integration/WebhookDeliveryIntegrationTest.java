@@ -9,7 +9,9 @@ import com.sun.net.httpserver.HttpServer;
 import com.zentro.notificationintegration.webhook.client.IdentityMerchantClient;
 import com.zentro.notificationintegration.webhook.security.WebhookSignatureVerifier;
 import com.zentro.notificationintegration.webhook.security.WebhookSigner;
+import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository;
 import com.zentro.notificationintegration.webhook.service.WebhookSubscriptionService;
+import com.zentro.notificationintegration.webhook.service.WebhookReplayService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
@@ -149,6 +151,7 @@ class WebhookDeliveryIntegrationTest {
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectMapper objectMapper;
   @Autowired WebhookSubscriptionService subscriptions;
+  @Autowired WebhookReplayService replayService;
   @MockBean IdentityMerchantClient identity; // approval is covered by the API tests
   @MockBean JwtDecoder jwtDecoder;
 
@@ -205,7 +208,7 @@ class WebhookDeliveryIntegrationTest {
 
   private Map<String, Object> delivery(UUID eventId) {
     List<Map<String, Object>> rows = jdbc.queryForList("""
-        SELECT status, attempts, response_status, last_error FROM notification.webhook_delivery WHERE event_id = ?
+        SELECT id, status, attempts, response_status, last_error FROM notification.webhook_delivery WHERE event_id = ?
         """, eventId);
     return rows.isEmpty() ? Map.of() : rows.get(0);
   }
@@ -346,8 +349,8 @@ class WebhookDeliveryIntegrationTest {
   }
 
   @Test
-  @DisplayName("Dead-letter FAILED delivery replay via operational SQL reset succeeds without duplicate delivery rows")
-  void failedDeliveryOperationalReplaySucceeds() throws Exception {
+  @DisplayName("Dead-letter FAILED delivery replay succeeds without duplicate delivery rows")
+  void failedDeliveryReplaySucceeds() throws Exception {
     String[] merchant = newMerchant(400);
     UUID eventId = UUID.randomUUID();
     UUID parcelId = UUID.randomUUID();
@@ -359,14 +362,8 @@ class WebhookDeliveryIntegrationTest {
         .containsEntry("last_error", "HTTP 400");
     assertThat(receivedAt(merchant[1])).hasSize(1);
 
-    // Apply the operational reset documented in merchant-webhooks.md
-    int updatedRows = jdbc.update("""
-        UPDATE notification.webhook_delivery
-           SET status = 'RETRY', attempts = 0, next_attempt_at = now(), updated_at = now()
-         WHERE status = 'FAILED' AND last_error IS DISTINCT FROM 'Subscription disabled'
-           AND subscription_id = (SELECT id FROM notification.webhook_subscription WHERE merchant_id = ?)
-        """, merchant[0]);
-    assertThat(updatedRows).isEqualTo(1);
+    assertThat(replayService.replay((UUID) failed.get("id"), "dispatcher"))
+        .isEqualTo(WebhookDeliveryRepository.ReplayResult.REPLAYED);
 
     // Delivery scheduler picks up RETRY row and retries; receiver now responds 200
     Map<String, Object> succeeded = awaitDelivery(eventId, "SUCCEEDED");

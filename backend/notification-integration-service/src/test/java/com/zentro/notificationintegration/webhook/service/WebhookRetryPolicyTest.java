@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class WebhookRetryPolicyTest {
   private final WebhookRetryPolicy policy = new WebhookRetryPolicy(new WebhookProperties(false, false, "",
-      "merchant-webhooks", new WebhookProperties.Retry(8, 5000, 10000, 1800000),
+      "merchant-webhooks", new WebhookProperties.Retry(8, 5000, 10000, 1800000, 2.0),
       new WebhookProperties.Http(2000, 5000), new WebhookProperties.Health(60, 10)));
 
   @ParameterizedTest(name = "HTTP {0} -> SUCCEEDED, SUCCESSFUL")
@@ -68,9 +68,19 @@ class WebhookRetryPolicyTest {
     assertThat(policy.classify(WebhookSendResult.timeout(), 2).delay()).isEqualTo(Duration.ofSeconds(20));
     assertThat(policy.classify(WebhookSendResult.timeout(), 3).delay()).isEqualTo(Duration.ofSeconds(40));
     assertThat(policy.classify(WebhookSendResult.timeout(), 7).delay()).isEqualTo(Duration.ofSeconds(640));
-    WebhookProperties.Retry retry = new WebhookProperties.Retry(50, 5000, 10000, 1800000);
+    WebhookProperties.Retry retry = new WebhookProperties.Retry(50, 5000, 10000, 1800000, 2.0);
     assertThat(retry.delayAfter(20)).isEqualTo(Duration.ofMinutes(30));
     assertThat(retry.delayAfter(60)).isEqualTo(Duration.ofMinutes(30));
+  }
+
+  @Test
+  @DisplayName("Back-off uses the configured multiplier and remains capped")
+  void configurableBackOffMultiplier() {
+    WebhookProperties.Retry retry = new WebhookProperties.Retry(10, 5000, 1000, 5000, 3.0);
+    assertThat(retry.delayAfter(1)).isEqualTo(Duration.ofSeconds(1));
+    assertThat(retry.delayAfter(2)).isEqualTo(Duration.ofSeconds(3));
+    assertThat(retry.delayAfter(3)).isEqualTo(Duration.ofSeconds(5));
+    assertThat(retry.delayAfter(10)).isEqualTo(Duration.ofSeconds(5));
   }
 
   @Test

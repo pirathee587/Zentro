@@ -36,7 +36,7 @@ class WebhookSubscriptionServiceTest {
 
   private WebhookSubscriptionService service(String key) {
     WebhookProperties properties = new WebhookProperties(false, false, key, "merchant-webhooks",
-        new WebhookProperties.Retry(8, 5000, 10000, 1800000), new WebhookProperties.Http(2000, 5000),
+        new WebhookProperties.Retry(8, 5000, 10000, 1800000, 2.0), new WebhookProperties.Http(2000, 5000),
         new WebhookProperties.Health(60, 10));
     return new WebhookSubscriptionService(subscriptions, deliveries, validator, new WebhookSecretGenerator(),
         new WebhookSecretCipher(properties), identity);

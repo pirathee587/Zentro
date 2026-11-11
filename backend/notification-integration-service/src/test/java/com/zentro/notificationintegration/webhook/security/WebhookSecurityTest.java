@@ -19,7 +19,7 @@ class WebhookSecurityTest {
 
   static WebhookProperties properties(boolean enabled, String key) {
     return new WebhookProperties(enabled, false, key, "merchant-webhooks",
-        new WebhookProperties.Retry(8, 5000, 10000, 1800000),
+        new WebhookProperties.Retry(8, 5000, 10000, 1800000, 2.0),
         new WebhookProperties.Http(2000, 5000),
         new WebhookProperties.Health(60, 10));
   }

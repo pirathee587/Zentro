@@ -21,7 +21,8 @@ class AttemptHistoryMigrationIntegrationTest {
         INSERT INTO notification.notification_attempt(id, event_id, event_type, parcel_id, tracking_ref, parcel_status, message, status, attempts)
         VALUES (?, ?, 'parcel.created', ?, 'ZT-7K3QX9M2PA', 'CREATED', 'Synthetic legacy summary', 'RETRY', 5)
         """, id, event, UUID.randomUUID());
-    var migration = Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword()).load();
+    var migration = Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword())
+        .target("4").load();
     assertThat(migration.migrate().migrationsExecuted).isEqualTo(1);
     migration.validate();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM notification.delivery_attempt_history", Long.class)).isZero();

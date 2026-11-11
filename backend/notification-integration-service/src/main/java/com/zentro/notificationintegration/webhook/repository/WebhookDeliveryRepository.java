@@ -15,6 +15,7 @@ import org.springframework.stereotype.Repository;
 /** JdbcTemplate access to notification.webhook_delivery. */
 @Repository
 public class WebhookDeliveryRepository {
+  public enum ReplayResult { REPLAYED, NOT_FOUND, NOT_FAILED, DISABLED, ALREADY_REPLAYED }
   private PropagationContext propagation = PropagationContext.noop();
   @org.springframework.beans.factory.annotation.Autowired(required = false)
   public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
@@ -169,6 +170,39 @@ public class WebhookDeliveryRepository {
                updated_at = now()
          WHERE id = ?
         """, attempts, responseStatus, cut(error), id);
+  }
+
+  public ReplayResult replayFailed(UUID id, String dispatcherSubject, String disabledError) {
+    var status = jdbc.query("""
+        SELECT status, last_error FROM notification.webhook_delivery WHERE id = ? FOR UPDATE
+        """, (rs, n) -> new String[] {rs.getString("status"), rs.getString("last_error")}, id)
+        .stream().findFirst();
+    if (status.isEmpty()) {
+      return ReplayResult.NOT_FOUND;
+    }
+    if (!"FAILED".equals(status.get()[0])) {
+      return ReplayResult.NOT_FAILED;
+    }
+    if (disabledError.equals(status.get()[1])) {
+      return ReplayResult.DISABLED;
+    }
+    Integer existing = jdbc.queryForObject("""
+        SELECT COUNT(*) FROM notification.webhook_delivery_replay WHERE delivery_id = ?
+        """, Integer.class, id);
+    if (existing != null && existing > 0) {
+      return ReplayResult.ALREADY_REPLAYED;
+    }
+    jdbc.update("""
+        INSERT INTO notification.webhook_delivery_replay (delivery_id, dispatcher_subject)
+        VALUES (?, ?)
+        """, id, dispatcherSubject);
+    jdbc.update("""
+        UPDATE notification.webhook_delivery
+           SET status = 'RETRY', attempts = 0, response_status = NULL, last_error = NULL,
+               next_attempt_at = now(), updated_at = now()
+         WHERE id = ?
+        """, id);
+    return ReplayResult.REPLAYED;
   }
 
   /** One page of a merchant's deliveries, newest first. Only rows of that merchant's subscription. */

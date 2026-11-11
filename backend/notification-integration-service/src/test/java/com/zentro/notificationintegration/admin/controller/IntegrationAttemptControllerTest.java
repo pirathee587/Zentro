@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +13,8 @@ import com.zentro.notificationintegration.notification.repository.NotificationRe
 import com.zentro.notificationintegration.webhook.entity.WebhookDelivery;
 import com.zentro.notificationintegration.webhook.entity.WebhookDeliveryStatus;
 import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository;
+import com.zentro.notificationintegration.webhook.repository.WebhookDeliveryRepository.ReplayResult;
+import com.zentro.notificationintegration.webhook.service.WebhookReplayService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -61,6 +64,7 @@ class IntegrationAttemptControllerTest {
   @MockBean JwtDecoder jwtDecoder;
   @MockBean NotificationRepository notificationRepository;
   @MockBean WebhookDeliveryRepository webhookDeliveryRepository;
+  @MockBean WebhookReplayService webhookReplayService;
 
   // ---- unauthenticated ----
 
@@ -130,6 +134,48 @@ class IntegrationAttemptControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.page").value(0))
         .andExpect(jsonPath("$.size").value(25));
+  }
+
+  @Test
+  @DisplayName("DISPATCHER can replay a failed webhook and receives no response body")
+  void dispatcher_replay_returns204() throws Exception {
+    UUID deliveryId = UUID.randomUUID();
+    when(webhookReplayService.replay(deliveryId, "dispatcher")).thenReturn(ReplayResult.REPLAYED);
+
+    mvc.perform(post(WEBHOOK_PATH + "/" + deliveryId + "/replay")
+            .with(jwt().jwt(jwt -> jwt.subject("dispatcher"))
+                .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isNoContent());
+  }
+
+  @Test
+  @DisplayName("Replay rejects an unknown delivery")
+  void replay_unknown_returns404() throws Exception {
+    UUID deliveryId = UUID.randomUUID();
+    when(webhookReplayService.replay(deliveryId, "dispatcher")).thenReturn(ReplayResult.NOT_FOUND);
+
+    mvc.perform(post(WEBHOOK_PATH + "/" + deliveryId + "/replay")
+            .with(jwt().jwt(jwt -> jwt.subject("dispatcher"))
+                .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @DisplayName("Replay rejects invalid delivery ids")
+  void replay_invalidId_returns400() throws Exception {
+    mvc.perform(post(WEBHOOK_PATH + "/not-a-uuid/replay")
+            .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isBadRequest());
+    verifyNoInteractions(webhookReplayService);
+  }
+
+  @ParameterizedTest(name = "{0} token cannot replay a webhook")
+  @ValueSource(strings = {"CUSTOMER", "MERCHANT", "COURIER", "SERVICE"})
+  void wrongRole_replay_returns403(String role) throws Exception {
+    mvc.perform(post(WEBHOOK_PATH + "/" + UUID.randomUUID() + "/replay")
+            .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_" + role))))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(webhookReplayService);
   }
 
   @Test
