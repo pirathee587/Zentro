@@ -1,0 +1,128 @@
+"""
+Zentro GraphQL Read-Only Tracking and Reporting Schema (ZD-073)
+Strictly Read-Only: No mutations or subscriptions are exposed.
+"""
+
+enum TrackingStatus {
+  CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+}
+
+type Party {
+  name: String!
+  phone: String!
+  address: String!
+  city: String
+}
+
+type TrackingEvent {
+  id: ID!
+  trackingRef: String!
+  status: String!
+  title: String
+  description: String
+  actorRole: String
+  location: String
+  occurredAt: String!
+  failureReason: String
+}
+
+"""
+Public parcel tracking view. Excludes all private/sensitive customer and merchant data
+(sender/recipient full names, phone numbers, full addresses, fee amounts, and internal subjects).
+"""
+type PublicTrackingParcel {
+  trackingRef: String!
+  status: TrackingStatus!
+  rawStatus: String!
+  category: String!
+  size: String
+  description: String
+  originCity: String
+  destinationCity: String
+  estimatedDays: Int!
+  estimatedDeliveryDate: String
+  createdAt: String!
+  deliveredAt: String
+  failureReason: String
+  events: [TrackingEvent!]!
+}
+
+"""
+Authenticated full delivery details view. Available only to authorized resource owners
+(the customer who booked it, the merchant who owns it, the courier assigned to it, or a dispatcher).
+"""
+type DeliveryDetails {
+  id: ID!
+  trackingRef: String!
+  status: TrackingStatus!
+  rawStatus: String!
+  category: String!
+  size: String
+  description: String
+  destinationType: String
+  isExpress: Boolean!
+  sender: Party!
+  recipient: Party!
+  fee: Float!
+  currency: String!
+  formattedFee: String
+  estimatedDays: Int!
+  createdAt: String!
+  deliveredAt: String
+  failureReason: String
+  events: [TrackingEvent!]!
+}
+
+type PageInfo {
+  page: Int!
+  size: Int!
+  totalElements: Int!
+  totalPages: Int!
+  hasNext: Boolean!
+  hasPrevious: Boolean!
+}
+
+type DeliveryConnection {
+  items: [DeliveryDetails!]!
+  pageInfo: PageInfo!
+}
+
+type Query {
+  """
+  Public tracking query. Accessible unauthenticated. Does not leak any PII or fee information.
+  """
+  publicTracking(trackingRef: String!): PublicTrackingParcel
+
+  """
+  Single delivery query. Requires authentication and resource ownership verification.
+  """
+  delivery(trackingRef: String!): DeliveryDetails
+
+  """
+  Paginated deliveries for the authenticated caller (customer, merchant, courier, or dispatcher).
+  Page is 1-indexed. Maximum size is 50.
+  """
+  myDeliveries(
+    page: Int = 1
+    size: Int = 10
+    status: TrackingStatus
+    query: String
+  ): DeliveryConnection!
+
+  """
+  Platform-wide delivery query. Strictly restricted to ROLE_DISPATCHER.
+  Page is 1-indexed. Maximum size is 50.
+  """
+  deliveries(
+    page: Int = 1
+    size: Int = 10
+    status: TrackingStatus
+    query: String
+  ): DeliveryConnection!
+}
+

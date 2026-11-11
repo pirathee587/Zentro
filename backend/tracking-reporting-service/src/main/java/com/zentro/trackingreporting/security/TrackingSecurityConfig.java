@@ -38,6 +38,8 @@ public class TrackingSecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*/stream").hasAnyRole("CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER")
             .requestMatchers(HttpMethod.GET, "/api/v1/tracking/*", "/api/v1/tracking/*/events")
                 .access((authentication, context) -> new AuthorizationDecision(!serviceOnly(authentication.get())))
+            .requestMatchers("/graphql", "/graphql/**")
+                .access((authentication, context) -> new AuthorizationDecision(!serviceOnly(authentication.get())))
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth -> oauth
             .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(converter))

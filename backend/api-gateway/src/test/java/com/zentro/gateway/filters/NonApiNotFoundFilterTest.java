@@ -33,7 +33,7 @@ class NonApiNotFoundFilterTest {
 
   @Test
   void forwardsApiAndAllowedActuatorPathsToFilterChain() {
-    for (String path : new String[] {"/api/v1/parcels", "/actuator/health", "/actuator/health/liveness", "/actuator/prometheus"}) {
+    for (String path : new String[] {"/api/v1/parcels", "/actuator/health", "/actuator/health/liveness", "/actuator/prometheus", "/graphql"}) {
       AtomicBoolean chainCalled = new AtomicBoolean(false);
       WebFilterChain chain = ex -> {
         chainCalled.set(true);

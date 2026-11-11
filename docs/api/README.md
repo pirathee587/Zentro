@@ -8,6 +8,7 @@ The checked-in OpenAPI 3.1 JSON files are the REST contract for paths as clients
 | S2 Parcel & Pricing | `/api/v1/parcels/**`, `/api/v1/zones/**`, `/api/v1/merchant/orders/**`, `/api/v1/admin/pricing-rules/**` | [`parcel.openapi.json`](openapi/parcel.openapi.json) |
 | S3 Dispatch & Courier | `/api/v1/dispatch/**`, `/api/v1/courier/deliveries/**` | [`dispatch.openapi.json`](openapi/dispatch.openapi.json) |
 | S4 Tracking & Reporting | `/api/v1/tracking/**`; the gateway also reserves `/api/v1/reports/**`, with no active report controller | [`tracking.openapi.json`](openapi/tracking.openapi.json) |
+| S4 Tracking & Reporting (GraphQL) | `/graphql` read-only tracking and delivery status history query endpoint | [`graphql.md`](graphql.md) |
 | S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
 
 S3's [workload metric definitions](dispatcher-workload.md) explain lifetime assignment counts, courier totals, timezone/reassignment limitations and #134 verification evidence.

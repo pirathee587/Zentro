@@ -28,7 +28,8 @@ class GatewayInventoryTests {
   private static final Map<String, String> RESERVED = Map.of(
       "/api/v1/admin/zones/**", "Reserved S2 zone management; no controller",
       "/api/v1/reports/**", "Reserved S4 reports; no controller",
-      "/api/v1/admin/audit-logs/**", "Reserved S5 audit logs; no controller");
+      "/api/v1/admin/audit-logs/**", "Reserved S5 audit logs; no controller",
+      "/graphql", "Reserved S4 GraphQL read-only tracking endpoint; handled by TrackingGraphQlEndpoint");
 
   static StandardEnvironment configuration() throws Exception {
     StandardEnvironment environment = new StandardEnvironment();

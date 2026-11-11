@@ -51,6 +51,8 @@ public class GatewaySecurityConfig {
             .pathMatchers(HttpMethod.GET,
                 "/api/v1/tracking/*", "/api/v1/tracking/*/events", "/api/v1/tracking/*/stream")
                 .access(RoleAuthorizationManager.notServiceOnly())
+            .pathMatchers("/graphql", "/graphql/**")
+                .access(RoleAuthorizationManager.notServiceOnly())
             .pathMatchers("/api/v1/tracking/**").denyAll()
             .pathMatchers("/actuator/health/**", "/actuator/health").permitAll()
             .pathMatchers("/api/v1/admin/**", "/api/v1/dispatch/**", "/api/v1/reports/**")

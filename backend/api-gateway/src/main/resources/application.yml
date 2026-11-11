@@ -32,7 +32,7 @@ spring:
             - id: tracking
               uri: ${S4_URI:http://localhost:8084}
               predicates:
-                - Path=/api/v1/tracking/**,/api/v1/reports/**
+                - Path=/api/v1/tracking/**,/api/v1/reports/**,/graphql
               metadata:
                 response-timeout: ${GATEWAY_TRACKING_RESPONSE_TIMEOUT_MS:3600000}
             - id: notification
