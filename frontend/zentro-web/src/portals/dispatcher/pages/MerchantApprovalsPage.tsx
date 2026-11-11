@@ -6,12 +6,10 @@ import { friendlyApiError } from '@/shared/api/apiClient';
 import {
   listMerchantApplications,
   reviewMerchantApplication,
-  type MerchantApplication,
 } from '../api/adminApi';
 import {
   listCouriersAdmin,
   updateCourierAdmin,
-  type CourierProfile,
 } from '../api/courierAdminApi';
 import {
   mapMerchantToPartner,
@@ -100,8 +98,6 @@ export function MerchantApprovalsPage() {
     onConfirm: () => undefined,
   });
 
-  const isDispatcher = user?.roles?.includes('DISPATCHER');
-
   // Review Merchant Mutation
   const reviewMerchant = useMutation({
     mutationFn: async (input: {
@@ -133,7 +129,7 @@ export function MerchantApprovalsPage() {
     },
     onSuccess: async (updated, variables) => {
       setActionError('');
-      const statusLabel = variables.active ? 'approved and activated' : 'deactivated';
+      const statusLabel = variables.active ? 'activated' : 'deactivated';
       setSuccessMessage(
         `Courier ${variables.name} has been ${statusLabel} successfully.`,
       );
@@ -416,34 +412,7 @@ export function MerchantApprovalsPage() {
                     {/* Courier Actions */}
                     {partner.partnerType === 'COURIER' && (
                       <>
-                        {partner.status === 'PENDING' ? (
-                          <>
-                            <button
-                              id={`reject-courier-${partner.id}`}
-                              className="staff-review-button"
-                              type="button"
-                              disabled={isActionPending}
-                              onClick={() => {
-                                setActionError('');
-                                reviewCourier.mutate({ id: partner.id, active: false, name: partner.name });
-                              }}
-                            >
-                              Reject
-                            </button>
-                            <button
-                              id={`approve-courier-${partner.id}`}
-                              className="staff-review-button is-approve"
-                              type="button"
-                              disabled={isActionPending}
-                              onClick={() => {
-                                setActionError('');
-                                reviewCourier.mutate({ id: partner.id, active: true, name: partner.name });
-                              }}
-                            >
-                              Approve
-                            </button>
-                          </>
-                        ) : partner.status === 'APPROVED' ? (
+                        {partner.status === 'APPROVED' ? (
                           <button
                             id={`deactivate-courier-${partner.id}`}
                             className="staff-review-button"
@@ -456,7 +425,20 @@ export function MerchantApprovalsPage() {
                           >
                             Deactivate
                           </button>
-                        ) : null}
+                        ) : (
+                          <button
+                            id={`activate-courier-${partner.id}`}
+                            className="staff-review-button is-approve"
+                            type="button"
+                            disabled={isActionPending}
+                            onClick={() => {
+                              setActionError('');
+                              reviewCourier.mutate({ id: partner.id, active: true, name: partner.name });
+                            }}
+                          >
+                            Activate
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

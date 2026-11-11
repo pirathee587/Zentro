@@ -33,15 +33,6 @@ const DISPATCHER_AUTH: Auth['user'] = {
   profileLoaded: true,
 };
 
-const NON_DISPATCHER_AUTH: Auth['user'] = {
-  id: 'customer-1',
-  name: 'Regular Customer',
-  roles: ['CUSTOMER'],
-  accessToken: 'customer-jwt-token',
-  accountStatus: 'ACTIVE',
-  profileLoaded: true,
-};
-
 const MOCK_MERCHANTS: MerchantApplication[] = [
   {
     id: 'merch-1',
@@ -229,18 +220,18 @@ describe('PartnerApprovalsPage (ZD-083)', () => {
     });
   });
 
-  it('approves a pending courier application successfully', async () => {
+  it('activates a pending courier profile successfully', async () => {
     renderPage();
     await screen.findByText('Apex Logistics LLC');
 
     fireEvent.click(screen.getByRole('tab', { name: /Couriers/i }));
     await screen.findByText('Kamal Perera');
 
-    const approveCourierBtn = screen.getByRole('button', { name: /^Approve$/i });
-    fireEvent.click(approveCourierBtn);
+    const activateCourierBtn = screen.getByRole('button', { name: /^Activate$/i });
+    fireEvent.click(activateCourierBtn);
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      /Courier Kamal Perera has been approved and activated successfully/i,
+      /Courier Kamal Perera has been activated successfully/i,
     );
   });
 

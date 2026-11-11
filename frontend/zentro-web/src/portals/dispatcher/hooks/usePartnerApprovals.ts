@@ -3,12 +3,10 @@ import { useAuth } from '@/shared/auth/useAuth';
 import {
   listMerchantApplications,
   reviewMerchantApplication,
-  type MerchantApplication,
 } from '../api/adminApi';
 import {
   listCouriersAdmin,
   updateCourierAdmin,
-  type CourierProfile,
 } from '../api/courierAdminApi';
 import {
   partnerApprovalKeys,
