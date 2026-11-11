@@ -28,28 +28,36 @@ public record WebhookProperties(
   /**
    * @param maxAttempts    attempts before a delivery is FAILED
    * @param pollIntervalMs pause between retry rounds
-   * @param baseDelayMs    delay after the first failed attempt; doubles with every further failure
+   * @param baseDelayMs    delay after the first failed attempt
+   * @param multiplier     exponential multiplier applied after each failed attempt
    * @param maxDelayMs     upper limit for the retry delay
    */
   public record Retry(
       @DefaultValue("8") int maxAttempts,
       @DefaultValue("5000") long pollIntervalMs,
       @DefaultValue("10000") long baseDelayMs,
-      @DefaultValue("1800000") long maxDelayMs) {
+      @DefaultValue("1800000") long maxDelayMs,
+      @DefaultValue("2.0") double multiplier) {
     public Retry {
       if (maxAttempts < 1) {
         throw new IllegalArgumentException("zentro.webhooks.retry.max-attempts must be at least 1");
       }
+      if (baseDelayMs < 1 || maxDelayMs < 1 || multiplier < 1 || !Double.isFinite(multiplier)) {
+        throw new IllegalArgumentException("zentro.webhooks.retry delays and multiplier must be positive");
+      }
     }
 
-    /** Delay after {@code failedAttempts} failures: base * 2^(failedAttempts - 1), capped at the maximum. */
+    public Retry(int maxAttempts, long pollIntervalMs, long baseDelayMs, long maxDelayMs) {
+      this(maxAttempts, pollIntervalMs, baseDelayMs, maxDelayMs, 2.0);
+    }
+
+    /** Delay after {@code failedAttempts} failures, capped at the maximum. */
     public Duration delayAfter(int failedAttempts) {
-      int exponent = Math.max(0, Math.min(failedAttempts - 1, 30));
-      long delay = baseDelayMs * (1L << exponent);
-      if (delay <= 0 || delay > maxDelayMs) {
-        delay = maxDelayMs;
+      double delay = baseDelayMs;
+      for (int i = 1; i < failedAttempts && delay < maxDelayMs; i++) {
+        delay = Math.min(maxDelayMs, delay * multiplier);
       }
-      return Duration.ofMillis(delay);
+      return Duration.ofMillis(Math.min(maxDelayMs, Math.max(1, (long) delay)));
     }
   }
 

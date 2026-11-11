@@ -74,6 +74,16 @@ class WebhookRetryPolicyTest {
   }
 
   @Test
+  @DisplayName("Back-off uses the configured multiplier and remains capped")
+  void configurableBackOffMultiplier() {
+    WebhookProperties.Retry retry = new WebhookProperties.Retry(10, 5000, 1000, 5000, 3.0);
+    assertThat(retry.delayAfter(1)).isEqualTo(Duration.ofSeconds(1));
+    assertThat(retry.delayAfter(2)).isEqualTo(Duration.ofSeconds(3));
+    assertThat(retry.delayAfter(3)).isEqualTo(Duration.ofSeconds(5));
+    assertThat(retry.delayAfter(10)).isEqualTo(Duration.ofSeconds(5));
+  }
+
+  @Test
   @DisplayName("The last allowed attempt turns a retryable failure into FAILED while retaining response class")
   void maxAttempts() {
     Outcome last = policy.classify(WebhookSendResult.response(503), 8);
