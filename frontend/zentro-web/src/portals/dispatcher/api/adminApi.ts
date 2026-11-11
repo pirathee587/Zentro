@@ -67,21 +67,35 @@ export type MerchantApplication = {
   businessName: string;
   businessRegNo: string | null;
   contactPhone: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   rejectionReason: string | null;
   createdAt: string;
   reviewedAt: string | null;
 };
 
-export type ReviewDecision = 'APPROVED' | 'REJECTED';
+export type ReviewDecision = 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
 export type ReviewMerchantRequest = {
   decision: ReviewDecision;
   rejectionReason?: string;
 };
 
-export async function listMerchantApplications(signal?: AbortSignal): Promise<MerchantApplication[]> {
-  return (await apiClient.get<MerchantApplication[]>('/api/v1/admin/merchants', { signal })).data;
+export async function listMerchantApplications(
+  statusOrSignal?: string | AbortSignal,
+  signal?: AbortSignal,
+): Promise<MerchantApplication[]> {
+  let status: string | undefined;
+  let abortSignal: AbortSignal | undefined;
+  if (statusOrSignal instanceof AbortSignal) {
+    abortSignal = statusOrSignal;
+  } else if (typeof statusOrSignal === 'string') {
+    status = statusOrSignal;
+    abortSignal = signal;
+  } else {
+    abortSignal = signal;
+  }
+  const query = status && status !== 'ALL' ? `?status=${encodeURIComponent(status)}` : '';
+  return (await apiClient.get<MerchantApplication[]>(`/api/v1/admin/merchants${query}`, { signal: abortSignal })).data;
 }
 
 export async function reviewMerchantApplication(
@@ -90,5 +104,22 @@ export async function reviewMerchantApplication(
 ): Promise<MerchantApplication> {
   return (
     await apiClient.patch<MerchantApplication>(`/api/v1/admin/merchants/${applicationId}`, request)
+  ).data;
+}
+
+export async function suspendMerchantApplication(
+  applicationId: string,
+  reason: string,
+): Promise<MerchantApplication> {
+  return (
+    await apiClient.patch<MerchantApplication>(`/api/v1/admin/merchants/${applicationId}/suspend`, { reason })
+  ).data;
+}
+
+export async function reinstateMerchantApplication(
+  applicationId: string,
+): Promise<MerchantApplication> {
+  return (
+    await apiClient.patch<MerchantApplication>(`/api/v1/admin/merchants/${applicationId}/reinstate`)
   ).data;
 }

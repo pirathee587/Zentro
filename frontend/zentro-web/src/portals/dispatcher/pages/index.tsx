@@ -136,6 +136,8 @@ export function UnassignedParcelsPage() {
 }
 
 export { MerchantApprovalsPage } from './MerchantApprovalsPage';
+export { PartnerDetailModal } from './PartnerDetailModal';
+export { ActionConfirmDialog } from './ActionConfirmDialog';
 export { UsersPage } from './UsersPage';
 export { CouriersPage } from './CouriersPage';
 
