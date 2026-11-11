@@ -109,7 +109,7 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
                 {merchant.rejectionReason && (
                   <span style={{ gridColumn: '1 / -1' }}>
                     Rejection / Suspension Reason
-                    <strong style={{ color: '#a83d30' }}>{merchant.rejectionReason}</strong>
+                    <strong style={{ color: 'var(--err)' }}>{merchant.rejectionReason}</strong>
                   </span>
                 )}
               </div>
@@ -164,3 +164,4 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
     </div>
   );
 }
+

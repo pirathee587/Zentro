@@ -65,7 +65,7 @@ export function ActionConfirmDialog({
           <button
             type="button"
             className={`staff-review-button ${isDestructive ? '' : 'is-approve'}`}
-            style={isDestructive ? { borderColor: '#a83d30', color: '#a83d30' } : undefined}
+            style={isDestructive ? { borderColor: 'var(--err)', color: 'var(--err)' } : undefined}
             onClick={onConfirm}
             disabled={isPending}
           >
@@ -76,3 +76,4 @@ export function ActionConfirmDialog({
     </div>
   );
 }
+

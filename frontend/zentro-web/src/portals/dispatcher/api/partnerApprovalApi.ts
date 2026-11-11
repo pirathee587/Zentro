@@ -1,5 +1,5 @@
 /**
- * Partner Approval API service and unified types (ZD-083 / Issue #158).
+ * Partner Approval API service and unified types (ZD-083 / Issue 158).
  *
  * Unifies merchant application reviews and courier eligibility approvals
  * under the Dispatcher administration workflow.
@@ -82,3 +82,4 @@ export const partnerApprovalKeys = {
   merchants: (status?: string) => ['dispatcher', 'merchant-applications', { status }] as const,
   couriers: (params?: { active?: boolean; status?: string }) => ['dispatcher', 'couriers', params] as const,
 };
+
