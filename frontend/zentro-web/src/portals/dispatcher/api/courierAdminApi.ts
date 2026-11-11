@@ -1,5 +1,6 @@
 import { apiClient, withBearerToken } from '@/shared/api/apiClient';
 import type { CourierProfile, VehicleType } from '@/portals/courier/api/courierApi';
+export type { CourierProfile, VehicleType };
 
 export interface ListCouriersParams {
   status?: string;
