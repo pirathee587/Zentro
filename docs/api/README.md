@@ -13,6 +13,8 @@ The checked-in OpenAPI 3.1 JSON files are the REST contract for paths as clients
 
 S3's [workload metric definitions](dispatcher-workload.md) explain lifetime assignment counts, courier totals, timezone/reassignment limitations and #134 verification evidence.
 
+S1's [partner approval workflows](../dispatcher/partner-approvals.md) document dispatcher review operations for merchant applications and courier fleet profiles (ZD-083).
+
 The generator inventory and guard are maintained in [`build_openapi.py`](build_openapi.py). To regenerate the committed artifacts and verify that their operations match the real controller mappings:
 
 ```sh
