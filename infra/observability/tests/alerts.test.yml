@@ -1,0 +1,51 @@
+rule_files:
+  - ../alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="zentro-backend",service="api-gateway"}'
+        values: '0+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: BackendScrapeUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: zentro-backend
+              service: api-gateway
+              severity: warning
+            exp_annotations:
+              summary: Backend metrics scrape unavailable
+              description: Prometheus cannot scrape api-gateway.
+  - interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{service="api-gateway",status="500"}'
+        values: '0+60x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: BackendHttpServerErrors
+        exp_alerts:
+          - exp_labels:
+              service: api-gateway
+              severity: warning
+            exp_annotations:
+              summary: Elevated backend 5xx rate
+              description: api-gateway is returning server errors.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="zentro-backend",service="api-gateway"}'
+        values: '0+0x3 1+0x2'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: BackendScrapeUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: zentro-backend
+              service: api-gateway
+              severity: warning
+            exp_annotations:
+              summary: Backend metrics scrape unavailable
+              description: Prometheus cannot scrape api-gateway.
+      - eval_time: 5m
+        alertname: BackendScrapeUnavailable
+        exp_alerts: []
