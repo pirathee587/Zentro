@@ -68,6 +68,9 @@ public class CourierProfileService {
   public CourierProfile provisionCourier(Jwt jwt) {
     verifyCourierRole(jwt);
     UserProfile user = profiles.current(jwt);
+    if (user != null && !"ACTIVE".equalsIgnoreCase(user.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + user.accountStatus() + ".");
+    }
     return getOrCreateProfile(user.id());
   }
 

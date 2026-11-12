@@ -82,6 +82,9 @@ public class MerchantApplicationService {
   @Transactional
   public MerchantApplication createOrReapply(Jwt jwt, CreateMerchantApplicationRequest request) {
     UserProfile user = profiles.current(jwt);
+    if (user != null && !"ACTIVE".equalsIgnoreCase(user.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + user.accountStatus() + ".");
+    }
     try {
       List<MerchantApplication> saved = jdbc.query("""
           INSERT INTO identity.merchant_application
@@ -170,6 +173,10 @@ public class MerchantApplicationService {
    */
   @Transactional
   public MerchantApplication review(UUID applicationId, Jwt reviewer, ReviewMerchantApplicationRequest request) {
+    UserProfile reviewerProfile = profiles.current(reviewer);
+    if (reviewerProfile != null && !"ACTIVE".equalsIgnoreCase(reviewerProfile.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + reviewerProfile.accountStatus() + ".");
+    }
     String status = request.decision().name();
     String reason = clean(request.rejectionReason());
 
@@ -215,6 +222,10 @@ public class MerchantApplicationService {
    */
   @Transactional
   public MerchantApplication suspend(UUID applicationId, Jwt reviewer, String rawReason) {
+    UserProfile reviewerProfile = profiles.current(reviewer);
+    if (reviewerProfile != null && !"ACTIVE".equalsIgnoreCase(reviewerProfile.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + reviewerProfile.accountStatus() + ".");
+    }
     String reason = clean(rawReason);
     if (reason == null) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A suspension reason is required.");
@@ -248,6 +259,10 @@ public class MerchantApplicationService {
    */
   @Transactional
   public MerchantApplication reinstate(UUID applicationId, Jwt reviewer) {
+    UserProfile reviewerProfile = profiles.current(reviewer);
+    if (reviewerProfile != null && !"ACTIVE".equalsIgnoreCase(reviewerProfile.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + reviewerProfile.accountStatus() + ".");
+    }
     List<MerchantApplication> updated = jdbc.query("""
         UPDATE identity.merchant_application
            SET status = 'APPROVED',
