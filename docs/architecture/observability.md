@@ -148,6 +148,18 @@ before application dispatch cannot guarantee an application span or header.
 No collector/exporter is configured here. Operators must not enable HTTP wire,
 SQL parameter, or framework TRACE logging on sensitive traffic.
 
+## Metrics scrape configuration
+
+The backend Prometheus registry and `health,prometheus` actuator exposure are
+configured for the gateway and S1–S5. Scrape endpoints remain on each service's
+HTTP listener, so deployments must keep them on a private network and enforce
+the approved scrape authorization boundary. The repository Prometheus config
+and Grafana dashboard are starter provisioning assets; no live collector,
+Grafana authentication, alert delivery channel, outage/recovery drill, or
+production access policy is claimed by this configuration alone. Only bounded
+service labels are used in the included scrape/alert examples; never add trace
+IDs, correlation IDs, user IDs, or request-derived values as metric labels.
+
 Issue #222 retains broader error-body/status standardization. This work changes
 diagnostic logging and propagation only; the four known pre-existing S1
 OpenAPI inventory omissions are not repaired here. Phase 1 safe-logging files
