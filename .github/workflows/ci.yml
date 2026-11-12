@@ -169,15 +169,18 @@ jobs:
         with:
           persist-credentials: false
       - name: Scan backend dependencies
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.28.0
-        with:
-          scan-type: fs
-          scan-ref: backend
-          scanners: vuln
-          severity: CRITICAL,HIGH
-          format: sarif
-          output: trivy-backend.sarif
-          exit-code: '1'
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/workspace"
+          --workdir /workspace
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:514fc04c5c56af1de527fc4f6de3c5399fb99a4eef11a0d45a7e6d223c7c7fe9
+          fs
+          --scanners vuln
+          --severity CRITICAL,HIGH
+          --format sarif
+          --output /workspace/trivy-backend.sarif
+          --exit-code 1
+          /workspace/backend
       - name: Upload dependency scan results
         if: always() && hashFiles('trivy-backend.sarif') != ''
         uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
