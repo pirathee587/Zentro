@@ -180,7 +180,7 @@ jobs:
           exit-code: '1'
       - name: Upload dependency scan results
         if: always() && hashFiles('trivy-backend.sarif') != ''
-        uses: github/codeql-action/upload-sarif@df559355d593f71a83e4f5c3672b2b4a6a749c94 # v3
+        uses: github/codeql-action/upload-sarif@b7b84b636b4f90c9b31da1bc5f72bfadd5b31410 # v3
         with:
           sarif_file: trivy-backend.sarif
 
