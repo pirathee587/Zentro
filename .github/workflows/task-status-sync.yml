@@ -4,7 +4,11 @@ on:
   create:
   pull_request:
     branches: [develop, main]
-    types: [opened, ready_for_review, closed]
+    types: [opened, ready_for_review, synchronize, reopened, closed]
+  pull_request_review:
+    types: [submitted]
+  check_run:
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,13 +20,20 @@ jobs:
     permissions:
       contents: read
       issues: write
+      pull-requests: read
+      checks: read
     steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Sync issue status
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           script: |
             const { owner, repo } = context.repo;
             const eventName = context.eventName;
+            const { taskStatusDecision } = require('./scripts/task-status-policy');
 
             async function getIssueNumberFromBranch(branch) {
               const match = branch.match(/^feature\/(\d+)-/);
@@ -80,7 +91,24 @@ jobs:
               return;
             }
 
-            const pr = context.payload.pull_request;
+            let pr = context.payload.pull_request;
+            if (!pr && eventName === "check_run") {
+              const candidate = context.payload.check_run.pull_requests?.[0];
+              if (candidate) {
+                ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: candidate.number }));
+              }
+            }
+            if (!pr && eventName === "pull_request_review") {
+              pr = context.payload.pull_request;
+            }
+            if (!pr) {
+              core.info("Event is not associated with a pull request; nothing to do.");
+              return;
+            }
+            if (!['develop', 'main'].includes(pr.base.ref)) {
+              core.info("Pull request targets an unmanaged base branch; nothing to do.");
+              return;
+            }
             const issue_number = await getIssueNumberFromPrBody(pr.body);
             if (!issue_number) {
               core.info("PR has no closing reference; linked-issue check handles this.");
@@ -88,16 +116,57 @@ jobs:
             }
 
             const action = context.payload.action;
-            if (action === "opened" || action === "ready_for_review") {
+            if (pr.draft) {
+              core.info("Draft PRs do not move issues to in-review or done.");
+              return;
+            }
+
+            async function hasIndependentApproval() {
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner, repo, pull_number: pr.number, per_page: 100
+              });
+              const latestByReviewer = new Map();
+              for (const review of reviews) {
+                if (review.user && review.user.login !== pr.user.login && review.state !== "PENDING") {
+                  latestByReviewer.set(review.user.login, review.state);
+                }
+              }
+              return [...latestByReviewer.values()].some(state => state === "APPROVED");
+            }
+
+            async function checksPassed() {
+              const { data } = await github.rest.checks.listForRef({
+                owner, repo, ref: pr.head.sha, per_page: 100
+              });
+              return data.check_runs.length > 0 && data.check_runs.every(check =>
+                check.status === "completed" && check.conclusion === "success"
+              );
+            }
+
+            const approved = await hasIndependentApproval();
+            const green = await checksPassed();
+            const decision = taskStatusDecision({
+              eventName, action, draft: pr.draft, merged: pr.merged,
+              independentApproval: approved, checksPassed: green
+            });
+            if (decision === "in-review") {
               await addLabel(issue_number, "in-review");
               await removeLabelIfPresent(issue_number, "in-progress");
               core.info(`Issue #${issue_number} moved to in-review.`);
-            } else if (action === "closed" && pr.merged) {
+            } else if (decision === "done") {
               await addLabel(issue_number, "done");
               await removeLabelIfPresent(issue_number, "in-review");
-              await github.rest.issues.createComment({
-                owner, repo, issue_number,
-                body: `Merged in PR #${pr.number} by @${context.actor}`
+              const marker = `<!-- task-status-sync:merged-pr-${pr.number} -->`;
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number, per_page: 100
               });
+              if (!comments.some(comment => comment.body?.includes(marker))) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number,
+                  body: `Merged in PR #${pr.number} by @${context.actor}\n\n${marker}`
+                });
+              }
               core.info(`Issue #${issue_number} marked done after PR #${pr.number} merged.`);
+            } else {
+              core.info("PR state does not satisfy the transition policy.");
             }

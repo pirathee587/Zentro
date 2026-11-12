@@ -147,12 +147,78 @@ jobs:
           java-version: '21'
       - name: Test verification guards and negative fixtures
         run: scripts/test-ci-release.sh
+      - name: Test PR task status transition fixtures
+        run: node scripts/test-task-status-policy.js
       - name: Check development metadata and workflow safety
         run: scripts/verify-ci-release.sh check .
       - name: Validate Compose without environment files or interpolation
         run: |
           docker compose --env-file /dev/null -f backend/docker-compose.yml config --no-env-resolution --no-interpolate --quiet
           docker compose --env-file /dev/null -f infra/keycloak/docker-compose.keycloak.yml config --no-env-resolution --no-interpolate --quiet
+
+  backend-security-scan:
+    name: Backend dependency scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Scan backend dependencies
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/workspace"
+          --workdir /workspace
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:16f1ee8462d0ba07dd69239150d60ba7b591c55e02dfc33a3fc19710b861d180
+          fs
+          --scanners vuln
+          --severity CRITICAL,HIGH
+          --format json
+          --output /workspace/trivy-backend.json
+          --exit-code 0
+          /workspace/backend
+      - name: Show dependency findings and enforce severity threshold
+        if: always() && hashFiles('trivy-backend.json') != ''
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/workspace"
+          --workdir /workspace
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:16f1ee8462d0ba07dd69239150d60ba7b591c55e02dfc33a3fc19710b861d180
+          convert
+          --format table
+          --scanners vuln
+          --exit-code 1
+          /workspace/trivy-backend.json
+      - name: Generate SARIF report
+        if: always() && hashFiles('trivy-backend.json') != ''
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/workspace"
+          --workdir /workspace
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:16f1ee8462d0ba07dd69239150d60ba7b591c55e02dfc33a3fc19710b861d180
+          convert
+          --format sarif
+          --output /workspace/trivy-backend.sarif
+          /workspace/trivy-backend.json
+      - name: Upload dependency scan results
+        if: always() && hashFiles('trivy-backend.sarif') != ''
+        uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+        with:
+          sarif_file: trivy-backend.sarif
+      - name: Archive backend dependency scan reports
+        if: always() && hashFiles('trivy-backend.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-dependency-scan-${{ github.sha }}
+          path: |
+            trivy-backend.json
+            trivy-backend.sarif
+          retention-days: 7
+          if-no-files-found: ignore
 
   container-builds:
     name: Container build checks
@@ -172,7 +238,7 @@ jobs:
   ci-result:
     name: CI result
     if: ${{ always() }}
-    needs: [frontend, backend, build-validation, container-builds]
+    needs: [frontend, backend, build-validation, backend-security-scan, container-builds]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -181,10 +247,11 @@ jobs:
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           METADATA_RESULT: ${{ needs.build-validation.result }}
+          SECURITY_RESULT: ${{ needs.backend-security-scan.result }}
           CONTAINERS_RESULT: ${{ needs.container-builds.result }}
         run: |
-          printf 'Frontend: %s\nBackend: %s\nMetadata: %s\nContainers: %s\n' "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$CONTAINERS_RESULT" >> "$GITHUB_STEP_SUMMARY"
-          for result in "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$CONTAINERS_RESULT"; do
+          printf 'Frontend: %s\nBackend: %s\nMetadata: %s\nSecurity: %s\nContainers: %s\n' "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$SECURITY_RESULT" "$CONTAINERS_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          for result in "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$SECURITY_RESULT" "$CONTAINERS_RESULT"; do
             if [[ "$result" != success ]]; then
               echo 'A required CI job did not succeed.'
               exit 1
