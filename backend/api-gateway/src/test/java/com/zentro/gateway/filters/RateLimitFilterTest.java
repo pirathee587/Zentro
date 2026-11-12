@@ -11,6 +11,29 @@ import reactor.core.publisher.Mono;
 
 class RateLimitFilterTest {
   @Test
+  void separateReplicasHaveIndependentBudgets() {
+    RateLimitFilter first = new RateLimitFilter(1, 10, false);
+    RateLimitFilter second = new RateLimitFilter(1, 10, false);
+    GatewayFilterChain chain = ex -> Mono.empty();
+    var initial = exchange("198.51.100.1");
+    first.filter(initial, chain).block();
+    assertThat(initial.getResponse().getStatusCode()).isNull();
+    var denied = exchange("198.51.100.2");
+    first.filter(denied, chain).block();
+    // Untrusted X-Forwarded-For cannot create a fresh budget on the same replica.
+    assertThat(denied.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    var otherReplica = exchange("198.51.100.1");
+    second.filter(otherReplica, chain).block();
+    assertThat(otherReplica.getResponse().getStatusCode()).isNull();
+  }
+
+  private static MockServerWebExchange exchange(String forwarded) {
+    return MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/tracking/ZT-1234567890")
+        .remoteAddress(new java.net.InetSocketAddress("192.0.2.1", 12345))
+        .header("X-Forwarded-For", forwarded).build());
+  }
+
+  @Test
   void enforcesTrackingRateLimitAndSetsRetryAfterHeader() {
     RateLimitFilter filter = new RateLimitFilter(2, 10, true);
     GatewayFilterChain chain = ex -> Mono.empty();

@@ -15,11 +15,29 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalTrackingExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalTrackingExceptionHandler.class);
+
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ProblemDetail handleParameterConversion(MethodArgumentTypeMismatchException ex,
+      HttpServletRequest request) {
+    // Keep this correction local to the existing integer pagination contract.
+    if (!"/api/v1/tracking/mine".equals(request.getRequestURI())
+        || !java.util.Set.of("page", "size", "limit").contains(ex.getName())) {
+      return handleGeneric(ex, request);
+    }
+    ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+        HttpStatus.BAD_REQUEST, "Pagination parameters must be valid integers.");
+    problem.setType(URI.create("about:blank"));
+    problem.setTitle("Bad Request");
+    problem.setInstance(URI.create(request.getRequestURI()));
+    problem.setProperty("code", "INVALID_ARGUMENT");
+    return problem;
+  }
 
   @ExceptionHandler(TrackingNotFoundException.class)
   public ProblemDetail handleTrackingNotFound(TrackingNotFoundException ex, HttpServletRequest request) {

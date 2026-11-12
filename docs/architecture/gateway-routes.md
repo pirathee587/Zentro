@@ -1,5 +1,15 @@
 # Gateway route and timeout audit (#144)
 
+## Current Issue #351 verification (2026-11-12)
+
+This section supersedes historical CORS and operation-count statements below. Base: `9275ea8ccb3170097757e332525125264769d21f`. Source inspection confirms Idempotency-Key is allowed and Location is exposed by CorsConfig; `/graphql` is also routed to S4. Current OpenAPI inventory is **59 REST operations**: S1 25, S2 11, S3 11, S4 4, S5 8. See [current operation matrix](../testing/backend-contract-matrix.md).
+
+Executed gateway/gRPC focused verification succeeded (gateway 80 tests, 14 skipped; S1 selected gRPC 25 tests, none skipped). GatewaySseContractTests adds a real gateway HTTP round trip with a finite stub SSE upstream and a stub JWT decoder: it proves event bytes/content type, correlation, Authorization, sanitized identity headers and Last-Event-ID forwarding across reconnect, plus rejection of expired/service-only test tokens. It **does not prove** backend event replay, real JWT expiry while connected, or live S4 ownership. The gateway permits anonymous public tracking/stream routing, while S4 requires an authenticated human and ownership for streams; downstream security remains essential. Existing PublicTrackingControllerTest and TrackingStreamServiceTest test those downstream checks with mocked service/repository seams.
+
+Existing GatewayDefaultDenyTests, GatewayBehaviorTests, GatewayUpstreamFailureTests, GatewayInventoryTests, CorsConfigTest, RateLimitFilterTest and header-filter tests were reused. Upstream timeout tests override budgets to exercise failure/recovery; configured defaults remain 1s connect/30s response and 3,600,000ms for the whole tracking/report/GraphQL route. No workload acceptance of these values is inferred. Caffeine/Bucket4j remains replica-local, resets on restart and cannot enforce a cluster-wide quota. No Redis, route or timeout policy was added.
+
+Live authenticated SSE reconnect/expiry, replay guarantees, multi-replica capacity and accepted operation budgets remain **UNVERIFIED / PENDING APPROVAL**, owned jointly by #351, #352, #357/#358 and #359 acceptance. The Docker daemon is unavailable. [Implementation evidence](../testing/issue-351-implementation.md) records exact commands, subsequent reactor results and limitations. Historical findings below are retained as historical evidence, not current unresolved CORS claims.
+
 Status: UNVERIFIED pending independent review and the remaining error-shape follow-ups below. Base: `dc82cb7e09a4c72aba05e0aba28edba3f5c1f3ac`. No service code, databases, JWT role model or service contracts changed. Gateway unknown-path status changes were explicitly approved.
 
 ## Findings (serious risks first)
