@@ -66,6 +66,10 @@ class ParcelEventContractTest {
 
   private static JsonSchema statusSchema;
   private static JsonSchema createdSchema;
+  private static JsonSchema envelopeSchema;
+  private static JsonSchema assignedSchema;
+  private static JsonSchema reassignedSchema;
+  private static JsonSchema cancelledSchema;
 
   @BeforeAll
   static void loadSchemas() {
@@ -75,6 +79,14 @@ class ParcelEventContractTest {
         SchemaLocation.of(CONTRACTS.resolve("parcel-status-updated.schema.json").toUri().toString()), config);
     createdSchema = factory.getSchema(
         SchemaLocation.of(CONTRACTS.resolve("parcel-created.schema.json").toUri().toString()), config);
+    envelopeSchema = factory.getSchema(
+        SchemaLocation.of(CONTRACTS.resolve("event-envelope.schema.json").toUri().toString()), config);
+    assignedSchema = factory.getSchema(
+        SchemaLocation.of(CONTRACTS.resolve("delivery-assigned.schema.json").toUri().toString()), config);
+    reassignedSchema = factory.getSchema(
+        SchemaLocation.of(CONTRACTS.resolve("delivery-reassigned.schema.json").toUri().toString()), config);
+    cancelledSchema = factory.getSchema(
+        SchemaLocation.of(CONTRACTS.resolve("delivery-cancelled.schema.json").toUri().toString()), config);
   }
 
   private static Set<ValidationMessage> errors(JsonSchema schema, JsonNode event) {
@@ -327,5 +339,134 @@ class ParcelEventContractTest {
       assertThat(errors(statusSchema, event)).as(event.toString()).isNotEmpty();
     }
     assertThat(errors(createdSchema, createdEmpty)).isNotEmpty();
+  }
+
+  @Test
+  @DisplayName("The shared event-envelope schema validates all valid events and rejects missing envelope fields")
+  void envelopeSchemaValidatesAllEvents() throws Exception {
+    String status = statusEvent(ParcelStatus.CREATED, ParcelStatus.PICKED_UP, null);
+    String created = createdEvent(OffsetDateTime.parse("2026-11-03T10:15:30Z"));
+    String merchant = merchantCreatedEvent();
+
+    assertThat(errors(envelopeSchema, MAPPER.readTree(status))).isEmpty();
+    assertThat(errors(envelopeSchema, MAPPER.readTree(created))).isEmpty();
+    assertThat(errors(envelopeSchema, MAPPER.readTree(merchant))).isEmpty();
+
+    // Negative cases: missing envelope fields
+    for (String requiredField : List.of("eventId", "eventType", "occurredAt", "aggregateId", "payload")) {
+      ObjectNode missing = (ObjectNode) MAPPER.readTree(status);
+      missing.remove(requiredField);
+      assertThat(errors(envelopeSchema, missing)).as("missing " + requiredField).isNotEmpty();
+    }
+
+    // Negative case: non-UUID eventId
+    ObjectNode badEventId = (ObjectNode) MAPPER.readTree(status);
+    badEventId.put("eventId", "not-a-uuid");
+    assertThat(errors(envelopeSchema, badEventId)).isNotEmpty();
+  }
+
+  @Test
+  @DisplayName("Delivery assigned, reassigned, and cancelled events match their respective schemas")
+  void deliveryEventsMatchSchemas() throws Exception {
+    UUID courier1 = UUID.fromString("11111111-1111-4111-8111-111111111111");
+    UUID courier2 = UUID.fromString("22222222-2222-4222-8222-222222222222");
+
+    // delivery.assigned
+    String assignedJson = MAPPER.writeValueAsString(java.util.Map.of(
+        "eventId", UUID.randomUUID(),
+        "eventType", "delivery.assigned",
+        "occurredAt", "2026-11-10T10:00:00Z",
+        "aggregateId", PARCEL_ID,
+        "payload", java.util.Map.of(
+            "action", "ASSIGNED",
+            "newCourierId", courier1.toString(),
+            "actorSubject", "dispatcher-sub-1"
+        )
+    ));
+    JsonNode assignedNode = MAPPER.readTree(assignedJson);
+    assertThat(errors(assignedSchema, assignedNode)).isEmpty();
+    assertThat(errors(envelopeSchema, assignedNode)).isEmpty();
+    assertThat(PERSONAL_DATA).noneMatch(assignedJson::contains);
+
+    // delivery.reassigned
+    String reassignedJson = MAPPER.writeValueAsString(java.util.Map.of(
+        "eventId", UUID.randomUUID(),
+        "eventType", "delivery.reassigned",
+        "occurredAt", "2026-11-10T10:05:00Z",
+        "aggregateId", PARCEL_ID,
+        "payload", java.util.Map.of(
+            "action", "REASSIGNED",
+            "oldCourierId", courier1.toString(),
+            "newCourierId", courier2.toString(),
+            "actorSubject", "dispatcher-sub-1"
+        )
+    ));
+    JsonNode reassignedNode = MAPPER.readTree(reassignedJson);
+    assertThat(errors(reassignedSchema, reassignedNode)).isEmpty();
+    assertThat(errors(envelopeSchema, reassignedNode)).isEmpty();
+    assertThat(PERSONAL_DATA).noneMatch(reassignedJson::contains);
+
+    // delivery.cancelled
+    String cancelledJson = MAPPER.writeValueAsString(java.util.Map.of(
+        "eventId", UUID.randomUUID(),
+        "eventType", "delivery.cancelled",
+        "occurredAt", "2026-11-10T10:10:00Z",
+        "aggregateId", PARCEL_ID,
+        "payload", java.util.Map.of(
+            "action", "CANCELLED",
+            "oldCourierId", courier1.toString(),
+            "actorSubject", "dispatcher-sub-1"
+        )
+    ));
+    JsonNode cancelledNode = MAPPER.readTree(cancelledJson);
+    assertThat(errors(cancelledSchema, cancelledNode)).isEmpty();
+    assertThat(errors(envelopeSchema, cancelledNode)).isEmpty();
+    assertThat(PERSONAL_DATA).noneMatch(cancelledJson::contains);
+  }
+
+  @Test
+  @DisplayName("Delivery event schemas reject invalid fields, bad UUIDs, and missing required properties")
+  void deliverySchemasRejectInvalidEvents() throws Exception {
+    // Missing required field in delivery.assigned (newCourierId)
+    String missingNewCourier = MAPPER.writeValueAsString(java.util.Map.of(
+        "eventId", UUID.randomUUID(),
+        "eventType", "delivery.assigned",
+        "occurredAt", "2026-11-10T10:00:00Z",
+        "aggregateId", PARCEL_ID,
+        "payload", java.util.Map.of(
+            "action", "ASSIGNED",
+            "actorSubject", "dispatcher-sub-1"
+        )
+    ));
+    assertThat(errors(assignedSchema, MAPPER.readTree(missingNewCourier))).isNotEmpty();
+
+    // Invalid UUID format for newCourierId
+    String badUuid = MAPPER.writeValueAsString(java.util.Map.of(
+        "eventId", UUID.randomUUID(),
+        "eventType", "delivery.assigned",
+        "occurredAt", "2026-11-10T10:00:00Z",
+        "aggregateId", PARCEL_ID,
+        "payload", java.util.Map.of(
+            "action", "ASSIGNED",
+            "newCourierId", "not-a-uuid",
+            "actorSubject", "dispatcher-sub-1"
+        )
+    ));
+    assertThat(errors(assignedSchema, MAPPER.readTree(badUuid))).isNotEmpty();
+
+    // Extra unexpected property in payload (additionalProperties: false)
+    String extraProperty = MAPPER.writeValueAsString(java.util.Map.of(
+        "eventId", UUID.randomUUID(),
+        "eventType", "delivery.assigned",
+        "occurredAt", "2026-11-10T10:00:00Z",
+        "aggregateId", PARCEL_ID,
+        "payload", java.util.Map.of(
+            "action", "ASSIGNED",
+            "newCourierId", UUID.randomUUID().toString(),
+            "actorSubject", "dispatcher-sub-1",
+            "courierName", "Kamala Silva"
+        )
+    ));
+    assertThat(errors(assignedSchema, MAPPER.readTree(extraProperty))).isNotEmpty();
   }
 }

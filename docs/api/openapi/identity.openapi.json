@@ -2236,6 +2236,753 @@
         ]
       }
     },
+    "/api/v1/admin/merchants/{applicationId}/suspend": {
+      "patch": {
+        "operationId": "suspendMerchantApplication",
+        "summary": "Suspend an approved merchant",
+        "description": "Suspends an approved merchant application. Requires a non-blank suspension reason. Allowed roles: DISPATCHER.",
+        "tags": [
+          "S1"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantApplication"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current resource state",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "description": "applicationId identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuspendMerchantRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/merchants/{applicationId}/reinstate": {
+      "patch": {
+        "operationId": "reinstateMerchantApplication",
+        "summary": "Reinstate a suspended merchant",
+        "description": "Reinstates a suspended merchant application to approved status. Allowed roles: DISPATCHER.",
+        "tags": [
+          "S1"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantApplication"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with current resource state",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "description": "applicationId identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/merchants/{applicationId}/api-key": {
+      "get": {
+        "operationId": "getAdminMerchantApiKey",
+        "summary": "Read merchant API-key metadata (Dispatcher)",
+        "description": "Returns the API key metadata for a merchant application. Dispatcher read. Allowed roles: DISPATCHER.",
+        "tags": [
+          "S1"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantApiKeyMetadata"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "description": "applicationId identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "revokeAdminMerchantApiKey",
+        "summary": "Revoke a merchant API key (Dispatcher)",
+        "description": "Revokes the API key for the specified merchant application. Allowed roles: DISPATCHER.",
+        "tags": [
+          "S1"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantApiKeyMetadata"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "description": "applicationId identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/users": {
       "get": {
         "operationId": "listUsers",
@@ -2773,27 +3520,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CourierProfileList"
-                }
-              }
-            },
-            "headers": {
-              "X-Correlation-Id": {
-                "description": "Accepted correlation identifier.",
-                "schema": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed request or invalid parameter",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
                 }
               }
             },
@@ -3576,6 +4302,19 @@
           "decision"
         ]
       },
+      "SuspendMerchantRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
       "MerchantApiKeyMetadata": {
         "type": "object",
         "properties": {
@@ -3722,8 +4461,7 @@
               "string",
               "null"
             ],
-            "maxLength": 32,
-            "pattern": "^(\\+?[0-9]{9,15})?$"
+            "maxLength": 32
           }
         }
       },
