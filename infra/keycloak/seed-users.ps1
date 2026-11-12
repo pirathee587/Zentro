@@ -41,7 +41,7 @@ function Get-KeycloakUser([string]$Email) {
 }
 
 $seedDefinitions = @(
-  @{ Email = 'dispatcher@zentro.test'; First = 'Zentro'; Last = 'Dispatcher'; Phone = '+94770000001'; Role = 'DISPATCHER' },
+  @{ Email = 'dispatcher@zentro.test'; First = 'Zentro'; Last = 'Dispatcher'; Phone = '+94770000001'; Role = 'DISPATCHER'; Permissions = @('DISPATCH_VIEW', 'DISPATCH_ASSIGN') },
   @{ Email = 'courier1@zentro.test'; First = 'Zentro'; Last = 'Courier 1'; Phone = '+94770000002'; Role = 'COURIER' },
   @{ Email = 'courier2@zentro.test'; First = 'Zentro'; Last = 'Courier 2'; Phone = '+94770000003'; Role = 'COURIER' }
 )
@@ -52,14 +52,18 @@ $fileLines.Add("Email`tPassword`tRole")
 foreach ($definition in $seedDefinitions) {
   $email = $definition.Email
   $user = Get-KeycloakUser $email
+  $attributes = @{ phone = @($definition.Phone) }
+  if ($definition.Permissions) {
+    $attributes['permissions'] = @($definition.Permissions)
+  }
   if (-not $user) {
-    $body = @{ username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = @{ phone = @($definition.Phone) } } | ConvertTo-Json -Depth 8
+    $body = @{ username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = $attributes } | ConvertTo-Json -Depth 8
     Invoke-RestMethod -Method Post -Uri "$api/users" -Headers $headers -ContentType 'application/json' -Body $body | Out-Null
     $user = Get-KeycloakUser $email
   }
   if (-not $user.id) { throw "Could not create or find Keycloak account $email." }
 
-  $update = @{ id = $user.id; username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = @{ phone = @($definition.Phone) } } | ConvertTo-Json -Depth 8
+  $update = @{ id = $user.id; username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = $attributes } | ConvertTo-Json -Depth 8
   Invoke-RestMethod -Method Put -Uri "$api/users/$($user.id)" -Headers $headers -ContentType 'application/json' -Body $update | Out-Null
 
   $randomBytes = New-Object byte[] 24
