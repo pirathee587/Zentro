@@ -84,7 +84,7 @@ class TrackingPaginationIntegrationTest {
     assertThat(page("page-owner", "?page=17&size=7").path("content")).isEmpty();
     assertThat(page("page-other", "?size=100").path("total").asInt()).isEqualTo(3);
     mvc.perform(get("/api/v1/tracking/mine?size=abc").with(jwt()
-        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))).andExpect(status().isInternalServerError()); // Known gap: documented in #176 evidence.
+        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))).andExpect(status().isBadRequest());
     mvc.perform(get("/api/v1/tracking/mine").with(jwt()
         .authorities(new SimpleGrantedAuthority("ROLE_COURIER")))).andExpect(status().isForbidden());
   }
@@ -99,6 +99,21 @@ class TrackingPaginationIntegrationTest {
     System.out.printf("TRACKING_QUERY_EVIDENCE rows=20 statements=%d elapsedMs=%.3f%n", queries,
         (System.nanoTime() - start) / 1_000_000d);
     assertThat(queries).as("one page query, one count, one batched history query").isLessThanOrEqualTo(3);
+  }
+
+  @Test void malformedPaginationIsSafeWithPostgresApplicationContext() throws Exception {
+    for (String query : java.util.List.of("page=abc", "size=abc", "limit=abc",
+        "page=2147483648", "size=-2147483649")) {
+      var response = mvc.perform(get("/api/v1/tracking/mine?" + query)
+          .header("X-Correlation-Id", "postgres-pagination")
+          .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+          .andExpect(status().isBadRequest())
+          .andReturn().getResponse();
+      assertThat(response.getHeader("X-Correlation-Id")).isEqualTo("postgres-pagination");
+      var body = json.readTree(response.getContentAsString());
+      assertThat(body.path("code").asText()).isEqualTo("INVALID_ARGUMENT");
+      assertThat(body.path("detail").asText()).isEqualTo("Pagination parameters must be valid integers.");
+    }
   }
 
   @Test void batchedHistoryRetainsEachParcelsTimelineAndExcludesOtherOwners() throws Exception {

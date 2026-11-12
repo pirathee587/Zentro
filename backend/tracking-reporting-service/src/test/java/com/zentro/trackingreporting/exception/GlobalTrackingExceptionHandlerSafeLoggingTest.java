@@ -12,6 +12,18 @@ import org.springframework.mock.web.MockHttpServletRequest;
 @ExtendWith(OutputCaptureExtension.class)
 class GlobalTrackingExceptionHandlerSafeLoggingTest {
   @Test
+  void paginationConversionDoesNotLogRejectedValueOrException(CapturedOutput output) {
+    String secret = "private-token-person@example.test";
+    var request = new MockHttpServletRequest("GET", "/api/v1/tracking/mine");
+    var failure = new org.springframework.web.method.annotation.MethodArgumentTypeMismatchException(
+        secret, Integer.class, "size", null, new NumberFormatException(secret));
+    ProblemDetail problem = new GlobalTrackingExceptionHandler().handleParameterConversion(failure, request);
+    assertThat(problem.getStatus()).isEqualTo(400);
+    assertThat(problem.getDetail()).doesNotContain(secret, "Exception");
+    assertThat(output.getAll()).doesNotContain(secret, "NumberFormatException", "unexpected_error");
+  }
+
+  @Test
   void genericFailureDoesNotLogUriOrExceptionChain(CapturedOutput output) {
     String secret = "private-token-person@example.test";
     MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/tracking/" + secret);
