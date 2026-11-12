@@ -45,8 +45,11 @@ public class NotificationMessages {
     Object rawStatus = variables.get("status");
     if (!(rawStatus instanceof String status)) {
       String templateId = ParcelEventParser.PARCEL_CREATED.equals(eventType) ? CREATED_ID : STATUS_ID;
-      if (eventType == null || !TEMPLATES.containsKey(eventType) || !TEMPLATES.get(eventType).contains(channel)) {
-        return TemplateRenderResult.unsupported(null);
+      if (eventType == null || !TEMPLATES.containsKey(eventType)) {
+        return TemplateRenderResult.unsupported(eventType);
+      }
+      if (channel == null || !TEMPLATES.get(eventType).contains(channel)) {
+        return TemplateRenderResult.unsupportedChannel(channel);
       }
       return invalid(templateId, List.of("status"));
     }
@@ -56,8 +59,11 @@ public class NotificationMessages {
   /** Map entry point keeps validation robust for malformed/wrongly typed values before event construction. */
   public TemplateRenderResult render(String eventType, String status, Map<String, ?> variables, String channel) {
     Set<String> channels = eventType == null ? null : TEMPLATES.get(eventType);
-    if (channels == null || !channels.contains(channel)) {
-      return TemplateRenderResult.unsupported(null);
+    if (channels == null) {
+      return TemplateRenderResult.unsupported(eventType);
+    }
+    if (channel == null || !channels.contains(channel)) {
+      return TemplateRenderResult.unsupportedChannel(channel);
     }
     String templateId = ParcelEventParser.PARCEL_CREATED.equals(eventType) ? CREATED_ID : STATUS_ID;
     if (variables == null) {
