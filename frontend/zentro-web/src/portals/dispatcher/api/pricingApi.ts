@@ -235,6 +235,11 @@ export async function getZones(signal?: AbortSignal): Promise<DeliveryZone[]> {
   return Array.isArray(data) ? data.map((zone) => toZone(zone as Record<string, unknown>)) : [];
 }
 
+export async function getZoneByCode(code: string, signal?: AbortSignal): Promise<DeliveryZone> {
+  const data = (await apiClient.get<Record<string, unknown>>(`${ZONES_PATH}/${encodeURIComponent(code)}`, { signal })).data;
+  return toZone(data);
+}
+
 export async function estimateFee(request: FeeEstimateRequest): Promise<FeeEstimateResponse> {
   return toEstimate((await apiClient.post<Record<string, unknown>>(ESTIMATE_PATH, request)).data);
 }

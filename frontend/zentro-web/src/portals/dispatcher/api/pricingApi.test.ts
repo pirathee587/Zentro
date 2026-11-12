@@ -5,6 +5,7 @@ import { server } from '@/shared/testing/mocks/server';
 import {
   estimateFee,
   getPricingRule,
+  getZoneByCode,
   getZones,
   toPricingError,
   updatePricingRule,
@@ -114,6 +115,35 @@ describe('pricingApi requests', () => {
 
     server.use(http.get(`${API}/api/v1/zones`, () => HttpResponse.json({ unexpected: true })));
     await expect(getZones()).resolves.toEqual([]);
+  });
+
+  it('GET /api/v1/zones/{code} returns mapped zone by code and handles not found', async () => {
+    server.use(
+      http.get(`${API}/api/v1/zones/:code`, ({ params }) => {
+        if (params.code === 'ZONE_COLOMBO_METRO') {
+          return HttpResponse.json({
+            id: 'z1',
+            code: 'ZONE_COLOMBO_METRO',
+            name: 'Colombo Metro',
+            description: 'Western Province',
+            active: true,
+          });
+        }
+        return new HttpResponse(null, { status: 404 });
+      }),
+    );
+
+    const zone = await getZoneByCode('ZONE_COLOMBO_METRO');
+    expect(zone).toEqual({
+      id: 'z1',
+      code: 'ZONE_COLOMBO_METRO',
+      name: 'Colombo Metro',
+      description: 'Western Province',
+      active: true,
+    });
+
+    const error = (await caught(getZoneByCode('UNKNOWN'))) as { response?: { status: number } };
+    expect(error.response?.status).toBe(404);
   });
 
   it('POST /api/v1/parcels/estimate sends the request and keeps only breakdown lines that are present', async () => {
