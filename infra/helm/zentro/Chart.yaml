@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zentro-backend
+description: Backend-only Zentro service deployment templates (operator configured)
+type: application
+version: 0.1.0
+appVersion: "0.1.0-SNAPSHOT"

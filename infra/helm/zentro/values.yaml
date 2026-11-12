@@ -1,0 +1,11 @@
+# Images, credentials, endpoints, ingress and storage are deployment-owner inputs.
+# Images default to empty so an incomplete release configuration cannot deploy.
+services:
+  api-gateway: { image: "", port: 8080 }
+  identity-partner-service: { image: "", port: 8081 }
+  parcel-pricing-service: { image: "", port: 8082 }
+  dispatch-courier-service: { image: "", port: 8083 }
+  tracking-reporting-service: { image: "", port: 8084 }
+  notification-integration-service: { image: "", port: 8085 }
+imagePullSecrets: []
+podAnnotations: {}
