@@ -173,7 +173,7 @@ jobs:
           docker run --rm
           --volume "$GITHUB_WORKSPACE:/workspace"
           --workdir /workspace
-          ghcr.io/aquasecurity/trivy:0.65.0@sha256:514fc04c5c56af1de527fc4f6de3c5399fb99a4eef11a0d45a7e6d223c7c7fe9
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:16f1ee8462d0ba07dd69239150d60ba7b591c55e02dfc33a3fc19710b861d180
           fs
           --scanners vuln
           --severity CRITICAL,HIGH
