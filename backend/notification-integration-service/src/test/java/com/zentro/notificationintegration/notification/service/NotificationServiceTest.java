@@ -86,6 +86,48 @@ class NotificationServiceTest {
   }
 
   @Test
+  @DisplayName("Invalid or unresolvable recipient is stored as SKIPPED and nothing is sent")
+  void unresolvedRecipientIsSkipped() {
+    ParcelEvent event = new ParcelEvent(UUID.randomUUID(), "parcel.status.updated", UUID.randomUUID(),
+        OffsetDateTime.parse("2026-11-05T09:59:59Z"), "INVALID-REF", "PICKED_UP", null);
+    when(repository.markProcessed(NotificationService.CONSUMER, event.eventId())).thenReturn(true);
+
+    assertThat(service.handle(event)).isEmpty();
+
+    verify(repository).insertAttempt(eq(event), eq("MOCK_SMS"), eq("Unresolved recipient"),
+        eq(NotificationStatus.SKIPPED), isNull());
+    assertThat(counter(NotificationMetrics.SKIPPED)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Unsupported channel preference is stored as SKIPPED without crashing")
+  void unsupportedChannelPreferenceIsSkipped() {
+    ParcelEvent event = event("PICKED_UP", null);
+    when(repository.markProcessed(NotificationService.CONSUMER, event.eventId())).thenReturn(true);
+
+    assertThat(service.handle(event, java.util.List.of("EMAIL"))).isEmpty();
+
+    verify(repository).insertAttempt(eq(event), eq("EMAIL"), eq("Channel preference not supported"),
+        eq(NotificationStatus.SKIPPED), isNull());
+    assertThat(counter(NotificationMetrics.SKIPPED)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Supported channel preference delivers to preferred channel")
+  void supportedChannelPreferenceDelivers() {
+    ParcelEvent event = event("PICKED_UP", null);
+    UUID id = UUID.randomUUID();
+    when(repository.markProcessed(NotificationService.CONSUMER, event.eventId())).thenReturn(true);
+    when(repository.insertAttempt(eq(event), eq("MOCK_SMS"), anyString(), eq(NotificationStatus.PENDING), any()))
+        .thenReturn(id);
+
+    assertThat(service.handle(event, java.util.List.of("MOCK_SMS"))).contains(id);
+
+    verify(repository).insertAttempt(event, "MOCK_SMS", "Your parcel ZT-ABCDEFGH12 has been picked up.",
+        NotificationStatus.PENDING, OffsetDateTime.ofInstant(NOW, ZoneOffset.UTC));
+  }
+
+  @Test
   @DisplayName("A duplicate eventId changes nothing and is counted")
   void duplicateDoesNothing() {
     ParcelEvent event = event("PICKED_UP", null);

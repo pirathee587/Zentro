@@ -33,6 +33,11 @@ public record TemplateRenderResult(
         List.of());
   }
 
+  public static TemplateRenderResult unsupportedChannel(String channel) {
+    return new TemplateRenderResult(Outcome.UNSUPPORTED_EVENT, "unsupported_channel:" + safeIdentifier(channel), null,
+        List.of());
+  }
+
   public static TemplateRenderResult skipped(String templateId) {
     return new TemplateRenderResult(Outcome.SKIPPED, templateId, null, List.of());
   }

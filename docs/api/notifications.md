@@ -49,7 +49,7 @@ skip result. The existing parser rejects malformed Kafka payloads and acknowledg
 consumer's existing no-retry behavior for bad messages. Logs contain template/event categories and failure field
 names only, not tracking references or rendered content.
 
-**Recipient (D1).** Parcel events carry no contact details, so each notification is addressed by tracking reference only (`to=parcel ZT-...`). S5 stores and logs no names, phone numbers or addresses. Sending to a real person needs a contact lookup in S2; that is a follow-up (owner @14Jannan).
+**Recipient resolution and channel preferences (ZD-065 / D1).** Parcel events carry no personal contact details (names, phone numbers or addresses), so each notification is resolved to its validated tracking reference (`to=parcel ZT-...`). Recipient resolution validates Crockford Base32 tracking references (`^ZT-[0-9A-HJKMNP-TV-Z]{10}$`) and rejects malformed references or injection payloads without leaking raw content. S5 evaluates channel preferences against the supported delivery channel (`MOCK_SMS`); when unsupported channels (e.g. `EMAIL`) are requested without a supported fallback, S5 records a typed `SKIPPED` outcome ("Channel preference not supported") and increments skipped metrics without throwing unhandled runtime exceptions.
 
 ## Processing rules
 
@@ -60,12 +60,13 @@ names only, not tracking references or rendered content.
    - `trackingRef` matches `ZT-` plus 10 characters
    - `status` is a known status
    - `failureReason` is present for `FAILED` only
-2. **Malformed message:** a row is written to `notification.rejected_event` with topic, partition, offset and a short reason. The raw payload is never stored or logged. The message is acknowledged, so it never blocks the partition and is never retried.
-3. **Valid event, in one transaction:**
+2. **Resolve recipient and channel preferences (ZD-065).** Tracking reference must resolve successfully; channel preference must evaluate to an available channel. Invalid recipients or unsupported preferences record a safe `SKIPPED` attempt.
+3. **Malformed message:** a row is written to `notification.rejected_event` with topic, partition, offset and a short reason. The raw payload is never stored or logged. The message is acknowledged, so it never blocks the partition and is never retried.
+4. **Valid event, in one transaction:**
    - Insert `(consumer, eventId)` into `notification.processed_event`. If the row already exists, the event is a **duplicate**: it is counted and nothing else happens. The database primary key decides, so concurrent consumers and redeliveries are safe.
    - Store a `SKIPPED` row, or a `PENDING` notification with the message.
-4. **Acknowledge** the Kafka message after the commit, then make the first delivery attempt. A send therefore never belongs to a transaction that later rolls back.
-5. **Unexpected error while storing** (for example the database is down): the message is not acknowledged. The error handler redelivers it every 5 seconds with no limit, so no event is lost.
+5. **Acknowledge** the Kafka message after the commit, then make the first delivery attempt. A send therefore never belongs to a transaction that later rolls back.
+6. **Unexpected error while storing** (for example the database is down): the message is not acknowledged. The error handler redelivers it every 5 seconds with no limit, so no event is lost.
 
 ## Retries
 
