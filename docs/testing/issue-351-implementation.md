@@ -100,3 +100,52 @@ docs/testing/issue-351-implementation.md
 Issue #351 is **PARTIALLY COMPLETE**, irrespective of local green checks. Final acceptance requires disposable Docker-backed verification, agreed provider/privacy/eligibility/claim/hydration contracts, approved budgets/optional-scope decisions, complete operation assertion review, coverage enforcement or approved exceptions via #352, then independent review by kirusigan03 and merge into develop. The user owns pushing, PR creation and issue closure.
 
 This branch is ready for a **focused partial-scope PR** covering the safe pagination fix and verified characterization, with the skips/environment errors disclosed. It is not ready to claim final Issue #351 acceptance. Next concrete runtime action: make a disposable Docker engine available, run `mvn --batch-mode --no-transfer-progress -Dbuild.revision=<final-head> -DrunE2E verify` from backend and the focused PostgreSQL pagination suite; retain any real failures for the owning package. In parallel, the named owners in the contract/decision registers must record the unresolved contracts, budgets and scope decisions. No approval is presumed.
+
+## Docker-enabled follow-up verification (2026-11-12)
+
+This section supersedes the earlier Docker-unavailable status for the new executions only; the earlier results remain historical evidence. Started on the expected branch at `31a0108486456a59f4e13a87e1d357e3979f35ba`, with a clean working tree. No branch switch or source change was made.
+
+Docker CLI 29.9.2 initially received a sandbox named-pipe permission error. Approved execution outside the sandbox confirmed Docker Desktop 4.97.0 / Engine 29.9.2, API 1.56 (minimum 1.40), Linux engine running. Testcontainers 1.20.4 successfully discovered the engine and started disposable PostgreSQL 16.15 containers. Existing S3 configuration selects API 1.44; no build/configuration change was needed.
+
+The two exact previous errors were inspected in their Surefire text reports: both failed before test execution with `IllegalStateException: Previous attempts to find a Docker environment failed. Will not retry.` The retry selected only those two fully qualified classes, with `-am` for required reactor dependencies and `surefire.failIfNoSpecifiedTests=false` for dependency modules that have no selected tests.
+
+| New command (Maven from backend) | Exit | Tests / result |
+|---|---:|---|
+| `docker version`; `docker info --format '{{.ServerVersion}}'`; `docker ps --format '{{.Names}} {{.Status}}'` | 0 each outside sandbox | Engine reachable; existing zentro-keycloak running |
+| `mvn --batch-mode --no-transfer-progress -pl dispatch-courier-service -am '-Dtest=com.zentro.dispatchcourier.dispatch.repository.AssignmentPostgresIntegrationTest,com.zentro.dispatchcourier.integration.AssignmentToCourierScenarioTest' '-Dsurefire.failIfNoSpecifiedTests=false' verify` | 0 | AssignmentPostgresIntegrationTest: 17 passed; AssignmentToCourierScenarioTest: 12 passed; total 29, zero failures/errors/skips. Local log docker-retry-failed-tests.log. |
+
+Existing Keycloak protection: recorded container ID `9840a6560a1ca51aa44ad24c02176ba328badc5a2ec918bd8c68beea679e8df0`, running, StartedAt `2026-11-12T16:06:36.256177853Z`. No stop/remove/update command targets it. `DisposableGatewayStack` creates independent PostgreSQL/Kafka/Keycloak containers on mapped ports and terminates only its own fixture processes/containers. No Docker volume, image or existing database deletion command was issued.
+
+### Broader verification result
+
+After the exact-class retry passed, ran from `backend`:
+
+```powershell
+mvn --batch-mode --no-transfer-progress --fail-at-end '-Dbuild.revision=31a0108486456a59f4e13a87e1d357e3979f35ba' -DrunE2E verify
+```
+
+**Exit 0, BUILD SUCCESS**, completed 2026-11-12 22:04:27 Asia/Colombo in 20:01 minutes. Local ignored log: `docs/testing/issue-351-evidence/docker-reactor-e2e-verify.log`. All eight test modules succeeded. This is one complete successful reactor/E2E run, superseding the earlier per-module aggregate for runtime verification. The focused 29-test retry is repeated within this run and is **not** added again to the total.
+
+| Module | Passed | Assertion failures | Errors | Skipped |
+|---|---:|---:|---:|---:|
+| Shared security starter | 62 | 0 | 0 | 0 |
+| API gateway | 213 | 0 | 0 | 0 |
+| S1 Identity & Partner | 434 | 0 | 0 | 0 |
+| S2 Parcel & Pricing | 688 | 0 | 0 | 0 |
+| S3 Dispatch & Courier | 285 | 0 | 0 | 0 |
+| S4 Tracking & Reporting | 151 | 0 | 0 | 0 |
+| S5 Notification & Integration | 489 | 0 | 0 | 0 |
+| Merchant order/webhook E2E | 2 | 0 | 0 | 0 |
+| **Total** | **2324** | **0** | **0** | **0** |
+
+Counts come from the eight final Maven module summaries, cross-checked against the current focused Surefire reports. Previously skipped parameterized/dynamic suites expand when their fixtures can start, so the new total is not obtained by merely adding 206 historical skips to 1,926 passes. GatewayKeycloakIntegrationTests now executes 146 signed-token cases successfully. TrackingPaginationIntegrationTest now executes all four PostgreSQL cases successfully, including malformed page/size/limit and overflow safe-400/correlation assertions, existing ownership isolation, numeric clamping and maximum size 100. The 20 previously added non-container regression cases also pass in the full run.
+
+MerchantApprovalGapIT passes both existing E2E cases using its independent Keycloak/PostgreSQL/Kafka fixture and real gateway/service processes. Its manual role assignment is a declared test-fixture step, not evidence that automated provisioning has been approved or implemented. The E2E profile excludes PerformanceSmokeIT; no new performance/load or full live-SSE replay/expiry claim is made. Existing test doubles in S3 eligibility/provider scenarios remain as documented in those suites. Coverage instrumentation/enforcement was not changed, and this follow-up does not publish refreshed coverage percentages; the preceding coverage matrix remains evidence from its explicitly recorded earlier measurement.
+
+Additional verification: `python docs/api/build_openapi.py --check` returned **0**, five specifications passed. Final `docker inspect --format '{{.Id}} {{.State.Status}} {{.State.StartedAt}}' zentro-keycloak` returned **0** and exactly the original container ID/start time above, still running. `docker ps --format '{{.Names}} {{.Status}}'` returned **0** and showed only the pre-existing `zentro-keycloak` after disposable fixture cleanup. No existing container was stopped, removed or restarted.
+
+### Diagnosis and readiness
+
+The two previous errors are confirmed **environment failures resolved by Docker availability and approved sandbox access**. No confirmed application defect remains in the executed suites, and no production or test source change was necessary. Only `docs/testing/issue-351-implementation.md` changes in this follow-up; raw test/process logs remain ignored local evidence. The tested implementation SHA is `31a0108486456a59f4e13a87e1d357e3979f35ba`; the subsequent local commit records documentation only. No push, PR creation or issue closure is performed.
+
+The branch is **ready for a Draft PR** with this verification evidence. Issue #351 remains partially complete: provider/privacy/eligibility/claim/hydration contracts need the named #350/#353/#354/#357 owners and #351 agreement; operation-budget and optional-technology decisions need product/security and #351/#352; coverage gates remain #352 (Niro0526); a complete per-operation assertion audit and live SSE semantics remain explicitly scoped gaps. Independent review by kirusigan03 and merge are still required. These are acceptance/decision gaps, not current Docker blockers, and the green run does not constitute approval for those interfaces or policies.
