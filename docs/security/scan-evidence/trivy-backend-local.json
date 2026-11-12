@@ -1,0 +1,65 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2026-11-12T16:45:27.567568131Z",
+  "ArtifactName": "/repo/backend",
+  "ArtifactType": "filesystem",
+  "Metadata": {
+    "ImageConfig": {
+      "architecture": "",
+      "created": "0001-01-01T00:00:00Z",
+      "os": "",
+      "rootfs": {
+        "type": "",
+        "diff_ids": null
+      },
+      "config": {}
+    }
+  },
+  "Results": [
+    {
+      "Target": "api-gateway/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "dispatch-courier-service/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "identity-partner-service/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "libs/zentro-security-starter/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "merchant-order-webhook-e2e/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "notification-integration-service/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "parcel-pricing-service/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    },
+    {
+      "Target": "tracking-reporting-service/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom"
+    }
+  ]
+}

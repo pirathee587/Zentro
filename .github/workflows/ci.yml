@@ -147,12 +147,42 @@ jobs:
           java-version: '21'
       - name: Test verification guards and negative fixtures
         run: scripts/test-ci-release.sh
+      - name: Test PR task status transition fixtures
+        run: node scripts/test-task-status-policy.js
       - name: Check development metadata and workflow safety
         run: scripts/verify-ci-release.sh check .
       - name: Validate Compose without environment files or interpolation
         run: |
           docker compose --env-file /dev/null -f backend/docker-compose.yml config --no-env-resolution --no-interpolate --quiet
           docker compose --env-file /dev/null -f infra/keycloak/docker-compose.keycloak.yml config --no-env-resolution --no-interpolate --quiet
+
+  backend-security-scan:
+    name: Backend dependency scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Scan backend dependencies
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.28.0
+        with:
+          scan-type: fs
+          scan-ref: backend
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          format: sarif
+          output: trivy-backend.sarif
+          exit-code: '1'
+      - name: Upload dependency scan results
+        if: always() && hashFiles('trivy-backend.sarif') != ''
+        uses: github/codeql-action/upload-sarif@df559355d593f71a83e4f5c3672b2b4a6a749c94 # v3
+        with:
+          sarif_file: trivy-backend.sarif
 
   container-builds:
     name: Container build checks
@@ -172,7 +202,7 @@ jobs:
   ci-result:
     name: CI result
     if: ${{ always() }}
-    needs: [frontend, backend, build-validation, container-builds]
+    needs: [frontend, backend, build-validation, backend-security-scan, container-builds]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -181,10 +211,11 @@ jobs:
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           METADATA_RESULT: ${{ needs.build-validation.result }}
+          SECURITY_RESULT: ${{ needs.backend-security-scan.result }}
           CONTAINERS_RESULT: ${{ needs.container-builds.result }}
         run: |
-          printf 'Frontend: %s\nBackend: %s\nMetadata: %s\nContainers: %s\n' "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$CONTAINERS_RESULT" >> "$GITHUB_STEP_SUMMARY"
-          for result in "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$CONTAINERS_RESULT"; do
+          printf 'Frontend: %s\nBackend: %s\nMetadata: %s\nSecurity: %s\nContainers: %s\n' "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$SECURITY_RESULT" "$CONTAINERS_RESULT" >> "$GITHUB_STEP_SUMMARY"
+          for result in "$FRONTEND_RESULT" "$BACKEND_RESULT" "$METADATA_RESULT" "$SECURITY_RESULT" "$CONTAINERS_RESULT"; do
             if [[ "$result" != success ]]; then
               echo 'A required CI job did not succeed.'
               exit 1
