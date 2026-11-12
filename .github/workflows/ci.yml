@@ -177,15 +177,48 @@ jobs:
           fs
           --scanners vuln
           --severity CRITICAL,HIGH
+          --format json
+          --output /workspace/trivy-backend.json
+          --exit-code 0
+          /workspace/backend
+      - name: Show dependency findings and enforce severity threshold
+        if: always() && hashFiles('trivy-backend.json') != ''
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/workspace"
+          --workdir /workspace
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:16f1ee8462d0ba07dd69239150d60ba7b591c55e02dfc33a3fc19710b861d180
+          convert
+          --format table
+          --scanners vuln
+          --exit-code 1
+          /workspace/trivy-backend.json
+      - name: Generate SARIF report
+        if: always() && hashFiles('trivy-backend.json') != ''
+        run: >-
+          docker run --rm
+          --volume "$GITHUB_WORKSPACE:/workspace"
+          --workdir /workspace
+          ghcr.io/aquasecurity/trivy:0.65.0@sha256:16f1ee8462d0ba07dd69239150d60ba7b591c55e02dfc33a3fc19710b861d180
+          convert
           --format sarif
           --output /workspace/trivy-backend.sarif
-          --exit-code 1
-          /workspace/backend
+          /workspace/trivy-backend.json
       - name: Upload dependency scan results
         if: always() && hashFiles('trivy-backend.sarif') != ''
         uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
         with:
           sarif_file: trivy-backend.sarif
+      - name: Archive backend dependency scan reports
+        if: always() && hashFiles('trivy-backend.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-dependency-scan-${{ github.sha }}
+          path: |
+            trivy-backend.json
+            trivy-backend.sarif
+          retention-days: 7
+          if-no-files-found: ignore
 
   container-builds:
     name: Container build checks
