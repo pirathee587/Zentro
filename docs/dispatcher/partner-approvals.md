@@ -44,6 +44,10 @@ stateDiagram-v2
     SUSPENDED --> APPROVED: Dispatcher Reinstates
 ```
 
+### Account Lifecycle & Role Provisioning Notes
+- **Disabled Account Enforcement (G07 / #189)**: S1 strictly enforces active status checks across all operations. If an underlying user account is `DISABLED` or `SUSPENDED`, profile mutations, merchant applications, and courier provisioning fail closed with 403 Forbidden. Furthermore, S1 gRPC `GetMerchantStatus` returns `SUSPENDED` whenever the merchant's underlying account is disabled or suspended, immediately halting downstream ordering (S2) and webhooks (S5).
+- **Merchant Role Provisioning (G08 / #190)**: Approving a merchant application in S1 updates the database status to `APPROVED`. To assign the Keycloak `MERCHANT` realm role and mint fresh token claims, see the operational runbook in `docs/identity/merchant-role-provisioning-runbook.md` and provisioning script `./infra/keycloak/grant-merchant-role.ps1` (or `grant-merchant-role.sh`).
+
 ### Courier Operational Eligibility Lifecycle
 ```mermaid
 stateDiagram-v2

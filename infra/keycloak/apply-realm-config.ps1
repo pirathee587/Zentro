@@ -187,6 +187,38 @@ if ($roleMapper) {
   throw 'The zentro-web realm role mapper was not found; update the client mapper before starting API login.'
 }
 
+$permissionsMapper = @($mappers | Where-Object { $_.name -eq 'permissions claim' -or ($_.protocolMapper -eq 'oidc-usermodel-attribute-mapper' -and $_.config.'claim.name' -eq 'permissions') })[0]
+$permissionsMapperBody = @{
+  name = 'permissions claim'
+  protocol = 'openid-connect'
+  protocolMapper = 'oidc-usermodel-attribute-mapper'
+  consentRequired = $false
+  config = @{
+    'user.attribute' = 'permissions'
+    'claim.name' = 'permissions'
+    'jsonType.label' = 'String'
+    'multivalued' = 'true'
+    'id.token.claim' = 'true'
+    'access.token.claim' = 'true'
+    'userinfo.token.claim' = 'true'
+  }
+}
+if ($permissionsMapper) {
+  $permissionsMapper.name = $permissionsMapperBody.name
+  $permissionsMapper.protocol = $permissionsMapperBody.protocol
+  $permissionsMapper.protocolMapper = $permissionsMapperBody.protocolMapper
+  $permissionsMapper.consentRequired = $permissionsMapperBody.consentRequired
+  $permissionsMapper.config = $permissionsMapperBody.config
+  Invoke-RestMethod -Method Put -Uri "$api/clients/$($client.id)/protocol-mappers/models/$($permissionsMapper.id)" -Headers $headers -ContentType 'application/json' -Body ($permissionsMapper | ConvertTo-Json -Depth 30) | Out-Null
+} else {
+  Invoke-RestMethod -Method Post -Uri "$api/clients/$($client.id)/protocol-mappers/models" -Headers $headers -ContentType 'application/json' -Body ($permissionsMapperBody | ConvertTo-Json -Depth 30) | Out-Null
+}
+$mappers = Invoke-RestMethod -Method Get -Uri "$api/clients/$($client.id)/protocol-mappers/models" -Headers $headers
+$permissionsMapper = @($mappers | Where-Object { $_.name -eq 'permissions claim' -or ($_.protocolMapper -eq 'oidc-usermodel-attribute-mapper' -and $_.config.'claim.name' -eq 'permissions') })[0]
+if (-not $permissionsMapper -or $permissionsMapper.config.'claim.name' -ne 'permissions' -or $permissionsMapper.config.'access.token.claim' -ne 'true' -or $permissionsMapper.config.'multivalued' -ne 'true') {
+  throw 'The permissions claim mapper could not be installed on zentro-web.'
+}
+
 $componentType = 'org.keycloak.userprofile.UserProfileProvider'
 $components = Invoke-RestMethod -Method Get -Uri "$api/components?type=$([Uri]::EscapeDataString($componentType))" -Headers $headers
 $profileComponent = $components[0]
@@ -206,6 +238,7 @@ $verifiedClient = Invoke-RestMethod -Method Get -Uri "$api/clients/$($client.id)
 $verifiedMappers = Invoke-RestMethod -Method Get -Uri "$api/clients/$($client.id)/protocol-mappers/models" -Headers $headers
 $verifiedRoleMapper = @($verifiedMappers | Where-Object { $_.protocolMapper -eq 'oidc-usermodel-realm-role-mapper' })[0]
 $verifiedAudienceMapper = @($verifiedMappers | Where-Object { $_.name -eq 'zentro-api audience' -or ($_.protocolMapper -eq 'oidc-audience-mapper' -and ($_.config.'included.client.audience' -eq 'zentro-api' -or $_.config.'included.custom.audience' -eq 'zentro-api')) })[0]
+$verifiedPermissionsMapper = @($verifiedMappers | Where-Object { $_.name -eq 'permissions claim' -or ($_.protocolMapper -eq 'oidc-usermodel-attribute-mapper' -and $_.config.'claim.name' -eq 'permissions') })[0]
 $verifiedProfileComponents = Invoke-RestMethod -Method Get -Uri "$api/components?type=$([Uri]::EscapeDataString($componentType))" -Headers $headers
 $verifiedProfile = (($verifiedProfileComponents[0].config.'kc.user.profile.config'[0]) | ConvertFrom-Json)
 $verifiedDefaultRoles = Invoke-RestMethod -Method Get -Uri "$api/roles/$defaultRoleName/composites" -Headers $headers
@@ -214,6 +247,7 @@ $requiredAttributes = @($verifiedProfile.attributes | Where-Object { $_.name -in
 if (-not $verifiedRealm.registrationAllowed -or -not $verifiedRealm.registrationEmailAsUsername -or -not $verifiedRealm.loginWithEmailAllowed -or $verifiedRealm.verifyEmail -or -not $verifiedRealm.bruteForceProtected -or $verifiedRealm.loginTheme -ne 'zentro') { throw 'Live realm settings did not match the requested configuration.' }
 if ($verifiedRoleMapper.config.PSObject.Properties['access.token.claim'].Value -ne 'true' -or $verifiedDefaultRoles.name -notcontains 'CUSTOMER') { throw 'Live role claims or default CUSTOMER role verification failed.' }
 if (-not $verifiedAudienceMapper -or $verifiedAudienceMapper.config.'included.client.audience' -or $verifiedAudienceMapper.config.'included.custom.audience' -ne 'zentro-api' -or $verifiedAudienceMapper.config.'access.token.claim' -ne 'true') { throw 'Live zentro-api audience mapper verification failed.' }
+if (-not $verifiedPermissionsMapper -or $verifiedPermissionsMapper.config.'claim.name' -ne 'permissions' -or $verifiedPermissionsMapper.config.'access.token.claim' -ne 'true') { throw 'Live permissions claim mapper verification failed.' }
 if ($verifiedGoogleProvider -and (-not $verifiedGoogleProvider.enabled -or $verifiedGoogleProvider.providerId -ne 'google')) { throw 'Live Google identity provider verification failed.' }
 if ($requiredAttributes.Count -ne 0 -or $verifiedClient.redirectUris -notcontains 'http://localhost/callback' -or $verifiedClient.webOrigins -notcontains 'http://localhost') { throw 'Live client redirect or optional registration profile verification failed.' }
 if ($verifiedClient.attributes.'post.logout.redirect.uris' -notmatch 'http://localhost/\*') { throw 'Live logout redirect verification failed.' }

@@ -38,6 +38,7 @@ headers=(-H "Authorization: Bearer $token" -H 'Content-Type: application/json')
 
 ensure_user() {
   local username="$1" email="$2" first="$3" last="$4" role="$5"
+  local perms_json="${6:-}"
   local users user_id password user_json mapping role_json
   users="$(curl --fail --silent --show-error "${headers[@]:0:1}" "$api/users?username=$username&exact=true")"
   user_id="$(jq -r '.[0].id // empty' <<< "$users")"
@@ -45,14 +46,17 @@ ensure_user() {
     users="$(curl --fail --silent --show-error "${headers[@]:0:1}" "$api/users?email=$email&exact=true")"
     user_id="$(jq -r '.[0].id // empty' <<< "$users")"
   fi
-  if [[ -z "$user_id" ]]; then
+  if [[ -n "$perms_json" ]]; then
+    user_json="$(jq -n --arg username "$username" --arg email "$email" --arg first "$first" --arg last "$last" --argjson perms "$perms_json" '{username:$username,email:$email,firstName:$first,lastName:$last,enabled:true,emailVerified:true,attributes:{permissions:$perms}}')"
+  else
     user_json="$(jq -n --arg username "$username" --arg email "$email" --arg first "$first" --arg last "$last" '{username:$username,email:$email,firstName:$first,lastName:$last,enabled:true,emailVerified:true}')"
+  fi
+  if [[ -z "$user_id" ]]; then
     curl --fail --silent --show-error -X POST "${headers[@]}" -d "$user_json" "$api/users" >/dev/null
     users="$(curl --fail --silent --show-error "${headers[@]:0:1}" "$api/users?username=$username&exact=true")"
     user_id="$(jq -r '.[0].id // empty' <<< "$users")"
   fi
   [[ -n "$user_id" ]] || { echo "Could not find created user $username." >&2; exit 1; }
-  user_json="$(jq -n --arg username "$username" --arg email "$email" --arg first "$first" --arg last "$last" '{username:$username,email:$email,firstName:$first,lastName:$last,enabled:true,emailVerified:true}')"
   curl --fail --silent --show-error -X PUT "${headers[@]}" -d "$user_json" "$api/users/$user_id" >/dev/null
   password="$(openssl rand -hex 24)"
   curl --fail --silent --show-error -X PUT "${headers[@]}" \
@@ -68,8 +72,8 @@ ensure_user() {
 }
 
 printf 'Username\tEmail\tPassword\tRole\n' > "$credentials_file"
-ensure_user dispatcher@zentro.test dispatcher@zentro.test Zentro Dispatcher DISPATCHER
-ensure_user courier1@zentro.test courier1@zentro.test Zentro Courier1 COURIER
-ensure_user courier2@zentro.test courier2@zentro.test Zentro Courier2 COURIER
+ensure_user dispatcher@zentro.test dispatcher@zentro.test Zentro Dispatcher DISPATCHER '["DISPATCH_VIEW", "DISPATCH_ASSIGN"]'
+ensure_user courier1@zentro.test courier1@zentro.test Zentro Courier1 COURIER ""
+ensure_user courier2@zentro.test courier2@zentro.test Zentro Courier2 COURIER ""
 
 cat "$credentials_file"

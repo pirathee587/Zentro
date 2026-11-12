@@ -18,11 +18,13 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UserProfileService {
@@ -76,6 +78,9 @@ public class UserProfileService {
   @Transactional
   public UserProfile update(Jwt jwt, UpdateUserProfileRequest request) {
     UserProfile current = current(jwt);
+    if (!"ACTIVE".equalsIgnoreCase(current.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + current.accountStatus() + ".");
+    }
     jdbc.update("""
         UPDATE identity.app_user
            SET display_name = COALESCE(NULLIF(?, ''), display_name),
@@ -113,6 +118,9 @@ public class UserProfileService {
   @Transactional
   public UserProfile updateByIdForCaller(Jwt jwt, UUID targetUserId, UpdateUserProfileRequest request) {
     UserProfile caller = current(jwt);
+    if (!"ACTIVE".equalsIgnoreCase(caller.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + caller.accountStatus() + ".");
+    }
     boolean isDispatcher = roles(jwt).contains("DISPATCHER");
     boolean isOwner = caller.id().equals(targetUserId);
 
@@ -181,6 +189,9 @@ public class UserProfileService {
     if (actorUser.id().equals(targetUserId) && request.accountStatus() != null) {
       rejectOwnStatusChange(UserInputRules.accountStatus(request.accountStatus(), "accountStatus"),
           actorUser.accountStatus());
+    }
+    if (!"ACTIVE".equalsIgnoreCase(actorUser.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + actorUser.accountStatus() + ".");
     }
     return applyDispatcherChange(actorUser, actor.getSubject(), targetUserId, request.name(), request.phone(),
         request.accountStatus(), request.reason());

@@ -96,7 +96,10 @@ public class IdentityPartnerGrpcService extends IdentityPartnerServiceGrpc.Ident
     }
     try {
       String status = jdbc.queryForObject("""
-          SELECT m.status
+          SELECT CASE
+                   WHEN u.account_status IN ('DISABLED', 'SUSPENDED') THEN 'SUSPENDED'
+                   ELSE m.status
+                 END
             FROM identity.merchant_application m
             JOIN identity.app_user u ON u.id = m.app_user_id
            WHERE u.keycloak_subject = ?
