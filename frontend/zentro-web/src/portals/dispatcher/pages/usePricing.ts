@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { estimateFee, getPricingRule, getZones, updatePricingRule } from '../api/pricingApi';
+import { estimateFee, getPricingRule, getZoneByCode, getZones, updatePricingRule } from '../api/pricingApi';
 
 /** Query keys for the Zones & pricing page; one place so reads and invalidation always match. */
 export const pricingKeys = {
   rule: ['dispatcher', 'pricing-rule'] as const,
   zones: ['dispatcher', 'zones'] as const,
+  zone: (code: string) => ['dispatcher', 'zones', code] as const,
 };
 
 export function usePricingRule() {
@@ -13,6 +14,14 @@ export function usePricingRule() {
 
 export function useZones() {
   return useQuery({ queryKey: pricingKeys.zones, queryFn: ({ signal }) => getZones(signal) });
+}
+
+export function useZoneByCode(code: string) {
+  return useQuery({
+    queryKey: pricingKeys.zone(code),
+    queryFn: ({ signal }) => getZoneByCode(code, signal),
+    enabled: Boolean(code && code.trim()),
+  });
 }
 
 /** Saves the rule, shows the saved values at once and then reloads them from the API. */
