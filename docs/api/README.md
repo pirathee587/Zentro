@@ -62,7 +62,7 @@ The gateway validates or generates `X-Correlation-Id` and returns the accepted I
 
 ## Inventory and source reconciliation
 
-The generator currently inventories **57 HTTP operations/aliases**: S1 25, S2 11, S3 9, S4 4, and S5 8. It excludes controllerless gateway prefixes such as `/api/v1/admin/zones/**`, `/api/v1/admin/audit-logs/**`, and `/api/v1/reports/**`, and excludes nonexistent `GET /api/v1/parcels/{id}` despite the booking `Location` value referring to that future resource. Inventory status: 57 documented and correct; 0 mismatches; 0 undocumented.
+The generator currently inventories **58 HTTP operations/aliases**: S1 25, S2 12, S3 9, S4 4, and S5 8. It excludes controllerless gateway prefixes such as `/api/v1/admin/zones/**`, `/api/v1/admin/audit-logs/**`, and `/api/v1/reports/**`. `GET /api/v1/parcels/{id}` is implemented in S2 (CUSTOMER owner-scoped, DISPATCHER/SERVICE unconstrained). Inventory status: 58 documented and correct; 0 mismatches; 0 undocumented.
 
 Existing endpoint guides remain useful for workflows and detailed operational behavior. The OpenAPI files are the path, role, parameter, body, and response contract. `notifications.md` previously said S5 added no HTTP endpoints despite documenting outcome-history routes later in the same file; that contradiction is corrected here and linked from the guide.
 
