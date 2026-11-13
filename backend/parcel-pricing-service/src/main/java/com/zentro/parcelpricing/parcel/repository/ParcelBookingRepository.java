@@ -87,6 +87,29 @@ public class ParcelBookingRepository {
     return rows.stream().findFirst();
   }
 
+  /**
+   * Returns a customer booking by its UUID, scoped to the owner. Returns empty when the parcel does not exist
+   * or belongs to a different customer. The same 404 response is returned in both cases to prevent enumeration.
+   * Merchant-owned rows (merchant_id IS NOT NULL) are excluded: they are not customer bookings.
+   */
+  public Optional<ParcelBooking> findByIdAndOwner(UUID id, String customerSubject) {
+    List<ParcelBooking> rows = jdbc.query(
+        "SELECT " + COLUMNS + " FROM parcel.parcel WHERE id = ? AND customer_subject = ? AND merchant_id IS NULL",
+        ROW_MAPPER, id, customerSubject);
+    return rows.stream().findFirst();
+  }
+
+  /**
+   * Returns any parcel by its UUID regardless of owner. Used by DISPATCHER and SERVICE actors who have
+   * been authorized before this call. Never exposes ownership-scoped filtering to privileged callers.
+   */
+  public Optional<ParcelBooking> findById(UUID id) {
+    List<ParcelBooking> rows = jdbc.query(
+        "SELECT " + COLUMNS + " FROM parcel.parcel WHERE id = ?",
+        ROW_MAPPER, id);
+    return rows.stream().findFirst();
+  }
+
   /** True when the duplicate key came from the tracking reference constraint (a random collision). */
   public static boolean isTrackingRefCollision(DuplicateKeyException ex) {
     return violates(ex, TRACKING_REF_CONSTRAINT);

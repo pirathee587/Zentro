@@ -95,6 +95,26 @@ public class ParcelBookingService {
   /** Result of a booking call: the booking and whether it was created now (201) or replayed (200). */
   public record BookingResult(ParcelBookingResponse booking, boolean created) {}
 
+  /**
+   * Returns the parcel owned by the authenticated customer. Throws {@link ParcelNotFoundException}
+   * when the parcel does not exist or belongs to a different customer. Merchant-owned rows are excluded.
+   */
+  public ParcelBookingResponse getByIdAndOwner(UUID id, String customerSubject) {
+    return repository.findByIdAndOwner(id, customerSubject)
+        .map(ParcelBookingResponse::from)
+        .orElseThrow(() -> new com.zentro.parcelpricing.exception.ParcelNotFoundException(id));
+  }
+
+  /**
+   * Returns any parcel by its UUID, without ownership restriction. Only called by DISPATCHER or SERVICE actors
+   * that have been authorized before this method is invoked.
+   */
+  public ParcelBookingResponse getById(UUID id) {
+    return repository.findById(id)
+        .map(ParcelBookingResponse::from)
+        .orElseThrow(() -> new com.zentro.parcelpricing.exception.ParcelNotFoundException(id));
+  }
+
   public BookingResult book(String customerSubject, CreateParcelBookingRequest rawRequest, String idempotencyKey) {
     CreateParcelBookingRequest request = normalize(rawRequest);
     String requestHash = idempotencyKey == null ? null : fingerprint(rawRequest, 2);
