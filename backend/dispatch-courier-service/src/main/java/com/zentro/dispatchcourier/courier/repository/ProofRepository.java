@@ -49,6 +49,23 @@ public class ProofRepository {
   }
 
   @Transactional
+  public Submission saveOwned(UUID parcelId, UUID profileId, UUID userId, String subject,
+      SubmitProofRequest request) {
+    // SHARE conflicts with reassignment's UPDATE and cancellation's DELETE, while
+    // permitting concurrent proof retries. Keep the lock through evidence commit.
+    var owners = jdbc.query("""
+        SELECT courier_profile_id, courier_user_id FROM dispatch.delivery_assignment
+        WHERE parcel_id = ? FOR SHARE
+        """, (row, index) -> List.of(row.getObject("courier_profile_id", UUID.class),
+            row.getObject("courier_user_id", UUID.class)), parcelId);
+    if (owners.isEmpty())
+      throw new ProofException(404, "ASSIGNMENT_NOT_FOUND", "Delivery assignment not found.");
+    if (!owners.get(0).equals(List.of(profileId, userId)))
+      throw new ProofException(403, "DELIVERY_FORBIDDEN", "This delivery is not assigned to you.");
+    return save(parcelId, subject, request);
+  }
+
+  @Transactional
   public Submission save(UUID parcelId, String subject, SubmitProofRequest request) {
     var metadata = propagation.capture();
     int created = jdbc.update("""

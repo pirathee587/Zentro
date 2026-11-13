@@ -59,3 +59,15 @@
 Until these decisions are recorded against #132, implementing ZD-057 would
 require inventing reason codes, evidence requirements, an endpoint, or a state
 machine. This document intentionally makes no production or contract changes.
+
+## Issue #354 revalidation (2026-11-13)
+
+G03 remains blocked after checking the current `CourierDeliveryController`, S2
+`ParcelStatusController`/`ParcelStatusService`, and the existing role-transition
+matrix. No approved courier progress/failure endpoint or expanded SERVICE
+authority is present. Existing successful POD completion is retained. Blank and
+overlong failure-reason tests belong to S2's existing API until an S3 request
+contract exists; inventing an S3 endpoint to test them would cross this boundary.
+S2/S3 endpoint, idempotency, evidence and dispatcher-handoff approvals above are
+still required. See [real lifecycle acceptance](../testing/courier-lifecycle-e2e.md)
+and [Issue #354 verification](../testing/issue-354-implementation.md).

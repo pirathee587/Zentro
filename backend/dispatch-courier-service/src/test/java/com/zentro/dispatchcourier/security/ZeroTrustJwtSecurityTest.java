@@ -157,6 +157,27 @@ class ZeroTrustJwtSecurityTest {
   }
 
   @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void signedCourierCannotReadOrSubmitProofWithEitherForeignCanonicalId(boolean wrongProfile) throws Exception {
+    UUID parcel = UUID.randomUUID(), profile = UUID.randomUUID(), user = UUID.randomUUID();
+    String token = signToken(TRUSTED_KEY, ISSUER, List.of(AUDIENCE),
+        Instant.now().plusSeconds(300), List.of("COURIER"));
+    when(identityCourierClient.currentCourier(token))
+        .thenReturn(new IdentityCourierClient.Courier(profile, user, "Courier", true, "ACTIVE"));
+    when(assignmentRepository.find(parcel)).thenReturn(java.util.Optional.of(
+        new AssignmentRepository.Assignment(parcel, wrongProfile ? UUID.randomUUID() : profile,
+            wrongProfile ? user : UUID.randomUUID(), "dispatcher", Instant.now())));
+    String path = "/api/v1/courier/deliveries/" + parcel + "/proof";
+    mvc.perform(get(path).header("Authorization", "Bearer " + token))
+        .andExpect(status().isForbidden()).andExpect(jsonPath("code").value("DELIVERY_FORBIDDEN"));
+    mvc.perform(post(path).header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"recipientName\":\"Nimal\",\"proofReference\":\"REF-1\"}"))
+        .andExpect(status().isForbidden()).andExpect(jsonPath("code").value("DELIVERY_FORBIDDEN"));
+    verifyNoInteractions(proofRepository);
+  }
+
+  @ParameterizedTest
   @org.junit.jupiter.params.provider.MethodSource("rejectedPermissions")
   void signedDispatcherWithRejectedPermissionsCannotReadOrAssign(Object permissions) throws Exception {
     String token = signToken(TRUSTED_KEY, ISSUER, List.of(AUDIENCE), Instant.now().plusSeconds(300),

@@ -48,8 +48,9 @@ public class ProofOfDeliveryService {
         .orElseThrow(() -> new ProofException(404, "PROOF_NOT_FOUND", "No proof has been recorded yet.")));
   }
   public ProofRepository.Submission submit(UUID parcelId, Jwt jwt, SubmitProofRequest request) {
-    owned(parcelId, courier(jwt));
+    var courier = courier(jwt);
+    owned(parcelId, courier);
     if (request == null) throw new ProofException(400, "INVALID_PROOF", "Proof fields are required.");
-    return proofs.save(parcelId, jwt.getSubject(), request.normalized());
+    return proofs.saveOwned(parcelId, courier.id(), courier.userId(), jwt.getSubject(), request.normalized());
   }
 }

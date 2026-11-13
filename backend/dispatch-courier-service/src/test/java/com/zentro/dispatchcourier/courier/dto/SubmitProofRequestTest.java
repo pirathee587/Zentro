@@ -8,6 +8,25 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class SubmitProofRequestTest {
+  @ParameterizedTest @ValueSource(strings = {"", " \t\n", "\u00a0\ufeff"})
+  void rejectsBlankRecipientAndReferenceIndependently(String blank) {
+    assertThatThrownBy(() -> new SubmitProofRequest(blank, null, "ref").normalized())
+        .isInstanceOf(ProofException.class);
+    assertThatThrownBy(() -> new SubmitProofRequest("Recipient", null, blank).normalized())
+        .isInstanceOf(ProofException.class);
+  }
+
+  @Test void unicodeLimitsApplyToAllFieldsAfterTrimming() {
+    String symbol = new String(Character.toChars(0x1F600));
+    var exact = new SubmitProofRequest(" " + symbol.repeat(100) + " ",
+        symbol.repeat(500), symbol.repeat(200));
+    assertThat(exact.normalized().proofReference()).isEqualTo(symbol.repeat(200));
+    assertThat(exact.normalized().notes()).isEqualTo(symbol.repeat(500));
+    assertThatThrownBy(() -> new SubmitProofRequest("Recipient", null, symbol.repeat(201)).normalized())
+        .isInstanceOf(ProofException.class);
+    assertThatThrownBy(() -> new SubmitProofRequest("Recipient", symbol.repeat(501), "ref").normalized())
+        .isInstanceOf(ProofException.class);
+  }
   @Test void matchesBrowserTrimmingForNonbreakingWhitespaceAndBom() {
     assertThat(new SubmitProofRequest("\u00a0Nimal\ufeff", "\u202f\ufeff", "\u2007ref\u00a0").normalized())
         .isEqualTo(new SubmitProofRequest("Nimal", null, "ref"));
