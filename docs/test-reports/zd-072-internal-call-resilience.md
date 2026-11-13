@@ -93,6 +93,13 @@ The same scenarios as 5.2, with S5's codes: `IDENTITY_UNAVAILABLE` (503) and `ME
 
 ## 6. Transport behaviour (JDK 21, measured)
 
+2026-11-13 follow-up: with the current Spring Boot 3.5.16 dependency set,
+`ParcelStatusClientResilienceTest.slowResponseBodyLeavesTheDeliveryPending`
+observes the configured five-second timeout while reading a trickled response
+body. It verifies `PENDING` / `PARCEL_SERVICE_UNAVAILABLE` and one PATCH request.
+The probe results below are historical measurements, not the current Spring
+HTTP request factory's timeout contract.
+
 A JDK-only probe and the tests above show:
 
 | Callee behaviour | `HttpURLConnection` (calls 1-3) | JDK `HttpClient` (calls 4-5) |
