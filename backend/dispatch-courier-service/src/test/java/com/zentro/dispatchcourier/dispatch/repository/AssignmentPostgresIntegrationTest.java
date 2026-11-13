@@ -93,6 +93,40 @@ class AssignmentPostgresIntegrationTest {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(1);
   }
 
+  @Test void differentParcelsCanExceedConfiguredCourierLimitAcrossIndependentServices() throws Exception {
+    // Characterization: both pre-insert counts observe zero. No capacity policy is added here.
+    var counted = new CyclicBarrier(2);
+    var identity = mock(IdentityCourierClient.class);
+    when(identity.requireEligible(eq(courier.id()), anyString())).thenReturn(courier);
+    ParcelSource source = new ParcelSource() {
+      public Snapshot eligibleParcels(String token) { return new Snapshot(List.of(), true); }
+      public <T> T withEligibleParcel(UUID id, String token, Function<Parcel, T> action) {
+        return action.apply(new Parcel(id, null, null, null, Instant.now()));
+      }
+    };
+    var services = new java.util.ArrayList<DispatchService>();
+    for (int i = 0; i < 2; i++) {
+      var independent = new AssignmentRepository(jdbc, new DataSourceTransactionManager(jdbc.getDataSource())) {
+        @Override public long getAssignmentCount(UUID id) {
+          long count = super.getAssignmentCount(id);
+          try { counted.await(10, TimeUnit.SECONDS); }
+          catch (Exception error) { throw new IllegalStateException(error); }
+          return count;
+        }
+      };
+      services.add(new DispatchService(source, independent, identity, 1));
+    }
+    try (var pool = Executors.newFixedThreadPool(2)) {
+      var first = pool.submit(() -> services.get(0).assign(parcelId, courier.id(), "one", "token"));
+      var second = pool.submit(() -> services.get(1).assign(UUID.randomUUID(), courier.id(), "two", "token"));
+      assertThat(first.get(20, TimeUnit.SECONDS).courierId()).isEqualTo(courier.id());
+      assertThat(second.get(20, TimeUnit.SECONDS).courierId()).isEqualTo(courier.id());
+    }
+    assertThat(repository.getAssignmentCount(courier.id())).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(2);
+  }
+
   @Test void reassignmentAndCancellationWriteAuditedEventsAtomically() {
     var replacement = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Replacement", true, "ACTIVE");
     repository.insert(parcelId, courier, "dispatcher");
@@ -114,11 +148,63 @@ class AssignmentPostgresIntegrationTest {
     assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isZero();
   }
 
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"PENDING", "COMPLETED", "REJECTED", "BLOCKED"})
+  void cancellationAfterProofRollsBackWithoutDeletingEvidenceOrPublishingCancellation(String state) {
+    repository.insert(parcelId, courier, "dispatcher");
+    fixtureProof(parcelId, state);
+    var assignmentBefore = repository.find(parcelId);
+    var evidenceBefore = jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery");
+    var auditBefore = jdbc.queryForList("SELECT * FROM dispatch.assignment_audit");
+    var outboxBefore = jdbc.queryForList("SELECT * FROM dispatch.outbox_event");
+    assertThatThrownBy(() -> repository.cancel(parcelId, "dispatcher"))
+        .isInstanceOf(DataIntegrityViolationException.class);
+    assertThat(repository.find(parcelId)).isEqualTo(assignmentBefore);
+    assertThat(jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery")).isEqualTo(evidenceBefore);
+    assertThat(jdbc.queryForList("SELECT * FROM dispatch.assignment_audit")).isEqualTo(auditBefore);
+    assertThat(jdbc.queryForList("SELECT * FROM dispatch.outbox_event")).isEqualTo(outboxBefore);
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"PENDING", "COMPLETED", "REJECTED", "BLOCKED"})
+  void reassignmentAfterProofPreservesOriginalEvidenceAndActor(String state) {
+    repository.insert(parcelId, courier, "dispatcher");
+    fixtureProof(parcelId, state);
+    var evidenceBefore = jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery");
+    repository.reassign(parcelId, syntheticCourier(2, true), "replacement-dispatcher");
+    assertThat(jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery")).isEqualTo(evidenceBefore);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(2);
+  }
+
   @Test void failedTransactionRollsBackAndNextRequestCanAssign() {
     assertThatThrownBy(() -> repository.insert(parcelId, courier, "x".repeat(256)))
         .isInstanceOf(DataIntegrityViolationException.class);
     assertThat(repository.exists(parcelId)).isFalse();
     assertThat(repository.insert(parcelId, courier, "retry").assignedBy()).isEqualTo("retry");
+  }
+
+  @Test void outboxRetryScheduleAndEventIdentitySurviveRepositoryRestart() {
+    repository.insert(parcelId, courier, "dispatcher");
+    var tx = new org.springframework.transaction.support.TransactionTemplate(
+        new DataSourceTransactionManager(jdbc.getDataSource()));
+    var outbox = new com.zentro.dispatchcourier.event.OutboxRepository(jdbc);
+    var original = tx.execute(status -> outbox.fetchBatch(10, 50).getFirst());
+    tx.executeWithoutResult(status -> outbox.markFailed(original.eventId(), "offline",
+        java.time.OffsetDateTime.now().plusHours(1)));
+    var restarted = new com.zentro.dispatchcourier.event.OutboxRepository(jdbc);
+    var waiting = tx.execute(status -> restarted.fetchBatch(10, 50));
+    assertThat(waiting).isEmpty();
+    jdbc.update("UPDATE dispatch.outbox_event SET next_attempt_at = now() - interval '1 second'");
+    var recovered = tx.execute(status -> restarted.fetchBatch(10, 50).getFirst());
+    assertThat(recovered.eventId()).isEqualTo(original.eventId());
+    assertThat(recovered.aggregateId()).isEqualTo(original.aggregateId());
+    assertThat(recovered.payload()).isEqualTo(original.payload());
+    assertThat(recovered.attempts()).isEqualTo(1);
+    tx.executeWithoutResult(status -> restarted.markPublished(recovered.eventId()));
+    var published = tx.execute(status -> restarted.fetchBatch(10, 50));
+    assertThat(published).isEmpty();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(1);
   }
 
   @Test void lifetimeWorkloadMatchesIndependentRecountAcrossProofStatesAndInactiveCouriers() {

@@ -136,6 +136,28 @@ class DispatchServiceTest {
     verifyNoInteractions(identity, assignments);
   }
 
+  @ParameterizedTest @ValueSource(strings = {"inactive", "suspended", "area"})
+  void reassignRepeatsAvailabilityAndAreaValidation(String invalid) {
+    when(assignments.exists(parcelId)).thenReturn(true);
+    var replacement = new IdentityCourierClient.Courier(courierId, UUID.randomUUID(), "Replacement",
+        !invalid.equals("inactive"), invalid.equals("suspended") ? "SUSPENDED" : "ACTIVE",
+        invalid.equals("area") ? "Galle" : "Kandy");
+    when(identity.requireEligible(courierId, "token")).thenReturn(replacement);
+    assertCode(() -> service.reassign(parcelId, courierId, "dispatcher", "token"), "COURIER_INELIGIBLE");
+    verify(assignments, never()).reassign(any(), any(), any());
+  }
+
+  @Test void reassignRejectsMismatchedSourceBeforeLookingUpCourier() {
+    when(assignments.exists(parcelId)).thenReturn(true);
+    doAnswer(call -> {
+      Function<ParcelSource.Parcel, Object> action = call.getArgument(2);
+      return action.apply(new ParcelSource.Parcel(UUID.randomUUID(), null, null, null, Instant.now()));
+    }).when(source).withAssignedParcel(eq(parcelId), eq("token"), any());
+    assertCode(() -> service.reassign(parcelId, courierId, "dispatcher", "token"), "INVALID_PARCEL_SOURCE");
+    verifyNoInteractions(identity);
+    verify(assignments, never()).reassign(any(), any(), any());
+  }
+
   @Test void reassignRejectsMissingAssignmentBeforeCheckingReplacementCourier() {
     assertCode(() -> service.reassign(parcelId, courierId, "dispatcher", "token"), "DELIVERY_NOT_ASSIGNED");
     verifyNoInteractions(identity);
@@ -166,6 +188,20 @@ class DispatchServiceTest {
     var callback = mock(Function.class);
     assertCode(() -> new UnavailableParcelSource().withEligibleParcel(parcelId, "token", callback), "DISPATCH_SOURCE_UNAVAILABLE");
     verifyNoInteractions(callback);
+  }
+
+  @Test void productionSourceFailsClosedForQueueAssignmentReassignmentAndCancellation() {
+    var production = new DispatchService(new UnavailableParcelSource(), assignments, identity);
+    assertCode(() -> production.queue("token", "", null, null, "newest"), "DISPATCH_SOURCE_UNAVAILABLE");
+    assertCode(() -> production.assign(parcelId, courierId, "dispatcher", "token"), "DISPATCH_SOURCE_UNAVAILABLE");
+    assertCode(() -> production.couriers(parcelId, "token"), "DISPATCH_SOURCE_UNAVAILABLE");
+    when(assignments.exists(parcelId)).thenReturn(true);
+    assertCode(() -> production.reassign(parcelId, courierId, "dispatcher", "token"), "DISPATCH_SOURCE_UNAVAILABLE");
+    assertCode(() -> production.cancel(parcelId, "dispatcher", "token"), "DISPATCH_SOURCE_UNAVAILABLE");
+    verifyNoInteractions(identity);
+    verify(assignments, never()).insert(any(), any(), any());
+    verify(assignments, never()).reassign(any(), any(), any());
+    verify(assignments, never()).cancel(any(), any());
   }
 
   @Test void courierInactiveOrNonActiveAccountStatusRejected() {

@@ -90,6 +90,13 @@ Concurrent inserts use `ON CONFLICT DO NOTHING`; one proof wins. Identical norma
 returns the same ID/timestamp. Different evidence returns 409. Evidence/actor/association/time
 are immutable, enforced by a database trigger, while completion bookkeeping may change.
 
+Submission rechecks both canonical courier IDs under an assignment row `FOR SHARE`
+lock in the same transaction as evidence persistence. If reassignment commits first,
+the stale courier receives the existing 403 `DELIVERY_FORBIDDEN` response without a
+proof write. If submission wins, reassignment/cancellation wait until its transaction
+ends. This preserves existing post-commit lifecycle behavior and immutable evidence;
+it does not define a new after-proof reassignment or visibility policy.
+
 ## Completion and recovery
 
 Submission commits evidence with `PENDING`; the scheduled worker initiates completion on its

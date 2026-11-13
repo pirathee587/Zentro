@@ -188,6 +188,7 @@ public class DispatchService {
           "The delivery has no active assignment.");
     }
     return parcels.withAssignedParcel(parcelId, token, parcel -> {
+      if (parcel == null || !parcelId.equals(parcel.parcelId())) throw invalidSource();
       IdentityCourierClient.Courier courier;
       try {
         courier = identity.requireEligible(courierId, token);
@@ -198,6 +199,10 @@ public class DispatchService {
           default -> "COURIER_VERIFICATION_FAILED";
         };
         throw new DispatchException(HttpStatus.valueOf(error.getStatusCode().value()), code, error.getReason());
+      }
+      if (!eligible(courier) || !isServiceAreaEligible(courier, parcel)) {
+        throw new DispatchException(HttpStatus.CONFLICT, "COURIER_INELIGIBLE",
+            "This courier is not eligible for the delivery destination.");
       }
       return assignments.reassign(parcelId, courier, subject);
     });

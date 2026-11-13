@@ -64,16 +64,16 @@ class CourierDeliveryControllerTest {
   }
   @Test void validSubmissionUsesCanonicalOwnershipAndNormalizedFields() throws Exception {
     var proof = new ProofOfDelivery(UUID.randomUUID(), PARCEL, "Nimal", null, "REF-1", "actor", Instant.now(), "PENDING", null);
-    when(proofs.save(eq(PARCEL), anyString(), any())).thenReturn(new ProofRepository.Submission(proof, true));
+    when(proofs.saveOwned(eq(PARCEL), eq(PROFILE), eq(USER), anyString(), any())).thenReturn(new ProofRepository.Submission(proof, true));
     mvc.perform(post(PROOF).with(courier()).contentType("application/json").content(BODY))
         .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store"))
         .andExpect(jsonPath("recipientName").value("Nimal")).andExpect(jsonPath("completionState").value("PENDING"));
-    verify(proofs).save(PARCEL, "keycloak-subject-distinct-from-both-UUIDs", new SubmitProofRequest("Nimal", null, "REF-1"));
+    verify(proofs).saveOwned(PARCEL, PROFILE, USER, "keycloak-subject-distinct-from-both-UUIDs", new SubmitProofRequest("Nimal", null, "REF-1"));
   }
   @ParameterizedTest @ValueSource(strings = {"{}", "null", "not-json", "{\"recipientName\":\"  \",\"proofReference\":\"x\"}", "{\"recipientName\":\"x\"}"})
   void rejectsInvalidInput(String body) throws Exception {
     mvc.perform(post(PROOF).with(courier()).contentType("application/json").content(body)).andExpect(status().isBadRequest());
-    verify(proofs, never()).save(any(), any(), any());
+    verify(proofs, never()).saveOwned(any(), any(), any(), any(), any());
   }
   @Test void missingAuthenticationCannotReadOrSubmit() throws Exception {
     mvc.perform(get(PROOF)).andExpect(status().isUnauthorized());
@@ -141,13 +141,13 @@ class CourierDeliveryControllerTest {
   }
   @Test void replayIs200AndConflictingProof409() throws Exception {
     var proof = new ProofOfDelivery(UUID.randomUUID(), PARCEL, "Nimal", null, "REF-1", "actor", Instant.now(), "PENDING", null);
-    when(proofs.save(any(), any(), any())).thenReturn(new ProofRepository.Submission(proof, false));
+    when(proofs.saveOwned(any(), any(), any(), any(), any())).thenReturn(new ProofRepository.Submission(proof, false));
     mvc.perform(post(PROOF).with(courier()).contentType("application/json").content(BODY)).andExpect(status().isOk());
-    when(proofs.save(any(), any(), any())).thenThrow(new ProofException(409, "PROOF_CONFLICT", "Proof differs."));
+    when(proofs.saveOwned(any(), any(), any(), any(), any())).thenThrow(new ProofException(409, "PROOF_CONFLICT", "Proof differs."));
     mvc.perform(post(PROOF).with(courier()).contentType("application/json").content(BODY)).andExpect(status().isConflict());
   }
   @Test void databaseFailureIsSafe503() throws Exception {
-    when(proofs.save(any(), any(), any())).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("private database details"));
+    when(proofs.saveOwned(any(), any(), any(), any(), any())).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("private database details"));
     mvc.perform(post(PROOF).with(courier()).contentType("application/json").content(BODY))
         .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("code").value("PROOF_STORAGE_UNAVAILABLE"));
   }
