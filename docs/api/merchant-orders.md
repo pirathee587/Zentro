@@ -33,7 +33,7 @@ Requests are strictly scoped to the authenticated merchant; an unknown order or 
 
 No request body is required. The only supported query parameter is integer `limit`, defaulting to 50. The controller clamps parsed values to 1 through 100: values below 1 become 1 and values above 100 become 100.
 
-Success returns `200 OK` with an `application/json` array of `MerchantOrderResponse` objects (the same complete DTO as the detail endpoint). No orders returns `[]`. Results include only the authenticated merchant's orders, ordered by `createdAt DESC`; no secondary ordering is specified for equal timestamps.
+Success returns `200 OK` with an `application/json` array of `MerchantOrderResponse` objects (the same complete DTO as the detail endpoint). No orders returns `[]`. Results include only the authenticated merchant's orders, ordered deterministically by `createdAt DESC, id DESC`. The secondary tie-break on order ID (`id DESC`) guarantees stable, reproducible ordering across repeated requests even when multiple orders share identical creation timestamps.
 
 This is a bounded recent-order list, not a paginated response. It has no total count, page, offset, cursor, search or status-filter contract. A full result array does not establish whether more orders exist.
 

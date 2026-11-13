@@ -14,11 +14,12 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Error responses for the booking endpoint only. Messages never include names, phone numbers or addresses,
- * and logs record only the exception type.
+ * Error responses for booking and parcel retrieval endpoints. Messages never include names, phone numbers
+ * or addresses, and logs record only the exception type.
  */
 @RestControllerAdvice(assignableTypes = ParcelBookingController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -60,6 +61,18 @@ public class BookingExceptionHandler {
     log.warn("Booking rejected because pricing failed: {}", ex.getCause() == null
         ? "unknown" : ex.getCause().getClass().getSimpleName());
     return problem(HttpStatus.SERVICE_UNAVAILABLE, "Pricing unavailable", ex.getMessage());
+  }
+
+  /** Parcel not found by id or not owned by the caller — always 404 to prevent enumeration. */
+  @ExceptionHandler(ParcelNotFoundException.class)
+  public ProblemDetail handleNotFound(ParcelNotFoundException ex) {
+    return problem(HttpStatus.NOT_FOUND, "Parcel not found", ex.getMessage());
+  }
+
+  /** Invalid UUID path variable — 400 Bad Request. */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+    return problem(HttpStatus.BAD_REQUEST, "Invalid parcel id", "The parcel id must be a UUID.");
   }
 
   @ExceptionHandler(DataAccessException.class)

@@ -70,7 +70,39 @@ The server ignores `fee`, `status`, `trackingRef`, `customerId` and any other un
 
 `trackingRef` is `ZT-` followed by 10 random Crockford Base32 characters (`SecureRandom`). References are not sequential and cannot be guessed. The database enforces uniqueness, and the service retries up to 3 times on a collision.
 
-`GET /api/v1/parcels/{id}` is not part of this task. The `Location` header points to where that endpoint will live.
+## Get Parcel by ID
+
+`GET /api/v1/parcels/{id}`
+
+Retrieves an authoritative delivery booking from S2 persistence (`parcel.parcel`).
+
+| Item | Value |
+|---|---|
+| Role | `CUSTOMER`, `DISPATCHER`, `SERVICE` (`@PreAuthorize("hasAnyRole('CUSTOMER', 'DISPATCHER', 'SERVICE')")`) |
+| Auth | `Authorization: Bearer <Keycloak access token>` |
+| Parameter | `id` (UUID path parameter) |
+| Ownership Scoping | `CUSTOMER`: strictly scoped to the authenticated token subject (`customer_subject`). Returns `404 Not Found` if the parcel does not exist or belongs to another customer, preventing resource enumeration.<br>`DISPATCHER` / `SERVICE`: privileged access; returns any parcel regardless of owner. |
+| Forbidden Roles | `MERCHANT` and `COURIER` roles receive `403 Forbidden`. |
+| Unauthenticated | Missing or expired token receives `401 Unauthorized`. |
+| Response | `200 OK` with `application/json` (`ParcelBookingResponse`), matching the booking response shape. |
+| Gateway Routing | The gateway routes `/api/v1/parcels/**` to S2. For `CUSTOMER`, requests are forwarded under standard rules. External access by `DISPATCHER` or `SERVICE` through the gateway requires a gateway security rule update coordinated with Main 02. |
+
+Example successful response:
+
+```json
+{
+  "id": "3f1c2b7e-8a4d-4c1e-9b2a-5d6e7f8a9b0c",
+  "trackingRef": "ZT-7K3QX9M2PA",
+  "status": "CREATED",
+  "fee": 1072.00,
+  "currency": "LKR",
+  "estimatedDays": 3,
+  "createdAt": "2026-10-28T10:15:30Z",
+  "sender":    { "name": "Sender Contact", "phone": "0771234567",   "address": "12 Galle Road, Colombo 03", "city": "Colombo" },
+  "recipient": { "name": "Recipient Name", "phone": "+94771234567", "address": "45 Temple Street, Kandy",   "city": "Kandy" },
+  "parcel":    { "weightKg": 2.00, "category": "Small Box", "size": "SMALL", "description": "Books" }
+}
+```
 
 ## Errors
 
@@ -78,9 +110,10 @@ All errors use `application/problem+json` (RFC 9457). Messages never include nam
 
 | Status | When |
 |---|---|
-| 400 | Malformed JSON, an unknown enum value, or an `Idempotency-Key` that is blank or longer than 100 characters |
+| 400 | Malformed JSON, an unknown enum value, an invalid UUID path parameter, or an `Idempotency-Key` that is blank or longer than 100 characters |
 | 401 | Missing or invalid token |
-| 403 | Authenticated without the `CUSTOMER` role (MERCHANT, COURIER, DISPATCHER, SERVICE) |
+| 403 | Authenticated without the required role (e.g. non-CUSTOMER on booking; MERCHANT/COURIER on parcel retrieval) |
+| 404 | Parcel not found by id, or requested by a customer who does not own the parcel |
 | 409 | `Idempotency-Key` already used by this customer with a different request body |
 | 422 | Field validation failed, or pricing rejected the parcel data. The response includes `fieldErrors` keyed by request path. |
 | 503 | Pricing failed, or the booking could not be saved. Nothing is stored. Safe to retry with the same `Idempotency-Key`. |

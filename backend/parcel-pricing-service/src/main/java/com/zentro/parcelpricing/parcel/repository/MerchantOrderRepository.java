@@ -94,7 +94,7 @@ public class MerchantOrderRepository {
 
   public List<MerchantOrder> listByMerchant(String merchantId, int limit) {
     return jdbc.query(
-        "SELECT " + COLUMNS + " FROM parcel.parcel WHERE merchant_id = ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT " + COLUMNS + " FROM parcel.parcel WHERE merchant_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
         ROW_MAPPER, merchantId, limit);
   }
 
