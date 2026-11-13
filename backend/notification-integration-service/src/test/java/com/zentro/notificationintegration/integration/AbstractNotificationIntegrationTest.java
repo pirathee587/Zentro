@@ -44,10 +44,29 @@ abstract class AbstractNotificationIntegrationTest {
   private static final SecureRandom RANDOM = new SecureRandom();
 
   @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+      .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withPortBindings(restartBindings(5432)));
 
   @Container
-  static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"));
+  static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"))
+      .withKraft()
+      .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withPortBindings(restartBindings(9093)));
+
+  // Docker can remap an implicitly allocated host port on restart. Choose an ephemeral
+  // port, then bind it explicitly so outage drills reconnect to the same endpoint.
+  private static com.github.dockerjava.api.model.PortBinding[] restartBindings(int... containerPorts) {
+    var bindings = new java.util.ArrayList<com.github.dockerjava.api.model.PortBinding>();
+    for (int containerPort : containerPorts) {
+      try (var socket = new java.net.ServerSocket(0)) {
+        bindings.add(new com.github.dockerjava.api.model.PortBinding(
+            com.github.dockerjava.api.model.Ports.Binding.bindPort(socket.getLocalPort()),
+            new com.github.dockerjava.api.model.ExposedPort(containerPort)));
+      } catch (java.io.IOException ex) {
+        throw new IllegalStateException("Cannot allocate disposable test endpoint", ex);
+      }
+    }
+    return bindings.toArray(com.github.dockerjava.api.model.PortBinding[]::new);
+  }
 
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry registry) {
