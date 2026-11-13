@@ -16,6 +16,14 @@ At initial inspection PR #371 is OPEN, non-draft, mergeable, and unmerged at
 [CI 43482716658](https://github.com/pirathee587/Zentro/actions/runs/43482716658) is in
 progress at inspection: frontend, dependency scan, container build and metadata jobs
 passed; backend checks remain running. Branch and linked-issue checks passed.
+PR #371 was subsequently merged externally by repository account @pirathee587 at
+2026-11-14 00:14:18 Asia/Colombo, merge `4daedeef812c24d5141a1f3dcab1f930c4b423bd`.
+The merged head is a29262e, with no submitted reviews recorded. It does not include this
+follow-up, which is now on feature/170-notification-recovery-completion from that latest
+develop revision. No assistant merge was performed. Cherry-picking the tested changes
+produced implementation commit `dc89130895d8dc1a83ea8cd7c2ab74a0abd4f10c`; a backend
+tree comparison to tested 580295a is empty, exit 0. Documentation-only adaptation follows.
+
 The prior local 568-test S5 and 2,424-test full-backend results are historical evidence
 for implementation `2c86992b16521669778994640c6797539f5ff6bf`, not a new test run.
 
@@ -44,7 +52,7 @@ No DLT implementation or real delivery authorization is inferred from this reque
 
 ## 3. G17 implementation — PARTIAL
 
-G17 adds two recovery integration cases (loopback receiver acceptance/deduplication after
+G17 follow-up adds two recovery integration cases (loopback receiver acceptance/deduplication after
 result-write rollback, and unacknowledged rejection-storage failure) plus unauthenticated
 replay denial. Existing database/broker/JVM restart, duplicate/reorder, retry/exhaustion,
 parser/version and replay role tests are retained. The synthetic HTTP receiver's claim set
@@ -52,7 +60,7 @@ is in memory; durable real-merchant/provider idempotency is not proven. Its fail
 injected transaction error, not a kill at exact acceptance. Runbook inspection/troubleshooting
 now includes bounded rejection metadata SQL and an explicit DLT policy boundary.
 
-Full-backend verification passed. The PR is technically ready for review of the approved
+Full-backend verification passed. The follow-up PR is technically ready for review of the approved
 recovery changes; G17 remains PARTIAL while DLT/finite-ingestion recovery policy and real
 deployed receiver guarantees are unresolved and independent acceptance is outstanding.
 
@@ -78,15 +86,14 @@ policies is inferred from PR creation or technical review. No real SMS/email is 
 
 ## 7. Files changed
 
-On #371 this follow-up modifies:
+On the G17 follow-up this change modifies:
 
 - `backend/notification-integration-service/src/test/java/com/zentro/notificationintegration/integration/NotificationRecoveryIntegrationTest.java`
 - `backend/notification-integration-service/src/test/java/com/zentro/notificationintegration/admin/controller/IntegrationAttemptControllerTest.java`
 - `docs/operations/s5-notification-recovery.md`
 - `docs/testing/issue-356-implementation.md` (link to this dated follow-up)
 
-Created on #371: `docs/testing/notification-master-baseline.md` (this report) and
-`docs/testing/shared-e2e-keycloak-cache-reset.patch` (unapplied main-10 fixture fix proposal).
+Created on the G17 follow-up: `docs/testing/notification-master-baseline.md` (this report) only. The earlier unapplied patch artifact was superseded by separate fixture PR #375 and is not part of this follow-up diff.
 Separately created in the three develop-based branches:
 
 - `docs/architecture/g15-operational-audit-decision.md`
@@ -109,7 +116,7 @@ proposed future fields are documentation, not an approved shared schema change.
 No runtime API endpoint or OpenAPI contract added/changed. Illustrative
 proposed routes/templates are not active features. No S1/S2/S3/S4, gateway, shared security,
 CI/build, infrastructure or frontend production implementation is changed by this follow-up.
-The existing runtime fix remains in #371, not develop, until independently accepted/merged.
+The original runtime fix is now in develop through #371; the additional tests and this report remain separate unmerged follow-up work.
 
 ## 11. Security and privacy verification
 
@@ -163,7 +170,7 @@ are excluded by the existing full `runE2E` profile; the `perf` profile is not ru
 
 ## 13. CI results
 
-CI snapshots for the updated #371 head and proposal PRs are supplied with the final handover.
+CI snapshots for the new G17 follow-up head, fixture fix and proposal PRs are supplied with the final handover.
 Earlier CI for a29262e is separate evidence and cannot validate newly added tests.
 Subsequent inspection confirmed [43482716658](https://github.com/pirathee587/Zentro/actions/runs/43482716658)
 SUCCESS in every job. Its downloaded backend log independently totals 2,424 tests including
@@ -185,12 +192,20 @@ Other main-CI jobs passed. No failing test was disabled or silently excluded.
 Inspection shows shared static adminAccessToken/expiry cached across KEYCLOAK.stop/start;
 a new realm cannot authenticate that old token even before its cached expiry. CI's different
 class order exposes the cache lifetime mismatch. This is a source-supported diagnosis, not
-a passing fix claim. A two-line reset before fresh Keycloak startup is prepared as
-`shared-e2e-keycloak-cache-reset.patch`; `git apply --check` passes without applying it.
-Main 10 owns this shared fixture; authorization to apply a separate fix PR was requested.
-No shared fixture edit or successful rerun is claimed while that approval is pending.
+a passing fix claim. A two-line reset before fresh Keycloak startup was initially prepared as an unapplied
+patch, and `git apply --check` passed. That artifact is now superseded by isolated
+[fixture PR #375](https://github.com/pirathee587/Zentro/pull/375).
+Main 10 owns this shared fixture. The user subsequently authorized a separate minimal
+fixture-fix PR from latest develop with a stale-token regression test, relevant E2E/CI
+verification and main-10 review; decision branches must stay unchanged and their CI must
+not be rerun until that fix is approved and merged. Work proceeds in separate branch fix/359-keycloak-fixture-token-lifecycle. The new
+stale-token test reproduced the real 401-before-201 failure before the reset: 1 test,
+1 failure, 0 errors/skips, exit 1, 55.092s. Candidate ec679d6 applies the reset; 7574cbd
+changes only assertion diagnostics to avoid ever printing token values. Verification is
+reported on #375, not claimed as part of this G17 tree. Decision branches stay unchanged
+and their CI is not rerun before approved fixture merge.
 
-Proposed owner verification after applying the patch (NOT run against an applied fix):
+Owner verification requested for the isolated fixture fix (see #375 for executed results):
 
 ```sh
 cd backend
@@ -199,30 +214,35 @@ mvn --batch-mode --no-transfer-progress -Dbuild.revision=<fix-candidate-sha> -Dr
 
 A second differing class order should be verified sequentially if the first confirms the
 fix. Do not change authorization or accept 401/skip assertions merely to pass startup.
-No merged commit SHA exists for these open PRs; GitHub's provisional merge_commit_sha on
-an open PR is not an actual merged revision. Do not mark any stream COMPLETE.
+PR #371 merged at `4daedeef812c24d5141a1f3dcab1f930c4b423bd`; no independent approval
+was recorded. The follow-up and three decision PRs remain unmerged. GitHub's provisional
+merge_commit_sha on an open PR is not an actual merged revision. No stream is COMPLETE.
 
 ## 14. PR links
 
-- G17: https://github.com/pirathee587/Zentro/pull/371 (existing PR extended, not duplicated).
+- Original G17: https://github.com/pirathee587/Zentro/pull/371 (merged externally at original head).
+- G17 follow-up: current report's feature/170-notification-recovery-completion PR, opened after that merge; actual URL is returned at publication and in final handover.
+- Separate authorized fixture fix: https://github.com/pirathee587/Zentro/pull/375.
 - G15 decision: https://github.com/pirathee587/Zentro/pull/372.
 - G16 decision: https://github.com/pirathee587/Zentro/pull/373.
 - X06 decision: https://github.com/pirathee587/Zentro/pull/374.
 
 ## 15. Review status
 
-Primary remains @Deadsecnote1. Independent @Kiruthiyan review is requested on all four PRs;
+Primary remains @Deadsecnote1. Independent @Kiruthiyan review is requested on the G17 follow-up and three decision PRs;
 no independent approval or merge is claimed. All PRs target develop and use Refs links;
-none auto-closes a blocked requirement or historical issue. No self-merge is authorized.
+none auto-closes a blocked requirement or historical issue. No assistant merge is authorized.
 
 ## 16. Exact commit SHAs
 
-| PR | Branch | Exact implementation/proposal commit |
+| PR / work | Branch | Exact implementation/proposal commit |
 |---|---|---|
-| [#371](https://github.com/pirathee587/Zentro/pull/371) | feature/356-kafka-notifications-and-operational-audit | 580295a73c991bdd89f6aab70ce598fbc1505362 (subsequent report-only commit recorded in final handover) |
-| [#372](https://github.com/pirathee587/Zentro/pull/372) | feature/348-operational-audit-log-api | f20eed6658bc8180232733b1e89a9072acdf277d |
-| [#373](https://github.com/pirathee587/Zentro/pull/373) | feature/349-courier-assignment-notifications | bc45f7bc3ff86c755fc560e7c65b9679b3b6750a |
-| [#374](https://github.com/pirathee587/Zentro/pull/374) | feature/24-notification-provider-readiness | 007e65f52a3c65ad8b7e8bf9b2f34a6f106354f1 |
+| Original merged #371 | feature/356-kafka-notifications-and-operational-audit | a29262e8833207b780128afbcf3945afd4805a85; merged as 4daedeef812c24d5141a1f3dcab1f930c4b423bd |
+| G17 follow-up (current report's PR) | feature/170-notification-recovery-completion | dc89130895d8dc1a83ea8cd7c2ab74a0abd4f10c, cherry-pick of tested 580295a73c991bdd89f6aab70ce598fbc1505362; backend tree comparison identical, exit 0; later documentation head is in final handover |
+| #372 | feature/348-operational-audit-log-api | f20eed6658bc8180232733b1e89a9072acdf277d |
+| #373 | feature/349-courier-assignment-notifications | bc45f7bc3ff86c755fc560e7c65b9679b3b6750a |
+| #374 | feature/24-notification-provider-readiness | 007e65f52a3c65ad8b7e8bf9b2f34a6f106354f1 |
+| #375 fixture fix | fix/359-keycloak-fixture-token-lifecycle | 7574cbdfa8ff57c569d509545808617c30c28beb (base 4daedeef812c24d5141a1f3dcab1f930c4b423bd) |
 
 ## 17. Remaining approval blockers
 
