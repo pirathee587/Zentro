@@ -82,6 +82,14 @@ class IntegrationAttemptControllerTest {
     verifyNoInteractions(notificationRepository, webhookDeliveryRepository);
   }
 
+  @Test
+  @DisplayName("Unauthenticated replay returns 401 without invoking replay or persistence")
+  void unauthenticated_replay_returns401() throws Exception {
+    mvc.perform(post(WEBHOOK_PATH + "/" + UUID.randomUUID() + "/replay"))
+        .andExpect(status().isUnauthorized());
+    verifyNoInteractions(webhookReplayService, notificationRepository, webhookDeliveryRepository);
+  }
+
   // ---- wrong-role cross-service negative matrix ----
 
   @ParameterizedTest(name = "{0} token on notification-attempts → 403")
