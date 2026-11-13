@@ -28,7 +28,8 @@ class KeycloakAdminTokenLifecycleIT {
           "{\"clientId\":\"cache-regression-" + UUID.randomUUID()
               + "\",\"enabled\":true,\"protocol\":\"openid-connect\",\"publicClient\":true}");
       assertThat(response.statusCode()).as("fixture must acquire current-instance credentials").isEqualTo(201);
-      assertThat(DisposableGatewayStack.adminAccessToken).isNotEqualTo(previousToken);
+      assertThat(java.util.Objects.equals(DisposableGatewayStack.adminAccessToken, previousToken))
+          .as("current-instance token must replace the stale cached token").isFalse();
     } finally {
       DisposableGatewayStack.KEYCLOAK.stop();
     }
