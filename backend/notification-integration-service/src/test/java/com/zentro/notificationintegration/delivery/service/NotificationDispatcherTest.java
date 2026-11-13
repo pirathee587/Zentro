@@ -121,6 +121,22 @@ class NotificationDispatcherTest {
   }
 
   @Test
+  @DisplayName("A database failure after provider acceptance escapes without recording a provider failure")
+  void acceptedSendPersistenceFailureEscapes() {
+    row(0);
+    var failure = new org.springframework.dao.DataAccessResourceFailureException("database unavailable");
+    org.mockito.Mockito.doThrow(failure).when(repository).markSent(ID, 1);
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> dispatcher(FailMode.NONE, 5).deliver(ID))
+        .isSameAs(failure);
+
+    verify(repository, never()).markRetry(any(), anyInt(), anyString(), any());
+    verify(repository, never()).markFailed(any(), anyInt(), anyString());
+    assertThat(registry.get(NotificationMetrics.RETRIED).counter().count()).isZero();
+    assertThat(registry.get(NotificationMetrics.SENT).counter().count()).isZero();
+  }
+
+  @Test
   @DisplayName("A failed send becomes RETRY with an error and an exponential next attempt time")
   void failureIsRetried() {
     row(2);

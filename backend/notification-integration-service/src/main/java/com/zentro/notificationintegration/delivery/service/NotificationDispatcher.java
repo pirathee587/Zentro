@@ -55,8 +55,6 @@ public class NotificationDispatcher {
       try {
         sender.send(new OutgoingNotification(row.eventId(), row.trackingRef(), row.parcelStatus(), row.channel(),
             row.message(), attempt));
-        repository.markSent(row.id(), attempt);
-        metrics.sent();
       } catch (Exception ex) {
         work.failed();
         String error = "Provider delivery failed";
@@ -72,6 +70,16 @@ public class NotificationDispatcher {
           log.warn("Notification delivery attempt failed: channel={} status={} category={} nextTry={}",
               row.channel(), row.parcelStatus(), ex.getClass().getSimpleName(), next);
         }
+        return;
+      }
+      // Persistence failures must escape and roll back, including after provider acceptance.
+      // They are not provider failures and must not consume the provider retry budget.
+      try {
+        repository.markSent(row.id(), attempt);
+        metrics.sent();
+      } catch (RuntimeException ex) {
+        work.failed();
+        throw ex;
       }
     }
   }
