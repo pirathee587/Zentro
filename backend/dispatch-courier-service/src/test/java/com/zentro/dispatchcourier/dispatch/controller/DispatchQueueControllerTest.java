@@ -28,7 +28,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(DispatchQueueController.class)
-@Import({com.zentro.security.config.ZentroSecurityAutoConfiguration.class,
+@org.springframework.boot.autoconfigure.ImportAutoConfiguration(com.zentro.security.config.ZentroSecurityAutoConfiguration.class)
+@Import({
     DispatchCourierSecurityConfig.class, com.zentro.dispatchcourier.security.DispatchPermissions.class, DispatchService.class,
     DispatchExceptionHandler.class})
 @TestPropertySource(properties = {

@@ -185,14 +185,15 @@ class ParcelStatusClientResilienceTest {
   }
 
   @Test
-  void readTimeoutCoversTheResponseHeadersNotTheBody() {
-    // Finding F1: the body arrives in eight 800 ms parts (6.4 s in total) after prompt headers; the call succeeds.
+  void slowResponseBodyLeavesTheDeliveryPending() {
+    // Prompt headers must not let a slow response body bypass the five-second timeout.
     parcels.trickle(200, delivered(), 8, Duration.ofMillis(800));
 
     long start = System.nanoTime();
-    assertThatCode(() -> client(parcels.baseUrl()).complete(parcelId)).doesNotThrowAnyException();
+    CompletionFailure failure = fail(parcels.baseUrl());
 
-    assertThat(elapsedMs(start)).isGreaterThan(5000);
+    assertFailure(failure, "PENDING", "PARCEL_SERVICE_UNAVAILABLE");
+    assertThat(elapsedMs(start)).isBetween(4500L, 7000L);
     assertThat(parcels.requests()).isEqualTo(1);
   }
 
