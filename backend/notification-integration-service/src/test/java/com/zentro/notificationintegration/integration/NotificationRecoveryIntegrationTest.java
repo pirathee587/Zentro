@@ -132,6 +132,84 @@ class NotificationRecoveryIntegrationTest extends AbstractNotificationIntegratio
   }
 
   @Test
+  void httpReceiverDeduplicatesAcceptanceWhenResultPersistenceRollsBack() throws Exception {
+    UUID event = UUID.randomUUID();
+    UUID delivery = service.handle(parser.parse(CREATED_TOPIC,
+        createdEvent(event, UUID.randomUUID(), newTrackingRef()))).orElseThrow();
+    var accepted = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
+    var requests = new java.util.concurrent.atomic.AtomicInteger();
+    var receiver = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    receiver.createContext("/accept", exchange -> {
+      try (exchange) {
+        exchange.getRequestBody().readAllBytes();
+        requests.incrementAndGet();
+        // Test receiver atomically claims the stable event identity before its business effect.
+        accepted.add(exchange.getRequestHeaders().getFirst("X-Test-Event-Id"));
+        exchange.sendResponseHeaders(204, -1);
+      }
+    });
+    receiver.start();
+    try {
+      var client = java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+      var endpoint = java.net.URI.create("http://127.0.0.1:" + receiver.getAddress().getPort() + "/accept");
+      NotificationSender httpSender = new NotificationSender() {
+        public String channel() { return "MOCK_SMS"; }
+        public void send(com.zentro.notificationintegration.delivery.provider.OutgoingNotification message)
+            throws com.zentro.notificationintegration.delivery.provider.NotificationSendException {
+          try {
+            var request = java.net.http.HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(5))
+                .header("X-Test-Event-Id", message.eventId().toString())
+                .POST(java.net.http.HttpRequest.BodyPublishers.noBody()).build();
+            if (client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding()).statusCode() != 204) {
+              throw new java.io.IOException("test receiver rejected request");
+            }
+          } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new com.zentro.notificationintegration.delivery.provider.NotificationSendException("test interrupted");
+          } catch (java.io.IOException ex) {
+            throw new com.zentro.notificationintegration.delivery.provider.NotificationSendException("test receiver failure");
+          }
+        }
+      };
+      var worker = new NotificationDispatcher(repository, httpSender, metrics, properties, clock);
+      var failure = new DataAccessResourceFailureException("synthetic failure after HTTP acceptance");
+      org.mockito.Mockito.doThrow(failure).doCallRealMethod().when(repository).markSent(delivery, 1);
+      var transaction = new TransactionTemplate(transactions);
+      assertThatThrownBy(() -> transaction.executeWithoutResult(tx -> worker.deliver(delivery))).isSameAs(failure);
+      assertThat(rowsFor(event).get(0)).containsEntry("status", "PENDING").containsEntry("attempts", 0);
+      transaction.executeWithoutResult(tx -> worker.deliver(delivery));
+      assertThat(awaitRow(event, "SENT").get("attempts")).isEqualTo(1);
+      assertThat(requests.get()).isEqualTo(2);
+      assertThat(accepted).containsExactly(event.toString());
+      assertThat(rowsFor(event)).hasSize(1);
+    } finally {
+      receiver.stop(0);
+    }
+  }
+
+  @Test
+  void poisonRecordIsNotAcknowledgedUntilRejectionPersistenceSucceeds() {
+    long offset = 900000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(100000);
+    var record = new org.apache.kafka.clients.consumer.ConsumerRecord<String, String>(
+        CREATED_TOPIC, 0, offset, "poison", "{invalid-json-private-marker");
+    var consumer = new com.zentro.notificationintegration.messaging.consumer.ParcelEventConsumer(parser, service, dispatcher);
+    var acknowledged = new java.util.concurrent.atomic.AtomicBoolean();
+    var failure = new DataAccessResourceFailureException("synthetic rejection write failure");
+    org.mockito.Mockito.doThrow(failure).doCallRealMethod().when(repository).insertRejected(
+        org.mockito.ArgumentMatchers.eq(CREATED_TOPIC), org.mockito.ArgumentMatchers.eq(0),
+        org.mockito.ArgumentMatchers.eq(offset), org.mockito.ArgumentMatchers.anyString());
+    assertThatThrownBy(() -> consumer.onParcelEvent(record, () -> acknowledged.set(true))).isSameAs(failure);
+    assertThat(acknowledged).isFalse();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM notification.rejected_event WHERE offset_no = ?",
+        Long.class, offset)).isZero();
+    consumer.onParcelEvent(record, () -> acknowledged.set(true));
+    assertThat(acknowledged).isTrue();
+    var rejected = jdbc.queryForMap("SELECT topic, partition_no, offset_no, reason FROM notification.rejected_event WHERE offset_no = ?", offset);
+    assertThat(rejected).containsEntry("topic", CREATED_TOPIC).containsEntry("partition_no", 0);
+    assertThat(rejected.toString()).doesNotContain("private-marker");
+  }
+
+  @Test
   void offsetAcknowledgementFailureLeavesDurableWorkAndReplayDoesNotCreateAnotherOutcome() throws Exception {
     UUID event = UUID.randomUUID();
     String envelope = createdEvent(event, UUID.randomUUID(), newTrackingRef());
