@@ -9,6 +9,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.zentro.parcelpricing.exception.BookingExceptionHandler;
@@ -41,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Characterization test suite for ZD-353 (#353) controller findings:
- * - X01 (#191): Location header contract and absent GET /api/v1/parcels/{id} endpoint in S2.
+ * - X01 (#191): Location header contract and owner-scoped GET /api/v1/parcels/{id} endpoint in S2.
  * - G43 (#257): Merchant order list limit clamping [1, 100] and lack of cursor pagination.
  */
 @WebMvcTest(controllers = {ParcelBookingController.class, MerchantOrderController.class})
@@ -63,8 +64,8 @@ class Zd353ControllerCharacterizationTest {
   @MockBean JwtDecoder jwtDecoder;
 
   @Test
-  @DisplayName("X01: POST /api/v1/parcels returns Location header pointing to unmapped GET endpoint")
-  void x01_bookingReturnsLocationHeaderPointingToUnmappedGetEndpoint() throws Exception {
+  @DisplayName("X01: POST /api/v1/parcels returns Location header resolving to the owner-scoped GET endpoint")
+  void x01_bookingReturnsLocationHeaderResolvingToOwnerScopedGetEndpoint() throws Exception {
     UUID parcelId = UUID.fromString("3f1c2b7e-8a4d-4c1e-9b2a-5d6e7f8a9b0c");
     ParcelBookingResponse mockResponse = new ParcelBookingResponse(
         parcelId,
@@ -80,6 +81,8 @@ class Zd353ControllerCharacterizationTest {
 
     when(bookingService.book(any(), any(), any()))
         .thenReturn(new BookingResult(mockResponse, true));
+    when(bookingService.getByIdAndOwner(eq(parcelId), eq("customer-1")))
+        .thenReturn(mockResponse);
 
     String validBookingPayload = """
         {
@@ -98,11 +101,13 @@ class Zd353ControllerCharacterizationTest {
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", "/api/v1/parcels/" + parcelId));
 
-    // 2. Following the Location header with GET /api/v1/parcels/{id} fails with 404 Not Found
-    // because S2 does not implement an authoritative parcel retrieval GET endpoint
+    // 2. Following the Location header with GET /api/v1/parcels/{id} returns the owner's parcel
     mvc.perform(get("/api/v1/parcels/" + parcelId)
             .with(jwt().jwt(j -> j.subject("customer-1")).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(parcelId.toString()));
+
+    verify(bookingService).getByIdAndOwner(eq(parcelId), eq("customer-1"));
   }
 
   @ParameterizedTest(name = "limit={0} -> clamped limit={1}")
