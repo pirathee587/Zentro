@@ -20,6 +20,7 @@
     <java.version>21</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <spring-boot.version>3.5.16</spring-boot.version>
+    <postgresql.version>42.7.14</postgresql.version>
     <junit.version>5.10.3</junit.version>
     <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
     <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -35,6 +36,11 @@
         <artifactId>spring-boot-dependencies</artifactId>
         <version>${spring-boot.version}</version>
         <type>pom</type><scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>${postgresql.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
