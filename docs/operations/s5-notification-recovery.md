@@ -146,3 +146,9 @@ failure is injected, not a process kill at the exact network boundary. A separat
 verifies rejection-write failure leaves the poison record unacknowledged, then records a
 safe rejection before acknowledging on recovery. Replay authorization tests include an
 unauthenticated POST in addition to the existing non-Dispatcher role matrix.
+
+Ineligible replay attempts are visible through the existing 401/403/404/409 HTTP responses;
+only a successful replay transition creates webhook_delivery_replay evidence. There is no
+separate durable audit of denied replay requests or a dedicated DLT failure counter. A new
+security-event audit/retention contract belongs to the G15 approval process. Do not infer
+such durable evidence from a response code or a process-local metric.
