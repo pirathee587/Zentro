@@ -107,3 +107,48 @@ of external acceptance. Synthetic failure
 after mock acceptance demonstrates the duplicate-send window, not real SMS delivery or
 external receiver idempotency. See the #356 verification report for executed evidence and
 unverified scenarios.
+
+
+## Rejection inspection and DLT decision boundary (2026-11-14)
+
+Authorized operators may inspect bounded metadata in S5's own database:
+
+```sql
+SELECT topic, partition_no, offset_no, reason, received_at
+FROM notification.rejected_event
+WHERE received_at >= :incident_start AND received_at < :incident_end
+ORDER BY received_at DESC, id DESC
+LIMIT 100;
+```
+
+The topic/partition/offset tuple is the original record reference when event identity cannot
+be parsed. No raw event or persisted retry count is available here. Inspect original Kafka
+content only under the Kafka owner's approved access/retention process; do not paste payloads
+into incident logs. Broker retention can make reconstruction impossible. No DLT topic is
+created or populated by S5, so DLT tooling has no supported S5 topic to inspect/redrive.
+A FAILED webhook summary is not a Kafka dead-letter record.
+
+A proposed future DLT decision must specify payload minimization/encryption, access,
+retention, failure categories, original event/position/version/correlation metadata, attempt
+information, atomic publication-versus-offset recovery, and authenticated deduplicated redrive.
+No production topic name, retention period or finite retry exhaustion is selected here.
+Do not disable unlimited database storage retry merely to avoid a blocked partition: without
+an approved durable quarantine/outbox transition that would permit message loss. Existing
+five-second backoff and incident escalation bound retry pressure, not the number of attempts.
+Poison records use durable rejection instead; finite provider attempts use FAILED outcomes.
+
+Additional evidence in NotificationRecoveryIntegrationTest sends two actual loopback HTTP
+requests after a synthetic post-acceptance database rollback. A synthetic receiver atomically
+claims the event ID and applies one logical effect; S5 commits one outcome. The receiver's
+claim set is in memory: this proves deduplication while that receiver runs, not persistence
+across receiver restart, real-provider delivery, or deployed merchant behavior. The database
+failure is injected, not a process kill at the exact network boundary. A separate test
+verifies rejection-write failure leaves the poison record unacknowledged, then records a
+safe rejection before acknowledging on recovery. Replay authorization tests include an
+unauthenticated POST in addition to the existing non-Dispatcher role matrix.
+
+Ineligible replay attempts are visible through the existing 401/403/404/409 HTTP responses;
+only a successful replay transition creates webhook_delivery_replay evidence. There is no
+separate durable audit of denied replay requests or a dedicated DLT failure counter. A new
+security-event audit/retention contract belongs to the G15 approval process. Do not infer
+such durable evidence from a response code or a process-local metric.
