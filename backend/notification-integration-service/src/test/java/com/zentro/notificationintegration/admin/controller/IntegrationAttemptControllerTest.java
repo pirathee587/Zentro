@@ -160,6 +160,19 @@ class IntegrationAttemptControllerTest {
         .andExpect(status().isNotFound());
   }
 
+  @ParameterizedTest(name = "Replay non-terminal or blocked delivery ({0}) returns 409 Conflict")
+  @ValueSource(strings = {"NOT_FAILED", "DISABLED", "ALREADY_REPLAYED"})
+  @DisplayName("Replay rejects non-failed, disabled subscription, or already replayed deliveries with 409 Conflict")
+  void replay_nonReplayableOutcomes_return409(String outcome) throws Exception {
+    UUID deliveryId = UUID.randomUUID();
+    when(webhookReplayService.replay(deliveryId, "dispatcher")).thenReturn(ReplayResult.valueOf(outcome));
+
+    mvc.perform(post(WEBHOOK_PATH + "/" + deliveryId + "/replay")
+            .with(jwt().jwt(jwt -> jwt.subject("dispatcher"))
+                .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
+        .andExpect(status().isConflict());
+  }
+
   @Test
   @DisplayName("Replay rejects invalid delivery ids")
   void replay_invalidId_returns400() throws Exception {
