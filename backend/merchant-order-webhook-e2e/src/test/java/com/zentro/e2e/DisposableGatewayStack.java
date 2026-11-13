@@ -103,12 +103,19 @@ abstract class DisposableGatewayStack {
       throw failure;
     }
     initializeDatabases();
-    KEYCLOAK.start();
+    startKeycloak();
     issuer = keycloak() + "/realms/" + REALM;
     createTestClient();
     dispatcherToken = tokenForClient(DISPATCHER_CLIENT, DISPATCHER_SECRET);
     customerToken = tokenForClient(CUSTOMER_CLIENT, CUSTOMER_SECRET);
     startServices();
+  }
+
+  protected static void startKeycloak() {
+    // A fresh instance has a new issuer/signing state, even if the old token has not expired.
+    adminAccessToken = null;
+    adminAccessTokenExpiresAt = Instant.EPOCH;
+    KEYCLOAK.start();
   }
 
   @AfterAll
