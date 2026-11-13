@@ -34,7 +34,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(CourierDeliveryController.class)
-@Import({com.zentro.security.config.ZentroSecurityAutoConfiguration.class,
+@org.springframework.boot.autoconfigure.ImportAutoConfiguration(com.zentro.security.config.ZentroSecurityAutoConfiguration.class)
+@Import({
     DispatchCourierSecurityConfig.class, ProofOfDeliveryService.class, ProofExceptionHandler.class})
 @TestPropertySource(properties = {"zentro.security.issuer-uri=http://localhost/realm", "zentro.security.audience=zentro-api"})
 class CourierDeliveryControllerTest {
