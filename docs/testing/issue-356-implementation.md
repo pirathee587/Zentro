@@ -194,3 +194,10 @@ Publication status is reported in the PR description and final handover; this do
 records local candidate evidence before publication. No independent approval or merge
 is claimed. The overall issue remains PARTIAL/BLOCKED; passing local verification does
 not satisfy the blocked policy requirements.
+
+## Follow-up inspection and evidence (2026-11-14)
+
+The [master workstream report](notification-master-baseline.md) records revalidated PR #371
+status, two additional recovery tests and replay authorization coverage, new candidate runs,
+three separately reviewable policy/contract proposal PRs, and current blockers. Original
+2,424-test evidence above remains tied to its original revision; it is not a new run.
