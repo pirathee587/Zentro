@@ -62,8 +62,8 @@ import org.springframework.test.web.servlet.MockMvc;
  * {@code realm_access.roles} mapping) together with {@link DispatchCourierSecurityConfig}.
  */
 @WebMvcTest(controllers = {DispatchQueueController.class, CourierDeliveryController.class})
+@org.springframework.boot.autoconfigure.ImportAutoConfiguration(ZentroSecurityAutoConfiguration.class)
 @Import({
-    ZentroSecurityAutoConfiguration.class,
     DispatchCourierSecurityConfig.class,
     DispatchPermissions.class,
     DispatchService.class,
