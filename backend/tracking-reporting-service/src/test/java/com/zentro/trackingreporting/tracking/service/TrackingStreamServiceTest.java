@@ -202,5 +202,42 @@ class TrackingStreamServiceTest {
 
     assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
   }
+
+  @Test
+  @DisplayName("Foreign customer subscription denied with AccessDeniedException (403)")
+  void subscribeForeignCustomerDenied() {
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken malloryToken = createJwtToken("cust-mallory", "CUSTOMER", future);
+    when(authorizationService.isAuthorized(malloryToken, parcel)).thenReturn(false);
+
+    assertThatThrownBy(() -> streamService.subscribe("ZT-STREAM1234", malloryToken, parcel))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("Access denied");
+  }
+
+  @Test
+  @DisplayName("Foreign merchant subscription denied with AccessDeniedException (403)")
+  void subscribeForeignMerchantDenied() {
+    parcel.setMerchantSubject("merchant-acme");
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken rivalToken = createJwtToken("merchant-rival", "MERCHANT", future);
+    when(authorizationService.isAuthorized(rivalToken, parcel)).thenReturn(false);
+
+    assertThatThrownBy(() -> streamService.subscribe("ZT-STREAM1234", rivalToken, parcel))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("Access denied");
+  }
+
+  @Test
+  @DisplayName("Token without expiration claim accepted and maintained until lifecycle end")
+  void subscribeWithNullExpiresAtAllowed() {
+    JwtAuthenticationToken tokenWithoutExp = createJwtToken("cust-alice", "CUSTOMER", null);
+    when(authorizationService.isAuthorized(tokenWithoutExp, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(tokenWithoutExp)).thenReturn("cust-alice");
+
+    SseEmitter emitter = streamService.subscribe("ZT-STREAM1234", tokenWithoutExp, parcel);
+    assertThat(emitter).isNotNull();
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+  }
 }
 
