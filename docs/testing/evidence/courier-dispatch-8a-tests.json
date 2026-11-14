@@ -1,0 +1,296 @@
+{
+  "date": "2026-11-14",
+  "source": "1f1b766d00f18c8eae788a1f399b34fb88e1bb0c",
+  "command": "mvn --batch-mode --no-transfer-progress -pl dispatch-courier-service -am verify",
+  "exit_code": 0,
+  "suites": [
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.config.AudienceValidatorTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.004"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.config.KeycloakRealmRoleConverterTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.003"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.config.RepositoryConfigurationGuardTest",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.651"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.config.ServiceDatasourceConfigurationTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.058"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.error.ProblemDetailsSecurityHandlersTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.017"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.observability.CorrelationIdFilterTest",
+      "tests": "17",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.025"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.observability.HttpPropagationIntegrationTest",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "4.318"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.observability.InternalCorrelationInterceptorTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.037"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.observability.KafkaPropagationFactoriesTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.024"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.observability.PropagationContextTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.023"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.observability.SafeKafkaErrorHandlerTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.007"
+    },
+    {
+      "module": "libs/zentro-security-starter",
+      "suite": "com.zentro.security.ownership.ResourceOwnershipTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.006"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.controller.CourierDeliveryControllerTest",
+      "tests": "27",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "1.883"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.dto.SubmitProofRequestTest",
+      "tests": "13",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.111"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.repository.ProofPostgresIntegrationTest",
+      "tests": "30",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "10.863"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.IdentityCourierClientResilienceTest",
+      "tests": "24",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "29.768"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.IdentityCourierClientTest",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.196"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.ParcelStatusClientResilienceTest",
+      "tests": "21",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "18.931"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.ParcelStatusClientTest",
+      "tests": "15",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.112"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.ProofCompletionWorkerTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.149"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.ServiceTokenProviderResilienceTest",
+      "tests": "14",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "5.211"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.courier.service.ServiceTokenProviderTest",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.02"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.dispatch.controller.DispatchQueueControllerTest",
+      "tests": "28",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.341"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.dispatch.repository.AssignmentPostgresIntegrationTest",
+      "tests": "27",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "7.63"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.dispatch.service.DispatchServiceTest",
+      "tests": "29",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.175"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.event.OutboxPublisherTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.263"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.exception.ExceptionHandlersTest",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.004"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.integration.AssignmentToCourierScenarioTest",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "5.183"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.integration.CourierWorkflowIntegrationTest",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "4.854"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.integration.GatewayCourierOwnershipIntegrationTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "35.96"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.security.DispatchPermissionsTest",
+      "tests": "18",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.027"
+    },
+    {
+      "module": "dispatch-courier-service",
+      "suite": "com.zentro.dispatchcourier.security.ZeroTrustJwtSecurityTest",
+      "tests": "30",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.679"
+    }
+  ]
+}

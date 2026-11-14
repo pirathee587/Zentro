@@ -1,0 +1,124 @@
+{
+  "sha": "311ac2b7f732a2f59b11e5d3060a01b4fb39e856",
+  "scope": "Focused current committed shared acceptance fixture; no production source edits",
+  "command": "mvn --batch-mode --no-transfer-progress -Dbuild.revision=311ac2b7f732a2f59b11e5d3060a01b4fb39e856 -pl merchant-order-webhook-e2e -am -Dtest=BackendRoleAcceptanceIT -Dsurefire.failIfNoSpecifiedTests=false -DrunE2E verify",
+  "exit_code": 1,
+  "finished": "2026-11-14T19:18:25+05:30",
+  "report": "backend/merchant-order-webhook-e2e/target/surefire-reports/TEST-com.zentro.e2e.BackendRoleAcceptanceIT.xml",
+  "counts": {
+    "tests": 19,
+    "failures": 5,
+    "errors": 1,
+    "skipped": 0
+  },
+  "failed_scenarios": [
+    {
+      "scenario": "realBookingPersistsOnceAndReachesPublicTrackingWithoutBusinessSeeding",
+      "kind": "error",
+      "status_values": [
+        "200",
+        "404"
+      ]
+    },
+    {
+      "scenario": "ownerReceiptMustBeReachableThroughGateway",
+      "kind": "failure",
+      "status_values": [
+        "200",
+        "403"
+      ]
+    },
+    {
+      "scenario": "signedRolesAndAnonymousAreEnforcedAtGatewayAndParcelService(String, int)[1]",
+      "kind": "failure",
+      "status_values": [
+        "404",
+        "403"
+      ]
+    },
+    {
+      "scenario": "signedRolesAndAnonymousAreEnforcedAtGatewayAndParcelService(String, int)[3]",
+      "kind": "failure",
+      "status_values": [
+        "404",
+        "403"
+      ]
+    },
+    {
+      "scenario": "signedRolesAndAnonymousAreEnforcedAtGatewayAndParcelService(String, int)[7]",
+      "kind": "failure",
+      "status_values": [
+        "404",
+        "403"
+      ]
+    },
+    {
+      "scenario": "signedRolesAndAnonymousAreEnforcedAtGatewayAndParcelService(String, int)[9]",
+      "kind": "failure",
+      "status_values": [
+        "404",
+        "403"
+      ]
+    }
+  ],
+  "safe_observations": [
+    "ACCEPTANCE actor=OWNER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=200 actual=200",
+    "ACCEPTANCE actor=FOREIGN method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=OWNER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=200 actual=403",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18080/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18081/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18082/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18083/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18084/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18085/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=CUSTOMER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=CUSTOMER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=MERCHANT method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=MERCHANT method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=COURIER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=403 actual=403",
+    "ACCEPTANCE actor=COURIER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=403 actual=403",
+    "ACCEPTANCE actor=DISPATCHER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=DISPATCHER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=SERVICE method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=SERVICE method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=ANONYMOUS method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=ANONYMOUS method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=EXPIRED method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=EXPIRED method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=WRONG_AUDIENCE method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FOREIGN_ISSUER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=WRONG_AUDIENCE method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FOREIGN_ISSUER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18081/api/v1/users/me expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18083/api/v1/courier/deliveries expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18084/api/v1/tracking/mine expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18085/api/v1/merchant/webhooks expected=401 actual=401",
+    "RESTORE database=identity_db table=identity.app_user sourceRows=0 restoredRows=0 exit=0",
+    "RESTORE database=parcel_pricing_db table=parcel.parcel sourceRows=1 restoredRows=1 exit=0",
+    "RESTORE database=dispatch_courier_db table=dispatch.delivery_assignment sourceRows=0 restoredRows=0 exit=0",
+    "RESTORE database=tracking_reporting_db table=tracking.tracking_parcel sourceRows=0 restoredRows=0 exit=0",
+    "RESTORE database=notification_integration_db table=notification.notification_attempt sourceRows=1 restoredRows=1 exit=0"
+  ],
+  "static_checks": {
+    "compose_root_exit": 0,
+    "compose_keycloak_exit": 0,
+    "openapi_exit": 1,
+    "evidence_integrity_tests": 5,
+    "evidence_integrity_failures": 0
+  },
+  "missing_domain_suites": [
+    "CourierLifecycleIT",
+    "DispatcherAssignmentIT"
+  ],
+  "release_status": "BLOCKED",
+  "ci_status": "UNVERIFIED",
+  "independent_review": "UNVERIFIED",
+  "limitations": [
+    "Service-account role fixtures are not human interactive login or account-disablement acceptance.",
+    "Tracking hydration fails before restart assertions; no tracking restart success is claimed.",
+    "Restore checks verify quiesced per-service dumps and selected table counts, not full online integrity or RPO/RTO.",
+    "No full green run on final candidate SHA."
+  ]
+}
