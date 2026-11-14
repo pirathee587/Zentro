@@ -446,6 +446,37 @@ public class TrackingService {
     return parcelRepository.save(parcel);
   }
 
+  @Transactional
+  public TrackingParcel updateCourierAssignment(UUID parcelId, String trackingRef, String courierSubject, String action) {
+    Optional<TrackingParcel> parcelOpt = Optional.empty();
+    if (trackingRef != null && !trackingRef.isBlank()) {
+      parcelOpt = parcelRepository.findByTrackingRef(trackingRef.trim().toUpperCase());
+    }
+    if (parcelOpt.isEmpty() && parcelId != null) {
+      parcelOpt = parcelRepository.findByParcelId(parcelId);
+    }
+    if (parcelOpt.isEmpty()) {
+      return null;
+    }
+
+    TrackingParcel parcel = parcelOpt.get();
+    String oldCourier = parcel.getCourierSubject();
+
+    if ("CANCELLED".equalsIgnoreCase(action)) {
+      parcel.setCourierSubject(null);
+    } else {
+      parcel.setCourierSubject(courierSubject);
+    }
+    parcel.setUpdatedAt(Instant.now());
+    TrackingParcel saved = parcelRepository.save(parcel);
+
+    if (oldCourier != null && !oldCourier.equals(courierSubject)) {
+      streamService.revokeSubscriber(saved.getTrackingRef(), oldCourier);
+    }
+
+    return saved;
+  }
+
   private List<TrackingMilestoneDto> buildTimeline(TrackingParcel parcel, List<TrackingEvent> events) {
     List<TrackingMilestoneDto> timeline = new ArrayList<>();
     if (events.isEmpty()) {
