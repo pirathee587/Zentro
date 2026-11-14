@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Signed Keycloak tokens; gateway and direct service must independently enforce approved roles. */
+@org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
 class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
   private static final Map<String, String> TOKENS = new LinkedHashMap<>();
 
@@ -108,6 +109,7 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
   }
 
   @Test
+  @org.junit.jupiter.api.Order(1)
   void realBookingPersistsOnceAndReachesPublicTrackingWithoutBusinessSeeding() throws Exception {
     String body = orderBody();
     String key = UUID.randomUUID().toString();
@@ -139,6 +141,35 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
     assertStatus("FOREIGN", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + booking.path("id").asText() + "/receipt", TOKENS.get("MERCHANT"), 404);
     // This must fail until Main 02 registers the approved receipt route; never accept 403 as success.
     assertStatus("OWNER", "GET", "http://127.0.0.1:18080/api/v1/parcels/" + booking.path("id").asText() + "/receipt", customerToken, 200);
+  }
+
+  @Test
+  @org.junit.jupiter.api.Order(Integer.MAX_VALUE)
+  void serviceDatabaseDumpsRestoreIntoNewDisposableDatabases() throws Exception {
+    // Last test: quiesce only fixture-owned writers so the independent recount is stable.
+    stop(gateway); stop(s5); stop(s4); stop(s3); stop(s2); stop(s1);
+    for (String[] source : new String[][]{
+        {"identity_db", "identity.app_user"}, {"parcel_pricing_db", "parcel.parcel"},
+        {"dispatch_courier_db", "dispatch.delivery_assignment"},
+        {"tracking_reporting_db", "tracking.tracking_parcel"},
+        {"notification_integration_db", "notification.notification_attempt"}}) {
+      String database = source[0];
+      String restored = "restore_" + database;
+      String dump = "/tmp/acceptance-" + database + ".pgdump";
+      assertThat(POSTGRES.execInContainer("pg_dump", "-U", "e2e_admin", "-d", database,
+          "--format=custom", "--file=" + dump).getExitCode()).isZero();
+      assertThat(POSTGRES.execInContainer("createdb", "-U", "e2e_admin", restored).getExitCode()).isZero();
+      assertThat(POSTGRES.execInContainer("pg_restore", "-U", "e2e_admin", "-d", restored,
+          "--exit-on-error", "--single-transaction", "--no-owner", "--no-acl", dump).getExitCode()).isZero();
+      String sql = "SELECT count(*) FROM " + source[1];
+      var before = POSTGRES.execInContainer("psql", "-U", "e2e_admin", "-d", database, "-Atc", sql);
+      var after = POSTGRES.execInContainer("psql", "-U", "e2e_admin", "-d", restored, "-Atc", sql);
+      assertThat(before.getExitCode()).isZero();
+      assertThat(after.getExitCode()).isZero();
+      assertThat(after.getStdout().trim()).isEqualTo(before.getStdout().trim());
+      System.out.printf("RESTORE database=%s table=%s sourceRows=%s restoredRows=%s exit=0%n",
+          database, source[1], before.getStdout().trim(), after.getStdout().trim());
+    }
   }
 
   private static void assertStatus(String actor, String method, String uri, String token, int expected) throws Exception {

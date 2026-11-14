@@ -53,6 +53,8 @@ posted with user authorization:
 - [R02/R03 progress/capacity — #354](https://github.com/pirathee587/Zentro/issues/354#issuecomment-6877965270)
 - [R04 gateway/contracts — #351](https://github.com/pirathee587/Zentro/issues/351#issuecomment-6877965571)
 - [R07 runtime/recovery — #352](https://github.com/pirathee587/Zentro/issues/352#issuecomment-6877965829)
+- [R05 private tracking hydration — #357](https://github.com/pirathee587/Zentro/issues/357#issuecomment-6878010054)
+- [R06 disablement/security — #350](https://github.com/pirathee587/Zentro/issues/350#issuecomment-6878010371)
 
 No reply/approval, owner production PR, release risk acceptance or reviewer
 sign-off is inferred from these requests. R05/R06 remain explicit dependencies.

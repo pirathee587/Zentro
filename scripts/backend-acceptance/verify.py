@@ -31,14 +31,20 @@ def main():
         # Do not export XML properties, testcase parameters, bodies or captured output.
         suites.append({'report': str(path.relative_to(repo)), 'suite': suite.attrib['name'],
                        **{key: int(suite.attrib.get(key, 0)) for key in ('tests', 'failures', 'errors', 'skipped')}})
+    required = ('BackendRoleAcceptanceIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT')
+    missing = [name for name in required if not any(row['suite'].endswith('.' + name) and row['tests'] > 0 for row in suites)]
+    incomplete = any(row['failures'] or row['errors'] or row['skipped'] for row in suites)
+    gate_exit = result.returncode or (2 if missing or incomplete else 0)
     evidence = {'sha': sha, 'working_tree_dirty': bool(dirty), 'started_utc': started,
                 'finished_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                'command': command, 'exit_code': result.returncode, 'suites': suites,
+                'command': command, 'exit_code': result.returncode, 'acceptance_exit_code': gate_exit,
+                'required_suites_missing': missing, 'suites': suites,
+                'automated_gate_status': 'BLOCKED' if gate_exit else 'DONE',
                 'release_status': 'BLOCKED', 'independent_review': 'UNVERIFIED'}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(evidence, indent=2) + '\n')
-    print('Evidence:', args.output, 'Maven exit:', result.returncode, flush=True)
-    return result.returncode
+    print('Evidence:', args.output, 'Maven exit:', result.returncode, 'Acceptance exit:', gate_exit, flush=True)
+    return gate_exit
 
 
 if __name__ == '__main__':
