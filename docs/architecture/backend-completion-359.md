@@ -94,3 +94,33 @@ Coverage percentages are UNVERIFIED here. Test counts and skips come from curren
 JUnit reports, not a coverage percentage estimate. Final deliverable requirements,
 deployment facts and independent contribution/document sign-off remain UNVERIFIED;
 no final project PDF or frontend deliverable is produced.
+
+## Verified backend deliverable requirements
+
+Historical issue bodies #185/#263/#265/#266/#267/#268/#271 were read again on
+2026-11-14; all were open. They are evidence references, not parallel ownership
+assignments. Main 10 assembles only the backend subset under authoritative #359.
+
+| Historical reference | Required backend artifact | Current artifact / remaining acceptance |
+|---|---|---|
+| #185 | Completion status and handover with actual tests/limitations | Candidate index and backend handover exist; final acceptance/review/merge remain BLOCKED. |
+| #263 | Architecture, ER and deployment diagrams matching implementation/topology | Diagrams above cover repository and disposable topology. Production topology approval and owner review remain UNVERIFIED. |
+| #265 | Final design PDF compiled from approved diagrams/contracts | Backend Markdown design appendix exists. Approved source-diagram pack and explicit backend-only PDF deliverable scope are not recorded; PDF assembly remains BLOCKED. No final project PDF is generated. |
+| #266 | Test report, coverage artifacts, failures and limitations | Current sanitized reports/index plus historical reports; cross-service acceptance and final CI incomplete. No fabricated all-module coverage percentage. |
+| #267 | Contribution sheet from assigned issues and real merged PRs | Verified PR-author/merge facts below; per-member final contribution review remains UNVERIFIED. No effort/hour/share estimate. |
+| #268 | Report chapters, figures and appendices reconciled with implementation | Backend runbook/security/design/test appendices assembled; overall project/frontend chapters excluded. Owner document review remains UNVERIFIED. |
+| #271 | Accepted issues, merged PRs, release SHA, checks and outstanding limitations | Single backend evidence index exists. No accepted release SHA or completion claim while release is BLOCKED. |
+
+Verified GitHub PR metadata (read 2026-11-14):
+
+| PR | Recorded PR author | Actual merge SHA | Demonstrated contribution scope |
+|---|---|---|---|
+| [#365](https://github.com/pirathee587/Zentro/pull/365) | @Jathuja | `5a3aba3928620d8a671d6e4b213b18c2d4acf6d6` | Owner-scoped parcel retrieval and deterministic order sorting. |
+| [#369](https://github.com/pirathee587/Zentro/pull/369) | @Nilakshana23 | `72408ff31d8278fe47266fcbfdacc5d7adc6f31a` | Assignment safety and proof validation; retained lifecycle/source/policy blockers. |
+| [#377](https://github.com/pirathee587/Zentro/pull/377) | @hephzibah-peries | `ea3c4a1dfea4535a899d3866f51142ad72d4ad0b` | Tracking projections, receipts and privacy; merge is not full live hydration acceptance. |
+| [#378](https://github.com/pirathee587/Zentro/pull/378) | @14Jannan | `1f1b766d00f18c8eae788a1f399b34fb88e1bb0c` | Dispatcher reports API and filter acceptance; final whole-system sign-off separate. |
+
+These are PR authorship/merge facts, not a claim that one author performed every
+line, that the entire service is finished, or that the PR proves this candidate.
+Main 10's own acceptance work remains in an unmerged review branch and must not
+be counted as a merged contribution or independent approval.

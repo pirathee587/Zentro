@@ -38,3 +38,30 @@ Gateway/direct-service mismatch, wrong policy, skipped scenario or missing role
 case prevents DONE. Reviewer must inspect all rows, current SHA CI, disabled-user
 and SERVICE tests, remaining route inventory and upstream owner approvals before
 recording a signed-off decision.
+
+## Complete inventory versus verified live coverage
+
+[REST route coverage inventory](../testing/evidence/359-route-acceptance-matrix.csv)
+contains 64 unique method/path operations: 62 checked-in OpenAPI operations plus
+the two implemented S2 receipt reads absent from the shared OpenAPI generator.
+Its role cells describe coverage, not permission grants. UNVERIFIED is never a
+claim that a role should be allowed or denied. Aggregate endpoint sign-off stays
+PARTIAL until all applicable positive/negative/ownership cases are accepted.
+
+Additional transport boundaries are outside that REST inventory:
+
+| Surface | Existing implementation / contract | Live acceptance gap / owner |
+|---|---|---|
+| GraphQL `publicTracking` | S4 read-only schema/query handler | Canonical public read model is missing for new real bookings; gateway `/graphql` is not an approved exposed route. Main 08/02; UNVERIFIED. |
+| GraphQL `delivery` / `myDeliveries` | S4 ownership-aware read queries | Exact owner, foreign owner, wrong role and signed-token live matrix required; private hydration and routing approvals pending. Main 08/02; UNVERIFIED. |
+| GraphQL `deliveries` | Dispatcher-restricted read query | Existing domain tests are supplemental, not live Main 10 sign-off. Main 08/02; UNVERIFIED. |
+| Identity gRPC `GetMerchantStatus` / `GetCourierProfile` | Implemented S1 service and shared JWT/internal-token interceptor | Shared five-service fixture disables the S1 gRPC listener; do not claim its health proves gRPC readiness. Preserve existing domain gRPC tests; Main 01/02 live acceptance remains required. |
+| Parcel gRPC `GetParcel` | Proto declaration only in inspected source | No production server implementation found; must not treat it as a usable dispatch source. Main 04/02; BLOCKED. |
+| Tracking events JSON versus SSE / explicit stream | JSON public reads and owner-authorized authenticated SSE differ | Content negotiation, expiry/reconnect and exact ownership need real initialized tracking rows; Main 08/02; UNVERIFIED. |
+| Health / Prometheus / docs paths | Existing service/gateway management security configuration | Six health endpoints are tested. Health is not authorization sign-off for Prometheus/docs or upstream management exposure; Main 02/03 review required. |
+
+No application ADMIN role/privilege predicate was found by the source scan for
+`ROLE_ADMIN`, `hasRole('ADMIN')`, `"ADMIN"` or `DISPATCHER_ADMIN` in backend production
+sources and the realm template. Keycloak bootstrap administration remains isolated
+fixture administration, not a fifth application role. This source scan is
+supplemental evidence and does not replace the remaining runtime matrix.

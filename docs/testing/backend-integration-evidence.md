@@ -2,14 +2,12 @@
 
 Status: PARTIAL. Release decision: BLOCKED. Starting SHA:
 `1f1b766d00f18c8eae788a1f399b34fb88e1bb0c`, verified against `origin/develop`.
-Working branch: `feature/359-complete-blocker-resolution`.
+Working branch: `feature/359-backend-acceptance-security-and-release-readiness`.
 
-Review artifact: [draft PR #379](https://github.com/pirathee587/Zentro/pull/379),
-target `develop`; independent reviewer @Niro0526 was successfully requested.
-[CI run 43601766414](https://github.com/pirathee587/Zentro/actions/runs/43601766414)
-was observed in progress on documentation/evidence head `81634b1`; metadata checks
-passed. This is not a green backend CI claim or verification of a later head.
-No merge, release, deployment or independent approval has occurred.
+Prior review artifact: [draft PR #379](https://github.com/pirathee587/Zentro/pull/379)
+on the superseded branch `feature/359-complete-blocker-resolution`; its backend CI
+failed. The exact new branch candidate below has not yet received GitHub CI or
+independent review. No merge, release, deployment or approval has occurred.
 
 ## Evidence classification
 
@@ -40,6 +38,36 @@ No merge, release, deployment or independent approval has occurred.
   **not reached** because initial public hydration failed; no restart success is claimed.
 - CI verification: UNVERIFIED until a run for the actual PR head is available.
 - Independent review: UNVERIFIED; @Niro0526 must record a decision.
+
+## Frozen full-candidate run — 2026-11-14
+
+[Sanitized runner evidence](evidence/359-candidate-3bc31d9.json) is tied to
+`3bc31d9bf3e748400f00535701b3087161698de5`, with identical start/end SHA and
+`runtime_inputs_dirty=false`. The report's global dirty flag is true only because
+tracked documentation edits and the user's pre-existing deletions existed outside
+the frozen runtime input set. Command: `cd backend && mvn --batch-mode
+--no-transfer-progress -Dbuild.revision=3bc31d9bf3e748400f00535701b3087161698de5
+-DrunE2E clean verify`. Maven and acceptance exit 1. **2,564 tests across 237
+suites: 2,558 passed, 5 failed, 1 errored, 0 skipped.** `CourierLifecycleIT` and
+`DispatcherAssignmentIT` are missing, so neither domain journey is certified.
+
+`BackendRoleAcceptanceIT`: 33 tests, 5 failures, 1 error, no skips. Five failures
+are the gateway receipt route: valid owner/role traffic sees 403 where owner
+success or missing-resource 404 is expected. The same owner and foreign-customer
+cases pass directly against S2; the two receipt operations are missing from the
+shared OpenAPI route inventory. One real-booking public tracking wait observes 404,
+consistent with the missing S4 tracking initialization/hydration. The separate
+tracking restart test passed its one-fact preservation assertion; this does not
+complete the failed booking-to-public-tracking journey. Six health probes and
+signed-token rejection cases pass. `MerchantApprovalGapIT` passed 2/2.
+`CustomerBookingIT` passes 4/4: owner JSON/PDF receipts 200, foreign customer 404,
+conflicting key replay 409 with one booking/outbox fact, invalid booking 422 with
+no write, and outbox fault 502 with rollback and same-key recovery 201.
+
+Maven ran all 237 fresh reports. Exact failing identifiers and counts are preserved in the safe
+JSON. Static API check still fails because the two implemented S2 receipt routes
+are not represented in the shared API generator. This candidate is a blocker
+diagnostic and remains **BLOCKED**, not a release pass.
 
 ## Scenario ownership and acceptance status
 
