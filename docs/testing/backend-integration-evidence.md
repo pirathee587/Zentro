@@ -4,10 +4,14 @@ Status: PARTIAL. Release decision: BLOCKED. Starting SHA:
 `1f1b766d00f18c8eae788a1f399b34fb88e1bb0c`, verified against `origin/develop`.
 Working branch: `feature/359-backend-acceptance-security-and-release-readiness`.
 
-Review artifact: [draft PR #380](https://github.com/pirathee587/Zentro/pull/380),
-target `develop`; independent reviewer @Niro0526 was requested. PR #379 on the
-prior branch was closed as superseded by #380. Checks for #380 are still running;
-no merge, release, deployment or approval has occurred.
+Review artifact: [PR #380](https://github.com/pirathee587/Zentro/pull/380)
+was merged into `develop` by merge commit
+[`add99196f0ed331e90a707cc95cd77e4b0efea2f`](https://github.com/pirathee587/Zentro/commit/add99196f0ed331e90a707cc95cd77e4b0efea2f).
+PR #379 was superseded. The GitHub review-submission list for #380 was empty at
+reconciliation; independent reviewer approval is therefore UNVERIFIED. No
+workflow run or combined status was returned for the merge commit, so CI on the
+merged SHA is UNVERIFIED. Merge does not mean release approval, deployment or
+Issue #359 completion.
 
 ## Evidence classification
 
