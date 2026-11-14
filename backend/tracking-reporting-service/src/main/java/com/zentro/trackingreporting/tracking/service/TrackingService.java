@@ -238,7 +238,7 @@ public class TrackingService {
 
     TrackingEvent savedEvent = eventRepository.save(event);
 
-    // Update parcel status if present, or initialize minimal projection when CREATED
+    // Update parcel status if present
     Optional<TrackingParcel> existing = parcelRepository.findByTrackingRef(cleanRef);
     if (existing.isPresent()) {
       TrackingParcel p = existing.get();
@@ -248,24 +248,6 @@ public class TrackingService {
       if (status == TrackingStatus.DELIVERED) {
         p.setDeliveredAt(eventTime);
       }
-      parcelRepository.save(p);
-    } else if (status == TrackingStatus.CREATED) {
-      TrackingParcel p = new TrackingParcel();
-      p.setParcelId(parcelId);
-      p.setTrackingRef(cleanRef);
-      p.setStatus(TrackingStatus.CREATED);
-      p.setSenderCity(location != null ? location : "Colombo");
-      p.setRecipientCity("Colombo");
-      p.setSenderName("Sender");
-      p.setSenderPhone("N/A");
-      p.setSenderAddress("N/A");
-      p.setRecipientName("Recipient");
-      p.setRecipientPhone("N/A");
-      p.setRecipientAddress("N/A");
-      p.setCategory("Standard");
-      p.setCustomerSubject("system");
-      p.setCreatedAt(eventTime);
-      p.setUpdatedAt(eventTime);
       parcelRepository.save(p);
     }
 

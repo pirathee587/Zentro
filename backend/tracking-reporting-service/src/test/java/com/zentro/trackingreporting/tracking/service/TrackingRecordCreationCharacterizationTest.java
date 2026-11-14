@@ -44,12 +44,13 @@ class TrackingRecordCreationCharacterizationTest {
   }
 
   @Test
-  @DisplayName("G04 resolution: recordEvent initializes minimal TrackingParcel when CREATED event arrives")
-  void recordEventCreatesMinimalTrackingParcelWhenCreatedEventArrives() {
-    String trackingRef = "ZT-7K3QX9M2PA";
+  @DisplayName("Characterize G04: recordEvent saves event but does not create TrackingParcel when absent")
+  void recordEventDoesNotCreateTrackingParcelWhenAbsent() {
+    String trackingRef = "ZT-UNINITIALIZED01";
     UUID parcelId = UUID.randomUUID();
     UUID eventId = UUID.randomUUID();
 
+    // Absent from parcelRepository
     when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.empty());
     when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -67,18 +68,19 @@ class TrackingRecordCreationCharacterizationTest {
         eventId
     );
 
+    // Event is persisted
     assertThat(recorded).isNotNull();
     assertThat(recorded.getTrackingRef()).isEqualTo(trackingRef);
     assertThat(recorded.getStatus()).isEqualTo(TrackingStatus.CREATED);
     verify(eventRepository).save(any(TrackingEvent.class));
 
-    // Verifies parcel was initialized and saved
-    org.mockito.ArgumentCaptor<TrackingParcel> captor = org.mockito.ArgumentCaptor.forClass(TrackingParcel.class);
-    verify(parcelRepository).save(captor.capture());
-    TrackingParcel saved = captor.getValue();
-    assertThat(saved.getTrackingRef()).isEqualTo(trackingRef);
-    assertThat(saved.getParcelId()).isEqualTo(parcelId);
-    assertThat(saved.getStatus()).isEqualTo(TrackingStatus.CREATED);
+    // BUT parcelRepository.save was never called because recordEvent only updates existing parcels
+    verify(parcelRepository, never()).save(any(TrackingParcel.class));
+
+    // Attempting to read public tracking fails because no TrackingParcel was created
+    assertThatThrownBy(() -> trackingService.getPublicTracking(trackingRef))
+        .isInstanceOf(TrackingNotFoundException.class)
+        .hasMessageContaining(trackingRef);
   }
 
   @Test
