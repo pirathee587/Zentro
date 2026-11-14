@@ -40,6 +40,14 @@ abstract class BackendAcceptanceStack extends DisposableGatewayStack {
     s4 = launch("tracking-reporting-service", 18084, trackingConfiguration);
   }
 
+  protected static java.net.http.HttpResponse<String> book(String token, String body, String key) throws Exception {
+    var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:18080/api/v1/parcels"))
+        .timeout(java.time.Duration.ofSeconds(30)).header("Authorization", "Bearer " + token)
+        .header("Content-Type", "application/json").header("Idempotency-Key", key)
+        .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body)).build();
+    return HTTP.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+  }
+
   protected static String createIsolatedRoleClient(String client, String secret, String role) throws Exception {
     String user = createServiceClient(client, secret, role);
     String path = keycloak() + "/admin/realms/zentro/users/" + user + "/role-mappings/realm";

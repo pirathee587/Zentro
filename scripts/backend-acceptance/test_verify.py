@@ -10,7 +10,7 @@ import verify
 
 
 class EvidenceIntegrityTest(unittest.TestCase):
-    def execute(self, report_names, maven_exit=0, stale=False, skipped=0):
+    def execute(self, report_names, maven_exit=0, stale=False, skipped=0, head_drift=False, runtime_dirty=False):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
             output = repo / 'evidence.json'
@@ -18,12 +18,14 @@ class EvidenceIntegrityTest(unittest.TestCase):
                 for name in report_names:
                     path = repo / 'backend/module/target/surefire-reports' / ('TEST-' + name + '.xml')
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text('<testsuite name="com.zentro.e2e.' + name + '" tests="1" failures="0" errors="0" skipped="' + str(skipped) + '"><properties><property name="secret" value="must-not-export"/></properties><system-out>must-not-export</system-out></testsuite>')
+                    path.write_text('<testsuite name="com.zentro.e2e.' + name + '" tests="1" failures="0" errors="0" skipped="' + str(skipped) + '"><properties><property name="secret" value="must-not-export"/></properties><testcase name="safeMethod(must-not-export)"/><system-out>must-not-export</system-out></testsuite>')
                     if stale:
                         os.utime(path, (1, 1))
                 return subprocess.CompletedProcess([], maven_exit)
             with patch.object(verify, '__file__', str(repo / 'scripts/backend-acceptance/verify.py')), \
-                 patch.object(verify.subprocess, 'check_output', side_effect=['a' * 40 + '\n', '']), \
+                 patch.object(verify.subprocess, 'check_output', side_effect=[
+                     'a' * 40 + '\n', '', ' M backend/source.java' if runtime_dirty else '',
+                     ('b' if head_drift else 'a') * 40 + '\n', '']), \
                  patch.object(verify.subprocess, 'run', side_effect=reports), \
                  patch('sys.argv', ['verify.py', '--output', str(output)]):
                 code = verify.main()
@@ -34,7 +36,7 @@ class EvidenceIntegrityTest(unittest.TestCase):
     def test_green_maven_without_domain_scenarios_is_blocked(self):
         code, evidence = self.execute(['BackendRoleAcceptanceIT'])
         self.assertEqual(code, 2)
-        self.assertEqual(evidence['required_suites_missing'], ['CourierLifecycleIT', 'DispatcherAssignmentIT'])
+        self.assertEqual(evidence['required_suites_missing'], ['CustomerBookingIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'])
 
     def test_old_reports_never_satisfy_current_run(self):
         code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'], stale=True)
@@ -47,16 +49,26 @@ class EvidenceIntegrityTest(unittest.TestCase):
         self.assertEqual(evidence['exit_code'], 7)
 
     def test_skipped_required_scenarios_are_not_success(self):
-        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'], skipped=1)
+        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CustomerBookingIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'], skipped=1)
         self.assertEqual(code, 2)
         self.assertEqual(evidence['automated_gate_status'], 'BLOCKED')
 
     def test_automated_success_does_not_grant_release_approval(self):
-        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'])
+        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CustomerBookingIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'])
         self.assertEqual(code, 0)
         self.assertEqual(evidence['automated_gate_status'], 'DONE')
         self.assertEqual(evidence['release_status'], 'BLOCKED')
         self.assertEqual(evidence['independent_review'], 'UNVERIFIED')
+
+    def test_changed_head_invalidates_candidate_evidence(self):
+        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CustomerBookingIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'], head_drift=True)
+        self.assertEqual(code, 2)
+        self.assertEqual(evidence['input_integrity_status'], 'BLOCKED')
+
+    def test_dirty_runtime_inputs_invalidate_candidate_evidence(self):
+        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CustomerBookingIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'], runtime_dirty=True)
+        self.assertEqual(code, 2)
+        self.assertTrue(evidence['runtime_inputs_dirty'])
 
 
 if __name__ == '__main__':

@@ -108,6 +108,39 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
     assertStatus("EXPIRED", "GET", "http://127.0.0.1:18082" + path, shortLived, 401);
   }
 
+  static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> reportCases() {
+    return java.util.stream.Stream.of("CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER", "SERVICE", "ANONYMOUS")
+        .flatMap(role -> java.util.stream.Stream.of(18080, 18084)
+            .map(port -> org.junit.jupiter.params.provider.Arguments.of(role, port)));
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.MethodSource("reportCases")
+  void reportingRolesAreEnforcedAtBothBoundaries(String role, int port) throws Exception {
+    int expected = role.equals("ANONYMOUS") ? 401 : role.equals("DISPATCHER") ? 200 : 403;
+    assertStatus(role, "GET", "http://127.0.0.1:" + port
+        + "/api/v1/reports/deliveries/summary?from=2026-11-14&to=2026-11-14", TOKENS.get(role), expected);
+  }
+
+  @Test
+  void disabledProfileRejectsStaleTokenUpdatesWithoutInventingGlobalRevocationPolicy() throws Exception {
+    String token = createIsolatedRoleClient("acceptance-disabled-profile", UUID.randomUUID().toString(), "CUSTOMER");
+    var profile = call("GET", "/api/v1/users/me", token, null);
+    assertThat(profile.statusCode()).isEqualTo(200);
+    String id = JSON.readTree(profile.body()).path("id").asText();
+    assertThat(call("PATCH", "/api/v1/admin/users/" + id, dispatcherToken,
+        "{\"accountStatus\":\"DISABLED\",\"reason\":\"Acceptance fixture\"}").statusCode()).isEqualTo(200);
+    for (int port : new int[]{18080, 18081}) {
+      int actual = sendRaw("PATCH", "http://127.0.0.1:" + port + "/api/v1/users/me", token,
+          "{\"name\":\"Should be denied\"}").statusCode();
+      assertThat(actual).isEqualTo(403);
+      System.out.printf("ACCEPTANCE actor=DISABLED_STALE_TOKEN endpoint=port%d/users/me method=PATCH expected=403 actual=%d%n", port, actual);
+    }
+    int receipt = sendRaw("GET", "http://127.0.0.1:18082/api/v1/parcels/" + UUID.randomUUID() + "/receipt", token, null).statusCode();
+    System.out.printf("OBSERVATION actor=DISABLED_STALE_TOKEN endpoint=S2/receipt approvedExpected=UNVERIFIED actual=%d policy=R06%n", receipt);
+    // No global disablement expectation is approved. This observation is not security sign-off.
+  }
+
   @Test
   @org.junit.jupiter.api.Order(1)
   void realBookingPersistsOnceAndReachesPublicTrackingWithoutBusinessSeeding() throws Exception {
@@ -145,9 +178,25 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
         .pollInterval(java.time.Duration.ofSeconds(2)).untilAsserted(() ->
         assertThat(call("GET", tracking, null, null).statusCode()).isEqualTo(200));
     assertSingleCreatedEvent(tracking);
+  }
+
+  @Test
+  @org.junit.jupiter.api.Order(3)
+  void trackingRestartPreservesConsumedCreatedFactEvenWhileReadHydrationIsBlocked() throws Exception {
+    assertThat(bookedParcel).isNotBlank();
+    assertThat(consumedFacts()).isEqualTo(1);
     restartTracking();
-    assertThat(call("GET", tracking, null, null).statusCode()).isEqualTo(200);
-    assertSingleCreatedEvent(tracking);
+    assertStatus("health-after-restart", "GET", "http://127.0.0.1:18084/actuator/health", null, 200);
+    assertThat(consumedFacts()).isEqualTo(1);
+    System.out.println("ACCEPTANCE scenario=tracking-restart expectedCreatedFacts=1 actualCreatedFacts=1");
+  }
+
+  private static int consumedFacts() throws Exception {
+    try (var db = java.sql.DriverManager.getConnection(jdbcUrl("tracking_reporting_db"), "tracking_user", "tracking-only");
+         var query = db.prepareStatement("SELECT count(*) FROM tracking.tracking_event WHERE parcel_id = ? AND status = 'CREATED'")) {
+      query.setObject(1, UUID.fromString(bookedParcel));
+      try (var result = query.executeQuery()) { result.next(); return result.getInt(1); }
+    }
   }
 
   @Test
