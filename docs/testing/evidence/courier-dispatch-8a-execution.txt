@@ -1,0 +1,42 @@
+Environment: Linux amd64; OpenJDK 21.0.12.1; Maven 3.8.7; Docker 29.8.0
+Initial sandbox command: mvn --batch-mode --no-transfer-progress -pl dispatch-courier-service -am verify
+Initial exit: 1; shared security 63 results, 5 errors; S3 skipped.
+First cause: java.net.SocketException: Operation not permitted (HttpPropagationIntegrationTest local server socket).
+Retry outside sandbox: same command; exit 0.
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.318 s -- in com.zentro.security.observability.HttpPropagationIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.024 s -- in com.zentro.security.observability.KafkaPropagationFactoriesTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.037 s -- in com.zentro.security.observability.InternalCorrelationInterceptorTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.023 s -- in com.zentro.security.observability.PropagationContextTest
+[INFO] Tests run: 17, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.025 s -- in com.zentro.security.observability.CorrelationIdFilterTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.007 s -- in com.zentro.security.observability.SafeKafkaErrorHandlerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.006 s -- in com.zentro.security.ownership.ResourceOwnershipTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.zentro.security.config.AudienceValidatorTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.651 s -- in com.zentro.security.config.RepositoryConfigurationGuardTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.058 s -- in com.zentro.security.config.ServiceDatasourceConfigurationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.003 s -- in com.zentro.security.config.KeycloakRealmRoleConverterTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.017 s -- in com.zentro.security.error.ProblemDetailsSecurityHandlersTest
+[INFO] Tests run: 62, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.111 s -- in com.zentro.dispatchcourier.courier.dto.SubmitProofRequestTest
+[INFO] Tests run: 30, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.86 s -- in com.zentro.dispatchcourier.courier.repository.ProofPostgresIntegrationTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.149 s -- in com.zentro.dispatchcourier.courier.service.ProofCompletionWorkerTest
+[INFO] Tests run: 21, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.93 s -- in com.zentro.dispatchcourier.courier.service.ParcelStatusClientResilienceTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.196 s -- in com.zentro.dispatchcourier.courier.service.IdentityCourierClientTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.211 s -- in com.zentro.dispatchcourier.courier.service.ServiceTokenProviderResilienceTest
+[INFO] Tests run: 24, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 29.77 s -- in com.zentro.dispatchcourier.courier.service.IdentityCourierClientResilienceTest
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.112 s -- in com.zentro.dispatchcourier.courier.service.ParcelStatusClientTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.020 s -- in com.zentro.dispatchcourier.courier.service.ServiceTokenProviderTest
+[INFO] Tests run: 27, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.883 s -- in com.zentro.dispatchcourier.courier.controller.CourierDeliveryControllerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 35.96 s -- in com.zentro.dispatchcourier.integration.GatewayCourierOwnershipIntegrationTest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.854 s -- in com.zentro.dispatchcourier.integration.CourierWorkflowIntegrationTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.183 s -- in com.zentro.dispatchcourier.integration.AssignmentToCourierScenarioTest
+[INFO] Tests run: 27, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.630 s -- in com.zentro.dispatchcourier.dispatch.repository.AssignmentPostgresIntegrationTest
+[INFO] Tests run: 29, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.175 s -- in com.zentro.dispatchcourier.dispatch.service.DispatchServiceTest
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.341 s -- in com.zentro.dispatchcourier.dispatch.controller.DispatchQueueControllerTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.263 s -- in com.zentro.dispatchcourier.event.OutboxPublisherTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.zentro.dispatchcourier.exception.ExceptionHandlersTest
+[INFO] Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.027 s -- in com.zentro.dispatchcourier.security.DispatchPermissionsTest
+[INFO] Tests run: 30, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.679 s -- in com.zentro.dispatchcourier.security.ZeroTrustJwtSecurityTest
+[INFO] Tests run: 327, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+[INFO] Total time:  02:14 min
+[INFO] Finished at: 2026-11-14T18:47:33+05:30
