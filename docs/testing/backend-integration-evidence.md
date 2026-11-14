@@ -9,9 +9,28 @@ Working branch: `feature/359-complete-blocker-resolution`.
 - Historical: [8A focused audit](courier-dispatch-follow-up-8a.md), 389 passes;
   [PR #369](https://github.com/pirathee587/Zentro/pull/369) and its prior CI.
   These do not certify this candidate.
-- Current local execution: full reactor `-DrunE2E verify` is being recorded;
-  [execution results](evidence/359-current-results.json) will contain safe suite counts,
+- Current local execution: full reactor `-DrunE2E verify` exited 1;
+  [full implementation-phase attempt](evidence/359-full-attempt.json) records
+  2,545 tests, 5 failures, 1 error and zero skips (2,539 passes). All 2,514 service /
+  shared-security tests passed. The new fixture exposed receipt failures, an
+  inherited-role setup issue and polling-triggered 429. Its corrected version is
+  rerun separately at `311ac2b7f732a2f59b11e5d3060a01b4fb39e856`.
+  [Focused execution results](evidence/359-current-results.json) contain safe suite counts,
   exact source/command/exit and limitations. Missing/skipped suites never imply PASS.
+  The full attempt started before implementation was committed and is explicitly
+  marked as such. It is not certification of the final candidate. Focused test
+  source and all six JAR Build-Revision fields match `311ac2b`; subsequent changes
+  are evidence/documentation only. No complete green full-candidate run is claimed.
+  Focused result: **19 tests, 13 passes, 5 failures, 1 error, zero skips**, exit 1,
+  finished 2026-11-14 19:18:25 +05:30. Five failures are gateway receipt checks
+  (owner expects 200; other permitted roles expect missing-resource 404; all see
+  403). The error is a bounded tracking wait expecting 200, observing 404.
+  Corrected pure-role setup, forged/expired/wrong-audience/foreign-issuer rejection,
+  six health endpoints and five quiesced database restores passed.
+  Direct S2 owner receipt returned 200 and foreign merchant returned 404. Booking
+  assertions verified one saved booking, one `parcel.created` outbox fact and zero
+  transition-history rows after matching replay. Tracking restart assertions were
+  **not reached** because initial public hydration failed; no restart success is claimed.
 - CI verification: UNVERIFIED until a run for the actual PR head is available.
 - Independent review: UNVERIFIED; @Niro0526 must record a decision.
 
@@ -45,6 +64,25 @@ missing=[('get', '/api/v1/parcels/{id}/receipt'),
          ('get', '/api/v1/parcels/{id}/receipt/pdf')] extra=[]
 ```
 
+Reproduction of the corrected acceptance run, from `backend`:
+
+```sh
+mvn --batch-mode --no-transfer-progress \
+  -Dbuild.revision=311ac2b7f732a2f59b11e5d3060a01b4fb39e856 \
+  -pl merchant-order-webhook-e2e -am -Dtest=BackendRoleAcceptanceIT \
+  -Dsurefire.failIfNoSpecifiedTests=false -DrunE2E verify
+```
+
+This selects the shared acceptance class only; service unit suites are not rerun
+by that selector. Their 2,514 current results belong to the separately described
+full implementation-phase attempt. Five Python evidence-integrity tests passed
+with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s
+scripts/backend-acceptance -p 'test_*.py'`. The runner returns acceptance exit 2
+even after a green Maven run if required lifecycle/dispatcher suites are absent or
+any suite is skipped. It never grants independent review or release approval.
+Raw local logs: `/tmp/zentro-359-full.log`, `/tmp/zentro-359-focused.log`;
+these are deliberately not committed. Safe JSON results preserve status/count evidence.
+
 This is a verified Main 02 integration dependency, not something Main 10 fixes
 by weakening checks. Detailed [owner requests](issue-359-owner-requests.md) were
 posted with user authorization:
@@ -54,6 +92,7 @@ posted with user authorization:
 - [R04 gateway/contracts — #351](https://github.com/pirathee587/Zentro/issues/351#issuecomment-6877965571)
 - [R07 runtime/recovery — #352](https://github.com/pirathee587/Zentro/issues/352#issuecomment-6877965829)
 - [R05 private tracking hydration — #357](https://github.com/pirathee587/Zentro/issues/357#issuecomment-6878010054)
+- [R05 runtime hydration evidence — #357](https://github.com/pirathee587/Zentro/issues/357#issuecomment-6878178572)
 - [R06 disablement/security — #350](https://github.com/pirathee587/Zentro/issues/350#issuecomment-6878010371)
 
 No reply/approval, owner production PR, release risk acceptance or reviewer

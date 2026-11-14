@@ -31,6 +31,10 @@ Reviewer walkthrough:
 - Inspect secret provisioning references without exporting credentials or test payloads.
 - Reproduce service/broker restart, outbox retry and per-service restore drills;
   retain independent before/after facts. These drills remain required.
+- Local evidence now includes five quiesced service-database restores with matching
+  selected table counts. S2 booking and S5 notification counts were 1→1; S1/S3/S4
+  selected tables were 0→0. This does not establish full nonempty restore integrity,
+  broker recovery or independent production recovery sign-off.
 - Confirm Kafka retention/offset recovery, migration compatibility and prior artifact
   rollback plan with Main 03/07/08. Never roll back applied migrations casually.
 - Resolve R01–R07 with authorized approvals and domain PRs; verify actual full courier,

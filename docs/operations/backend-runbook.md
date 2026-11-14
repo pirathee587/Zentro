@@ -95,9 +95,15 @@ Restore to a **new disposable database** with its own `PGSERVICE` selection:
 pg_restore --exit-on-error --single-transaction --no-owner --no-acl /private/backup/service.pgdump
 ```
 
-These are procedures awaiting a recorded drill, not executed restore evidence.
+The current shared fixture executes `pg_dump`/`pg_restore` inside its disposable
+PostgreSQL container after quiescing its own writers. It restores each of five
+service databases into a new database and compares a selected source/restored table
+count. Safe `RESTORE` lines and actual outcomes are in the evidence index. This is
+a local quiesced restore drill, not a production online-backup/RPO/RTO acceptance.
+Host PostgreSQL client tools were not installed in this session; persistent
+operators need their approved client tools/container and private libpq configuration.
 Record per-service row/event counts, migration version, checksums, restore duration
-and recovery-point expectations before approving them. Do not overwrite a live DB.
+and recovery-point expectations before approving production recovery. Do not overwrite a live DB.
 
 Outbox and POD workers retain retry state in their owning databases. Restart the
 same packaged service against the same disposable DB; compare assignment/proof,
@@ -105,8 +111,9 @@ history and outbox counts before/after. Never clear idempotency or processed-eve
 tables to force replay. Kafka offset reset, topic retention and replay window must
 be approved by Main 03/07/08 before use; no generic reset command is safe here.
 Use [S5 recovery](s5-notification-recovery.md) for its already implemented retry
-and replay boundaries. A broker restart test and backup/restore acceptance remain
-BLOCKED pending owner/reviewer evidence; do not claim durability from health.
+and replay boundaries. Broker restart, full restore integrity and independent
+recovery acceptance remain BLOCKED pending owner/reviewer evidence; do not claim
+durability from health or selected row counts alone.
 
 ## Troubleshooting and shutdown
 

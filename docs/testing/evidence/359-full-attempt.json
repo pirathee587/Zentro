@@ -1,0 +1,1942 @@
+{
+  "kind": "local full-reactor implementation-phase run",
+  "starting_sha": "1f1b766d00f18c8eae788a1f399b34fb88e1bb0c",
+  "fixture_compiled_revision": "12c498f2b354f3b07aa1f676ba41136d84f6dc61",
+  "command": "mvn --batch-mode --no-transfer-progress -Dbuild.revision=1f1b766d00f18c8eae788a1f399b34fb88e1bb0c -DrunE2E verify",
+  "exit_code": 1,
+  "finished": "2026-11-14T19:13:58+05:30",
+  "provenance_limit": "Implementation changed during this run. Service production source unchanged from base. This run is not final candidate certification; corrected shared fixture is rerun separately at its exact committed SHA.",
+  "totals": {
+    "tests": 2545,
+    "failures": 5,
+    "errors": 1,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.observability.HttpPropagationIntegrationTest",
+      "seconds": 4.703
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.observability.KafkaPropagationFactoriesTest",
+      "seconds": 0.036
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.observability.InternalCorrelationInterceptorTest",
+      "seconds": 0.04
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.observability.PropagationContextTest",
+      "seconds": 0.029
+    },
+    {
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.observability.CorrelationIdFilterTest",
+      "seconds": 0.03
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.observability.SafeKafkaErrorHandlerTest",
+      "seconds": 0.008
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.ownership.ResourceOwnershipTest",
+      "seconds": 0.007
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.config.AudienceValidatorTest",
+      "seconds": 0.005
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.config.RepositoryConfigurationGuardTest",
+      "seconds": 0.508
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.config.ServiceDatasourceConfigurationTest",
+      "seconds": 0.095
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.config.KeycloakRealmRoleConverterTest",
+      "seconds": 0.003
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.security.error.ProblemDetailsSecurityHandlersTest",
+      "seconds": 0.017
+    },
+    {
+      "tests": 146,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.integration.GatewayKeycloakIntegrationTests",
+      "seconds": 116.4
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.filters.IdentityHeaderSanitizingFilterTest",
+      "seconds": 0.004
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.filters.RateLimitFilterTest",
+      "seconds": 0.028
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.filters.CorrelationIdFilterTest",
+      "seconds": 0.111
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.filters.UpstreamResponseSanitizingFilterTest",
+      "seconds": 0.005
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.filters.RequestLoggingFilterTest",
+      "seconds": 0.003
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.filters.NonApiNotFoundFilterTest",
+      "seconds": 0.005
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.config.CorsConfigTest",
+      "seconds": 0.006
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.exception.ProblemDetailHandlersTest",
+      "seconds": 0.006
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.routes.GatewayDefaultDenyTests",
+      "seconds": 1.387
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.routes.GatewayUpstreamFailureTests",
+      "seconds": 2.101
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.routes.GatewayInventoryTests",
+      "seconds": 0.045
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.routes.GatewaySseContractTests",
+      "seconds": 0.636
+    },
+    {
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.routes.GatewayBehaviorTests",
+      "seconds": 5.91
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.routes.GatewayHttpPropagationTests",
+      "seconds": 0.546
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.security.RoleAuthorizationManagerTest",
+      "seconds": 0.007
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.security.JwtTokenValidatorTest",
+      "seconds": 0.019
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.gateway.security.RoleConverterTest",
+      "seconds": 0.005
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.service.CourierPostgresTestcontainersIntegrationTest",
+      "seconds": 8.373
+    },
+    {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.service.CourierProfileServiceTest",
+      "seconds": 1.447
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.CourierSelfProfileControllerTest",
+      "seconds": 1.865
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.CourierSelfProfileControllerTest",
+      "seconds": 0.041
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.CourierSelfProfileControllerTest",
+      "seconds": 2.162
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.AdminCourierControllerTest",
+      "seconds": 0.528
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.AdminCourierControllerTest",
+      "seconds": 0.121
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.AdminCourierControllerTest",
+      "seconds": 0.083
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.courier.controller.AdminCourierControllerTest",
+      "seconds": 0.742
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantLifecycleServiceTest",
+      "seconds": 0.021
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantLifecycleServiceTest",
+      "seconds": 0.014
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantLifecycleServiceTest",
+      "seconds": 0.011
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantLifecycleServiceTest",
+      "seconds": 0.021
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantLifecycleServiceTest",
+      "seconds": 0.021
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantLifecycleServiceTest",
+      "seconds": 0.093
+    },
+    {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantApiKeyServiceTest",
+      "seconds": 0.053
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.service.MerchantApplicationServiceTest",
+      "seconds": 0.009
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApplicationControllerTest",
+      "seconds": 0.411
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApplicationControllerTest",
+      "seconds": 0.026
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApplicationControllerTest",
+      "seconds": 0.049
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApplicationControllerTest",
+      "seconds": 0.499
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApiKeyControllerTest",
+      "seconds": 0.312
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApiKeyControllerTest",
+      "seconds": 0.042
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.MerchantApiKeyControllerTest",
+      "seconds": 0.364
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationControllerTest",
+      "seconds": 0.199
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationControllerTest",
+      "seconds": 0.028
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationControllerTest",
+      "seconds": 0.049
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationControllerTest",
+      "seconds": 0.024
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationControllerTest",
+      "seconds": 0.037
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationControllerTest",
+      "seconds": 0.345
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.dto.AdminUpdateUserRequestTest",
+      "seconds": 0.069
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.service.DisabledAccountEnforcementTest",
+      "seconds": 0.073
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.service.UserProfileServiceTest",
+      "seconds": 0.023
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.service.UserAdminPostgresIntegrationTest",
+      "seconds": 4.808
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.service.UserProfileAdminServiceTest",
+      "seconds": 0.068
+    },
+    {
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.validation.UserInputRulesTest",
+      "seconds": 0.03
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.AdminUserControllerTest",
+      "seconds": 0.24
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.AdminUserControllerTest",
+      "seconds": 0.04
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.AdminUserControllerTest",
+      "seconds": 0.014
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.AdminUserControllerTest",
+      "seconds": 0.31
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.UserProfileOwnershipTest",
+      "seconds": 0.227
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.UserProfileOwnershipTest",
+      "seconds": 0.029
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.UserProfileOwnershipTest",
+      "seconds": 0.261
+    },
+    {
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.user.controller.AdminUserApiHardeningTest",
+      "seconds": 0.148
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.grpc.IdentityPartnerGrpcPropagationTest",
+      "seconds": 0.621
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.grpc.ProtobufWireCompatibilityTest",
+      "seconds": 0.021
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.grpc.IdentityPartnerGrpcResilienceIntegrationTest",
+      "seconds": 0.645
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.grpc.security.GrpcSecurityInterceptorTest",
+      "seconds": 0.135
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.grpc.IdentityPartnerGrpcServerIntegrationTest",
+      "seconds": 0.115
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.db.MigrationVersionUniquenessTest",
+      "seconds": 0.006
+    },
+    {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.ZeroTrustSecurityTest",
+      "seconds": 0.852
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.RoleBasedAuthorizationMatrixTests",
+      "seconds": 0.058
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.RoleBasedAuthorizationMatrixTests",
+      "seconds": 0.033
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.RoleBasedAuthorizationMatrixTests",
+      "seconds": 0.081
+    },
+    {
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.RoleBasedAuthorizationMatrixTests",
+      "seconds": 0.08
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.RoleBasedAuthorizationMatrixTests",
+      "seconds": 0.023
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.RoleBasedAuthorizationMatrixTests",
+      "seconds": 0.452
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.KeycloakRealmConfigurationTest",
+      "seconds": 0.011
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.identitypartner.security.IdentityAuthorizationTests",
+      "seconds": 0.03
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.rules.PricingCalculationEngineTest",
+      "seconds": 0.075
+    },
+    {
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.rules.PricingCalculationEngineTest",
+      "seconds": 0.148
+    },
+    {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.rules.PricingCalculationEngineTest",
+      "seconds": 0.031
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.rules.PricingCalculationEngineTest",
+      "seconds": 0.279
+    },
+    {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.service.PricingServiceTest",
+      "seconds": 1.624
+    },
+    {
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.controller.AdminPricingRuleValidationTest",
+      "seconds": 5.014
+    },
+    {
+      "tests": 58,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.pricing.controller.ParcelPricingAuthorizationAndEndpointTests",
+      "seconds": 1.44
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingDuplicateSubmissionIntegrationTest",
+      "seconds": 10.49
+    },
+    {
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.MerchantOrderIntegrationTest",
+      "seconds": 3.686
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingPersistenceIntegrationTest",
+      "seconds": 6.383
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingQuoteConsistencyIntegrationTest",
+      "seconds": 4.045
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingSecurityIntegrationTest",
+      "seconds": 3.348
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingPricingOutageIntegrationTest",
+      "seconds": 3.536
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.MerchantOrderOutboxAtomicityIntegrationTest",
+      "seconds": 3.336
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.IdentityMerchantClientResilienceTest",
+      "seconds": 14.72
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingLifecycleStartIntegrationTest",
+      "seconds": 3.643
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.ParcelStatusOutboxAtomicityIntegrationTest",
+      "seconds": 3.416
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.BookingOutboxAtomicityIntegrationTest",
+      "seconds": 3.58
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.ParcelStatusIntegrationTest",
+      "seconds": 3.785
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.OutboxRestartRecoveryIntegrationTest",
+      "seconds": 27.34
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.OutboxKafkaIntegrationTest",
+      "seconds": 15.31
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.integration.ParcelBookingIntegrationTest",
+      "seconds": 3.331
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.config.OutboxHealthIndicatorTest",
+      "seconds": 0.195
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.config.ZeroTrustJwtSecurityTest",
+      "seconds": 0.563
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.api.BookingBoundaryContractTest",
+      "seconds": 0.407
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.api.OpenApiArtifactValidationTest",
+      "seconds": 0.198
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.repository.MerchantOrderRepositorySortTest",
+      "seconds": 0.011
+    },
+    {
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.service.ParcelStatusServiceTest",
+      "seconds": 0.047
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.service.Zd353EngineAndServiceCharacterizationTest",
+      "seconds": 0.073
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.service.MerchantOrderServiceTest",
+      "seconds": 0.043
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.service.TrackingReferenceGeneratorTest",
+      "seconds": 0.071
+    },
+    {
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.service.ParcelBookingServiceTest",
+      "seconds": 0.096
+    },
+    {
+      "tests": 135,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.entity.ParcelLifecycleTest",
+      "seconds": 0.061
+    },
+    {
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.S2ValidationConsistencyTest",
+      "seconds": 0.732
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.Zd353ControllerCharacterizationTest",
+      "seconds": 0.189
+    },
+    {
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.ParcelStatusControllerTest",
+      "seconds": 0.312
+    },
+    {
+      "tests": 61,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.ParcelBookingValidationBoundaryTest",
+      "seconds": 0.363
+    },
+    {
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.S2ConstraintBoundaryTest",
+      "seconds": 0.049
+    },
+    {
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.ParcelBookingControllerTest",
+      "seconds": 0.105
+    },
+    {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.MerchantOrderControllerTest",
+      "seconds": 0.27
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.parcel.controller.ParcelRetrievalControllerTest",
+      "seconds": 0.044
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.receipt.ReceiptAuthorizationAndBoundaryTest",
+      "seconds": 0.091
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.receipt.ReceiptGenerationTest",
+      "seconds": 0.025
+    },
+    {
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.outbox.publisher.ParcelEventContractTest",
+      "seconds": 0.156
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.parcelpricing.outbox.publisher.OutboxPublisherTest",
+      "seconds": 0.374
+    },
+    {
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.dto.SubmitProofRequestTest",
+      "seconds": 0.138
+    },
+    {
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.repository.ProofPostgresIntegrationTest",
+      "seconds": 8.959
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.ProofCompletionWorkerTest",
+      "seconds": 0.182
+    },
+    {
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.ParcelStatusClientResilienceTest",
+      "seconds": 19.05
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.IdentityCourierClientTest",
+      "seconds": 0.076
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.ServiceTokenProviderResilienceTest",
+      "seconds": 5.228
+    },
+    {
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.IdentityCourierClientResilienceTest",
+      "seconds": 29.78
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.ParcelStatusClientTest",
+      "seconds": 0.163
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.service.ServiceTokenProviderTest",
+      "seconds": 0.02
+    },
+    {
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.courier.controller.CourierDeliveryControllerTest",
+      "seconds": 1.937
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.integration.GatewayCourierOwnershipIntegrationTest",
+      "seconds": 36.81
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.integration.CourierWorkflowIntegrationTest",
+      "seconds": 5.303
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.integration.AssignmentToCourierScenarioTest",
+      "seconds": 4.934
+    },
+    {
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.dispatch.repository.AssignmentPostgresIntegrationTest",
+      "seconds": 7.027
+    },
+    {
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.dispatch.service.DispatchServiceTest",
+      "seconds": 0.198
+    },
+    {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.dispatch.controller.DispatchQueueControllerTest",
+      "seconds": 0.433
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.event.OutboxPublisherTest",
+      "seconds": 0.285
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.exception.ExceptionHandlersTest",
+      "seconds": 0.002
+    },
+    {
+      "tests": 18,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.security.DispatchPermissionsTest",
+      "seconds": 0.025
+    },
+    {
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.dispatchcourier.security.ZeroTrustJwtSecurityTest",
+      "seconds": 0.717
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.integration.DeliveryProjectionIntegrationTest",
+      "seconds": 11.58
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.integration.TrackingPostgresIntegrationTest",
+      "seconds": 4.058
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.integration.TrackingPaginationIntegrationTest",
+      "seconds": 4.254
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.integration.TrackingKafkaConsumerIntegrationTest",
+      "seconds": 14.22
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.integration.ProjectionMigrationIntegrationTest",
+      "seconds": 3.05
+    },
+    {
+      "tests": 36,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.reporting.ReportApiAcceptanceTest",
+      "seconds": 4.259
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.reporting.ExpectedFactProjectionIntegrationTest",
+      "seconds": 3.876
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.reporting.ReportServiceTest",
+      "seconds": 0.237
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.graphql.TrackingGraphQlQueryLimitsTest",
+      "seconds": 0.727
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.graphql.TrackingGraphQlReadOnlyTest",
+      "seconds": 0.019
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.graphql.TrackingGraphQlSecurityTest",
+      "seconds": 0.096
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.graphql.TrackingGraphQlBatchingTest",
+      "seconds": 0.018
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.config.KafkaConsumerConfigTest",
+      "seconds": 0.001
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.exception.GlobalTrackingExceptionHandlerSafeLoggingTest",
+      "seconds": 0.003
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.messaging.consumer.TrackingKafkaConsumerSafeLoggingTest",
+      "seconds": 0.243
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.messaging.consumer.TrackingKafkaConsumerTest",
+      "seconds": 0.035
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.messaging.consumer.TrackingDuplicateEventProcessingTest",
+      "seconds": 0.013
+    },
+    {
+      "tests": 26,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.messaging.consumer.TrackingKafkaConsumerSchemaCompatibilityTest",
+      "seconds": 0.063
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.TrackingHistoryFilterTest",
+      "seconds": 0.101
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.TrackingServiceTest",
+      "seconds": 0.031
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.TrackingStreamServiceTest",
+      "seconds": 0.165
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.TrackingReorderedEventTest",
+      "seconds": 0.005
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.MerchantHistorySubjectScopingTest",
+      "seconds": 0.004
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.TrackingTiedTimestampsAndTerminalTest",
+      "seconds": 0.01
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.BookingToTrackingProjectionTest",
+      "seconds": 0.007
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.service.TrackingRecordCreationCharacterizationTest",
+      "seconds": 0.01
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.controller.CustomerTrackingControllerTest",
+      "seconds": 0.477
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.controller.PublicTrackingControllerTest",
+      "seconds": 0.21
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.tracking.controller.TrackingPaginationContractTest",
+      "seconds": 0.309
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.security.TrackingPrivacyAndBoundaryTest",
+      "seconds": 0.008
+    },
+    {
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.security.ZeroTrustJwtSecurityTest",
+      "seconds": 1.959
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.trackingreporting.security.DeliveryAuthorizationServiceTest",
+      "seconds": 0.002
+    },
+    {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.delivery.service.NotificationDispatcherTest",
+      "seconds": 1.279
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.delivery.sms.MockSmsSenderTest",
+      "seconds": 0.025
+    },
+    {
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.WebhookDeliveryIntegrationTest",
+      "seconds": 41.4
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.DurableNotificationPropagationIntegrationTest",
+      "seconds": 12.19
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.NotificationFailureIntegrationTest",
+      "seconds": 12.13
+    },
+    {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.NotificationKafkaIntegrationTest",
+      "seconds": 12.21
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.NotificationRecoveryIntegrationTest",
+      "seconds": 55.55
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.AttemptHistoryMigrationIntegrationTest",
+      "seconds": 2.912
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.integration.NotificationRetryIntegrationTest",
+      "seconds": 11.25
+    },
+    {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.notification.recipient.RecipientResolverTest",
+      "seconds": 0.068
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.notification.template.NotificationMessagesTest",
+      "seconds": 0.018
+    },
+    {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.notification.service.NotificationServiceTest",
+      "seconds": 0.019
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.notification.preference.ChannelPreferenceServiceTest",
+      "seconds": 0.002
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.config.NotificationHealthIndicatorTest",
+      "seconds": 0.01
+    },
+    {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.config.ZeroTrustJwtSecurityTest",
+      "seconds": 0.601
+    },
+    {
+      "tests": 56,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.utils.IpAddressUtilsTest",
+      "seconds": 0.027
+    },
+    {
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.client.WebhookHttpSenderTest",
+      "seconds": 0.165
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.client.IdentityMerchantClientResilienceTest",
+      "seconds": 14.63
+    },
+    {
+      "tests": 30,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryPolicyTest",
+      "seconds": 0.027
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetrySchedulerTest",
+      "seconds": 0.143
+    },
+    {
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookReplayServiceTest",
+      "seconds": 0.011
+    },
+    {
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookDeliveryServiceTest",
+      "seconds": 0.16
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.014
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.018
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.009
+    },
+    {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.005
+    },
+    {
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.059
+    },
+    {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.037
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookRetryTestingTest",
+      "seconds": 0.146
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.service.WebhookSubscriptionServiceTest",
+      "seconds": 0.008
+    },
+    {
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.validation.WebhookUrlValidatorTest",
+      "seconds": 0.042
+    },
+    {
+      "tests": 31,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.controller.MerchantWebhookApiTest",
+      "seconds": 4.331
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.config.WebhookHealthIndicatorTest",
+      "seconds": 0.007
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.event.MerchantEventReaderTest",
+      "seconds": 0.011
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.security.WebhookSecurityTest",
+      "seconds": 0.017
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.security.WebhookSecurityTest",
+      "seconds": 0.009
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.security.WebhookSecurityTest",
+      "seconds": 0.002
+    },
+    {
+      "tests": 0,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.security.WebhookSecurityTest",
+      "seconds": 0.032
+    },
+    {
+      "tests": 44,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.security.WebhookSignatureVerifierTest",
+      "seconds": 0.053
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.webhook.security.WebhookReplayProtectionTest",
+      "seconds": 0.008
+    },
+    {
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.messaging.event.ParcelEventParserTest",
+      "seconds": 0.041
+    },
+    {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.messaging.consumer.ParcelEventConsumerSchemaCompatibilityTest",
+      "seconds": 0.17
+    },
+    {
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.messaging.consumer.ParcelEventConsumerTest",
+      "seconds": 0.078
+    },
+    {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.notificationintegration.admin.controller.IntegrationAttemptControllerTest",
+      "seconds": 0.338
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.e2e.MerchantOrderAcceptanceIT",
+      "seconds": 68.55
+    },
+    {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.e2e.KeycloakAdminTokenLifecycleIT",
+      "seconds": 54.03
+    },
+    {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.e2e.MerchantWebhookReplayIT",
+      "seconds": 67.39
+    },
+    {
+      "tests": 18,
+      "failures": 5,
+      "errors": 1,
+      "skipped": 0,
+      "suite": "com.zentro.e2e.BackendRoleAcceptanceIT",
+      "seconds": 201.7
+    },
+    {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.e2e.MerchantCredentialIT",
+      "seconds": 69.78
+    },
+    {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suite": "com.zentro.e2e.MerchantApprovalGapIT",
+      "seconds": 69.92
+    }
+  ],
+  "safe_observations": [
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18080/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18081/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18082/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18083/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18084/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=health method=GET endpoint=http://127.0.0.1:18085/actuator/health expected=200 actual=200",
+    "ACCEPTANCE actor=CUSTOMER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=CUSTOMER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=MERCHANT method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=MERCHANT method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=COURIER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=403 actual=403",
+    "ACCEPTANCE actor=COURIER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=403 actual=404",
+    "ACCEPTANCE actor=DISPATCHER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=DISPATCHER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=SERVICE method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=404 actual=403",
+    "ACCEPTANCE actor=SERVICE method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=404 actual=404",
+    "ACCEPTANCE actor=ANONYMOUS method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=ANONYMOUS method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=EXPIRED method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=EXPIRED method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=WRONG_AUDIENCE method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FOREIGN_ISSUER method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=WRONG_AUDIENCE method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FOREIGN_ISSUER method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18080/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18081/api/v1/users/me expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18082/api/v1/parcels/{id}/receipt expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18083/api/v1/courier/deliveries expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18084/api/v1/tracking/mine expected=401 actual=401",
+    "ACCEPTANCE actor=FORGED method=GET endpoint=http://127.0.0.1:18085/api/v1/merchant/webhooks expected=401 actual=401",
+    "RESTORE database=identity_db table=identity.app_user sourceRows=0 restoredRows=0 exit=0",
+    "RESTORE database=parcel_pricing_db table=parcel.parcel sourceRows=1 restoredRows=1 exit=0",
+    "RESTORE database=dispatch_courier_db table=dispatch.delivery_assignment sourceRows=0 restoredRows=0 exit=0",
+    "RESTORE database=tracking_reporting_db table=tracking.tracking_parcel sourceRows=0 restoredRows=0 exit=0",
+    "RESTORE database=notification_integration_db table=notification.notification_attempt sourceRows=1 restoredRows=1 exit=0"
+  ]
+}
