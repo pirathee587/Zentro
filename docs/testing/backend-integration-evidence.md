@@ -4,6 +4,13 @@ Status: PARTIAL. Release decision: BLOCKED. Starting SHA:
 `1f1b766d00f18c8eae788a1f399b34fb88e1bb0c`, verified against `origin/develop`.
 Working branch: `feature/359-complete-blocker-resolution`.
 
+Review artifact: [draft PR #379](https://github.com/pirathee587/Zentro/pull/379),
+target `develop`; independent reviewer @Niro0526 was successfully requested.
+[CI run 43601766414](https://github.com/pirathee587/Zentro/actions/runs/43601766414)
+was observed in progress on documentation/evidence head `81634b1`; metadata checks
+passed. This is not a green backend CI claim or verification of a later head.
+No merge, release, deployment or independent approval has occurred.
+
 ## Evidence classification
 
 - Historical: [8A focused audit](courier-dispatch-follow-up-8a.md), 389 passes;
