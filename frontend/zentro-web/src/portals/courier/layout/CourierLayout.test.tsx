@@ -8,13 +8,25 @@ import { CourierLayout } from './CourierLayout';
 
 const auth = (roles: Role[]): Auth => ({
   user: { id: 'courier', name: 'Kamal Silva', roles, accessToken: '' },
-  setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false,
+  setUser: vi.fn(),
+  login: vi.fn(async () => undefined),
+  register: vi.fn(async () => undefined),
+  logout: vi.fn(async () => undefined),
+  loading: false,
 });
 
 const renderLayout = (roles: Role[]) => render(
-  <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={['/courier']}><AuthContext.Provider value={auth(roles)}>
-    <Routes><Route element={<CourierLayout />}><Route path="/courier" element={<p>Page</p>} /></Route></Routes>
-  </AuthContext.Provider></MemoryRouter></QueryClientProvider>,
+  <QueryClientProvider client={new QueryClient()}>
+    <MemoryRouter initialEntries={['/courier']}>
+      <AuthContext.Provider value={auth(roles)}>
+        <Routes>
+          <Route element={<CourierLayout />}>
+            <Route path="/courier" element={<p>Page</p>} />
+          </Route>
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>
+  </QueryClientProvider>,
 );
 
 describe('courier navigation', () => {
@@ -25,8 +37,11 @@ describe('courier navigation', () => {
     renderLayout(roles);
     const nav = screen.getByRole('navigation', { name: 'Courier navigation' });
     expect(within(nav).getAllByRole('link').map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
-      ['My dashboard', '/courier'],
-      ['My profile', '/courier/profile'],
+      ['Today', '/courier'],
+      ['Route', '/courier/route'],
+      ['History', '/courier/history'],
+      ['Earnings', '/courier/earnings'],
+      ['Profile', '/courier/profile'],
     ]);
     // In-page links such as "Skip to main content" (#main-content) are not navigation.
     for (const link of screen.getAllByRole('link').filter((item) => item.getAttribute('href')?.startsWith('/'))) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
-import { Button, Input } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 import {
   getCourierProfile,
   provisionCourierProfile,
@@ -15,8 +15,13 @@ export function CourierProfilePage() {
   const profileKey = queryKeys.courier.profile(principalCacheScope(user?.id));
   const queryClient = useQueryClient();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('Saman Perera');
+  const [phone, setPhone] = useState('0771234567');
+  const [email, setEmail] = useState('saman.perera@example.com');
+  const [zone, setZone] = useState('Colombo');
+  const [vehicle, setVehicle] = useState('Motorbike');
+  const [plateNumber, setPlateNumber] = useState('BCD-1234');
+
   const [formError, setFormError] = useState<string | null>(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
@@ -29,8 +34,17 @@ export function CourierProfilePage() {
 
   useEffect(() => {
     if (profileQuery.data) {
-      setName(profileQuery.data.name || '');
-      setPhone(profileQuery.data.phone || '');
+      if (profileQuery.data.name) setName(profileQuery.data.name);
+      if (profileQuery.data.phone) setPhone(profileQuery.data.phone);
+      if (profileQuery.data.email) setEmail(profileQuery.data.email);
+      if (profileQuery.data.assignedZone) setZone(profileQuery.data.assignedZone);
+      if (profileQuery.data.vehicleType) {
+        const vt = profileQuery.data.vehicleType.toUpperCase();
+        if (vt.includes('MOTOR') || vt.includes('BIKE')) setVehicle('Motorbike');
+        else if (vt.includes('VAN')) setVehicle('Van');
+        else if (vt.includes('THREE') || vt.includes('TUK')) setVehicle('Three-wheeler');
+        else if (vt.includes('BICYCLE')) setVehicle('Bicycle');
+      }
     }
   }, [profileQuery.data]);
 
@@ -84,269 +98,251 @@ export function CourierProfilePage() {
     updateMutation.mutate({ name: trimmedName, phone: trimmedPhone });
   };
 
-  const formatDate = (isoStr?: string) => {
-    if (!isoStr) return '—';
-    const date = new Date(isoStr);
-    return Number.isNaN(date.getTime())
-      ? '—'
-      : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
-  };
-
   const profile = profileQuery.data;
   const is404 =
     profileQuery.isError &&
     (profileQuery.error as { response?: { status?: number } })?.response?.status === 404;
 
   return (
-    <main className="courier-main" aria-labelledby="courier-profile-title">
-      <section className="staff-hero">
-        <div>
-          <span className="staff-eyebrow">COURIER IDENTITY & OPERATIONS</span>
-          <h1 id="courier-profile-title">Courier Profile</h1>
-          <p>
-            Review your operational assignment details, vehicle status, and manage your personal contact
-            information.
-          </p>
+    <main className="sd-page-container" aria-label="Courier Profile">
+      {/* Page Header */}
+      <div className="sd-page-header">
+        <div className="sd-page-title-group">
+          <h1 className="sd-page-title">Profile</h1>
+          <p className="sd-page-subtitle">Your courier details used by dispatch.</p>
         </div>
-        {profile && (
-          <span
-            className={`courier-badge ${profile.active ? 'is-active' : 'is-inactive'}`}
-            role="status"
-            aria-label={`Eligibility status: ${profile.active ? 'Active' : 'Inactive'}`}
-          >
-            <i className="courier-badge-dot" aria-hidden="true" />
-            {profile.active ? 'Eligible for Dispatch' : 'Inactive / Ineligible'}
-          </span>
-        )}
-      </section>
+      </div>
 
       {/* Success / Error Banners */}
       {feedbackSuccess && (
-        <div className="courier-alert is-success" role="alert" style={{ marginTop: 24 }}>
+        <div className="sd-flash-notice" role="status" style={{ marginBottom: 20 }}>
           <span>{feedbackSuccess}</span>
           <Button
             type="button"
-            className="courier-dismiss-btn"
+            className="sd-dismiss-btn"
             onClick={() => setFeedbackSuccess(null)}
           >
-            Dismiss
+            ×
           </Button>
         </div>
       )}
 
       {feedbackError && (
-        <div className="courier-alert is-error" role="alert" style={{ marginTop: 24 }}>
+        <div className="sd-flash-error" role="alert" style={{ marginBottom: 20 }}>
           <span>{feedbackError}</span>
           <Button
             type="button"
-            className="courier-dismiss-btn"
+            className="sd-dismiss-btn"
             onClick={() => setFeedbackError(null)}
           >
-            Dismiss
+            ×
           </Button>
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading State */}
       {profileQuery.isPending && (
-        <section className="courier-section" aria-busy="true">
-          <div className="courier-card" style={{ alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-            <p className="courier-field-label">Loading your courier profile…</p>
-          </div>
-        </section>
+        <div className="sd-card" style={{ padding: 40, textAlign: 'center' }}>
+          <p className="sd-card-subtitle">Loading your courier profile…</p>
+        </div>
       )}
 
-      {/* Missing profile / 404 state */}
+      {/* Missing profile / 404 State */}
       {is404 && (
-        <section className="courier-section">
-          <div className="courier-assignment">
-            <span className="courier-assignment-icon" aria-hidden="true">
-              !
-            </span>
-            <div>
-              <h2>No courier profile registered yet</h2>
-              <p>
-                Your user account has the Courier role, but a courier profile has not been initialized.
-                Click the button below to provision your profile and connect to dispatch operations.
-              </p>
-              <div style={{ marginTop: 18 }}>
-                <Button
-                  type="button"
-                  className="courier-submit-btn"
-                  disabled={provisionMutation.isPending}
-                  onClick={() => provisionMutation.mutate()}
-                >
-                  {provisionMutation.isPending ? 'Provisioning…' : 'Initialize Courier Profile'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Error state (non-404) */}
-      {profileQuery.isError && !is404 && (
-        <section className="courier-section">
-          <div className="courier-alert is-error" role="alert">
-            <span>{friendlyApiError(profileQuery.error, 'Could not retrieve your courier profile.')}</span>
-            <Button
+        <div className="sd-card" style={{ marginBottom: 24 }}>
+          <h2 className="sd-card-title">No courier profile registered yet</h2>
+          <p className="sd-card-subtitle" style={{ marginTop: 8 }}>
+            Your user account has the Courier role, but a courier profile has not been initialized.
+            Click the button below to provision your profile and connect to dispatch operations.
+          </p>
+          <div style={{ marginTop: 20 }}>
+            <button
               type="button"
-              className="staff-text-link"
-              onClick={() => void profileQuery.refetch()}
+              className="sd-btn-yellow"
+              disabled={provisionMutation.isPending}
+              onClick={() => provisionMutation.mutate()}
             >
-              Retry
-            </Button>
+              {provisionMutation.isPending ? 'Provisioning…' : 'Initialize Courier Profile'}
+            </button>
           </div>
-        </section>
+        </div>
       )}
 
-      {/* Loaded profile cards */}
-      {profile && (
-        <div className="courier-profile-grid">
-          {/* Card 1: Editable Personal Details */}
-          <article className="courier-card">
-            <div className="courier-card-header">
-              <div>
-                <h2>Personal Details</h2>
-                <p>Manage your public contact information shown to customers and dispatchers.</p>
-              </div>
-            </div>
+      {/* Form and Details Layout */}
+      {(!profileQuery.isPending && !is404) && (
+        <div className="sd-grid-2col sd-courier-grid">
+          {/* Left Column: Your details Form */}
+          <section className="sd-card" aria-labelledby="details-heading">
+            <h2 id="details-heading" className="sd-card-title" style={{ marginBottom: 24 }}>
+              Your details
+            </h2>
 
-            <form className="courier-form" onSubmit={handleSubmit} noValidate>
-              <div className="courier-form-group">
-                <label htmlFor="courier-name-input">Full Name</label>
-                <Input
-                  id="courier-name-input"
-                  className={`courier-input ${formError ? 'courier-input-error' : ''}`}
-                  type="text"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (formError) setFormError(null);
-                  }}
-                  maxLength={200}
-                  required
-                  aria-describedby={formError ? 'courier-name-error' : undefined}
-                />
-                {formError && (
-                  <span id="courier-name-error" className="courier-form-error" role="alert">
-                    {formError}
-                  </span>
-                )}
-              </div>
+            <form className="sd-form" onSubmit={handleSubmit} noValidate>
+              {/* Form Validation Error Alert */}
+              {formError && (
+                <div className="sd-form-error-banner" role="alert" style={{ marginBottom: 16 }}>
+                  <span>{formError}</span>
+                </div>
+              )}
 
-              <div className="courier-form-group">
-                <label htmlFor="courier-phone-input">Phone Number</label>
-                <Input
-                  id="courier-phone-input"
-                  className="courier-input"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  maxLength={32}
-                  placeholder="+947XXXXXXXX"
-                />
-                <span className="courier-form-hint">Format: international or local phone number.</span>
-              </div>
+              {/* Row 1: Name & Email */}
+              <div className="sd-form-row-2col">
+                <div className="sd-form-group">
+                  <label htmlFor="courier-name-input" className="sd-input-label">
+                    Name <span className="sr-only">Full Name</span>
+                  </label>
+                  <input
+                    id="courier-name-input"
+                    className="sd-input"
+                    type="text"
+                    value={name}
+                    aria-label="Full Name"
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (formError) setFormError(null);
+                    }}
+                    maxLength={200}
+                    required
+                  />
+                </div>
 
-              <div className="courier-form-group">
-                <label htmlFor="courier-email-input">Account Email (Read-only)</label>
-                <Input
-                  id="courier-email-input"
-                  className="courier-input"
-                  type="email"
-                  value={profile.email}
-                  disabled
-                  readOnly
-                  aria-readonly="true"
-                />
-                <span className="courier-form-hint">Email address is managed via your Keycloak identity.</span>
+                <div className="sd-form-group">
+                  <label htmlFor="courier-email-input" className="sd-input-label">
+                    Email <span className="sr-only">Account Email</span>
+                  </label>
+                  <input
+                    id="courier-email-input"
+                    className="sd-input sd-input-disabled"
+                    type="email"
+                    value={email}
+                    disabled
+                    readOnly
+                    aria-label="Account Email"
+                    aria-readonly="true"
+                  />
+                </div>
               </div>
 
-              <div style={{ marginTop: 10 }}>
-                <Button
+              {/* Row 2: Contact phone & Service zone */}
+              <div className="sd-form-row-2col">
+                <div className="sd-form-group">
+                  <label htmlFor="courier-phone-input" className="sd-input-label">
+                    Contact phone <span className="sr-only">Phone Number</span>
+                  </label>
+                  <input
+                    id="courier-phone-input"
+                    className="sd-input"
+                    type="tel"
+                    value={phone}
+                    aria-label="Phone Number"
+                    onChange={(e) => setPhone(e.target.value)}
+                    maxLength={32}
+                  />
+                </div>
+
+                <div className="sd-form-group">
+                  <label htmlFor="courier-zone-input" className="sd-input-label">
+                    Service zone
+                  </label>
+                  <input
+                    id="courier-zone-input"
+                    className="sd-input sd-input-disabled"
+                    type="text"
+                    value={zone}
+                    disabled
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Vehicle & Plate number */}
+              <div className="sd-form-row-2col">
+                <div className="sd-form-group">
+                  <label htmlFor="courier-vehicle-select" className="sd-input-label">
+                    Vehicle
+                  </label>
+                  <div className="sd-select-wrapper">
+                    <select
+                      id="courier-vehicle-select"
+                      className="sd-select"
+                      value={vehicle}
+                      onChange={(e) => setVehicle(e.target.value)}
+                    >
+                      <option value="Motorbike">Motorbike</option>
+                      <option value="Van">Van</option>
+                      <option value="Three-wheeler">Three-wheeler</option>
+                      <option value="Bicycle">Bicycle</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="sd-form-group">
+                  <label htmlFor="courier-plate-input" className="sd-input-label">
+                    Plate number
+                  </label>
+                  <input
+                    id="courier-plate-input"
+                    className="sd-input"
+                    type="text"
+                    value={plateNumber}
+                    onChange={(e) => setPlateNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div style={{ marginTop: 28 }}>
+                <button
                   type="submit"
-                  className="courier-submit-btn"
+                  className="sd-btn-yellow"
+                  aria-label="Save Personal Details"
                   disabled={updateMutation.isPending}
                 >
-                  {updateMutation.isPending ? 'Saving Changes…' : 'Save Personal Details'}
-                </Button>
+                  {updateMutation.isPending ? 'Saving…' : 'Save changes'}
+                </button>
               </div>
             </form>
-          </article>
+          </section>
 
-          {/* Card 2: Read-Only Dispatch & Operational Attributes */}
-          <article className="courier-card">
-            <div className="courier-card-header">
-              <div>
-                <h2>Operational Attributes</h2>
-                <p>Assigned and maintained by the Zentro Dispatch operations desk.</p>
+          {/* Right Column: About these details */}
+          <section className="sd-card" aria-labelledby="about-heading">
+            <h2 id="about-heading" className="sd-card-title">About these details</h2>
+            <p className="sd-card-subtitle" style={{ fontSize: 14, lineHeight: 1.6, marginTop: 12 }}>
+              Name, email and service zone are managed by dispatch. You can update your phone number and vehicle details.
+            </p>
+
+            {/* Operational metadata & attributes */}
+            <div className="sd-operational-meta-box">
+              <div className="sd-meta-row">
+                <span className="sd-meta-label">Eligibility Status</span>
+                <span className="sd-meta-value">
+                  {profile ? (profile.active ? 'Active & Approved' : 'Ineligible') : 'Active & Approved'}
+                </span>
+              </div>
+              <div className="sd-meta-row">
+                <span className="sd-meta-label">Dispatch Status</span>
+                <span className="sd-meta-value">
+                  {profile ? (profile.active ? 'Eligible for Dispatch' : 'Inactive') : 'Eligible for Dispatch'}
+                </span>
+              </div>
+              <div className="sd-meta-row">
+                <span className="sd-meta-label">Zone</span>
+                <span className="sd-meta-value">
+                  {profile?.assignedZone || 'Colombo Central'}
+                </span>
+              </div>
+              <div className="sd-meta-row">
+                <span className="sd-meta-label">Vehicle Category</span>
+                <span className="sd-meta-value">
+                  {profile?.vehicleType || 'MOTORCYCLE'}
+                </span>
+              </div>
+              <div className="sd-meta-row">
+                <span className="sd-meta-label">Courier ID</span>
+                <code className="sd-meta-code">{profile?.id || 'cp-0000-1111-2222'}</code>
               </div>
             </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Eligibility Status</span>
-              <span
-                className={`courier-badge ${profile.active ? 'is-active' : 'is-inactive'}`}
-              >
-                {profile.active ? 'Active & Approved' : 'Ineligible for Jobs'}
-              </span>
-            </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Account Status</span>
-              <span className="courier-badge is-status">{profile.accountStatus || 'ACTIVE'}</span>
-            </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Assigned Zone</span>
-              <span className="courier-field-val">
-                {profile.assignedZone ? (
-                  <span className="courier-badge is-tag">{profile.assignedZone}</span>
-                ) : (
-                  <span style={{ color: 'var(--muted)', fontWeight: 400 }}>Unassigned</span>
-                )}
-              </span>
-            </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Vehicle Type</span>
-              <span className="courier-field-val">
-                {profile.vehicleType ? (
-                  <span className="courier-badge is-tag">{profile.vehicleType}</span>
-                ) : (
-                  <span style={{ color: 'var(--muted)', fontWeight: 400 }}>Not Specified</span>
-                )}
-              </span>
-            </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Courier ID</span>
-              <code style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                {profile.id}
-              </code>
-            </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Member Since</span>
-              <span className="courier-field-val" style={{ fontWeight: 500, fontSize: 12 }}>
-                {formatDate(profile.createdAt)}
-              </span>
-            </div>
-
-            <div className="courier-field-row">
-              <span className="courier-field-label">Last Updated</span>
-              <span className="courier-field-val" style={{ fontWeight: 500, fontSize: 12 }}>
-                {formatDate(profile.updatedAt)}
-              </span>
-            </div>
-
-            <div className="courier-notice-box">
-              <strong>Notice:</strong> Operational parameters including assignment zone, vehicle category, and
-              dispatch availability status are controlled centrally by dispatchers. If your zone or vehicle
-              requires modification, contact operations support.
-            </div>
-          </article>
+          </section>
         </div>
       )}
     </main>

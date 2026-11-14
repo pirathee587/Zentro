@@ -24,9 +24,11 @@ describe('merchant navigation', () => {
     renderLayout(roles);
     const nav = screen.getByRole('navigation', { name: 'Merchant navigation' });
     expect(within(nav).getAllByRole('link').map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
-      ['Overview', '/merchant/dashboard'],
-      ['API credentials', '/merchant/dashboard/api-credentials'],
+      ['Dashboard', '/merchant/dashboard'],
+      ['Orders', '/merchant/dashboard/orders'],
+      ['API keys', '/merchant/dashboard/api-keys'],
       ['Webhooks', '/merchant/dashboard/webhooks'],
+      ['Billing', '/merchant/dashboard/billing'],
     ]);
     // In-page links such as "Skip to main content" (#main-content) are not navigation.
     for (const link of screen.getAllByRole('link').filter((item) => item.getAttribute('href')?.startsWith('/'))) {

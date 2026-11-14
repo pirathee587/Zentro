@@ -2,7 +2,8 @@ import type { RouteObject } from 'react-router-dom';
 import { DispatcherLayout } from './layout/DispatcherLayout';
 import { DispatchQueuePage } from './pages/DispatchQueuePage';
 import {
-  UnassignedParcelsPage,
+  DispatchControlPage,
+  ParcelsPage,
   WorkloadPage,
   ReportsPage,
   UsersPage,
@@ -16,7 +17,9 @@ export const portalRoutes: RouteObject[] = [
   {
     element: <DispatcherLayout />,
     children: [
-      { index: true, element: <UnassignedParcelsPage /> },
+      { index: true, element: <DispatchControlPage /> },
+      { path: 'dashboard', element: <DispatchControlPage /> },
+      { path: 'parcels', element: <ParcelsPage /> },
       { path: 'queue', element: <DispatchQueuePage /> },
       { path: 'couriers', element: <CouriersPage /> },
       { path: 'workload', element: <WorkloadPage /> },
