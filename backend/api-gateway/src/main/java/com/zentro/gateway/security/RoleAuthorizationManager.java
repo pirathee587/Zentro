@@ -27,6 +27,15 @@ public final class RoleAuthorizationManager {
         .defaultIfEmpty(new AuthorizationDecision(false));
   }
 
+  /** Like {@link #hasAny} but also admits the internal SERVICE role when explicitly listed. */
+  public static ReactiveAuthorizationManager<AuthorizationContext> hasAnyIncludingService(String... roles) {
+    List<String> allowedRoles = Arrays.asList(roles);
+    return (authentication, context) -> authentication
+        .map(auth -> new AuthorizationDecision(auth.isAuthenticated()
+            && auth.getAuthorities().stream().anyMatch(a -> allowedRoles.contains(a.getAuthority()))))
+        .defaultIfEmpty(new AuthorizationDecision(false));
+  }
+
   public static ReactiveAuthorizationManager<AuthorizationContext> humanAuthenticated() {
     return (authentication, context) -> authentication
         .map(auth -> new AuthorizationDecision(auth.isAuthenticated() && isHuman(auth)))
