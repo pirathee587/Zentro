@@ -240,5 +240,46 @@ class TrackingServiceTest {
     assertThat(result.total()).isEqualTo(0);
     verify(parcelRepository).searchByCustomerAndStatus(eq(customer), eq(TrackingStatus.DELIVERED), eq("ZT-123"), any(Pageable.class));
   }
+
+  @Test
+  @DisplayName("backfillTrackingParcel reconstructs projection from event history when parcel missing")
+  void backfillTrackingParcelReconstructsFromEvents() {
+    String trackingRef = "ZT-7K3QX9M2PA";
+    UUID parcelId = UUID.randomUUID();
+    Instant t1 = Instant.parse("2026-11-10T10:00:00Z");
+    Instant t2 = Instant.parse("2026-11-10T12:00:00Z");
+    Instant t3 = Instant.parse("2026-11-10T15:30:00Z");
+
+    TrackingEvent ev1 = new TrackingEvent(trackingRef, TrackingStatus.CREATED, "Created", "Booked", t1);
+    ev1.setParcelId(parcelId);
+    TrackingEvent ev2 = new TrackingEvent(trackingRef, TrackingStatus.IN_TRANSIT, "In Transit", "On route", t2);
+    ev2.setParcelId(parcelId);
+    TrackingEvent ev3 = new TrackingEvent(trackingRef, TrackingStatus.DELIVERED, "Delivered", "Delivered successfully", t3);
+    ev3.setParcelId(parcelId);
+
+    when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.empty());
+    when(eventRepository.findByTrackingRefOrderByOccurredAtAsc(trackingRef)).thenReturn(List.of(ev1, ev2, ev3));
+    when(parcelRepository.save(any(TrackingParcel.class))).thenAnswer(i -> i.getArgument(0));
+
+    TrackingParcel backfilled = trackingService.backfillTrackingParcel(trackingRef);
+
+    assertThat(backfilled).isNotNull();
+    assertThat(backfilled.getTrackingRef()).isEqualTo(trackingRef);
+    assertThat(backfilled.getParcelId()).isEqualTo(parcelId);
+    assertThat(backfilled.getStatus()).isEqualTo(TrackingStatus.DELIVERED);
+    assertThat(backfilled.getDeliveredAt()).isEqualTo(t3);
+    verify(parcelRepository).save(any(TrackingParcel.class));
+  }
+
+  @Test
+  @DisplayName("backfillTrackingParcel throws TrackingNotFoundException when no events exist")
+  void backfillTrackingParcelThrowsNotFoundWhenNoEvents() {
+    String trackingRef = "ZT-NOEVENTS99";
+    when(eventRepository.findByTrackingRefOrderByOccurredAtAsc(trackingRef)).thenReturn(List.of());
+
+    assertThatThrownBy(() -> trackingService.backfillTrackingParcel(trackingRef))
+        .isInstanceOf(TrackingNotFoundException.class)
+        .hasMessageContaining(trackingRef);
+  }
 }
 

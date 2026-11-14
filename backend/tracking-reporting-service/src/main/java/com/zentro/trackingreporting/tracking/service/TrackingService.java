@@ -399,6 +399,53 @@ public class TrackingService {
     );
   }
 
+  @Transactional
+  public TrackingParcel backfillTrackingParcel(String trackingRef) {
+    if (trackingRef == null || trackingRef.isBlank()) {
+      throw new TrackingNotFoundException(trackingRef);
+    }
+    String cleanRef = trackingRef.trim().toUpperCase();
+    List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef);
+    if (events.isEmpty()) {
+      throw new TrackingNotFoundException(cleanRef);
+    }
+
+    TrackingParcel parcel = parcelRepository.findByTrackingRef(cleanRef)
+        .orElseGet(() -> {
+          TrackingParcel p = new TrackingParcel();
+          p.setTrackingRef(cleanRef);
+          p.setCustomerSubject("system");
+          p.setSenderName("Sender");
+          p.setSenderPhone("N/A");
+          p.setSenderAddress("N/A");
+          p.setSenderCity("Colombo");
+          p.setRecipientName("Recipient");
+          p.setRecipientPhone("N/A");
+          p.setRecipientAddress("N/A");
+          p.setRecipientCity("Colombo");
+          p.setFee(BigDecimal.ZERO);
+          p.setCurrency("LKR");
+          p.setCategory("Standard");
+          p.setCreatedAt(events.get(0).getOccurredAt());
+          return p;
+        });
+
+    TrackingEvent latestEvent = events.get(events.size() - 1);
+    parcel.setStatus(latestEvent.getStatus());
+    parcel.setFailureReason(latestEvent.getFailureReason());
+    parcel.setUpdatedAt(latestEvent.getOccurredAt());
+    if (latestEvent.getParcelId() != null) {
+      parcel.setParcelId(latestEvent.getParcelId());
+    }
+
+    events.stream()
+        .filter(e -> e.getStatus() == TrackingStatus.DELIVERED)
+        .findFirst()
+        .ifPresent(e -> parcel.setDeliveredAt(e.getOccurredAt()));
+
+    return parcelRepository.save(parcel);
+  }
+
   private List<TrackingMilestoneDto> buildTimeline(TrackingParcel parcel, List<TrackingEvent> events) {
     List<TrackingMilestoneDto> timeline = new ArrayList<>();
     if (events.isEmpty()) {
