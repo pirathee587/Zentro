@@ -135,8 +135,11 @@ public class TrackingService {
         paged = new PageImpl<>(List.of(), pageable, 0);
       } else {
         paged = parcelRepository.searchByCustomerAndStatus(customerSubject, status, query.trim(), pageable);
-        if (paged == null) {
-          paged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+        if (paged == null || paged.isEmpty()) {
+          Page<TrackingParcel> merchantPaged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+          if (merchantPaged != null && !merchantPaged.isEmpty()) {
+            paged = merchantPaged;
+          }
         }
       }
     } else if (hasStatus) {
@@ -145,19 +148,28 @@ public class TrackingService {
         paged = new PageImpl<>(List.of(), pageable, 0);
       } else {
         paged = parcelRepository.findByCustomerSubjectAndStatus(customerSubject, status, pageable);
-        if (paged == null) {
-          paged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+        if (paged == null || paged.isEmpty()) {
+          Page<TrackingParcel> merchantPaged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+          if (merchantPaged != null && !merchantPaged.isEmpty()) {
+            paged = merchantPaged;
+          }
         }
       }
     } else if (hasQuery) {
       paged = parcelRepository.searchByCustomer(customerSubject, query.trim(), pageable);
-      if (paged == null) {
-        paged = parcelRepository.searchByCustomerOrMerchant(customerSubject, query.trim(), pageable);
+      if (paged == null || paged.isEmpty()) {
+        Page<TrackingParcel> merchantPaged = parcelRepository.searchByCustomerOrMerchant(customerSubject, query.trim(), pageable);
+        if (merchantPaged != null && !merchantPaged.isEmpty()) {
+          paged = merchantPaged;
+        }
       }
     } else {
       paged = parcelRepository.findByCustomerSubject(customerSubject, pageable);
-      if (paged == null) {
-        paged = parcelRepository.findByCustomerOrMerchantSubject(customerSubject, pageable);
+      if (paged == null || paged.isEmpty()) {
+        Page<TrackingParcel> merchantPaged = parcelRepository.findByCustomerOrMerchantSubject(customerSubject, pageable);
+        if (merchantPaged != null && !merchantPaged.isEmpty()) {
+          paged = merchantPaged;
+        }
       }
     }
 

@@ -3,8 +3,6 @@ package com.zentro.trackingreporting.tracking.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,11 +23,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 /**
- * X02 Reproduction Test:
- * Reproduces the bug where TrackingService.getCustomerDeliveries checks 'if (paged == null)'
- * to fallback to customerOrMerchant query, but Spring Data JPA repositories never return null
- * (they return Page.empty() / empty PageImpl).
- * As a result, merchant-only records are never fetched through the fallback.
+ * X02 Verification:
+ * Verifies that TrackingService.getCustomerDeliveries correctly falls back to
+ * customerOrMerchant query when Spring Data returns an empty page from findByCustomerSubject,
+ * allowing merchant-owned records to be retrieved while strictly maintaining subject scoping.
  */
 @ExtendWith(MockitoExtension.class)
 class MerchantHistorySubjectScopingTest {
@@ -46,8 +43,8 @@ class MerchantHistorySubjectScopingTest {
   }
 
   @Test
-  @DisplayName("Reproduce X02: Spring Data returns empty Page (not null), bypassing the customerOrMerchant fallback")
-  void emptyPageBypassesCustomerOrMerchantFallback() {
+  @DisplayName("Fixed X02: Empty customer page successfully falls back to customerOrMerchant query for merchant records")
+  void emptyCustomerPageFallsBackToMerchantQuery() {
     String merchantSubject = "merchant-subject-xyz";
 
     TrackingParcel merchantParcel = new TrackingParcel();
@@ -57,33 +54,43 @@ class MerchantHistorySubjectScopingTest {
     merchantParcel.setStatus(TrackingStatus.CREATED);
     merchantParcel.setFee(new BigDecimal("1000.00"));
 
-    // Spring Data repository behavior: returns empty PageImpl, NOT null
+    // findByCustomerSubject returns empty PageImpl
     when(parcelRepository.findByCustomerSubject(eq(merchantSubject), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of()));
 
-    // Even if parcelRepository.findByCustomerOrMerchantSubject is stubbed:
-    lenient().when(parcelRepository.findByCustomerOrMerchantSubject(eq(merchantSubject), any(Pageable.class)))
+    // Fallback retrieves the merchant-owned parcel
+    when(parcelRepository.findByCustomerOrMerchantSubject(eq(merchantSubject), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(merchantParcel)));
 
     CustomerDeliveryListResponse response = trackingService.getCustomerDeliveries(merchantSubject, 1, 10, null, null);
 
-    // Characterizes the bug: Because paged is an empty PageImpl (not null), the fallback is bypassed and 0 items are returned!
-    assertThat(response.total()).isEqualTo(0);
-    assertThat(response.content()).isEmpty();
-    verify(parcelRepository, never()).findByCustomerOrMerchantSubject(eq(merchantSubject), any(Pageable.class));
+    assertThat(response.total()).isEqualTo(1);
+    assertThat(response.content()).hasSize(1);
+    assertThat(response.content().get(0).trackingRef()).isEqualTo("ZT-MERCHANT01");
+    assertThat(response.totalSpent()).isEqualByComparingTo("1000.00");
+    verify(parcelRepository).findByCustomerOrMerchantSubject(eq(merchantSubject), any(Pageable.class));
   }
 
   @Test
-  @DisplayName("Reproduce X02 with status filter: empty page bypasses status fallback")
-  void emptyPageWithStatusFilterBypassesFallback() {
+  @DisplayName("Fixed X02: Empty customer page with status filter falls back to merchant status query")
+  void emptyCustomerPageWithStatusFallsBackToMerchantStatusQuery() {
     String merchantSubject = "merchant-subject-xyz";
+
+    TrackingParcel merchantParcel = new TrackingParcel();
+    merchantParcel.setTrackingRef("ZT-MERCHANT02");
+    merchantParcel.setMerchantSubject(merchantSubject);
+    merchantParcel.setStatus(TrackingStatus.IN_TRANSIT);
+    merchantParcel.setFee(new BigDecimal("1500.00"));
 
     when(parcelRepository.findByCustomerSubjectAndStatus(eq(merchantSubject), eq(TrackingStatus.IN_TRANSIT), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of()));
+    when(parcelRepository.findByCustomerOrMerchantSubjectAndStatus(eq(merchantSubject), eq(TrackingStatus.IN_TRANSIT), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(merchantParcel)));
 
     CustomerDeliveryListResponse response = trackingService.getCustomerDeliveries(merchantSubject, 1, 10, "IN_TRANSIT", null);
 
-    assertThat(response.total()).isEqualTo(0);
-    verify(parcelRepository, never()).findByCustomerOrMerchantSubjectAndStatus(eq(merchantSubject), eq(TrackingStatus.IN_TRANSIT), any(Pageable.class));
+    assertThat(response.total()).isEqualTo(1);
+    assertThat(response.content().get(0).trackingRef()).isEqualTo("ZT-MERCHANT02");
+    verify(parcelRepository).findByCustomerOrMerchantSubjectAndStatus(eq(merchantSubject), eq(TrackingStatus.IN_TRANSIT), any(Pageable.class));
   }
 }
