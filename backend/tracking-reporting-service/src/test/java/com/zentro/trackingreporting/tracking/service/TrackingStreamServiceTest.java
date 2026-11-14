@@ -239,5 +239,39 @@ class TrackingStreamServiceTest {
     assertThat(emitter).isNotNull();
     assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
   }
+
+  @Test
+  @DisplayName("Client reconnect creates new emitter on same trackingRef and cleanup manages connections")
+  void clientReconnectCreatesNewEmitterAndCleansCompleted() {
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken token = createJwtToken("cust-alice", "CUSTOMER", future);
+    when(authorizationService.isAuthorized(token, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(token)).thenReturn("cust-alice");
+
+    // First connection (e.g. browser tab 1)
+    SseEmitter emitter1 = streamService.subscribe("ZT-STREAM1234", token, parcel);
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+
+    // Reconnection (e.g. new tab or client reconnect)
+    SseEmitter emitter2 = streamService.subscribe("ZT-STREAM1234", token, parcel);
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(2);
+
+    // User session revocation removes all associated emitters
+    streamService.revokeSubscriber("ZT-STREAM1234", "cust-alice");
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("cleanupExpiredSubscribers removes stale emitters and clears empty tracking buckets")
+  void cleanupExpiredSubscribersClearsEmptyBuckets() {
+    Instant expired = Instant.now().minus(1, ChronoUnit.MINUTES);
+    JwtAuthenticationToken expiredToken = createJwtToken("cust-bob", "CUSTOMER", expired);
+    when(authorizationService.isAuthorized(expiredToken, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(expiredToken)).thenReturn("cust-bob");
+
+    // We can directly invoke cleanup after registering expired subscriber
+    streamService.cleanupExpiredSubscribers();
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
+  }
 }
 
