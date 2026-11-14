@@ -1,39 +1,195 @@
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { principalCacheScope } from '@/shared/api/queryKeys';
 import { useAuth } from '@/shared/auth/useAuth';
-import { Button } from '@/shared/ui';
-import './courier.css';
+import {
+  useTheme,
+  Button,
+  SunIcon,
+  MoonIcon,
+  BellIcon,
+  UserIcon,
+} from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
+import './courier.css';
 
 export function CourierLayout() {
   const { logout, user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const client = useQueryClient();
   const scope = principalCacheScope(user?.id);
+
   useEffect(() => () => {
-    const filters = { predicate: (query: { queryKey: readonly unknown[] }) =>
-      query.queryKey[0] === 'courier' && query.queryKey.some(part =>
-        typeof part === 'object' && part !== null && 'scope' in part && part.scope === scope) };
+    const filters = {
+      predicate: (query: { queryKey: readonly unknown[] }) =>
+        query.queryKey[0] === 'courier' &&
+        query.queryKey.some(
+          (part) => typeof part === 'object' && part !== null && 'scope' in part && part.scope === scope,
+        ),
+    };
     void client.cancelQueries(filters);
     client.removeQueries(filters);
   }, [client, scope]);
 
-  return <div className="courier-portal">
-    <RouteAccessibility portal="Courier assignments" />
-    <header className="courier-header">
-      <Link className="staff-brand" to="/courier" aria-label="Zentro courier home">
-        <span className="staff-brand-mark">z</span><span>zentro <small>courier</small></span>
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const displayName = user?.name || 'Courier';
+  const displayRole = user?.roles?.join(', ') || 'COURIER';
+
+  return (
+    <div className="courier-portal sd-courier-shell">
+      <RouteAccessibility portal="Courier assignments" />
+      <Link to="/courier/profile" className="sr-only">
+        My profile
       </Link>
-      <nav className="staff-nav" aria-label="Courier navigation">
-        <NavLink end to="/courier">My dashboard</NavLink>
-        <NavLink to="/courier/profile">My profile</NavLink>
-      </nav>
-      <div className="staff-account">
-        <span>{user?.name || 'Courier'}</span>
-        <Button variant="secondary" className="staff-logout" type="button" onClick={() => void logout()}>Log out <span aria-hidden="true">↗</span></Button>
+
+      {/* Top Header */}
+      <header className="sd-header-wrap" role="banner">
+        <div className="sd-header">
+          {/* Logo pill "SwiftDrop Courier" */}
+          <Link
+            to="/courier"
+            className="sd-logo-pill sd-courier-logo"
+            aria-label="SwiftDrop Courier Home"
+          >
+            <span className="sd-brand-name">SwiftDrop</span>
+            <span className="sd-brand-role">Courier</span>
+          </Link>
+
+          {/* Center pill nav */}
+          <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
+            <nav className="sd-nav-pill" aria-label="Courier navigation">
+              <NavLink
+                to="/courier"
+                end
+                className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}
+              >
+                Today
+              </NavLink>
+              <NavLink
+                to="/courier/route"
+                className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}
+              >
+                Route
+              </NavLink>
+              <NavLink
+                to="/courier/history"
+                className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}
+              >
+                History
+              </NavLink>
+              <NavLink
+                to="/courier/earnings"
+                className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}
+              >
+                Earnings
+              </NavLink>
+              <NavLink
+                to="/courier/profile"
+                className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}
+              >
+                Profile
+              </NavLink>
+            </nav>
+          </div>
+
+          {/* Right side actions */}
+          <div className="sd-header-actions">
+            {/* Theme toggle */}
+            <Button
+              type="button"
+              onClick={toggleTheme}
+              className="sd-icon-btn"
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? (
+                <SunIcon size={20} strokeWidth={2} />
+              ) : (
+                <MoonIcon size={20} strokeWidth={2} />
+              )}
+            </Button>
+
+            {/* Notifications button */}
+            <Button
+              type="button"
+              className="sd-icon-btn"
+              aria-label="View notifications"
+              title="Notifications"
+            >
+              <BellIcon size={20} strokeWidth={2} />
+            </Button>
+
+            {/* User profile dropdown button */}
+            <div className="sd-profile-menu-wrap" ref={profileRef}>
+              <Button
+                type="button"
+                onClick={() => setProfileOpen((prev) => !prev)}
+                className="sd-icon-btn"
+                aria-label="Courier account menu"
+                aria-expanded={profileOpen}
+                title="Account"
+              >
+                <UserIcon size={20} strokeWidth={2} />
+              </Button>
+
+              {profileOpen && (
+                <div className="sd-profile-dropdown" role="menu">
+                  <div className="sd-profile-user-info">
+                    <strong>{displayName}</strong>
+                    <small>{displayRole}</small>
+                  </div>
+                  <hr className="sd-dropdown-divider" />
+                  <Link
+                    to="/courier/profile"
+                    className="sd-dropdown-item"
+                    role="menuitem"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    My Profile
+                  </Link>
+                  <Link
+                    to="/courier/earnings"
+                    className="sd-dropdown-item"
+                    role="menuitem"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    Earnings
+                  </Link>
+                  <hr className="sd-dropdown-divider" />
+                  <Button
+                    type="button"
+                    className="sd-dropdown-logout-btn"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      void logout();
+                    }}
+                  >
+                    Log out
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <div className="sd-courier-content" key={scope}>
+        <Outlet />
       </div>
-    </header>
-    <div key={scope}><Outlet /></div>
-  </div>;
+    </div>
+  );
 }

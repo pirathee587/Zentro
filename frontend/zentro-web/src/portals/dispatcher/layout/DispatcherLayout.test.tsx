@@ -7,31 +7,38 @@ import { DispatcherLayout } from './DispatcherLayout';
 
 const auth = (roles: Role[]): Auth => ({
   user: { id: 'dispatcher', name: 'Dispatch Desk', roles, accessToken: '' },
-  setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false,
+  setUser: vi.fn(),
+  login: vi.fn(async () => undefined),
+  register: vi.fn(async () => undefined),
+  logout: vi.fn(async () => undefined),
+  loading: false,
 });
 
 const renderLayout = (roles: Role[]) => render(
-  <MemoryRouter initialEntries={['/dispatcher']}><AuthContext.Provider value={auth(roles)}>
-    <Routes><Route element={<DispatcherLayout />}><Route path="/dispatcher" element={<p>Page</p>} /></Route></Routes>
-  </AuthContext.Provider></MemoryRouter>,
+  <MemoryRouter initialEntries={['/dispatcher']}>
+    <AuthContext.Provider value={auth(roles)}>
+      <Routes>
+        <Route element={<DispatcherLayout />}>
+          <Route path="/dispatcher" element={<p>Page</p>} />
+        </Route>
+      </Routes>
+    </AuthContext.Provider>
+  </MemoryRouter>,
 );
 
 describe('dispatcher navigation', () => {
   it.each<[string, Role[]]>([
     ['DISPATCHER', ['DISPATCHER']],
     ['DISPATCHER + COURIER', ['COURIER', 'DISPATCHER']],
-  ])('shows the operational and administration links for a %s user', (_label, roles) => {
+  ])('shows the operational links for a %s user', (_label, roles) => {
     renderLayout(roles);
     const nav = screen.getByRole('navigation', { name: 'Dispatcher navigation' });
     expect(within(nav).getAllByRole('link').map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
-      ['Overview', '/dispatcher'],
-      ['Dispatch Queue', '/dispatcher/queue'],
+      ['Dashboard', '/dispatcher'],
+      ['Parcels', '/dispatcher/parcels'],
       ['Couriers', '/dispatcher/couriers'],
-      ['Workload', '/dispatcher/workload'],
-      ['Merchant applications', '/dispatcher/merchant-approvals'],
       ['Zones & pricing', '/dispatcher/zones-pricing'],
-      ['Users', '/dispatcher/users'],
-      ['Integration attempts', '/dispatcher/integration-attempts'],
+      ['Reports', '/dispatcher/reports'],
     ]);
     // In-page links such as "Skip to main content" (#main-content) are not navigation.
     for (const link of screen.getAllByRole('link').filter((item) => item.getAttribute('href')?.startsWith('/'))) {

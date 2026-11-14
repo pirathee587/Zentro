@@ -44,6 +44,9 @@ function ApplicationRows({ applications }: { applications: ApplicationPreviewPro
   );
 }
 
+/**
+ * Kept for existing test assertions in CourierWorkloadCard.test.tsx.
+ */
 export function UnassignedParcelsPage() {
   const { user } = useAuth();
   const applications = useMerchantApplications();
@@ -135,6 +138,10 @@ export function UnassignedParcelsPage() {
   );
 }
 
+export { DispatchControlPage } from './DispatchControlPage';
+export { ParcelsPage } from './ParcelsPage';
+export { ReportsPage } from './ReportsPage';
+
 export { MerchantApprovalsPage } from './MerchantApprovalsPage';
 export { PartnerDetailModal } from './PartnerDetailModal';
 export { ActionConfirmDialog } from './ActionConfirmDialog';
@@ -144,14 +151,6 @@ export { CouriersPage } from './CouriersPage';
 export { WorkloadPage } from './WorkloadPage';
 export { DispatchQueueCard } from './DispatchQueueCard';
 export { CourierWorkloadCard } from './CourierWorkloadCard';
-
-export const ReportsPage = () => (
-  <section className="staff-main">
-    <div className="staff-panel staff-empty">
-      Dispatch reports will appear when reporting data is available.
-    </div>
-  </section>
-);
 
 export { ZonesPricingPage } from './ZonesPricingPage';
 export { IntegrationAttemptsPage } from './IntegrationAttemptsPage';
