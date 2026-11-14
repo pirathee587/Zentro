@@ -10,7 +10,7 @@ import verify
 
 
 class EvidenceIntegrityTest(unittest.TestCase):
-    def execute(self, report_names, maven_exit=0, stale=False):
+    def execute(self, report_names, maven_exit=0, stale=False, skipped=0):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
             output = repo / 'evidence.json'
@@ -18,7 +18,7 @@ class EvidenceIntegrityTest(unittest.TestCase):
                 for name in report_names:
                     path = repo / 'backend/module/target/surefire-reports' / ('TEST-' + name + '.xml')
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text('<testsuite name="com.zentro.e2e.' + name + '" tests="1" failures="0" errors="0" skipped="0"><properties><property name="secret" value="must-not-export"/></properties><system-out>must-not-export</system-out></testsuite>')
+                    path.write_text('<testsuite name="com.zentro.e2e.' + name + '" tests="1" failures="0" errors="0" skipped="' + str(skipped) + '"><properties><property name="secret" value="must-not-export"/></properties><system-out>must-not-export</system-out></testsuite>')
                     if stale:
                         os.utime(path, (1, 1))
                 return subprocess.CompletedProcess([], maven_exit)
@@ -45,6 +45,11 @@ class EvidenceIntegrityTest(unittest.TestCase):
         code, evidence = self.execute([], maven_exit=7)
         self.assertEqual(code, 7)
         self.assertEqual(evidence['exit_code'], 7)
+
+    def test_skipped_required_scenarios_are_not_success(self):
+        code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'], skipped=1)
+        self.assertEqual(code, 2)
+        self.assertEqual(evidence['automated_gate_status'], 'BLOCKED')
 
     def test_automated_success_does_not_grant_release_approval(self):
         code, evidence = self.execute(['BackendRoleAcceptanceIT', 'CourierLifecycleIT', 'DispatcherAssignmentIT'])
