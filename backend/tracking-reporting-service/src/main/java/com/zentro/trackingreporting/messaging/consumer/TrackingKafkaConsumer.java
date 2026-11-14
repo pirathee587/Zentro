@@ -47,6 +47,78 @@ public class TrackingKafkaConsumer {
     onParcelEvent(message, topic, headerEventId, extractHeaderString(schemaVersionHeader));
   }
 
+  @Transactional
+  public void onAssignmentEvent(String message, String topic, String headerEventId) {
+    onAssignmentEvent(message, topic, headerEventId, (String) null);
+  }
+
+  @Transactional
+  public void onAssignmentEvent(String message, String topic, String headerEventId, Object schemaVersionHeader) {
+    onAssignmentEvent(message, topic, headerEventId, extractHeaderString(schemaVersionHeader));
+  }
+
+  @KafkaListener(topics = {"delivery.assigned", "delivery.reassigned", "delivery.cancelled"}, groupId = "${spring.kafka.consumer.group-id:tracking-reporting-service}")
+  @Transactional
+  public void onAssignmentEvent(@Payload String message,
+      @Header(name = KafkaHeaders.RECEIVED_TOPIC, required = false) String topic,
+      @Header(name = "eventId", required = false) String headerEventId,
+      @Header(name = "schemaVersion", required = false) String schemaVersion) {
+    if (schemaVersion != null && !"1".equals(schemaVersion)) {
+      log.warn("Assignment event discarded: category=unsupported_schema_version");
+      return;
+    }
+    if (message == null || message.isBlank()) return;
+    try {
+      JsonNode node = mapper.readTree(message);
+      if (node == null || !node.isObject()) return;
+
+      UUID eventId = node.has("eventId") && !node.get("eventId").isNull()
+          ? UUID.fromString(node.get("eventId").asText())
+          : UUID.randomUUID();
+
+      if (headerEventId != null && !headerEventId.isBlank()) {
+        try {
+          UUID hId = UUID.fromString(headerEventId.trim());
+          if (!hId.equals(eventId)) {
+            log.warn("Assignment event discarded: category=conflicting_event_id");
+            return;
+          }
+        } catch (IllegalArgumentException ex) {
+          log.warn("Assignment event discarded: category=invalid_header_event_id");
+          return;
+        }
+      }
+
+      if (processed != null && processed.claim("tracking-reporting-service", eventId) == 0) return;
+
+      UUID parcelId = node.has("aggregateId") && !node.get("aggregateId").isNull()
+          ? UUID.fromString(node.get("aggregateId").asText())
+          : null;
+
+      JsonNode payload = node.path("payload");
+      String action = payload.has("action") && !payload.get("action").isNull()
+          ? payload.get("action").asText()
+          : null;
+      if (action == null && topic != null) {
+        if (topic.endsWith(".assigned")) action = "ASSIGNED";
+        else if (topic.endsWith(".reassigned")) action = "REASSIGNED";
+        else if (topic.endsWith(".cancelled")) action = "CANCELLED";
+      }
+
+      String newCourierId = payload.has("newCourierId") && !payload.get("newCourierId").isNull()
+          ? payload.get("newCourierId").asText()
+          : null;
+
+      tracking.updateCourierAssignment(parcelId, null, newCourierId, action != null ? action : "ASSIGNED");
+
+      if (processed != null) {
+        processed.flush();
+      }
+    } catch (Exception ex) {
+      log.warn("Assignment event discarded: error={}", ex.getMessage());
+    }
+  }
+
   @KafkaListener(topics = {"parcel.created", "parcel.status.updated"}, groupId = "${spring.kafka.consumer.group-id:tracking-reporting-service}")
   @Transactional
   public void onParcelEvent(@Payload String message,

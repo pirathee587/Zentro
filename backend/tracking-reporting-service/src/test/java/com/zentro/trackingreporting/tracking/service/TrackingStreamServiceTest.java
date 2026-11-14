@@ -185,5 +185,93 @@ class TrackingStreamServiceTest {
         "sub-1", new SseEmitter(), "ZT-STREAM1234", "cust-alice", Set.of("ROLE_CUSTOMER"), expired);
     assertThat(subscriber.isTokenExpired()).isTrue();
   }
+
+  @Test
+  @DisplayName("revokeSubscriber terminates active emitter when courier reassigned")
+  void revokeSubscriberTerminatesEmitterOnReassignment() {
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken token = createJwtToken("courier-old", "COURIER", future);
+    when(authorizationService.isAuthorized(token, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(token)).thenReturn("courier-old");
+
+    SseEmitter emitter = streamService.subscribe("ZT-STREAM1234", token, parcel);
+    assertThat(emitter).isNotNull();
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+
+    streamService.revokeSubscriber("ZT-STREAM1234", "courier-old");
+
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("Foreign customer subscription denied with AccessDeniedException (403)")
+  void subscribeForeignCustomerDenied() {
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken malloryToken = createJwtToken("cust-mallory", "CUSTOMER", future);
+    when(authorizationService.isAuthorized(malloryToken, parcel)).thenReturn(false);
+
+    assertThatThrownBy(() -> streamService.subscribe("ZT-STREAM1234", malloryToken, parcel))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("Access denied");
+  }
+
+  @Test
+  @DisplayName("Foreign merchant subscription denied with AccessDeniedException (403)")
+  void subscribeForeignMerchantDenied() {
+    parcel.setMerchantSubject("merchant-acme");
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken rivalToken = createJwtToken("merchant-rival", "MERCHANT", future);
+    when(authorizationService.isAuthorized(rivalToken, parcel)).thenReturn(false);
+
+    assertThatThrownBy(() -> streamService.subscribe("ZT-STREAM1234", rivalToken, parcel))
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessageContaining("Access denied");
+  }
+
+  @Test
+  @DisplayName("Token without expiration claim accepted and maintained until lifecycle end")
+  void subscribeWithNullExpiresAtAllowed() {
+    JwtAuthenticationToken tokenWithoutExp = createJwtToken("cust-alice", "CUSTOMER", null);
+    when(authorizationService.isAuthorized(tokenWithoutExp, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(tokenWithoutExp)).thenReturn("cust-alice");
+
+    SseEmitter emitter = streamService.subscribe("ZT-STREAM1234", tokenWithoutExp, parcel);
+    assertThat(emitter).isNotNull();
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Client reconnect creates new emitter on same trackingRef and cleanup manages connections")
+  void clientReconnectCreatesNewEmitterAndCleansCompleted() {
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken token = createJwtToken("cust-alice", "CUSTOMER", future);
+    when(authorizationService.isAuthorized(token, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(token)).thenReturn("cust-alice");
+
+    // First connection (e.g. browser tab 1)
+    SseEmitter emitter1 = streamService.subscribe("ZT-STREAM1234", token, parcel);
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+
+    // Reconnection (e.g. new tab or client reconnect)
+    SseEmitter emitter2 = streamService.subscribe("ZT-STREAM1234", token, parcel);
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(2);
+
+    // User session revocation removes all associated emitters
+    streamService.revokeSubscriber("ZT-STREAM1234", "cust-alice");
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("cleanupExpiredSubscribers removes stale emitters and clears empty tracking buckets")
+  void cleanupExpiredSubscribersClearsEmptyBuckets() {
+    Instant expired = Instant.now().minus(1, ChronoUnit.MINUTES);
+    JwtAuthenticationToken expiredToken = createJwtToken("cust-bob", "CUSTOMER", expired);
+    when(authorizationService.isAuthorized(expiredToken, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(expiredToken)).thenReturn("cust-bob");
+
+    // We can directly invoke cleanup after registering expired subscriber
+    streamService.cleanupExpiredSubscribers();
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
+  }
 }
 

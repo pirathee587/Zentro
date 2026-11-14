@@ -135,8 +135,11 @@ public class TrackingService {
         paged = new PageImpl<>(List.of(), pageable, 0);
       } else {
         paged = parcelRepository.searchByCustomerAndStatus(customerSubject, status, query.trim(), pageable);
-        if (paged == null) {
-          paged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+        if (paged == null || paged.isEmpty()) {
+          Page<TrackingParcel> merchantPaged = parcelRepository.searchByCustomerOrMerchantAndStatus(customerSubject, status, query.trim(), pageable);
+          if (merchantPaged != null && !merchantPaged.isEmpty()) {
+            paged = merchantPaged;
+          }
         }
       }
     } else if (hasStatus) {
@@ -145,19 +148,28 @@ public class TrackingService {
         paged = new PageImpl<>(List.of(), pageable, 0);
       } else {
         paged = parcelRepository.findByCustomerSubjectAndStatus(customerSubject, status, pageable);
-        if (paged == null) {
-          paged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+        if (paged == null || paged.isEmpty()) {
+          Page<TrackingParcel> merchantPaged = parcelRepository.findByCustomerOrMerchantSubjectAndStatus(customerSubject, status, pageable);
+          if (merchantPaged != null && !merchantPaged.isEmpty()) {
+            paged = merchantPaged;
+          }
         }
       }
     } else if (hasQuery) {
       paged = parcelRepository.searchByCustomer(customerSubject, query.trim(), pageable);
-      if (paged == null) {
-        paged = parcelRepository.searchByCustomerOrMerchant(customerSubject, query.trim(), pageable);
+      if (paged == null || paged.isEmpty()) {
+        Page<TrackingParcel> merchantPaged = parcelRepository.searchByCustomerOrMerchant(customerSubject, query.trim(), pageable);
+        if (merchantPaged != null && !merchantPaged.isEmpty()) {
+          paged = merchantPaged;
+        }
       }
     } else {
       paged = parcelRepository.findByCustomerSubject(customerSubject, pageable);
-      if (paged == null) {
-        paged = parcelRepository.findByCustomerOrMerchantSubject(customerSubject, pageable);
+      if (paged == null || paged.isEmpty()) {
+        Page<TrackingParcel> merchantPaged = parcelRepository.findByCustomerOrMerchantSubject(customerSubject, pageable);
+        if (merchantPaged != null && !merchantPaged.isEmpty()) {
+          paged = merchantPaged;
+        }
       }
     }
 
@@ -233,7 +245,7 @@ public class TrackingService {
       p.setStatus(status);
       p.setFailureReason(failureReason);
       p.setUpdatedAt(Instant.now());
-      if (status == TrackingStatus.DELIVERED && p.getDeliveredAt() == null) {
+      if (status == TrackingStatus.DELIVERED) {
         p.setDeliveredAt(eventTime);
       }
       parcelRepository.save(p);
@@ -272,6 +284,178 @@ public class TrackingService {
           null
       );
     }
+    return saved;
+  }
+
+  @Transactional
+  public TrackingParcel initializeTrackingParcel(
+      UUID parcelId,
+      String trackingRef,
+      String customerSubject,
+      String merchantSubject,
+      String senderName,
+      String senderPhone,
+      String senderAddress,
+      String senderCity,
+      String recipientName,
+      String recipientPhone,
+      String recipientAddress,
+      String recipientCity,
+      BigDecimal weightKg,
+      String size,
+      String category,
+      String description,
+      String destinationType,
+      boolean isExpress,
+      BigDecimal fee,
+      String currency,
+      int estimatedDays) {
+
+    String cleanRef = trackingRef.trim().toUpperCase();
+    Optional<TrackingParcel> existing = parcelRepository.findByTrackingRef(cleanRef);
+    if (existing.isPresent()) {
+      return existing.get();
+    }
+
+    TrackingParcel p = new TrackingParcel();
+    p.setParcelId(parcelId);
+    p.setTrackingRef(cleanRef);
+    p.setCustomerSubject(customerSubject != null ? customerSubject : "system");
+    p.setMerchantSubject(merchantSubject);
+    p.setSenderName(senderName != null ? senderName : "Sender");
+    p.setSenderPhone(senderPhone != null ? senderPhone : "N/A");
+    p.setSenderAddress(senderAddress != null ? senderAddress : "N/A");
+    p.setSenderCity(senderCity != null ? senderCity : "Colombo");
+    p.setRecipientName(recipientName != null ? recipientName : "Recipient");
+    p.setRecipientPhone(recipientPhone != null ? recipientPhone : "N/A");
+    p.setRecipientAddress(recipientAddress != null ? recipientAddress : "N/A");
+    p.setRecipientCity(recipientCity != null ? recipientCity : "Colombo");
+    p.setWeightKg(weightKg != null ? weightKg : BigDecimal.ONE);
+    p.setSize(size != null ? size : "MEDIUM");
+    p.setCategory(category != null ? category : "Standard");
+    p.setDescription(description);
+    p.setDestinationType(destinationType);
+    p.setExpress(isExpress);
+    p.setFee(fee != null ? fee : BigDecimal.ZERO);
+    p.setCurrency(currency != null ? currency : "LKR");
+    p.setEstimatedDays(estimatedDays > 0 ? estimatedDays : 3);
+    p.setStatus(TrackingStatus.CREATED);
+
+    return saveParcel(p);
+  }
+
+  @Transactional
+  public TrackingParcel initializeTrackingParcel(
+      UUID parcelId,
+      String trackingRef,
+      String customerSubject,
+      String merchantSubject,
+      String category,
+      String senderCity,
+      String recipientCity,
+      BigDecimal fee,
+      String currency,
+      int estimatedDays) {
+    return initializeTrackingParcel(
+        parcelId,
+        trackingRef,
+        customerSubject,
+        merchantSubject,
+        "Sender",
+        "N/A",
+        "N/A",
+        senderCity,
+        "Recipient",
+        "N/A",
+        "N/A",
+        recipientCity,
+        BigDecimal.ONE,
+        "MEDIUM",
+        category,
+        category,
+        "DOMESTIC",
+        false,
+        fee,
+        currency,
+        estimatedDays
+    );
+  }
+
+  @Transactional
+  public TrackingParcel backfillTrackingParcel(String trackingRef) {
+    if (trackingRef == null || trackingRef.isBlank()) {
+      throw new TrackingNotFoundException(trackingRef);
+    }
+    String cleanRef = trackingRef.trim().toUpperCase();
+    List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef);
+    if (events.isEmpty()) {
+      throw new TrackingNotFoundException(cleanRef);
+    }
+
+    TrackingParcel parcel = parcelRepository.findByTrackingRef(cleanRef)
+        .orElseGet(() -> {
+          TrackingParcel p = new TrackingParcel();
+          p.setTrackingRef(cleanRef);
+          p.setCustomerSubject("system");
+          p.setSenderName("Sender");
+          p.setSenderPhone("N/A");
+          p.setSenderAddress("N/A");
+          p.setSenderCity("Colombo");
+          p.setRecipientName("Recipient");
+          p.setRecipientPhone("N/A");
+          p.setRecipientAddress("N/A");
+          p.setRecipientCity("Colombo");
+          p.setFee(BigDecimal.ZERO);
+          p.setCurrency("LKR");
+          p.setCategory("Standard");
+          p.setCreatedAt(events.get(0).getOccurredAt());
+          return p;
+        });
+
+    TrackingEvent latestEvent = events.get(events.size() - 1);
+    parcel.setStatus(latestEvent.getStatus());
+    parcel.setFailureReason(latestEvent.getFailureReason());
+    parcel.setUpdatedAt(latestEvent.getOccurredAt());
+    if (latestEvent.getParcelId() != null) {
+      parcel.setParcelId(latestEvent.getParcelId());
+    }
+
+    events.stream()
+        .filter(e -> e.getStatus() == TrackingStatus.DELIVERED)
+        .findFirst()
+        .ifPresent(e -> parcel.setDeliveredAt(e.getOccurredAt()));
+
+    return parcelRepository.save(parcel);
+  }
+
+  @Transactional
+  public TrackingParcel updateCourierAssignment(UUID parcelId, String trackingRef, String courierSubject, String action) {
+    Optional<TrackingParcel> parcelOpt = Optional.empty();
+    if (trackingRef != null && !trackingRef.isBlank()) {
+      parcelOpt = parcelRepository.findByTrackingRef(trackingRef.trim().toUpperCase());
+    }
+    if (parcelOpt.isEmpty() && parcelId != null) {
+      parcelOpt = parcelRepository.findByParcelId(parcelId);
+    }
+    if (parcelOpt.isEmpty()) {
+      return null;
+    }
+
+    TrackingParcel parcel = parcelOpt.get();
+    String oldCourier = parcel.getCourierSubject();
+
+    if ("CANCELLED".equalsIgnoreCase(action)) {
+      parcel.setCourierSubject(null);
+    } else {
+      parcel.setCourierSubject(courierSubject);
+    }
+    parcel.setUpdatedAt(Instant.now());
+    TrackingParcel saved = parcelRepository.save(parcel);
+
+    if (oldCourier != null && !oldCourier.equals(courierSubject)) {
+      streamService.revokeSubscriber(saved.getTrackingRef(), oldCourier);
+    }
+
     return saved;
   }
 

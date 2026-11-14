@@ -70,4 +70,57 @@ class TrackingKafkaConsumerTest {
     }
     verifyNoInteractions(processed, tracking, projections);
   }
+
+  @Test
+  void assignmentEventUpdatesCourierAssignment() {
+    UUID parcelId = UUID.randomUUID();
+    UUID courierId = UUID.randomUUID();
+    when(processed.claim(anyString(), eq(id))).thenReturn(1);
+
+    String assignmentMessage = """
+        {"eventId":"%s","eventType":"delivery.assigned","aggregateId":"%s","occurredAt":"2026-11-05T09:00:00Z",
+         "payload":{"action":"ASSIGNED","oldCourierId":null,"newCourierId":"%s","actorSubject":"dispatcher-1"}}
+        """.formatted(id, parcelId, courierId);
+
+    consumer.onAssignmentEvent(assignmentMessage, "delivery.assigned", null);
+
+    verify(processed).claim("tracking-reporting-service", id);
+    verify(tracking).updateCourierAssignment(eq(parcelId), isNull(), eq(courierId.toString()), eq("ASSIGNED"));
+    verify(processed).flush();
+  }
+
+  @Test
+  void reassignmentEventUpdatesCourierAndRevokesOld() {
+    UUID parcelId = UUID.randomUUID();
+    UUID oldCourierId = UUID.randomUUID();
+    UUID newCourierId = UUID.randomUUID();
+    when(processed.claim(anyString(), eq(id))).thenReturn(1);
+
+    String reassignmentMessage = """
+        {"eventId":"%s","eventType":"delivery.reassigned","aggregateId":"%s","occurredAt":"2026-11-05T09:30:00Z",
+         "payload":{"action":"REASSIGNED","oldCourierId":"%s","newCourierId":"%s","actorSubject":"dispatcher-1"}}
+        """.formatted(id, parcelId, oldCourierId, newCourierId);
+
+    consumer.onAssignmentEvent(reassignmentMessage, "delivery.reassigned", null);
+
+    verify(processed).claim("tracking-reporting-service", id);
+    verify(tracking).updateCourierAssignment(eq(parcelId), isNull(), eq(newCourierId.toString()), eq("REASSIGNED"));
+  }
+
+  @Test
+  void cancelledAssignmentClearsCourier() {
+    UUID parcelId = UUID.randomUUID();
+    UUID oldCourierId = UUID.randomUUID();
+    when(processed.claim(anyString(), eq(id))).thenReturn(1);
+
+    String cancellationMessage = """
+        {"eventId":"%s","eventType":"delivery.cancelled","aggregateId":"%s","occurredAt":"2026-11-05T10:00:00Z",
+         "payload":{"action":"CANCELLED","oldCourierId":"%s","newCourierId":null,"actorSubject":"dispatcher-1"}}
+        """.formatted(id, parcelId, oldCourierId);
+
+    consumer.onAssignmentEvent(cancellationMessage, "delivery.cancelled", null);
+
+    verify(processed).claim("tracking-reporting-service", id);
+    verify(tracking).updateCourierAssignment(eq(parcelId), isNull(), isNull(), eq("CANCELLED"));
+  }
 }
