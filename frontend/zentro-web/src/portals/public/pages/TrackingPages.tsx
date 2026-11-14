@@ -65,7 +65,7 @@ export function TrackingPage() {
     queryKey: queryKeys.tracking.parcel(trackingNumber),
     queryFn: async ({ signal }) => (await getTracking(trackingNumber, signal)).data,
   });
-  const refreshTracking = useCallback(() => { void tracking.refetch(); }, [tracking.refetch]);
+  const refreshTracking = useCallback(() => { void tracking.refetch(); }, [tracking]);
   useTrackingStream(trackingNumber, refreshTracking);
 
   const statuses = tracking.data?.timeline?.flatMap((milestone) => {
