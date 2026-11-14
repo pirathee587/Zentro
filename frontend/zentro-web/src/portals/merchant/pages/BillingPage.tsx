@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button, Select } from '@/shared/ui';
 
 interface BillingStatementItem {
   id: string;
@@ -51,7 +52,7 @@ export function BillingPage() {
               Period
             </label>
             <div className="sd-select-wrapper" style={{ marginTop: 4 }}>
-              <select
+              <Select
                 id="billing-period-select"
                 className="sd-select"
                 value={period}
@@ -60,7 +61,7 @@ export function BillingPage() {
                 <option value="September 2026">September 2026</option>
                 <option value="October 2026">October 2026</option>
                 <option value="November 2026">November 2026</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -111,13 +112,13 @@ export function BillingPage() {
 
           {/* Print button */}
           <div style={{ marginTop: 20 }}>
-            <button
+            <Button
               type="button"
               className="sd-btn-yellow"
               onClick={() => window.print()}
             >
               Print / Save as PDF
-            </button>
+            </Button>
           </div>
         </section>
 

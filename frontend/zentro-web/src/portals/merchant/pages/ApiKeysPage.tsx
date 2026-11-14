@@ -62,7 +62,7 @@ export function ApiKeysPage() {
             <h2 id="your-key-heading" className="sd-card-title">
               Your API key
             </h2>
-            <span className="sd-badge-dark">Active</span>
+            <span className="sd-badge-dark">{activeKey ? 'Active' : 'Inactive'}</span>
           </div>
 
           <div className="sd-health-list" style={{ marginTop: 8 }}>
@@ -114,7 +114,7 @@ export function ApiKeysPage() {
 
           {/* Buttons */}
           <div style={{ display: 'flex', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
-            <button
+            <Button
               type="button"
               className="sd-btn-yellow"
               aria-label="Generate API key"
@@ -131,9 +131,9 @@ export function ApiKeysPage() {
               }}
             >
               {issue.isPending ? 'Generating…' : 'Generate new key'}
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
               className="sd-btn-pill-light"
               disabled={issue.isPending || revoke.isPending}
@@ -150,7 +150,7 @@ export function ApiKeysPage() {
               }}
             >
               {revoke.isPending ? 'Revoking…' : 'Revoke key'}
-            </button>
+            </Button>
           </div>
 
           {/* Footnote with info icon */}
@@ -175,7 +175,7 @@ export function ApiKeysPage() {
           <div className="sd-accordion">
             {/* Item 1: Where to store it */}
             <div className="sd-accordion-item">
-              <button
+              <Button
                 type="button"
                 className="sd-accordion-header"
                 onClick={() => setOpenSection(openSection === 'store' ? null : 'store')}
@@ -183,7 +183,7 @@ export function ApiKeysPage() {
               >
                 {openSection === 'store' ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <span>Where to store it</span>
-              </button>
+              </Button>
               {openSection === 'store' && (
                 <div className="sd-accordion-body">
                   Keep it in your server&apos;s secret store or environment variables. Never put it in a web page, mobile app or public repository.
@@ -193,7 +193,7 @@ export function ApiKeysPage() {
 
             {/* Item 2: If it leaks */}
             <div className="sd-accordion-item">
-              <button
+              <Button
                 type="button"
                 className="sd-accordion-header"
                 onClick={() => setOpenSection(openSection === 'leaks' ? null : 'leaks')}
@@ -201,7 +201,7 @@ export function ApiKeysPage() {
               >
                 {openSection === 'leaks' ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <span>If it leaks</span>
-              </button>
+              </Button>
               {openSection === 'leaks' && (
                 <div className="sd-accordion-body">
                   Revoke the key immediately from this page. Any requests using the compromised key will be rejected instantly.
@@ -211,7 +211,7 @@ export function ApiKeysPage() {
 
             {/* Item 3: Who can create keys */}
             <div className="sd-accordion-item" style={{ borderBottom: 'none' }}>
-              <button
+              <Button
                 type="button"
                 className="sd-accordion-header"
                 onClick={() => setOpenSection(openSection === 'roles' ? null : 'roles')}
@@ -219,7 +219,7 @@ export function ApiKeysPage() {
               >
                 {openSection === 'roles' ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 <span>Who can create keys</span>
-              </button>
+              </Button>
               {openSection === 'roles' && (
                 <div className="sd-accordion-body">
                   Only approved merchant accounts with administrative access can generate or revoke API credentials.

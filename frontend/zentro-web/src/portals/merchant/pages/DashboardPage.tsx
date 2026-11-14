@@ -240,7 +240,9 @@ export function DashboardPage() {
           <div className="sd-health-list">
             <div className="sd-health-row">
               <span className="sd-health-label">API key</span>
-              <span className="sd-badge-dark">Active</span>
+              <span className={key.data?.active === false ? 'sd-badge-coral' : 'sd-badge-dark'}>
+                {key.data?.active === false ? 'Revoked' : 'Active'}
+              </span>
             </div>
             <div className="sd-health-row">
               <span className="sd-health-label">Webhook endpoint</span>

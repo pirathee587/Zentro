@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
-import { useTheme } from '@/portals/customer/layout/useTheme';
 import {
+  useTheme,
+  Button,
   SunIcon,
   MoonIcon,
   BellIcon,
   UserIcon,
-} from '@/portals/customer/components/icons';
+} from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './dispatcher.css';
 
@@ -90,7 +91,7 @@ export function DispatcherLayout() {
           {/* Right side actions */}
           <div className="sd-header-actions">
             {/* Theme toggle */}
-            <button
+            <Button
               type="button"
               onClick={toggleTheme}
               className="sd-icon-btn"
@@ -102,21 +103,21 @@ export function DispatcherLayout() {
               ) : (
                 <MoonIcon size={20} strokeWidth={2} />
               )}
-            </button>
+            </Button>
 
             {/* Notifications button */}
-            <button
+            <Button
               type="button"
               className="sd-icon-btn"
               aria-label="View notifications"
               title="Notifications"
             >
               <BellIcon size={20} strokeWidth={2} />
-            </button>
+            </Button>
 
             {/* User profile dropdown button */}
             <div className="sd-profile-menu-wrap" ref={profileRef}>
-              <button
+              <Button
                 type="button"
                 onClick={() => setProfileOpen((prev) => !prev)}
                 className="sd-icon-btn"
@@ -125,7 +126,7 @@ export function DispatcherLayout() {
                 title="Account"
               >
                 <UserIcon size={20} strokeWidth={2} />
-              </button>
+              </Button>
 
               {profileOpen && (
                 <div className="sd-profile-dropdown" role="menu">
@@ -159,7 +160,7 @@ export function DispatcherLayout() {
                     Notification Logs
                   </Link>
                   <hr className="sd-dropdown-divider" />
-                  <button
+                  <Button
                     type="button"
                     className="sd-dropdown-logout-btn"
                     role="menuitem"
@@ -169,7 +170,7 @@ export function DispatcherLayout() {
                     }}
                   >
                     Log out
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

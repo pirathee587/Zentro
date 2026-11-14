@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Button, Select } from '@/shared/ui';
 
 interface HistoryItem {
   id: string;
@@ -55,7 +56,7 @@ export function CourierHistoryPage() {
         <div className="sd-filter-row" style={{ marginBottom: 20 }}>
           <div className="sd-filter-pills" role="tablist" aria-label="Filter deliveries by status">
             {(['All', 'Delivered', 'Failed'] as const).map((tab) => (
-              <button
+              <Button
                 key={tab}
                 type="button"
                 role="tab"
@@ -64,7 +65,7 @@ export function CourierHistoryPage() {
                 onClick={() => setFilter(tab)}
               >
                 {tab}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -75,7 +76,7 @@ export function CourierHistoryPage() {
             Period
           </label>
           <div className="sd-select-wrapper" style={{ maxWidth: 220 }}>
-            <select
+            <Select
               id="history-period-select"
               className="sd-select"
               value={period}
@@ -84,7 +85,7 @@ export function CourierHistoryPage() {
               <option value="Last 7 days">Last 7 days</option>
               <option value="Last 30 days">Last 30 days</option>
               <option value="Last 90 days">Last 90 days</option>
-            </select>
+            </Select>
           </div>
         </div>
 

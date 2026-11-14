@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { friendlyApiError } from '@/shared/api/apiClient';
-import { Button } from '@/shared/ui';
+import { Button, Input, Select } from '@/shared/ui';
 import {
   getCourierProfile,
   provisionCourierProfile,
@@ -156,14 +156,14 @@ export function CourierProfilePage() {
             Click the button below to provision your profile and connect to dispatch operations.
           </p>
           <div style={{ marginTop: 20 }}>
-            <button
+            <Button
               type="button"
               className="sd-btn-yellow"
               disabled={provisionMutation.isPending}
               onClick={() => provisionMutation.mutate()}
             >
               {provisionMutation.isPending ? 'Provisioning…' : 'Initialize Courier Profile'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -191,7 +191,7 @@ export function CourierProfilePage() {
                   <label htmlFor="courier-name-input" className="sd-input-label">
                     Name <span className="sr-only">Full Name</span>
                   </label>
-                  <input
+                  <Input
                     id="courier-name-input"
                     className="sd-input"
                     type="text"
@@ -210,7 +210,7 @@ export function CourierProfilePage() {
                   <label htmlFor="courier-email-input" className="sd-input-label">
                     Email <span className="sr-only">Account Email</span>
                   </label>
-                  <input
+                  <Input
                     id="courier-email-input"
                     className="sd-input sd-input-disabled"
                     type="email"
@@ -229,7 +229,7 @@ export function CourierProfilePage() {
                   <label htmlFor="courier-phone-input" className="sd-input-label">
                     Contact phone <span className="sr-only">Phone Number</span>
                   </label>
-                  <input
+                  <Input
                     id="courier-phone-input"
                     className="sd-input"
                     type="tel"
@@ -244,7 +244,7 @@ export function CourierProfilePage() {
                   <label htmlFor="courier-zone-input" className="sd-input-label">
                     Service zone
                   </label>
-                  <input
+                  <Input
                     id="courier-zone-input"
                     className="sd-input sd-input-disabled"
                     type="text"
@@ -262,7 +262,7 @@ export function CourierProfilePage() {
                     Vehicle
                   </label>
                   <div className="sd-select-wrapper">
-                    <select
+                    <Select
                       id="courier-vehicle-select"
                       className="sd-select"
                       value={vehicle}
@@ -272,7 +272,7 @@ export function CourierProfilePage() {
                       <option value="Van">Van</option>
                       <option value="Three-wheeler">Three-wheeler</option>
                       <option value="Bicycle">Bicycle</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -280,7 +280,7 @@ export function CourierProfilePage() {
                   <label htmlFor="courier-plate-input" className="sd-input-label">
                     Plate number
                   </label>
-                  <input
+                  <Input
                     id="courier-plate-input"
                     className="sd-input"
                     type="text"
@@ -292,14 +292,14 @@ export function CourierProfilePage() {
 
               {/* Submit Button */}
               <div style={{ marginTop: 28 }}>
-                <button
+                <Button
                   type="submit"
                   className="sd-btn-yellow"
                   aria-label="Save Personal Details"
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending ? 'Saving…' : 'Save changes'}
-                </button>
+                </Button>
               </div>
             </form>
           </section>

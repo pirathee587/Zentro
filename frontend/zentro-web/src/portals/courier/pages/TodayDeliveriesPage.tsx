@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
-import { Button } from '@/shared/ui';
+import { Button, Input, Select } from '@/shared/ui';
 import {
   deliveryError,
   deliveryAccessDenied,
@@ -15,7 +15,6 @@ import {
   AlertCircle,
   MapPin,
   Phone,
-  Search,
 } from 'lucide-react';
 
 interface TodayStopItem {
@@ -317,7 +316,7 @@ export function TodayDeliveriesPage() {
             <div className="sd-form-2col">
               <label className="sd-form-label-field">
                 <span className="sd-input-title">Recipient name (required to complete)</span>
-                <input
+                <Input
                   type="text"
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
@@ -328,7 +327,7 @@ export function TodayDeliveriesPage() {
 
               <label className="sd-form-label-field">
                 <span className="sd-input-title">Proof photo (optional)</span>
-                <input
+                <Input
                   type="file"
                   className="sd-file-input"
                   accept="image/*"
@@ -338,7 +337,7 @@ export function TodayDeliveriesPage() {
 
             <label className="sd-form-label-field" style={{ marginTop: 14 }}>
               <span className="sd-input-title">Delivery note (optional)</span>
-              <input
+              <Input
                 type="text"
                 value={deliveryNote}
                 onChange={(e) => setDeliveryNote(e.target.value)}
@@ -348,19 +347,19 @@ export function TodayDeliveriesPage() {
             </label>
 
             <div style={{ marginTop: 20 }}>
-              <button
+              <Button
                 type="submit"
                 className="sd-btn-yellow sd-submit-handover-btn"
               >
                 Mark as Out for delivery
-              </button>
+              </Button>
             </div>
 
             {/* If delivery did not go through */}
             <div className="sd-delivery-failed-box">
               <span className="sd-input-title">If the delivery did not go through</span>
               <div className="sd-fail-actions-row">
-                <select
+                <Select
                   id="failure-reason-select"
                   aria-label="Failure reason"
                   value={failureReason}
@@ -370,15 +369,15 @@ export function TodayDeliveriesPage() {
                   <option value="No answer">No answer</option>
                   <option value="Wrong address">Wrong address</option>
                   <option value="Refused by recipient">Refused by recipient</option>
-                </select>
+                </Select>
 
-                <button
+                <Button
                   type="button"
                   className="sd-btn-pill-light"
                   onClick={handleMarkFailed}
                 >
                   Mark failed
-                </button>
+                </Button>
               </div>
             </div>
           </form>
@@ -453,16 +452,16 @@ export function TodayDeliveriesPage() {
               <label className="sd-form-label-field">
                 <span className="sd-input-title">Tracking reference</span>
                 <div className="sd-find-input-row">
-                  <input
+                  <Input
                     type="text"
                     placeholder="ZT-..."
                     value={searchRef}
                     onChange={(e) => setSearchRef(e.target.value)}
                     className="sd-input"
                   />
-                  <button type="submit" className="sd-btn-black">
+                  <Button type="submit" className="sd-btn-black">
                     Open
-                  </button>
+                  </Button>
                 </div>
               </label>
             </form>

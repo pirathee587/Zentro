@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Button, Input } from '@/shared/ui';
 
 interface OrderItem {
   id: string;
@@ -291,7 +292,7 @@ export function OrdersPage() {
           {/* Filter Pills */}
           <div className="sd-filter-pills" role="tablist" aria-label="Filter orders by status" style={{ marginBottom: 20 }}>
             {(['All', 'Created', 'In progress', 'Delivered', 'Failed'] as const).map((tab) => (
-              <button
+              <Button
                 key={tab}
                 type="button"
                 role="tab"
@@ -300,13 +301,13 @@ export function OrdersPage() {
                 onClick={() => setFilter(tab)}
               >
                 {tab}
-              </button>
+              </Button>
             ))}
           </div>
 
           {/* Search Box */}
           <div className="sd-search-input-wrap">
-            <input
+            <Input
               type="text"
               className="sd-input"
               placeholder="Search by order reference, tracking reference or place"
@@ -334,6 +335,8 @@ export function OrdersPage() {
                   return (
                     <tr
                       key={order.id}
+                      className={isSelected ? 'is-selected' : undefined}
+                      aria-selected={isSelected}
                       style={{ cursor: 'pointer' }}
                       onClick={() => setSelectedOrderId(order.id)}
                     >

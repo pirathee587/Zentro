@@ -18,7 +18,7 @@ export interface StatusChipProps extends React.HTMLAttributes<HTMLSpanElement> {
   status: ParcelStatusType | string;
 }
 
-export function normalizeStatus(status: string): 'In progress' | 'Delivered' | 'Failed' | 'Created' {
+function normalizeStatus(status: string): 'In progress' | 'Delivered' | 'Failed' | 'Created' {
   const s = status.trim().toUpperCase().replace(/[\s_-]+/g, '');
   if (['DELIVERED', 'COMPLETED', 'RECEIVED'].includes(s)) {
     return 'Delivered';

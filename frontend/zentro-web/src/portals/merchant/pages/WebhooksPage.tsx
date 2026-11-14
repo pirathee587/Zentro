@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Button, Input, Checkbox } from '@/shared/ui';
 
 interface WebhookDeliveryItem {
   id: string;
@@ -131,7 +132,7 @@ export function WebhooksPage() {
                 <label htmlFor="endpoint-url-input" className="sd-input-label">
                   HTTPS endpoint URL
                 </label>
-                <input
+                <Input
                   id="endpoint-url-input"
                   type="url"
                   className="sd-input"
@@ -146,8 +147,7 @@ export function WebhooksPage() {
                 <span className="sd-input-label">Events</span>
                 <div className="sd-checkbox-group">
                   <label className="sd-checkbox-label">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       className="sd-checkbox"
                       checked={createdEventChecked}
                       onChange={(e) => setCreatedEventChecked(e.target.checked)}
@@ -155,8 +155,7 @@ export function WebhooksPage() {
                     <span>Parcel created</span>
                   </label>
                   <label className="sd-checkbox-label">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       className="sd-checkbox"
                       checked={updatedEventChecked}
                       onChange={(e) => setUpdatedEventChecked(e.target.checked)}
@@ -167,10 +166,10 @@ export function WebhooksPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 24, flexWrap: 'wrap' }}>
-                <button type="submit" className="sd-btn-yellow">
+                <Button type="submit" className="sd-btn-yellow">
                   Save endpoint
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   className="sd-btn-pill-light"
                   onClick={() => {
@@ -179,7 +178,7 @@ export function WebhooksPage() {
                   }}
                 >
                   Send test event
-                </button>
+                </Button>
               </div>
 
               <p className="sd-cell-mute" style={{ fontSize: 12, marginTop: 16, marginBottom: 0 }}>
@@ -200,7 +199,7 @@ export function WebhooksPage() {
             </div>
 
             <div>
-              <button
+              <Button
                 type="button"
                 className="sd-btn-pill-light"
                 onClick={() => {
@@ -209,7 +208,7 @@ export function WebhooksPage() {
                 }}
               >
                 Generate new secret
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -256,7 +255,7 @@ export function WebhooksPage() {
           {/* Filter Pills */}
           <div className="sd-filter-pills" role="tablist" aria-label="Filter webhook deliveries by status" style={{ marginBottom: 20 }}>
             {(['All', 'Delivered', 'Retrying', 'Failed'] as const).map((tab) => (
-              <button
+              <Button
                 key={tab}
                 type="button"
                 role="tab"
@@ -265,7 +264,7 @@ export function WebhooksPage() {
                 onClick={() => setFilter(tab)}
               >
                 {tab}
-              </button>
+              </Button>
             ))}
           </div>
 
