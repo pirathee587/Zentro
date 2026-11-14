@@ -132,15 +132,33 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
         statement.setObject(1, UUID.fromString(booking.path("id").asText()));
         try (var result = statement.executeQuery()) { result.next(); assertThat(result.getInt(1)).isZero(); }
       }
+      try (var statement = connection.prepareStatement("SELECT count(*) FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.created'")) {
+        statement.setObject(1, UUID.fromString(booking.path("id").asText()));
+        try (var result = statement.executeQuery()) { result.next(); assertThat(result.getInt(1)).isEqualTo(1); }
+      }
     }
     String tracking = "/api/v1/tracking/" + booking.path("trackingRef").asText();
     org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() ->
         assertThat(call("GET", tracking, null, null).statusCode()).isEqualTo(200));
+    assertSingleCreatedEvent(tracking);
+    restartTracking();
+    assertThat(call("GET", tracking, null, null).statusCode()).isEqualTo(200);
+    assertSingleCreatedEvent(tracking);
     // Direct S2 receipt and privacy contract already exist; gateway registration is a separate gate.
     assertStatus("OWNER", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + booking.path("id").asText() + "/receipt", customerToken, 200);
     assertStatus("FOREIGN", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + booking.path("id").asText() + "/receipt", TOKENS.get("MERCHANT"), 404);
     // This must fail until Main 02 registers the approved receipt route; never accept 403 as success.
     assertStatus("OWNER", "GET", "http://127.0.0.1:18080/api/v1/parcels/" + booking.path("id").asText() + "/receipt", customerToken, 200);
+  }
+
+  private static void assertSingleCreatedEvent(String tracking) throws Exception {
+    var response = call("GET", tracking + "/events", null, null);
+    assertThat(response.statusCode()).isEqualTo(200);
+    var events = JSON.readTree(response.body());
+    assertThat(events.isArray()).isTrue();
+    long created = java.util.stream.StreamSupport.stream(events.spliterator(), false)
+        .filter(event -> event.path("status").asText().equals("CREATED")).count();
+    assertThat(created).isEqualTo(1);
   }
 
   @Test

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeAll;
 
 /** Main 10 shared support. Real services and approved contracts; no business-row seeding. */
 abstract class BackendAcceptanceStack extends DisposableGatewayStack {
+  private static Map<String, String> trackingConfiguration;
   @BeforeAll
   static void startRemainingBackendServices() throws Exception {
     createDatabase("dispatch_user", "dispatch-only", "dispatch_courier_db");
@@ -22,14 +23,20 @@ abstract class BackendAcceptanceStack extends DisposableGatewayStack {
         Map.entry("POD_CLIENT_ID", completionClient), Map.entry("POD_CLIENT_SECRET", completionSecret),
         Map.entry("POD_WORKER_ENABLED", "true"), Map.entry("OUTBOX_ENABLED", "true"),
         Map.entry("SPRING_KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers())));
-    s4 = launch("tracking-reporting-service", 18084, Map.of(
+    trackingConfiguration = Map.of(
         "DB_URL", jdbcUrl("tracking_reporting_db"), "DB_USER", "tracking_user", "DB_PASSWORD", "tracking-only",
         "JWT_ISSUER_URI", issuer, "JWT_JWKS_URI", issuer + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api",
-        "KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers(), "KAFKA_CONSUMER_ENABLED", "true"));
+        "KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers(), "KAFKA_CONSUMER_ENABLED", "true");
+    s4 = launch("tracking-reporting-service", 18084, trackingConfiguration);
     stop(gateway);
     gateway = launch("api-gateway", 18080, Map.of(
         "S1_URI", "http://127.0.0.1:18081", "S2_URI", "http://127.0.0.1:18082",
         "S3_URI", "http://127.0.0.1:18083", "S4_URI", "http://127.0.0.1:18084", "S5_URI", "http://127.0.0.1:18085",
         "JWT_ISSUER_URI", issuer, "JWT_JWKS_URI", issuer + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api"));
+  }
+
+  protected static void restartTracking() throws Exception {
+    stop(s4);
+    s4 = launch("tracking-reporting-service", 18084, trackingConfiguration);
   }
 }
