@@ -84,6 +84,25 @@ class TrackingServiceTest {
   }
 
   @Test
+  @DisplayName("getPublicTracking derives a public view from consumed facts when no tracking parcel exists")
+  void getPublicTrackingFromEventsOnly() {
+    String trackingRef = "ZT-EVENTONLY01";
+    Instant created = Instant.parse("2026-11-04T10:00:00Z");
+    when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.empty());
+    when(eventRepository.findByTrackingRefOrderByOccurredAtAsc(trackingRef)).thenReturn(List.of(
+        new TrackingEvent(trackingRef, TrackingStatus.CREATED, "Created", "Booked", created)));
+
+    PublicTrackingResponse response = trackingService.getPublicTracking(trackingRef);
+
+    assertThat(response.trackingRef()).isEqualTo(trackingRef);
+    assertThat(response.rawStatus()).isEqualTo("CREATED");
+    assertThat(response.createdAt()).isEqualTo(created);
+    assertThat(response.events()).hasSize(1);
+    assertThat(response.originCity()).isNull();
+    assertThat(trackingService.getTrackingEvents(trackingRef)).hasSize(1);
+  }
+
+  @Test
   @DisplayName("getPublicTracking throws TrackingNotFoundException for unknown reference")
   void getPublicTrackingThrowsNotFound() {
     when(parcelRepository.findByTrackingRef("ZT-UNKNOWN999")).thenReturn(Optional.empty());

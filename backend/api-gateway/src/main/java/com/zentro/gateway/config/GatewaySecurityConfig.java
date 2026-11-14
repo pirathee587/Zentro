@@ -67,6 +67,10 @@ public class GatewaySecurityConfig {
                 .access(RoleAuthorizationManager.has(GatewayConstants.ROLE_DISPATCHER))
             .pathMatchers(HttpMethod.POST, "/api/v1/parcels/estimate", "/api/v1/parcels/estimate-fee")
                 .access(RoleAuthorizationManager.hasAny(GatewayConstants.ROLE_CUSTOMER, GatewayConstants.ROLE_DISPATCHER))
+            // Receipt JSON/PDF: S2 enforces ownership (foreign owner -> 404); gateway only gates roles.
+            .pathMatchers(HttpMethod.GET, "/api/v1/parcels/*/receipt", "/api/v1/parcels/*/receipt/pdf")
+                .access(RoleAuthorizationManager.hasAnyIncludingService(GatewayConstants.ROLE_CUSTOMER,
+                    GatewayConstants.ROLE_MERCHANT, GatewayConstants.ROLE_DISPATCHER, GatewayConstants.ROLE_SERVICE))
             .pathMatchers("/api/v1/parcels/**").denyAll()
             .pathMatchers("/api/v1/users/**", "/api/v1/merchants/**", "/api/v1/zones/**")
                 .access(RoleAuthorizationManager.humanAuthenticated())

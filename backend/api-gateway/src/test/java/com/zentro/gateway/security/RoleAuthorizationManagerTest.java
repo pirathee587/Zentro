@@ -53,6 +53,16 @@ class RoleAuthorizationManagerTest {
     assertThat(RoleAuthorizationManager.notServiceOnly().check(Mono.just(serviceOnly), null).block().isGranted()).isFalse();
   }
 
+  @Test
+  void hasAnyIncludingServiceAdmitsListedRolesOnly() {
+    var manager = RoleAuthorizationManager.hasAnyIncludingService("ROLE_CUSTOMER", "ROLE_SERVICE");
+    assertThat(manager.check(Mono.just(auth("ROLE_SERVICE")), null).block().isGranted()).isTrue();
+    assertThat(manager.check(Mono.just(auth("ROLE_CUSTOMER")), null).block().isGranted()).isTrue();
+    assertThat(manager.check(Mono.just(auth("ROLE_COURIER")), null).block().isGranted()).isFalse();
+    assertThat(manager.check(Mono.just(auth()), null).block().isGranted()).isFalse();
+    assertThat(manager.check(Mono.empty(), null).block().isGranted()).isFalse();
+  }
+
   private static Authentication auth(String... roles) {
     List<SimpleGrantedAuthority> authorities = java.util.Arrays.stream(roles)
         .map(SimpleGrantedAuthority::new)

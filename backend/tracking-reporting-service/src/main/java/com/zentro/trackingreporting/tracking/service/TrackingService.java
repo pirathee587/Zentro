@@ -69,10 +69,18 @@ public class TrackingService {
       throw new TrackingNotFoundException(trackingRef);
     }
     String cleanRef = trackingRef.trim().toUpperCase();
-    TrackingParcel parcel = parcelRepository.findByTrackingRef(cleanRef)
-        .orElseThrow(() -> new TrackingNotFoundException(cleanRef));
-
+    Optional<TrackingParcel> parcelOpt = parcelRepository.findByTrackingRef(cleanRef);
     List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef);
+    if (parcelOpt.isEmpty()) {
+      // A consumed parcel.created fact makes the reference publicly trackable even before an
+      // identity-bearing tracking parcel is provisioned. Only event facts are exposed; nothing is invented.
+      if (events.isEmpty()) {
+        throw new TrackingNotFoundException(cleanRef);
+      }
+      return publicTrackingFromEvents(cleanRef, events);
+    }
+    TrackingParcel parcel = parcelOpt.get();
+
     List<TrackingEventDto> eventDtos = events.stream().map(this::toEventDto).toList();
     List<TrackingMilestoneDto> timeline = buildTimeline(parcel, events);
 
@@ -106,11 +114,46 @@ public class TrackingService {
       throw new TrackingNotFoundException(trackingRef);
     }
     String cleanRef = trackingRef.trim().toUpperCase();
-    parcelRepository.findByTrackingRef(cleanRef)
-        .orElseThrow(() -> new TrackingNotFoundException(cleanRef));
+    boolean parcelKnown = parcelRepository.findByTrackingRef(cleanRef).isPresent();
 
     List<TrackingEvent> events = eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef);
+    if (!parcelKnown && events.isEmpty()) {
+      throw new TrackingNotFoundException(cleanRef);
+    }
     return events.stream().map(this::toEventDto).toList();
+  }
+
+  /** Public view derived solely from consumed event facts (no tracking parcel provisioned yet). */
+  private PublicTrackingResponse publicTrackingFromEvents(String cleanRef, List<TrackingEvent> events) {
+    TrackingEvent current = events.get(events.size() - 1);
+    TrackingEvent terminal = null;
+    Instant createdAt = null;
+    for (TrackingEvent ev : events) {
+      if (createdAt == null && ev.getStatus() == TrackingStatus.CREATED) createdAt = ev.getOccurredAt();
+      if (terminal == null && (ev.getStatus() == TrackingStatus.DELIVERED || ev.getStatus() == TrackingStatus.FAILED)) {
+        terminal = ev;
+      }
+    }
+    if (terminal != null) current = terminal; // terminal statuses are final
+    if (createdAt == null) createdAt = events.get(0).getOccurredAt();
+    TrackingStatus status = current.getStatus();
+    return new PublicTrackingResponse(
+        cleanRef,
+        status.portalStatus(),
+        status.name(),
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null,
+        createdAt,
+        status == TrackingStatus.DELIVERED ? current.getOccurredAt() : null,
+        status == TrackingStatus.FAILED ? current.getFailureReason() : null,
+        events.stream().map(this::toEventDto).toList(),
+        buildTimeline(null, events)
+    );
   }
 
   @Transactional(readOnly = true)
