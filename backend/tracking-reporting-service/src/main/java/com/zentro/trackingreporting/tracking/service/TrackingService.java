@@ -238,16 +238,34 @@ public class TrackingService {
 
     TrackingEvent savedEvent = eventRepository.save(event);
 
-    // Update parcel status if present
+    // Update parcel status if present, or initialize minimal projection when CREATED
     Optional<TrackingParcel> existing = parcelRepository.findByTrackingRef(cleanRef);
     if (existing.isPresent()) {
       TrackingParcel p = existing.get();
       p.setStatus(status);
       p.setFailureReason(failureReason);
       p.setUpdatedAt(Instant.now());
-      if (status == TrackingStatus.DELIVERED && p.getDeliveredAt() == null) {
+      if (status == TrackingStatus.DELIVERED) {
         p.setDeliveredAt(eventTime);
       }
+      parcelRepository.save(p);
+    } else if (status == TrackingStatus.CREATED) {
+      TrackingParcel p = new TrackingParcel();
+      p.setParcelId(parcelId);
+      p.setTrackingRef(cleanRef);
+      p.setStatus(TrackingStatus.CREATED);
+      p.setSenderCity(location != null ? location : "Colombo");
+      p.setRecipientCity("Colombo");
+      p.setSenderName("Sender");
+      p.setSenderPhone("N/A");
+      p.setSenderAddress("N/A");
+      p.setRecipientName("Recipient");
+      p.setRecipientPhone("N/A");
+      p.setRecipientAddress("N/A");
+      p.setCategory("Standard");
+      p.setCustomerSubject("system");
+      p.setCreatedAt(eventTime);
+      p.setUpdatedAt(eventTime);
       parcelRepository.save(p);
     }
 
@@ -285,6 +303,100 @@ public class TrackingService {
       );
     }
     return saved;
+  }
+
+  @Transactional
+  public TrackingParcel initializeTrackingParcel(
+      UUID parcelId,
+      String trackingRef,
+      String customerSubject,
+      String merchantSubject,
+      String senderName,
+      String senderPhone,
+      String senderAddress,
+      String senderCity,
+      String recipientName,
+      String recipientPhone,
+      String recipientAddress,
+      String recipientCity,
+      BigDecimal weightKg,
+      String size,
+      String category,
+      String description,
+      String destinationType,
+      boolean isExpress,
+      BigDecimal fee,
+      String currency,
+      int estimatedDays) {
+
+    String cleanRef = trackingRef.trim().toUpperCase();
+    Optional<TrackingParcel> existing = parcelRepository.findByTrackingRef(cleanRef);
+    if (existing.isPresent()) {
+      return existing.get();
+    }
+
+    TrackingParcel p = new TrackingParcel();
+    p.setParcelId(parcelId);
+    p.setTrackingRef(cleanRef);
+    p.setCustomerSubject(customerSubject != null ? customerSubject : "system");
+    p.setMerchantSubject(merchantSubject);
+    p.setSenderName(senderName != null ? senderName : "Sender");
+    p.setSenderPhone(senderPhone != null ? senderPhone : "N/A");
+    p.setSenderAddress(senderAddress != null ? senderAddress : "N/A");
+    p.setSenderCity(senderCity != null ? senderCity : "Colombo");
+    p.setRecipientName(recipientName != null ? recipientName : "Recipient");
+    p.setRecipientPhone(recipientPhone != null ? recipientPhone : "N/A");
+    p.setRecipientAddress(recipientAddress != null ? recipientAddress : "N/A");
+    p.setRecipientCity(recipientCity != null ? recipientCity : "Colombo");
+    p.setWeightKg(weightKg != null ? weightKg : BigDecimal.ONE);
+    p.setSize(size != null ? size : "MEDIUM");
+    p.setCategory(category != null ? category : "Standard");
+    p.setDescription(description);
+    p.setDestinationType(destinationType);
+    p.setExpress(isExpress);
+    p.setFee(fee != null ? fee : BigDecimal.ZERO);
+    p.setCurrency(currency != null ? currency : "LKR");
+    p.setEstimatedDays(estimatedDays > 0 ? estimatedDays : 3);
+    p.setStatus(TrackingStatus.CREATED);
+
+    return saveParcel(p);
+  }
+
+  @Transactional
+  public TrackingParcel initializeTrackingParcel(
+      UUID parcelId,
+      String trackingRef,
+      String customerSubject,
+      String merchantSubject,
+      String category,
+      String senderCity,
+      String recipientCity,
+      BigDecimal fee,
+      String currency,
+      int estimatedDays) {
+    return initializeTrackingParcel(
+        parcelId,
+        trackingRef,
+        customerSubject,
+        merchantSubject,
+        "Sender",
+        "N/A",
+        "N/A",
+        senderCity,
+        "Recipient",
+        "N/A",
+        "N/A",
+        recipientCity,
+        BigDecimal.ONE,
+        "MEDIUM",
+        category,
+        category,
+        "DOMESTIC",
+        false,
+        fee,
+        currency,
+        estimatedDays
+    );
   }
 
   private List<TrackingMilestoneDto> buildTimeline(TrackingParcel parcel, List<TrackingEvent> events) {
