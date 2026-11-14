@@ -185,5 +185,22 @@ class TrackingStreamServiceTest {
         "sub-1", new SseEmitter(), "ZT-STREAM1234", "cust-alice", Set.of("ROLE_CUSTOMER"), expired);
     assertThat(subscriber.isTokenExpired()).isTrue();
   }
+
+  @Test
+  @DisplayName("revokeSubscriber terminates active emitter when courier reassigned")
+  void revokeSubscriberTerminatesEmitterOnReassignment() {
+    Instant future = Instant.now().plus(1, ChronoUnit.HOURS);
+    JwtAuthenticationToken token = createJwtToken("courier-old", "COURIER", future);
+    when(authorizationService.isAuthorized(token, parcel)).thenReturn(true);
+    when(authorizationService.extractSubject(token)).thenReturn("courier-old");
+
+    SseEmitter emitter = streamService.subscribe("ZT-STREAM1234", token, parcel);
+    assertThat(emitter).isNotNull();
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+
+    streamService.revokeSubscriber("ZT-STREAM1234", "courier-old");
+
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(0);
+  }
 }
 

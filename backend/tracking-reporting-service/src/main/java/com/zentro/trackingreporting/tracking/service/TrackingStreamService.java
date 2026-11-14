@@ -217,6 +217,25 @@ public class TrackingStreamService {
     return list != null ? list.size() : 0;
   }
 
+  /**
+   * Revokes and terminates active SSE connections for a specific user on a tracking reference,
+   * typically invoked when assignment changes or access is revoked.
+   */
+  public void revokeSubscriber(String trackingRef, String userSubject) {
+    if (trackingRef == null || userSubject == null) return;
+    String key = trackingRef.trim().toUpperCase();
+    List<StreamSubscriber> list = subscribers.get(key);
+    if (list == null || list.isEmpty()) return;
+    for (StreamSubscriber sub : list) {
+      if (userSubject.equals(sub.getUserSubject())) {
+        try {
+          sub.getEmitter().complete();
+        } catch (Exception ignored) {}
+        removeSubscriber(key, sub.getId());
+      }
+    }
+  }
+
   private void removeSubscriber(String trackingRef, String subscriberId) {
     List<StreamSubscriber> list = subscribers.get(trackingRef);
     if (list != null) {
