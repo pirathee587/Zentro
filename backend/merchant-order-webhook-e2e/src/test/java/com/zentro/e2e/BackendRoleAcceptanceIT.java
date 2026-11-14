@@ -12,17 +12,17 @@ import org.junit.jupiter.api.Test;
 @org.junit.jupiter.api.TestMethodOrder(org.junit.jupiter.api.MethodOrderer.OrderAnnotation.class)
 class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
   private static final Map<String, String> TOKENS = new LinkedHashMap<>();
+  private static String bookedParcel;
 
   @BeforeAll
   static void createRoleIdentities() throws Exception {
-    TOKENS.put("CUSTOMER", customerToken);
-    TOKENS.put("DISPATCHER", dispatcherToken);
-    for (String role : new String[]{"MERCHANT", "COURIER", "SERVICE"}) {
+    for (String role : new String[]{"CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER", "SERVICE"}) {
       String client = "acceptance-" + role.toLowerCase();
       String secret = UUID.randomUUID().toString();
-      createServiceClient(client, secret, role);
-      TOKENS.put(role, tokenForClient(client, secret));
+      TOKENS.put(role, createIsolatedRoleClient(client, secret, role));
     }
+    customerToken = TOKENS.get("CUSTOMER");
+    dispatcherToken = TOKENS.get("DISPATCHER");
   }
 
   @Test
@@ -120,6 +120,7 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
     var first = HTTP.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
     assertThat(first.statusCode()).isEqualTo(201);
     var booking = JSON.readTree(first.body());
+    bookedParcel = booking.path("id").asText();
     var replay = HTTP.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
     assertThat(replay.statusCode()).isEqualTo(200);
     assertThat(JSON.readTree(replay.body()).path("id").asText()).isEqualTo(booking.path("id").asText());
@@ -137,18 +138,24 @@ class BackendRoleAcceptanceIT extends BackendAcceptanceStack {
         try (var result = statement.executeQuery()) { result.next(); assertThat(result.getInt(1)).isEqualTo(1); }
       }
     }
+    assertStatus("OWNER", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + bookedParcel + "/receipt", customerToken, 200);
+    assertStatus("FOREIGN", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + bookedParcel + "/receipt", TOKENS.get("MERCHANT"), 404);
     String tracking = "/api/v1/tracking/" + booking.path("trackingRef").asText();
-    org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(30)).untilAsserted(() ->
+    org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(30))
+        .pollInterval(java.time.Duration.ofSeconds(2)).untilAsserted(() ->
         assertThat(call("GET", tracking, null, null).statusCode()).isEqualTo(200));
     assertSingleCreatedEvent(tracking);
     restartTracking();
     assertThat(call("GET", tracking, null, null).statusCode()).isEqualTo(200);
     assertSingleCreatedEvent(tracking);
-    // Direct S2 receipt and privacy contract already exist; gateway registration is a separate gate.
-    assertStatus("OWNER", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + booking.path("id").asText() + "/receipt", customerToken, 200);
-    assertStatus("FOREIGN", "GET", "http://127.0.0.1:18082/api/v1/parcels/" + booking.path("id").asText() + "/receipt", TOKENS.get("MERCHANT"), 404);
+  }
+
+  @Test
+  @org.junit.jupiter.api.Order(2)
+  void ownerReceiptMustBeReachableThroughGateway() throws Exception {
+    assertThat(bookedParcel).isNotBlank();
     // This must fail until Main 02 registers the approved receipt route; never accept 403 as success.
-    assertStatus("OWNER", "GET", "http://127.0.0.1:18080/api/v1/parcels/" + booking.path("id").asText() + "/receipt", customerToken, 200);
+    assertStatus("OWNER", "GET", "http://127.0.0.1:18080/api/v1/parcels/" + bookedParcel + "/receipt", customerToken, 200);
   }
 
   private static void assertSingleCreatedEvent(String tracking) throws Exception {

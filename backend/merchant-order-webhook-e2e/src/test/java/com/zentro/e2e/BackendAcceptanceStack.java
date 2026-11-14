@@ -13,7 +13,7 @@ abstract class BackendAcceptanceStack extends DisposableGatewayStack {
     createDatabase("tracking_user", "tracking-only", "tracking_reporting_db");
     String completionClient = "acceptance-completion";
     String completionSecret = UUID.randomUUID().toString();
-    createServiceClient(completionClient, completionSecret, "SERVICE");
+    createIsolatedRoleClient(completionClient, completionSecret, "SERVICE");
     s3 = launch("dispatch-courier-service", 18083, Map.ofEntries(
         Map.entry("DB_URL", jdbcUrl("dispatch_courier_db")), Map.entry("DB_USER", "dispatch_user"),
         Map.entry("DB_PASSWORD", "dispatch-only"), Map.entry("JWT_ISSUER_URI", issuer),
@@ -38,5 +38,21 @@ abstract class BackendAcceptanceStack extends DisposableGatewayStack {
   protected static void restartTracking() throws Exception {
     stop(s4);
     s4 = launch("tracking-reporting-service", 18084, trackingConfiguration);
+  }
+
+  protected static String createIsolatedRoleClient(String client, String secret, String role) throws Exception {
+    String user = createServiceClient(client, secret, role);
+    String path = keycloak() + "/admin/realms/zentro/users/" + user + "/role-mappings/realm";
+    var mappings = send("GET", path, adminToken(), null, 200);
+    var remove = JSON.createArrayNode();
+    for (var mapping : mappings) {
+      if (!mapping.path("name").asText().equals(role)) remove.add(mapping);
+    }
+    if (!remove.isEmpty()) send("DELETE", path, adminToken(), JSON.writeValueAsString(remove), 204);
+    String token = tokenForClient(client, secret);
+    var applicationRoles = realmRoles(token).stream()
+        .filter(java.util.Set.of("CUSTOMER", "MERCHANT", "COURIER", "DISPATCHER", "SERVICE")::contains).toList();
+    org.assertj.core.api.Assertions.assertThat(applicationRoles).containsExactly(role);
+    return token;
   }
 }
