@@ -4,10 +4,10 @@ Status: PARTIAL. Release decision: BLOCKED. Starting SHA:
 `1f1b766d00f18c8eae788a1f399b34fb88e1bb0c`, verified against `origin/develop`.
 Working branch: `feature/359-backend-acceptance-security-and-release-readiness`.
 
-Prior review artifact: [draft PR #379](https://github.com/pirathee587/Zentro/pull/379)
-on the superseded branch `feature/359-complete-blocker-resolution`; its backend CI
-failed. The exact new branch candidate below has not yet received GitHub CI or
-independent review. No merge, release, deployment or approval has occurred.
+Review artifact: [draft PR #380](https://github.com/pirathee587/Zentro/pull/380),
+target `develop`; independent reviewer @Niro0526 was requested. PR #379 on the
+prior branch was closed as superseded by #380. Checks for #380 are still running;
+no merge, release, deployment or approval has occurred.
 
 ## Evidence classification
 
