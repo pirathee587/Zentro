@@ -76,7 +76,10 @@ class CustomerBookingIT extends BackendAcceptanceStack {
       try {
         ddl.execute("CREATE TRIGGER acceptance_reject_outbox BEFORE INSERT ON parcel.outbox_event FOR EACH ROW EXECUTE FUNCTION parcel.acceptance_reject_outbox()");
         try {
-          assertThat(book(owner, body, key).statusCode()).isEqualTo(503);
+          var rejected = book(owner, body, key);
+          // Existing gateway contract sanitizes upstream 5xx to 502; S2's own handler uses 503.
+          assertThat(rejected.statusCode()).isEqualTo(502);
+          assertThat(rejected.body()).doesNotContain("acceptance outbox storage failure");
           assertThat(count(db, "SELECT count(*) FROM parcel.parcel WHERE idempotency_key = ?", key)).isZero();
         } finally {
           ddl.execute("DROP TRIGGER IF EXISTS acceptance_reject_outbox ON parcel.outbox_event");
@@ -89,7 +92,7 @@ class CustomerBookingIT extends BackendAcceptanceStack {
       String id = JSON.readTree(recovered.body()).path("id").asText();
       assertThat(count(db, "SELECT count(*) FROM parcel.parcel WHERE idempotency_key = ?", key)).isEqualTo(1);
       assertThat(count(db, "SELECT count(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid", id)).isEqualTo(1);
-      System.out.println("ACCEPTANCE scenario=outbox-storage-rollback expected=503 actual=503 recovery=201 bookings=1 createdFacts=1");
+      System.out.println("ACCEPTANCE scenario=outbox-storage-rollback expected=502 actual=502 recovery=201 bookings=1 createdFacts=1");
     }
   }
 
