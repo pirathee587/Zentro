@@ -100,24 +100,6 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
                   Business Registration
                   <strong>{merchant.businessRegNo || 'Not provided'}</strong>
                 </span>
-                {partner.applicantName && (
-                  <span>
-                    Applicant Name
-                    <strong>{partner.applicantName}</strong>
-                  </span>
-                )}
-                {partner.applicantEmail && (
-                  <span>
-                    Applicant Email
-                    <strong>{partner.applicantEmail}</strong>
-                  </span>
-                )}
-                {partner.accountStatus && (
-                  <span>
-                    Account Status
-                    <strong>{partner.accountStatus}</strong>
-                  </span>
-                )}
                 <span>
                   User Account UUID
                   <strong style={{ fontSize: '11px', fontFamily: 'monospace' }}>

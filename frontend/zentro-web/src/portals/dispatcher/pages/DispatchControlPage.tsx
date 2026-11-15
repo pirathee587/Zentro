@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, Info, CheckCircle2, Zap } from 'lucide-react';
-import { useMerchantApplications } from './MerchantApprovalsPage';
 
 interface UnassignedParcel {
   reference: string;
@@ -77,17 +76,6 @@ const INITIAL_MERCHANTS: MerchantAppItem[] = [
 export function DispatchControlPage() {
   const [unassignedList, setUnassignedList] = useState<UnassignedParcel[]>(INITIAL_UNASSIGNED);
   const [assignedNotice, setAssignedNotice] = useState<string | null>(null);
-  const merchantAppsQuery = useMerchantApplications();
-  const liveMerchants = Array.isArray(merchantAppsQuery.data) && merchantAppsQuery.data.length > 0
-    ? merchantAppsQuery.data.map((m) => ({
-        businessName: m.businessName,
-        appliedDate: new Date(m.createdAt).toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        }) + ` · ${m.status}`,
-      }))
-    : INITIAL_MERCHANTS;
 
   const handleCourierSelect = (index: number, courier: string) => {
     setUnassignedList((prev) => {
@@ -224,14 +212,11 @@ export function DispatchControlPage() {
         <div className="sd-card">
           <div className="sd-card-header">
             <h2 className="sd-card-title">Merchant applications</h2>
-            <Link to="/dispatcher/merchant-approvals" className="sd-text-link">
-              View all
-            </Link>
           </div>
 
           <div className="sd-merchant-list">
-            {liveMerchants.map((m, idx) => (
-              <div key={`${m.businessName}-${idx}`} className="sd-merchant-row">
+            {INITIAL_MERCHANTS.map((m) => (
+              <div key={m.businessName} className="sd-merchant-row">
                 <div className="sd-merchant-info">
                   <span className="sd-merchant-name">{m.businessName}</span>
                   <span className="sd-merchant-date">Applied {m.appliedDate}</span>

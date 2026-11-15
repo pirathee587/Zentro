@@ -51,20 +51,10 @@ public class UserProfileService {
 
   private final JdbcTemplate jdbc;
   private final UserAdminAuditRepository audit;
-  private final com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer;
 
   public UserProfileService(JdbcTemplate jdbc, UserAdminAuditRepository audit) {
-    this(jdbc, audit, null);
-  }
-
-  @org.springframework.beans.factory.annotation.Autowired
-  public UserProfileService(
-      JdbcTemplate jdbc,
-      UserAdminAuditRepository audit,
-      com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer) {
     this.jdbc = jdbc;
     this.audit = audit;
-    this.roleSyncer = roleSyncer;
   }
 
   @Transactional
@@ -82,13 +72,7 @@ public class UserProfileService {
           phone = COALESCE(NULLIF(EXCLUDED.phone, ''), identity.app_user.phone),
           updated_at = now()
         """, subject, jwt.getClaimAsString("email"), displayName(jwt), phone(jwt));
-    UserProfile profile = select(subject, roles(jwt));
-    if (roleSyncer != null
-        && "APPROVED".equalsIgnoreCase(profile.merchantStatus())
-        && !profile.roles().contains("MERCHANT")) {
-      roleSyncer.syncBySubject(subject, true);
-    }
-    return profile;
+    return select(subject, roles(jwt));
   }
 
   @Transactional
