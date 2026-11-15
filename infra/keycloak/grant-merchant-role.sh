@@ -75,17 +75,17 @@ user_email=""
 
 # Check if target is UUID
 if [[ "$target" =~ ^[0-9a-fA-F-]{36}$ ]]; then
-  user_json="$(curl --silent "${headers[0]}" "$api/users/$target" || true)"
+  user_json="$(curl --silent "${headers[@]:0:2}" "$api/users/$target" || true)"
   user_id="$(jq -r '.id // empty' <<< "$user_json")"
   user_email="$(jq -r '.email // .username // empty' <<< "$user_json")"
 fi
 
 if [[ -z "$user_id" ]]; then
-  users="$(curl --fail --silent --show-error "${headers[0]}" "$api/users?username=$(printf '%s' "$target" | jq -sRr @uri)&exact=true")"
+  users="$(curl --fail --silent --show-error "${headers[@]:0:2}" "$api/users?username=$(printf '%s' "$target" | jq -sRr @uri)&exact=true")"
   user_id="$(jq -r '.[0].id // empty' <<< "$users")"
   user_email="$(jq -r '.[0].email // .[0].username // empty' <<< "$users")"
   if [[ -z "$user_id" ]]; then
-    users="$(curl --fail --silent --show-error "${headers[0]}" "$api/users?email=$(printf '%s' "$target" | jq -sRr @uri)&exact=true")"
+    users="$(curl --fail --silent --show-error "${headers[@]:0:2}" "$api/users?email=$(printf '%s' "$target" | jq -sRr @uri)&exact=true")"
     user_id="$(jq -r '.[0].id // empty' <<< "$users")"
     user_email="$(jq -r '.[0].email // .[0].username // empty' <<< "$users")"
   fi
@@ -96,8 +96,8 @@ if [[ -z "$user_id" ]]; then
   exit 1
 fi
 
-role_json="$(curl --fail --silent --show-error "${headers[0]}" "$api/roles/MERCHANT")"
-mapping="$(curl --fail --silent --show-error "${headers[0]}" "$api/users/$user_id/role-mappings/realm")"
+role_json="$(curl --fail --silent --show-error "${headers[@]:0:2}" "$api/roles/MERCHANT")"
+mapping="$(curl --fail --silent --show-error "${headers[@]:0:2}" "$api/users/$user_id/role-mappings/realm")"
 has_role="$(jq -e --arg role "MERCHANT" 'any(.[]; .name == $role)' <<< "$mapping" >/dev/null && echo "true" || echo "false")"
 
 if [[ "$revoke" == "true" ]]; then

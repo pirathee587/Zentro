@@ -23,6 +23,9 @@ export interface UnifiedPartnerItem {
   reviewedAt: string | null;
   assignedZone?: string | null;
   vehicleType?: string | null;
+  applicantName?: string | null;
+  applicantEmail?: string | null;
+  accountStatus?: string | null;
   merchantRaw?: MerchantApplication;
   courierRaw?: CourierProfile;
 }
