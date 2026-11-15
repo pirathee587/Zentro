@@ -6,6 +6,8 @@ import { friendlyApiError } from '@/shared/api/apiClient';
 import {
   listMerchantApplications,
   reviewMerchantApplication,
+  listUsers,
+  type AdminUserProfile,
 } from '../api/adminApi';
 import {
   listCouriersAdmin,
@@ -74,6 +76,14 @@ export function MerchantApprovalsPage() {
 
   const applications = useMerchantApplications(isMerchantTab);
   const couriers = useCourierPartnerApplications(isCourierTab);
+  const usersLookup = useQuery({
+    queryKey: ['dispatcher', 'admin-users', 'partner-lookup'],
+    enabled: Boolean(user?.accessToken) && isMerchantTab,
+    queryFn: ({ signal }) => listUsers({}, signal).catch((): AdminUserProfile[] => []),
+  });
+  const usersById = new Map(
+    (Array.isArray(usersLookup.data) ? usersLookup.data : []).map((u) => [u.id, u]),
+  );
 
   // Form & Action states
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
@@ -145,7 +155,18 @@ export function MerchantApprovalsPage() {
   const isActionPending = reviewMerchant.isPending || reviewCourier.isPending;
 
   // Combine and map applications
-  const merchantItems: UnifiedPartnerItem[] = (applications.data ?? []).map(mapMerchantToPartner);
+  const merchantItems: UnifiedPartnerItem[] = (applications.data ?? []).map((m) => {
+    const base = mapMerchantToPartner(m);
+    const owner = usersById.get(m.appUserId);
+    return owner
+      ? {
+          ...base,
+          applicantName: owner.name,
+          applicantEmail: owner.email,
+          accountStatus: owner.accountStatus,
+        }
+      : base;
+  });
   const courierItems: UnifiedPartnerItem[] = (couriers.data ?? []).map(mapCourierToPartner);
 
   let allPartners: UnifiedPartnerItem[] = [];
@@ -321,6 +342,14 @@ export function MerchantApprovalsPage() {
                     Contact phone
                     <strong>{partner.phone}</strong>
                   </span>
+                  {partner.partnerType === 'MERCHANT' && (partner.applicantName || partner.applicantEmail) && (
+                    <span>
+                      Applicant account
+                      <strong>
+                        {[partner.applicantName, partner.applicantEmail].filter(Boolean).join(' · ')}
+                      </strong>
+                    </span>
+                  )}
                   {partner.partnerType === 'COURIER' && (
                     <>
                       <span>

@@ -20,7 +20,7 @@ function responseStatus(error: unknown): number | undefined {
 }
 
 export function MerchantApplicationPage() {
-  const { user, refreshAccessToken } = useAuth();
+  const { user, login, refreshAccessToken } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -28,6 +28,7 @@ export function MerchantApplicationPage() {
   const [form, setForm] = useState({ businessName: '', businessRegNo: '', contactPhone: '' });
   const [formError, setFormError] = useState('');
   const [forcedPending, setForcedPending] = useState(false);
+  const [attemptedRoleRefresh, setAttemptedRoleRefresh] = useState(false);
   const auth = { accessToken: user?.accessToken, refreshAccessToken };
 
   const createApplication = useMutation({
@@ -40,14 +41,27 @@ export function MerchantApplicationPage() {
     },
   });
 
+  const status = forcedPending ? 'PENDING' : application.data?.status;
+  const isNotFound = responseStatus(application.error) === 404;
+
   useEffect(() => {
     if (application.data && location.pathname !== '/merchant/status') {
       navigate('/merchant/status', { replace: true });
     }
   }, [application.data, location.pathname, navigate]);
 
-  const status = forcedPending ? 'PENDING' : application.data?.status;
-  const isNotFound = responseStatus(application.error) === 404;
+  useEffect(() => {
+    if (status === 'APPROVED') {
+      if (user?.roles.includes('MERCHANT')) {
+        navigate('/merchant/dashboard', { replace: true });
+      } else if (!attemptedRoleRefresh && refreshAccessToken) {
+        setAttemptedRoleRefresh(true);
+        void refreshAccessToken(true).then(() =>
+          queryClient.invalidateQueries({ queryKey: ['current-user', user?.id] }),
+        );
+      }
+    }
+  }, [status, user?.roles, user?.id, attemptedRoleRefresh, refreshAccessToken, navigate, queryClient]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,7 +98,23 @@ export function MerchantApplicationPage() {
   if (status === 'APPROVED') {
     return <section className="auth-card merchant-application-card">
       <h1>Your business is approved.</h1>
-      <p>A dispatcher will assign merchant access to your account. Sign in again after access is enabled.</p>
+      <p>Your merchant profile is approved. Continue to your merchant dashboard or sign in again to refresh your access token.</p>
+      <Button
+        className="auth-submit"
+        onClick={async () => {
+          if (refreshAccessToken) {
+            await refreshAccessToken(true);
+            await queryClient.invalidateQueries({ queryKey: ['current-user', user?.id] });
+          }
+          if (user?.roles.includes('MERCHANT')) {
+            navigate('/merchant/dashboard', { replace: true });
+          } else {
+            void login('/merchant/dashboard', undefined, 'merchant');
+          }
+        }}
+      >
+        Open merchant dashboard
+      </Button>
       <EmptyState message="Merchant access requires the MERCHANT role." />
     </section>;
   }
