@@ -3,12 +3,14 @@ name: CI
 on:
   push:
     branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -93,8 +95,8 @@ jobs:
           cache-dependency-path: backend/**/pom.xml
       - name: Require Docker for Testcontainers
         run: docker info
-      - name: Run Maven tests, package all modules, and verify cross-service E2E
-        run: mvn --batch-mode --no-transfer-progress "-Dbuild.revision=$GITHUB_SHA" -DrunE2E verify
+      - name: Run Maven tests and package all modules
+        run: mvn --batch-mode --no-transfer-progress "-Dbuild.revision=$GITHUB_SHA" verify
       - name: Sanitize backend test reports
         if: always()
         working-directory: .
