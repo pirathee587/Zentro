@@ -179,16 +179,16 @@ class Zd353EngineAndServiceCharacterizationTest {
   }
 
   @Test
-  @DisplayName("G13: PricingService and ZoneService fall back to approved defaults on database failure")
+  @DisplayName("G13: PricingService fails closed while ZoneService falls back on database failure")
   @SuppressWarnings("unchecked")
   void g13_servicesFallbackToApprovedDefaultsOnDatabaseFailure() {
     PricingService realPricingService = new PricingService(jdbc, engine);
     when(jdbc.query(any(String.class), any(RowMapper.class)))
         .thenThrow(new DataRetrievalFailureException("Simulated database outage"));
 
-    PricingRule activeRule = realPricingService.getActiveRule();
-    assertThat(activeRule.ruleName()).isEqualTo("STANDARD_DEFAULT");
-    assertThat(activeRule.baseFee()).isEqualByComparingTo("550.00");
+    org.assertj.core.api.Assertions.assertThatThrownBy(realPricingService::getActiveRule)
+        .isInstanceOf(com.zentro.parcelpricing.exception.PricingUnavailableException.class)
+        .hasMessageContaining("Pricing database is unavailable");
 
     ZoneService realZoneService = new ZoneService(jdbc);
     List<DeliveryZone> zones = realZoneService.getActiveZones();

@@ -57,6 +57,8 @@ Authenticated full delivery details view. Available only to authorized resource 
 (the customer who booked it, the merchant who owns it, the courier assigned to it, or a dispatcher).
 """
 type DeliveryDetails {
+  weightKg: Float
+  estimatedDeliveryDate: String
   id: ID!
   trackingRef: String!
   status: TrackingStatus!
@@ -92,7 +94,43 @@ type DeliveryConnection {
   pageInfo: PageInfo!
 }
 
+type CurrencyAmount {
+  currency: String!
+  amount: Float!
+}
+
+type CustomerDashboardSummary {
+  activeCount: Int!
+  deliveredCount: Int!
+  awaitingPickupCount: Int!
+  failedCount: Int!
+  inTransitCount: Int!
+  totalParcels: Int!
+  month: String!
+  timeZone: String!
+  totalFees: [CurrencyAmount!]!
+  monthlyFees: [CurrencyAmount!]!
+}
+
+type DashboardFeeBreakdown {
+  baseFee: Float!
+  weightFee: Float!
+  distanceSurcharge: Float
+  expressFee: Float
+}
+type DashboardFeeEstimate {
+  fee: Float!
+  formattedFee: String!
+  currency: String!
+  estimatedDays: Int!
+  breakdown: DashboardFeeBreakdown!
+}
+
 type Query {
+  dashboardFeeEstimate(pickupCity: String, deliveryCity: String, weightKg: Float!, destinationType: String!, parcelCategory: String): DashboardFeeEstimate!
+  customerDashboardSummary: CustomerDashboardSummary!
+  customerDelivery(trackingRef: String!): DeliveryDetails
+  customerLiveDelivery: DeliveryDetails
   """
   Public tracking query. Accessible unauthenticated. Does not leak any PII or fee information.
   """
@@ -108,6 +146,7 @@ type Query {
   Page is 1-indexed. Maximum size is 50.
   """
   myDeliveries(
+    customerOnly: Boolean = false
     page: Int = 1
     size: Int = 10
     status: TrackingStatus

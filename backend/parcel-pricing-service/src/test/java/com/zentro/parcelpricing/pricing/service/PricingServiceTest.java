@@ -50,16 +50,12 @@ class PricingServiceTest {
   }
 
   @Test
-  @DisplayName("getActiveRule falls back to standard default when database query fails")
+  @DisplayName("getActiveRule reports unavailable when database query fails")
   void fallsBackToStandardDefaultOnDatabaseError() {
     when(jdbc.query(anyString(), any(RowMapper.class)))
         .thenThrow(new DataRetrievalFailureException("Table not initialized"));
 
-    PricingRule rule = pricingService.getActiveRule();
-
-    assertEquals("STANDARD_DEFAULT", rule.ruleName());
-    assertEquals(new BigDecimal("550.00"), rule.baseFee());
-    assertEquals(new BigDecimal("120.00"), rule.additionalWeightRatePerKg());
+    assertThrows(PricingUnavailableException.class, pricingService::getActiveRule);
   }
 
   @Test
@@ -82,6 +78,7 @@ class PricingServiceTest {
   @DisplayName("updateStandardRule updates rule successfully")
   void updateStandardRuleUpdatesSuccessfully() {
     when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+    when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of(PricingRule.defaultStandard()));
 
     PricingRuleUpdateRequest update = new PricingRuleUpdateRequest(
         new BigDecimal("580.00"),
@@ -140,14 +137,11 @@ class PricingServiceTest {
   }
 
   @Test
-  @DisplayName("getActiveRule falls back to standard default when database returns empty list")
+  @DisplayName("getActiveRule reports unavailable when database returns empty list")
   void fallsBackToStandardDefaultWhenNoActiveRuleInDatabase() {
     when(jdbc.query(anyString(), any(RowMapper.class))).thenReturn(List.of());
 
-    PricingRule rule = pricingService.getActiveRule();
-
-    assertEquals("STANDARD_DEFAULT", rule.ruleName());
-    assertEquals(new BigDecimal("550.00"), rule.baseFee());
+    assertThrows(PricingUnavailableException.class, pricingService::getActiveRule);
   }
 
   @Test

@@ -110,6 +110,58 @@ public class ParcelBookingRepository {
     return rows.stream().findFirst();
   }
 
+  public List<ParcelBooking> findCustomerPage(String subject, List<String> statuses, String search, int offset, int size) {
+    var args = new java.util.ArrayList<Object>();
+    String where = customerWhere(subject, statuses, search, args);
+    args.add(size); args.add(offset);
+    return jdbc.query("SELECT " + COLUMNS + " FROM parcel.parcel WHERE " + where + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+        ROW_MAPPER, args.toArray());
+  }
+
+  public long countCustomer(String subject, List<String> statuses, String search) {
+    var args = new java.util.ArrayList<Object>();
+    String where = customerWhere(subject, statuses, search, args);
+    return jdbc.queryForObject("SELECT count(*) FROM parcel.parcel WHERE " + where, Long.class, args.toArray());
+  }
+
+  public List<java.util.Map<String,Object>> customerStatusCounts(String subject) {
+    return jdbc.queryForList("SELECT status, count(*) AS total FROM parcel.parcel WHERE customer_subject=? AND merchant_id IS NULL GROUP BY status", subject);
+  }
+
+  public List<java.util.Map<String,Object>> customerFees(String subject, java.time.Instant start, java.time.Instant end) {
+    return jdbc.queryForList("SELECT currency, sum(fee) AS total, sum(CASE WHEN created_at>=? AND created_at<? THEN fee ELSE 0 END) AS monthly "
+        + "FROM parcel.parcel WHERE customer_subject=? AND merchant_id IS NULL GROUP BY currency ORDER BY currency",
+        java.sql.Timestamp.from(start), java.sql.Timestamp.from(end), subject);
+  }
+
+  public List<java.util.Map<String,Object>> customerTotalFees(String subject) {
+    return jdbc.queryForList("SELECT currency, sum(fee) AS total FROM parcel.parcel "
+        + "WHERE customer_subject=? AND merchant_id IS NULL GROUP BY currency ORDER BY currency", subject);
+  }
+
+  public Optional<ParcelBooking> findPublicReference(String reference) {
+    return jdbc.query("SELECT " + COLUMNS + " FROM parcel.parcel WHERE tracking_ref=?", ROW_MAPPER,
+        reference.toUpperCase(java.util.Locale.ROOT)).stream().findFirst();
+  }
+
+  public Optional<ParcelBooking> findCustomerReference(String subject, String reference) {
+    return jdbc.query("SELECT " + COLUMNS + " FROM parcel.parcel WHERE customer_subject=? AND merchant_id IS NULL "
+        + "AND (id::text=? OR tracking_ref=?)", ROW_MAPPER, subject, reference, reference.toUpperCase(java.util.Locale.ROOT)).stream().findFirst();
+  }
+
+  private String customerWhere(String subject, List<String> statuses, String search, List<Object> args) {
+    String where = "customer_subject=? AND merchant_id IS NULL"; args.add(subject);
+    if (!statuses.isEmpty()) {
+      where += " AND status IN (" + String.join(",", java.util.Collections.nCopies(statuses.size(), "?")) + ")";
+      args.addAll(statuses);
+    }
+    if (search != null && !search.isBlank()) {
+      where += " AND (tracking_ref ILIKE ? OR recipient_city ILIKE ? OR recipient_name ILIKE ?)";
+      String pattern = "%" + search.trim() + "%"; args.add(pattern); args.add(pattern); args.add(pattern);
+    }
+    return where;
+  }
+
   /** True when the duplicate key came from the tracking reference constraint (a random collision). */
   public static boolean isTrackingRefCollision(DuplicateKeyException ex) {
     return violates(ex, TRACKING_REF_CONSTRAINT);

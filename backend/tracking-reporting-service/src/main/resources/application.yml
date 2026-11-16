@@ -32,6 +32,8 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 zentro:
+  dashboard:
+    gateway-url: ${DASHBOARD_GATEWAY_URL:http://localhost:8080}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}

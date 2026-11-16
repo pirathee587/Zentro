@@ -44,6 +44,7 @@ export const HistoryPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
+  const [formattedSpend, setFormattedSpend] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
@@ -112,9 +113,8 @@ export const HistoryPage: React.FC = () => {
         } else {
           setTotalCount((prevCount) => (append ? prevCount + incoming.length : incoming.length));
         }
-        if (typeof res.totalSpent === 'number') {
-          setTotalSpent(res.totalSpent);
-        }
+        if (typeof res.formattedTotalSpent === 'string') setFormattedSpend(res.formattedTotalSpent);
+        if (typeof res.totalSpent === 'number') setTotalSpent(res.totalSpent);
       } catch (err: unknown) {
         if (requestId !== activeRequestIdRef.current) {
           return;
@@ -161,8 +161,8 @@ export const HistoryPage: React.FC = () => {
     if (loading && parcels.length === 0) {
       return 'Loading delivery summary...';
     }
-    return `${totalCount} parcels • ${formatMoney(totalSpent)} total`;
-  }, [totalCount, totalSpent, loading, parcels.length]);
+    return `${totalCount} parcels • ${formattedSpend || formatMoney(totalSpent)} total`;
+  }, [totalCount, totalSpent, formattedSpend, loading, parcels.length]);
 
   return (
     <div>

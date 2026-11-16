@@ -103,6 +103,22 @@ class TrackingServiceTest {
   }
 
   @Test
+  @DisplayName("getPublicTracking does not invent a timeline event when event history is empty")
+  void getPublicTrackingDoesNotInventTimelineEvent() {
+    String trackingRef = "ZT-EMPTYHISTORY";
+    TrackingParcel parcel = new TrackingParcel();
+    parcel.setTrackingRef(trackingRef);
+    parcel.setStatus(TrackingStatus.CREATED);
+    when(parcelRepository.findByTrackingRef(trackingRef)).thenReturn(Optional.of(parcel));
+    when(eventRepository.findByTrackingRefOrderByOccurredAtAsc(trackingRef)).thenReturn(List.of());
+
+    PublicTrackingResponse response = trackingService.getPublicTracking(trackingRef);
+
+    assertThat(response.timeline()).isEmpty();
+    assertThat(response.events()).isEmpty();
+  }
+
+  @Test
   @DisplayName("getPublicTracking throws TrackingNotFoundException for unknown reference")
   void getPublicTrackingThrowsNotFound() {
     when(parcelRepository.findByTrackingRef("ZT-UNKNOWN999")).thenReturn(Optional.empty());

@@ -1,6 +1,19 @@
 server:
   port: ${SERVER_PORT:8085}
 spring:
+  ai:
+    mcp:
+      client:
+        # The official auto-configurations are enabled inside each isolated customer context.
+        # Do not create a second application-wide client or inherit customer credentials.
+        enabled: false
+        name: zentro-customer-support
+        version: 1.0.0
+        type: SYNC
+        initialized: true
+        request-timeout: 8s
+        toolcallback:
+          enabled: true
   application:
     name: notification-integration-service
   config:
@@ -32,6 +45,14 @@ zentro:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
     jwks-uri: ${JWT_JWKS_URI:}
+  assistant:
+    api-key: ${DEEPSEEK_API_KEY:}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    model: ${DEEPSEEK_MODEL:deepseek-chat}
+    gateway-url: ${ASSISTANT_GATEWAY_URL:http://localhost:8080}
+    connect-timeout-ms: ${ASSISTANT_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${ASSISTANT_READ_TIMEOUT_MS:15000}
+    tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS:3000}
   identity:
     # S1 Identity, used to check that a merchant is approved before it registers a webhook endpoint.
     base-url: ${IDENTITY_BASE_URL:http://localhost:8081}

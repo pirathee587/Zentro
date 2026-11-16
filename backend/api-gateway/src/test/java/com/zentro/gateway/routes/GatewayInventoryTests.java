@@ -24,7 +24,8 @@ import org.springframework.web.util.pattern.PathPatternParser;
 class GatewayInventoryTests {
   private static final List<String> SERVICES = List.of("identity-partner-service", "parcel-pricing-service",
       "dispatch-courier-service", "tracking-reporting-service", "notification-integration-service");
-  private static final List<String> IDS = List.of("identity", "parcel", "dispatch", "tracking", "notification");
+  private static final List<String> IDS = List.of("identity", "parcel", "dispatch", "tracking",
+      "notification", "assistant");
   private static final Map<String, String> RESERVED = Map.of(
       "/api/v1/admin/zones/**", "Reserved S2 zone management; no controller",
       "/api/v1/reports/**", "Reserved S4 reports; no controller",
@@ -81,7 +82,7 @@ class GatewayInventoryTests {
               var matching = routes.stream().filter(r -> paths(r).stream().anyMatch(p -> parser.parse(p)
                   .matches(PathContainer.parsePath(path)))).toList();
               assertThat(matching).as("route for %s", path).isNotEmpty();
-              assertThat(matching.getFirst().getId()).as("effective owner for %s", path).isEqualTo(IDS.get(serviceIndex));
+              assertThat(matching.getFirst().getId()).as("effective owner for %s", path).isEqualTo(path.startsWith("/api/v1/assistant/") ? "assistant" : IDS.get(serviceIndex));
               // The sole intentional overlap: ordered S1 profile prefix before general S3 courier prefix.
               if (matching.size() > 1) {
                 assertThat(path).startsWith("/api/v1/courier/profile");

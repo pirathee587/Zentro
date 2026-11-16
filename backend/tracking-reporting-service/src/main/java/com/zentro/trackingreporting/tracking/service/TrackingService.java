@@ -273,7 +273,8 @@ public class TrackingService {
     event.setPreviousStatus(previousStatus);
     event.setActorRole(actorRole != null ? actorRole : "SYSTEM");
     event.setTitle(title != null ? title : status.defaultTitle());
-    event.setDescription(description != null ? description : status.defaultDescription());
+    // Descriptions are event facts, not status templates. Keep missing details absent.
+    event.setDescription(description);
     event.setFailureReason(failureReason);
     event.setLocation(location);
     event.setOccurredAt(eventTime);
@@ -320,7 +321,7 @@ public class TrackingService {
           null,
           "CUSTOMER",
           saved.getStatus().defaultTitle(),
-          saved.getStatus().defaultDescription(),
+          null,
           null,
           saved.getSenderCity(),
           saved.getCreatedAt(),
@@ -505,15 +506,6 @@ public class TrackingService {
   private List<TrackingMilestoneDto> buildTimeline(TrackingParcel parcel, List<TrackingEvent> events) {
     List<TrackingMilestoneDto> timeline = new ArrayList<>();
     if (events.isEmpty()) {
-      timeline.add(new TrackingMilestoneDto(
-          UUID.randomUUID().toString(),
-          "Created",
-          "Delivery order registered",
-          parcel.getCreatedAt(),
-          "completed",
-          parcel.getSenderCity(),
-          null
-      ));
       return timeline;
     }
 

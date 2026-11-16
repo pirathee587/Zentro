@@ -31,6 +31,14 @@ public class ReceiptController {
     this.receiptService = receiptService;
   }
 
+  @GetMapping("/mine/receipts")
+  @PreAuthorize("hasRole('CUSTOMER')")
+  public java.util.List<ReceiptResponse> customerReceipts(@AuthenticationPrincipal Jwt jwt) {
+    if (jwt==null || jwt.getSubject()==null || jwt.getSubject().isBlank())
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+    return receiptService.customerReceipts(jwt.getSubject());
+  }
+
   @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_JSON_VALUE)
   @PreAuthorize("hasAnyRole('CUSTOMER', 'MERCHANT', 'DISPATCHER', 'SERVICE')")
   public ResponseEntity<ReceiptResponse> getReceipt(

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Micrometer meters: counters zentro.notifications.sent / failed / retried / skipped / duplicates / rejected and
- * gauges zentro.notifications.pending (PENDING + RETRY rows) and zentro.notifications.failed.total (FAILED rows).
+ * gauges zentro.notifications.pending (PENDING + RETRY rows) and zentro.notifications.failed.backlog (FAILED rows).
  */
 @Component
 public class NotificationMetrics {
@@ -20,7 +20,7 @@ public class NotificationMetrics {
   public static final String DUPLICATES = "zentro.notifications.duplicates";
   public static final String REJECTED = "zentro.notifications.rejected";
   public static final String PENDING_GAUGE = "zentro.notifications.pending";
-  public static final String FAILED_GAUGE = "zentro.notifications.failed.total";
+  public static final String FAILED_GAUGE = "zentro.notifications.failed.backlog";
 
   private final Counter sent;
   private final Counter failed;
