@@ -59,7 +59,7 @@ const USERS = [
 const server = setupServer(
   http.get('*/api/v1/admin/users', () => HttpResponse.json(USERS)),
   http.patch('*/api/v1/admin/users/:userId', async ({ params, request }) => {
-    const body = (await request.json()) as Record<string, string>;
+    const body = (await request.clone().json()) as Record<string, string>;
     const target = USERS.find((u) => u.id === params['userId']);
     if (!target) return HttpResponse.json({ status: 404 }, { status: 404 });
     return HttpResponse.json({ ...target, ...body });
@@ -139,14 +139,10 @@ describe('UsersPage', () => {
 
   it('shows an error state when the API fails', async () => {
     server.use(
-      http.get('*/api/v1/admin/users', () =>
-        HttpResponse.json({ status: 403 }, { status: 403 }),
-      ),
+      http.get('*/api/v1/admin/users', () => HttpResponse.json({ status: 403 }, { status: 403 })),
     );
     renderUsersPage();
-    expect(
-      await screen.findByText(/does not have permission/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/does not have permission/i)).toBeInTheDocument();
   });
 
   it('shows empty state when no users match', async () => {
@@ -235,5 +231,84 @@ describe('UsersPage', () => {
       expect(params.has('status')).toBe(false);
     });
     expect(searchInput).toHaveValue('');
+  });
+  it.each(['light', 'dark'])(
+    'opens an accessible modal in %s theme with read-only email and roles',
+    async (theme) => {
+      document.documentElement.dataset.theme = theme;
+      renderUsersPage();
+      const trigger = await screen.findByRole('button', { name: 'Edit user Alice' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const dialog = screen.getByRole('dialog', { name: 'Edit user' });
+      expect(within(dialog).getByRole('heading', { name: 'Edit user' })).toBeInTheDocument();
+      expect(within(dialog).getByLabelText('Email address')).toHaveAttribute('readonly');
+      expect(within(dialog).getByLabelText('Email address')).toHaveValue('alice@example.com');
+      expect(dialog.closest('.user-edit-backdrop')?.parentElement).toBe(document.body);
+      expect(document.body.style.overflow).toBe('hidden');
+      expect(
+        within(dialog).getByText('Role assignment is managed in Keycloak.'),
+      ).toBeInTheDocument();
+      fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+      expect(within(dialog).getByRole('button', { name: 'Save changes' })).toHaveFocus();
+      fireEvent.keyDown(dialog, { key: 'Tab' });
+      expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus();
+      fireEvent.keyDown(dialog, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+      expect(document.body.style.overflow).not.toBe('hidden');
+      delete document.documentElement.dataset.theme;
+    },
+  );
+  it('closes on backdrop click and the close button', async () => {
+    renderUsersPage();
+    const trigger = await screen.findByRole('button', { name: 'Edit user Alice' });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId('user-edit-backdrop'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('saves editable fields only, refreshes the table and closes with success feedback', async () => {
+    let payload: Record<string, string> = {};
+    let reads = 0;
+    server.use(
+      http.get('*/api/v1/admin/users', () => {
+        reads++;
+        return HttpResponse.json(USERS);
+      }),
+      http.patch('*/api/v1/admin/users/:userId', async ({ request }) => {
+        payload = (await request.clone().json()) as Record<string, string>;
+        return HttpResponse.json({ ...USERS[0], ...payload });
+      }),
+    );
+    renderUsersPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit user Alice' }));
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Alice Updated' } });
+    fireEvent.change(screen.getByLabelText('Account status'), { target: { value: 'DISABLED' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('User updated successfully.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(payload).toEqual({
+      name: 'Alice Updated',
+      phone: '+44 7700 900000',
+      accountStatus: 'DISABLED',
+    });
+    expect(reads).toBeGreaterThan(1);
+  });
+  it('retains entered values and shows API errors in the modal', async () => {
+    server.use(
+      http.patch('*/api/v1/admin/users/:userId', () =>
+        HttpResponse.json({ detail: 'Update failed' }, { status: 500 }),
+      ),
+    );
+    renderUsersPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit user Alice' }));
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Unsaved name' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Display name')).toHaveValue('Unsaved name');
   });
 });

@@ -1,4 +1,7 @@
-import { useState, useId, useRef, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
+import './UsersPage.css';
+import { useState, useId, useRef, useEffect, type FormEvent } from 'react';
 import { useDialogFocus } from '@/shared/ui/useDialogFocus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -21,9 +24,7 @@ function StatusBadge({ status }: { status: string }) {
     DISABLED: 'staff-badge-disabled',
     SUSPENDED: 'staff-badge-suspended',
   };
-  return (
-    <span className={`staff-badge ${map[status] ?? 'staff-badge-unknown'}`}>{status}</span>
-  );
+  return <span className={`staff-badge ${map[status] ?? 'staff-badge-unknown'}`}>{status}</span>;
 }
 
 // ─── Role pill ──────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ function UserEditPanel({
   onSaved: () => void;
 }) {
   const nameId = useId();
+  const emailId = useId();
   const phoneId = useId();
   const statusId = useId();
 
@@ -70,8 +72,17 @@ function UserEditPanel({
   );
   const [saveError, setSaveError] = useState('');
   const isSelf = user.id === currentUserId;
+  useEffect(() => {
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, []);
   const dialog = useRef<HTMLDivElement>(null);
-  useDialogFocus(dialog, () => { if (!save.isPending) onClose(); });
+  useDialogFocus(dialog, () => {
+    if (!save.isPending) onClose();
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -93,119 +104,156 @@ function UserEditPanel({
       setSaveError(friendlyApiError(error, 'Could not update the user. Please try again.')),
   });
 
-  return (
+  return createPortal(
     <div
-      role="dialog"
-      ref={dialog}
-      tabIndex={-1}
-      aria-modal="true"
-      aria-label="Edit user"
-      className="staff-edit-panel"
+      className="user-edit-backdrop"
+      data-testid="user-edit-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !save.isPending) onClose();
+      }}
     >
-      <div className="staff-edit-panel-header">
-        <div>
-          <span className="staff-eyebrow">EDIT USER</span>
-          <h2>{user.name ?? user.email}</h2>
-          <small>{user.email}</small>
-        </div>
-        <button type="button" aria-label="Close" className="staff-close-btn" onClick={onClose}>
-          ✕
-        </button>
-      </div>
-
-      <div className="staff-edit-panel-body">
-        <div className="staff-field">
-          <label htmlFor={nameId}>Display name</label>
-          <input
-            id={nameId}
-            type="text"
-            value={name}
-            maxLength={200}
-            placeholder={user.email}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor={phoneId}>Phone</label>
-          <input
-            id={phoneId}
-            type="tel"
-            value={phone}
-            maxLength={32}
-            placeholder="Not set"
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor={statusId}>Account status</label>
-          <select
-            id={statusId}
-            value={accountStatus}
-            disabled={isSelf}
-            onChange={(e) =>
-              setAccountStatus(e.target.value as AdminUpdateUserRequest['accountStatus'])
-            }
-          >
-            <option value="ACTIVE">Active</option>
-            <option value="DISABLED">Disabled</option>
-            <option value="SUSPENDED">Suspended</option>
-          </select>
-          {isSelf && (
-            <small className="staff-field-hint">
-              You cannot change your own account status.
-            </small>
-          )}
-        </div>
-
-        <div className="staff-field-row">
-          <strong>Roles</strong>
-          <div className="staff-role-list">
-            {user.roles.length > 0
-              ? user.roles.map((r) => <RolePill key={r} role={r} />)
-              : <span className="staff-muted">No roles assigned</span>}
+      <div
+        role="dialog"
+        ref={dialog}
+        tabIndex={-1}
+        aria-modal="true"
+        aria-label="Edit user"
+        className="staff-edit-panel user-edit-dialog"
+      >
+        <div className="staff-edit-panel-header">
+          <div>
+            <span className="staff-eyebrow">ACCOUNT DETAILS</span>
+            <h2>Edit user</h2>
+            <small>{user.email}</small>
           </div>
-          <small className="staff-field-hint">Role assignment is managed in Keycloak.</small>
+          <button
+            type="button"
+            aria-label="Close"
+            className="staff-close-btn"
+            disabled={save.isPending}
+            onClick={onClose}
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
 
-        {saveError && (
-          <p role="alert" className="staff-error" style={{ marginTop: '12px' }}>
-            {saveError}
-          </p>
-        )}
-      </div>
-
-      <div className="staff-edit-panel-footer">
-        <button type="button" className="staff-review-button" onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="staff-review-button is-approve"
-          disabled={save.isPending}
-          onClick={() => void save.mutate()}
+        <form
+          className="user-edit-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!save.isPending) save.mutate();
+          }}
         >
-          {save.isPending ? 'Saving…' : 'Save changes'}
-        </button>
+          <div className="staff-edit-panel-body">
+            <div className="staff-field">
+              <label htmlFor={nameId}>Display name</label>
+              <input
+                id={nameId}
+                type="text"
+                value={name}
+                maxLength={200}
+                placeholder={user.email}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div className="staff-field">
+              <label htmlFor={emailId}>Email address</label>
+              <input id={emailId} type="email" readOnly value={user.email} />
+            </div>
+            <div className="staff-field">
+              <label htmlFor={phoneId}>Phone</label>
+              <input
+                id={phoneId}
+                type="tel"
+                value={phone}
+                maxLength={32}
+                placeholder="Not set"
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="staff-field">
+              <label htmlFor={statusId}>Account status</label>
+              <select
+                id={statusId}
+                value={accountStatus}
+                disabled={isSelf}
+                onChange={(e) =>
+                  setAccountStatus(e.target.value as AdminUpdateUserRequest['accountStatus'])
+                }
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="DISABLED">Inactive</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+              {isSelf && (
+                <small className="staff-field-hint">
+                  You cannot change your own account status.
+                </small>
+              )}
+            </div>
+
+            <div className="staff-field-row">
+              <strong>Roles</strong>
+              <div className="staff-role-list">
+                {user.roles.length > 0 ? (
+                  user.roles.map((r) => <RolePill key={r} role={r} />)
+                ) : (
+                  <span className="staff-muted">No roles assigned</span>
+                )}
+              </div>
+              <small className="staff-field-hint">Role assignment is managed in Keycloak.</small>
+            </div>
+
+            {saveError && (
+              <p role="alert" className="staff-error" style={{ marginTop: '12px' }}>
+                {saveError}
+              </p>
+            )}
+          </div>
+
+          <div className="staff-edit-panel-footer">
+            <button
+              type="button"
+              className="staff-review-button"
+              disabled={save.isPending}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="staff-review-button is-approve"
+              disabled={save.isPending}
+            >
+              {save.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // ─── Users page ─────────────────────────────────────────────────────────────────
-export function UsersPage() {
+export function UsersPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const Container = embedded ? 'div' : 'main';
+  const Heading = embedded ? 'h2' : 'h1';
   const { user: currentUser } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUserProfile | null>(null);
+  const [saveNotice, setSaveNotice] = useState('');
   const [liveSearch, setLiveSearch] = useState('');
 
   // Debounce search by submitting on Enter or filter change only
   const usersQuery = useQuery({
     queryKey: usersKey(statusFilter, liveSearch),
     enabled: Boolean(currentUser?.accessToken),
-    queryFn: ({ signal }) => listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }, signal),
+    queryFn: ({ signal }) =>
+      listUsers({ status: statusFilter || undefined, search: liveSearch || undefined }, signal),
   });
 
   function handleSearchSubmit(e: FormEvent<HTMLFormElement>) {
@@ -218,16 +266,21 @@ export function UsersPage() {
   }
 
   return (
-    <main className="staff-main">
+    <Container className={`staff-main users-page ${embedded ? 'people-embedded' : ''}`}>
       <section className="staff-section">
         <div className="staff-section-heading">
           <div>
             <span className="staff-eyebrow">DISPATCH DESK</span>
-            <h1>User management</h1>
+            <Heading>User management</Heading>
             <p>View and manage registered user accounts.</p>
           </div>
         </div>
 
+        {saveNotice && (
+          <p className="staff-review-success" role="status">
+            {saveNotice}
+          </p>
+        )}
         {/* Filters */}
         <form
           className="staff-filter-bar"
@@ -305,9 +358,11 @@ export function UsersPage() {
                       <small>{u.email}</small>
                     </span>
                     <span role="cell" className="staff-role-list">
-                      {u.roles.length > 0
-                        ? u.roles.map((r) => <RolePill key={r} role={r} />)
-                        : <span className="staff-muted">—</span>}
+                      {u.roles.length > 0 ? (
+                        u.roles.map((r) => <RolePill key={r} role={r} />)
+                      ) : (
+                        <span className="staff-muted">—</span>
+                      )}
                     </span>
                     <span role="cell">
                       <StatusBadge status={u.accountStatus} />
@@ -342,19 +397,17 @@ export function UsersPage() {
       {/* Edit panel overlay */}
       {selectedUser && currentUser && (
         <>
-          <div
-            className="staff-overlay"
-            aria-hidden="true"
-            onClick={() => setSelectedUser(null)}
-          />
           <UserEditPanel
             user={selectedUser}
             currentUserId={currentUser.id}
             onClose={() => setSelectedUser(null)}
-            onSaved={() => setSelectedUser(null)}
+            onSaved={() => {
+              setSelectedUser(null);
+              setSaveNotice('User updated successfully.');
+            }}
           />
         </>
       )}
-    </main>
+    </Container>
   );
 }
