@@ -23,47 +23,23 @@ import {
 } from '../services/customerApi';
 
 function getParcelSizeLabel(parcel: Parcel): string {
-  const size = parcel.parcel?.size || parcel.parcel?.category;
-  const w = parcel.parcel?.weightKg || 1;
-  let label = size;
-  if (!label || !['Small', 'Medium', 'Large'].includes(label)) {
-    label = w <= 1 ? 'Small' : w <= 5 ? 'Medium' : 'Large';
-  }
-  return `${label} (${w} kg)`;
+  const size = parcel.parcel?.size || parcel.parcel?.category || 'Not recorded';
+  const weight = parcel.parcel?.weightKg;
+  return weight === undefined ? size : `${size} (${weight} kg)`;
 }
 
 function computeReceiptBreakdown(parcel: Parcel) {
-  const total = parcel.fee || 650;
-  const weight = parcel.parcel?.weightKg || 1;
-  const baseFee = 550;
-  const weightCharge = Math.round(Math.max(0, weight - 1) * 250);
-  const distanceSurcharge = Math.max(0, total - (baseFee + weightCharge));
-
-  return {
-    baseFee: formatMoney(baseFee),
-    weightCharge: formatMoney(weightCharge),
-    distanceSurcharge: formatMoney(distanceSurcharge),
-    total: parcel.formattedFee || formatMoney(total),
-  };
+  // Only the total is persisted; the booking does not store pricing components.
+  return { baseFee: 'Not recorded', weightCharge: 'Not recorded', distanceSurcharge: 'Not recorded',
+    total: parcel.formattedFee || (parcel.fee === undefined ? 'Not recorded' : formatMoney(parcel.fee)) };
 }
 
 function maskPaymentMethod(method?: string): string {
-  if (!method) return 'Credit Card (•••• 4242)';
-  if (method.includes('••••')) return method;
-  if (/bank/i.test(method)) return `${method} (•••• 8821)`;
-  if (/card/i.test(method)) return `${method} (•••• 4242)`;
-  return `${method} (•••• 1024)`;
+  return method || 'Not recorded';
 }
 
-function getReceiptNumber(receipt?: Receipt, parcel?: Parcel): string {
-  if (receipt?.receiptNumber) {
-    return receipt.receiptNumber.replace(/^REC-/, 'RC-');
-  }
-  if (parcel?.trackingRef) {
-    const clean = parcel.trackingRef.replace(/^ZTR-SD/, '').replace(/^ZT-/, '');
-    return `RC-2026-${clean.slice(0, 4)}`;
-  }
-  return 'RC-2026-0001';
+function getReceiptNumber(receipt?: Receipt): string {
+  return receipt?.receiptNumber || 'Not recorded';
 }
 
 export const ReceiptsPage: React.FC = () => {
@@ -202,7 +178,7 @@ export const ReceiptsPage: React.FC = () => {
   }, [selectedParcel]);
 
   const receiptNum = useMemo(() => {
-    return getReceiptNumber(matchingReceipt, selectedParcel || undefined);
+    return getReceiptNumber(matchingReceipt);
   }, [matchingReceipt, selectedParcel]);
 
   const handlePrint = () => {
@@ -341,7 +317,7 @@ export const ReceiptsPage: React.FC = () => {
                           </span>
                         </div>
                         <span className="sd-receipt-row-fee">
-                          {parcel.formattedFee || formatMoney(parcel.fee || 0)}
+                          {parcel.formattedFee || (parcel.fee === undefined ? 'Not recorded' : formatMoney(parcel.fee))}
                         </span>
                       </BaseButton>
                     );
@@ -461,14 +437,14 @@ export const ReceiptsPage: React.FC = () => {
                         <span className="sd-receipt-label">Delivery completion date</span>
                         <span className="sd-receipt-val">
                           {selectedParcel.formattedDeliveredAt ||
-                            (selectedParcel.deliveredAt ? formatDate(selectedParcel.deliveredAt) : 'Delivered')}
+                            (selectedParcel.deliveredAt ? formatDate(selectedParcel.deliveredAt) : 'Not recorded')}
                         </span>
                       </div>
 
                       <div className="sd-receipt-line">
                         <span className="sd-receipt-label">From</span>
                         <span className="sd-receipt-val">
-                          {selectedParcel.sender?.city || 'Colombo'}
+                          {selectedParcel.sender?.city || 'Not recorded'}
                         </span>
                       </div>
 

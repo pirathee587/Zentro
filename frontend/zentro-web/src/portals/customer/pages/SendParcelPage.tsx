@@ -203,7 +203,7 @@ export const SendParcelPage: React.FC = () => {
       const result = await createDelivery(
         {
           sender: {
-            name: 'Sender Contact',
+            name: auth?.user?.name?.trim() || 'Customer',
             phone: form.pickupPhone.trim(),
             address: form.pickupAddress.trim(),
           },

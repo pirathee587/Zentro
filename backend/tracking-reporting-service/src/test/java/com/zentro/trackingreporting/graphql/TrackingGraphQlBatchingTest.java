@@ -40,6 +40,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @Import({GraphQlConfig.class, GraphQlExceptionResolver.class, DeliveryAuthorizationService.class})
 class TrackingGraphQlBatchingTest {
 
+  @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   @Autowired
   private GraphQlTester graphQlTester;
 

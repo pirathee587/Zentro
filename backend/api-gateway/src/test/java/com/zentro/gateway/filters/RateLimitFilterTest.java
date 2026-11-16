@@ -28,7 +28,11 @@ class RateLimitFilterTest {
   }
 
   private static MockServerWebExchange exchange(String forwarded) {
-    return MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/tracking/ZT-1234567890")
+    return exchange("/api/v1/tracking/ZT-1234567890", forwarded);
+  }
+
+  private static MockServerWebExchange exchange(String path, String forwarded) {
+    return MockServerWebExchange.from(MockServerHttpRequest.get(path)
         .remoteAddress(new java.net.InetSocketAddress("192.0.2.1", 12345))
         .header("X-Forwarded-For", forwarded).build());
   }
@@ -57,6 +61,22 @@ class RateLimitFilterTest {
     assertThat(throttled.getResponse().getHeaders().getFirst("Retry-After")).isNotBlank();
     assertThat(throttled.getResponse().getBodyAsString().block())
         .contains("\"status\":429", "\"title\":\"Too Many Requests\"");
+  }
+
+  @Test
+  void appliesTrackingBudgetToGraphQlAndPublicParcelTrackingRoutes() {
+    for (String path : new String[] {"/graphql", "/api/v1/parcels/tracking/ZT-1234567890"}) {
+      RateLimitFilter filter = new RateLimitFilter(1, 10, true);
+      GatewayFilterChain chain = ex -> Mono.empty();
+
+      MockServerWebExchange allowed = exchange(path, "198.51.100.60");
+      filter.filter(allowed, chain).block();
+      assertThat(allowed.getResponse().getStatusCode()).isNull();
+
+      MockServerWebExchange throttled = exchange(path, "198.51.100.60");
+      filter.filter(throttled, chain).block();
+      assertThat(throttled.getResponse().getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    }
   }
 }
 

@@ -82,6 +82,8 @@ services:
     container_name: zentro-tracking-reporting-service
     env_file:
       - ./backend/tracking-reporting-service/.env
+    environment:
+      DASHBOARD_GATEWAY_URL: http://api-gateway:8080
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
@@ -100,6 +102,8 @@ services:
     container_name: zentro-notification-integration-service
     env_file:
       - ./backend/notification-integration-service/.env
+    environment:
+      ASSISTANT_GATEWAY_URL: http://api-gateway:8080
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8085:8085"
     healthcheck:
