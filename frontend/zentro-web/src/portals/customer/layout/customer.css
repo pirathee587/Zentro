@@ -275,6 +275,32 @@ html[data-theme="dark"] .sd-nav-link:hover {
 }
 
 /* User Profile Menu */
+.customer-portal .sd-header-actions {
+  gap: 12px;
+}
+
+.customer-portal .sd-header-actions .sd-icon-btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  flex: 0 0 48px;
+  border: 0;
+  box-shadow: none;
+  color: var(--mute);
+}
+
+.customer-portal .sd-header-actions .sd-icon-btn svg {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  stroke-width: 1.8;
+}
+
+.customer-portal .sd-header-actions .sd-icon-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
 .sd-profile-menu-wrap {
   position: relative;
 }
