@@ -79,26 +79,25 @@ export const Header: React.FC = () => {
         {/* Right side actions */}
         <div className="sd-header-actions">
           {/* Theme toggle */}
-          <BaseButton
+          <button
             type="button"
             onClick={toggleTheme}
             className="sd-icon-btn"
             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            {theme === 'dark' ? <SunIcon size={22} strokeWidth={2} /> : <MoonIcon size={22} strokeWidth={2} />}
-          </BaseButton>
+            {theme === 'dark' ? <SunIcon size={26} strokeWidth={1.8} /> : <MoonIcon size={26} strokeWidth={1.8} />}
+          </button>
 
           {/* Notifications button */}
-          <BaseButton
+          <button
             type="button"
             className="sd-icon-btn"
             aria-label="View notifications"
             title="Notifications"
           >
-            <BellIcon size={22} strokeWidth={2} />
-            <span className="sd-notification-badge" aria-hidden="true" />
-          </BaseButton>
+            <BellIcon size={26} strokeWidth={1.8} />
+          </button>
 
           {/* Profile button (circular, --card background) */}
           <div className="sd-profile-menu-wrap" ref={profileRef} onKeyDown={event => {
@@ -106,7 +105,7 @@ export const Header: React.FC = () => {
               event.preventDefault(); setProfileOpen(false); profileRef.current?.querySelector('button')?.focus();
             }
           }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setProfileOpen(false); }}>
-            <BaseButton
+            <button
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
               className="sd-icon-btn sd-profile-btn"
@@ -114,8 +113,8 @@ export const Header: React.FC = () => {
               aria-expanded={profileOpen}
               aria-controls="customer-profile-panel"
             >
-              <UserIcon size={22} strokeWidth={2} />
-            </BaseButton>
+              <UserIcon size={26} strokeWidth={1.8} />
+            </button>
 
             {profileOpen && (
               <div className="sd-profile-menu" id="customer-profile-panel">
