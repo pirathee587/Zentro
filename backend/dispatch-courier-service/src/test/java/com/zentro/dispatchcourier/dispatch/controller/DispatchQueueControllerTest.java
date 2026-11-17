@@ -83,6 +83,9 @@ class DispatchQueueControllerTest {
   }
 
   @BeforeEach void setup() {
+    doAnswer(call -> source.withEligibleParcel(call.getArgument(0), call.getArgument(1), call.getArgument(2)))
+        .when(source).inspectEligibleParcel(any(), anyString(), any());
+
     when(source.eligibleParcels(anyString())).thenThrow(new DispatchException(
         org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "DISPATCH_SOURCE_UNAVAILABLE", "Unavailable"));
     doThrow(new DispatchException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
@@ -188,7 +191,9 @@ class DispatchQueueControllerTest {
         .with(jwt().jwt(token -> token.claim("permissions", java.util.List.of("DISPATCH_VIEW", "DISPATCH_ASSIGN")))
         .authorities(new SimpleGrantedAuthority("ROLE_DISPATCHER"))))
         .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DELIVERY_ALREADY_ASSIGNED"));
-    verifyNoInteractions(source, identity);
+    verify(source).reconcileParcel(eq(java.util.UUID.fromString(PARCEL)), anyString());
+    verifyNoMoreInteractions(source);
+    verifyNoInteractions(identity);
   }
 
   @Test void storageFailureDoesNotLeakDatabaseDetails() throws Exception {

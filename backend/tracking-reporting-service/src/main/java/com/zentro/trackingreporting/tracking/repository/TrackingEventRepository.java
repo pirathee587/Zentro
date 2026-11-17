@@ -9,6 +9,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TrackingEventRepository extends JpaRepository<TrackingEvent, UUID> {
 
+  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+  List<TrackingEvent> findByParcelIdInAndOccurredAtBetweenOrderByOccurredAtDesc(
+      List<UUID> parcelIds, java.time.Instant start, java.time.Instant end);
+
   List<TrackingEvent> findByTrackingRefOrderByOccurredAtAsc(String trackingRef);
 
   List<TrackingEvent> findByTrackingRefInOrderByOccurredAtAsc(List<String> trackingRefs);

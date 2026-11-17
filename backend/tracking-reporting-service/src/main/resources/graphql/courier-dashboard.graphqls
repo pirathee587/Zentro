@@ -1,0 +1,37 @@
+extend type Query {
+  """Courier-only dashboard. Counts cover all eligible current assignments, not only this page."""
+  courierTodayDashboard(page: Int = 1, size: Int = 10): CourierTodayDashboard
+}
+
+type CourierTodayDashboard {
+  businessDate: String!
+  timeZone: String!
+  counts: CourierTodayCounts!
+  currentDelivery: CourierTodayDelivery
+  deliveries: [CourierTodayDelivery!]!
+  pageInfo: PageInfo!
+}
+
+type CourierTodayCounts {
+  assigned: Int!
+  delivered: Int!
+  failed: Int!
+  remaining: Int!
+}
+
+type CourierTodayDelivery {
+  parcelId: ID!
+  assignedAt: String!
+  assignmentState: String!
+  projectionAvailable: Boolean!
+  trackingRef: String
+  status: TrackingStatus
+  recipient: Party
+  weightKg: Float
+  size: String
+  failureReason: String
+  proofId: ID
+  completionState: CourierDashboardProofState
+}
+
+enum CourierDashboardProofState { PENDING COMPLETED REJECTED BLOCKED }

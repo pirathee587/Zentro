@@ -67,8 +67,16 @@ public class ParcelStatusRepository {
         UPDATE parcel.parcel
            SET status = ?, updated_at = ?, version = version + 1
          WHERE id = ? AND version = ?
+           AND NOT EXISTS (SELECT 1 FROM parcel.assignment_claim c WHERE c.parcel_id=parcel.parcel.id AND c.state='HELD')
         """, newStatus.name(), changedAt, parcelId, expectedVersion);
     if (updated != 1) {
+      // A HELD claim is a temporary dependency condition, not a rejected lifecycle transition.
+      // Existing proof completion retries 503 responses but treats 409 as definitive rejection.
+      if (Boolean.TRUE.equals(jdbc.queryForObject(
+          "SELECT EXISTS(SELECT 1 FROM parcel.assignment_claim WHERE parcel_id=? AND state='HELD')",
+          Boolean.class, parcelId))) {
+        throw new org.springframework.dao.TransientDataAccessResourceException("Parcel assignment coordination is pending");
+      }
       throw new OptimisticLockingFailureException("Parcel " + parcelId + " changed while its status was being updated");
     }
     return expectedVersion + 1;

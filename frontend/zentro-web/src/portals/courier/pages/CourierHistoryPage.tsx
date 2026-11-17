@@ -1,129 +1,175 @@
-import React, { useState, useMemo } from 'react';
-import { Button, Select } from '@/shared/ui';
-
-interface HistoryItem {
-  id: string;
-  date: string;
-  reference: string;
-  destination: string;
-  status: 'Delivered' | 'Failed';
-  proofOrReason: string;
-}
-
-const HISTORY_DATA: HistoryItem[] = [
-  { id: 'h1', date: '26 Oct', reference: 'ZT-1A4D7KQ2MP', destination: 'Dehiwala', status: 'Delivered', proofOrReason: 'Recipient: K. Fernando' },
-  { id: 'h2', date: '26 Oct', reference: 'ZT-5N8C2WX9RB', destination: 'Mount Lavinia', status: 'Delivered', proofOrReason: 'Recipient: N. Perera' },
-  { id: 'h3', date: '26 Oct', reference: 'ZT-7V3H6TD1YJ', destination: 'Ratmalana', status: 'Failed', proofOrReason: 'Wrong address' },
-  { id: 'h4', date: '25 Oct', reference: 'ZT-2M9B5QK4XE', destination: 'Moratuwa', status: 'Delivered', proofOrReason: 'Recipient: S. Gunawardena' },
-  { id: 'h5', date: '25 Oct', reference: 'ZT-8R1F7ZN3CL', destination: 'Panadura', status: 'Delivered', proofOrReason: 'Recipient: T. Silva' },
-  { id: 'h6', date: '24 Oct', reference: 'ZT-4J6P2VH8DW', destination: 'Kalutara', status: 'Delivered', proofOrReason: 'Recipient: P. Rajapaksa' },
-  { id: 'h7', date: '24 Oct', reference: 'ZT-9X2K5MB7QA', destination: 'Wadduwa', status: 'Delivered', proofOrReason: 'Recipient: L. Mendis' },
-  { id: 'h8', date: '24 Oct', reference: 'ZT-3C8T1RE6NG', destination: 'Horana', status: 'Delivered', proofOrReason: 'Recipient: H. Dias' },
-  { id: 'h9', date: '24 Oct', reference: 'ZT-6D4Q9YW2UK', destination: 'Bandaragama', status: 'Failed', proofOrReason: 'No answer' },
-  { id: 'h10', date: '23 Oct', reference: 'ZT-1H7N3BV5ZS', destination: 'Kesbewa', status: 'Delivered', proofOrReason: 'Recipient: A. Fonseka' },
-  { id: 'h11', date: '23 Oct', reference: 'ZT-5K2W8CD4TM', destination: 'Piliyandala', status: 'Delivered', proofOrReason: 'Recipient: R. Kumar' },
-  { id: 'h12', date: '21 Oct', reference: 'ZT-8B6F1XQ9JE', destination: 'Nugegoda', status: 'Delivered', proofOrReason: 'Recipient: D. Abeysekera' },
-  { id: 'h13', date: '21 Oct', reference: 'ZT-2Y5M7HK3VP', destination: 'Maharagama', status: 'Delivered', proofOrReason: 'Recipient: C. Weerasinghe' },
-  { id: 'h14', date: '18 Oct', reference: 'ZT-7Q3D9NB2LX', destination: 'Kottawa', status: 'Delivered', proofOrReason: 'Recipient: V. Samarasinghe' },
-  { id: 'h15', date: '18 Oct', reference: 'ZT-4T8R6WC1HA', destination: 'Homagama', status: 'Failed', proofOrReason: 'Refused by recipient' },
-  { id: 'h16', date: '12 Oct', reference: 'ZT-9E1K5ZM8DB', destination: 'Boralesgamuwa', status: 'Delivered', proofOrReason: 'Recipient: G. Peiris' },
-  { id: 'h17', date: '12 Oct', reference: 'ZT-3N7V2QH6YC', destination: 'Dehiwala', status: 'Delivered', proofOrReason: 'Recipient: I. Cooray' },
-  { id: 'h18', date: '05 Oct', reference: 'ZT-6P4X8TB3WR', destination: 'Moratuwa', status: 'Delivered', proofOrReason: 'Recipient: O. Senanayake' },
-];
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
+import { Button, Input, Select } from '@/shared/ui';
+import { useAuth } from '@/shared/auth/useAuth';
+import { useCourierAssignments } from '../hooks/useCourierAssignments';
+import { CourierPage, ReadState, ProofBadge } from './CourierPageParts';
+import { assignedDate, assignedDay, completionLabels } from './courierPageUtils';
 
 export function CourierHistoryPage() {
-  const [filter, setFilter] = useState<'All' | 'Delivered' | 'Failed'>('All');
-  const [period, setPeriod] = useState<string>('Last 30 days');
-
-  const filteredItems = useMemo(() => {
-    if (filter === 'All') return HISTORY_DATA;
-    return HISTORY_DATA.filter((item) => item.status === filter);
-  }, [filter]);
-
+  const { user } = useAuth();
+  return <HistoryRecords key={user?.id || 'anonymous'} />;
+}
+function HistoryRecords() {
+  const { user } = useAuth();
+  const query = useCourierAssignments();
+  const [search, setSearch] = useState('');
+  const [state, setState] = useState('ALL');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [page, setPage] = useState(1);
+  const invalidRange = Boolean(from && to && from > to);
+  const records = (query.data ?? []).filter((row) => row.proofId !== null);
+  const matches = records
+    .filter(
+      (row) =>
+        !invalidRange &&
+        row.parcelId.toLowerCase().includes(search.trim().toLowerCase()) &&
+        (state === 'ALL' || state === row.completionState) &&
+        (!from || assignedDay(row.assignedAt) >= from) &&
+        (!to || assignedDay(row.assignedAt) <= to),
+    )
+    .sort(
+      (a, b) => b.assignedAt.localeCompare(a.assignedAt) || a.parcelId.localeCompare(b.parcelId),
+    );
+  const pages = Math.max(1, Math.ceil(matches.length / 10));
+  const current = Math.min(page, pages);
+  const visible = matches.slice((current - 1) * 10, current * 10);
   return (
-    <main className="sd-page-container" aria-label="Delivery History">
-      {/* Page Header */}
-      <div className="sd-page-header">
-        <div className="sd-page-title-group">
-          <h1 className="sd-page-title">History</h1>
-          <p className="sd-page-subtitle">18 deliveries · 83% success</p>
-        </div>
-      </div>
-
-      {/* Main Card with Controls and Table */}
-      <div className="sd-card">
-        {/* Filter Pills */}
-        <div className="sd-filter-row" style={{ marginBottom: 20 }}>
-          <div className="sd-filter-pills" role="tablist" aria-label="Filter deliveries by status">
-            {(['All', 'Delivered', 'Failed'] as const).map((tab) => (
-              <Button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={filter === tab}
-                className={`sd-filter-pill ${filter === tab ? 'is-active' : ''}`}
-                onClick={() => setFilter(tab)}
+    <CourierPage
+      title="History"
+      description="Proof records for deliveries currently assigned to you."
+      action={
+        user?.accessToken && (
+          <Button disabled={query.isFetching} onClick={() => void query.refetch()}>
+            <RefreshCw size={16} aria-hidden="true" /> Refresh
+          </Button>
+        )
+      }
+    >
+      <p className="cs-notice">
+        A complete delivery archive is not available yet. Reassigned or removed deliveries may not
+        appear. Proof states are not failed-delivery statuses; completion dates and tracking
+        references are not supplied by this list.
+      </p>
+      {!user?.accessToken ? (
+        <p role="status">Sign in to view your delivery records.</p>
+      ) : query.isPending ? (
+        <ReadState loading retry={() => void query.refetch()} />
+      ) : query.isError ? (
+        <ReadState error={query.error} retry={() => void query.refetch()} />
+      ) : (
+        <section className="cs-card" aria-labelledby="history-records">
+          <h2 id="history-records">Available proof records</h2>
+          <div className="cs-filter">
+            <label>
+              Search parcel ID
+              <Input
+                type="search"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label>
+              Proof state
+              <Select
+                value={state}
+                onChange={(e) => {
+                  setState(e.target.value);
+                  setPage(1);
+                }}
               >
-                {tab}
-              </Button>
-            ))}
+                <option value="ALL">All proof states</option>
+                {Object.entries(completionLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label>
+              Assigned from
+              <Input
+                type="date"
+                value={from}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <label>
+              Assigned through
+              <Input
+                type="date"
+                value={to}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
           </div>
-        </div>
-
-        {/* Period Selector */}
-        <div className="sd-period-select-wrap" style={{ marginBottom: 24 }}>
-          <label htmlFor="history-period-select" className="sd-input-label">
-            Period
-          </label>
-          <div className="sd-select-wrapper" style={{ maxWidth: 220 }}>
-            <Select
-              id="history-period-select"
-              className="sd-select"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            >
-              <option value="Last 7 days">Last 7 days</option>
-              <option value="Last 30 days">Last 30 days</option>
-              <option value="Last 90 days">Last 90 days</option>
-            </Select>
-          </div>
-        </div>
-
-        {/* Deliveries Table */}
-        <div className="sd-table-wrap">
-          <table className="sd-table" aria-label="Courier historical deliveries">
-            <thead>
-              <tr>
-                <th scope="col" style={{ width: '12%' }}>Date</th>
-                <th scope="col" style={{ width: '22%' }}>Reference</th>
-                <th scope="col" style={{ width: '24%' }}>Destination</th>
-                <th scope="col" style={{ width: '16%' }}>Status</th>
-                <th scope="col" style={{ width: '26%' }}>Proof or reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map((row) => (
-                <tr key={row.id}>
-                  <td className="sd-cell-date">{row.date}</td>
-                  <td className="sd-cell-ref">
-                    <span className="sd-ref-code">{row.reference}</span>
-                  </td>
-                  <td className="sd-cell-bold">{row.destination}</td>
-                  <td>
-                    {row.status === 'Delivered' ? (
-                      <span className="sd-badge-dark">Delivered</span>
-                    ) : (
-                      <span className="sd-badge-coral">Failed</span>
-                    )}
-                  </td>
-                  <td className="sd-cell-mute">{row.proofOrReason}</td>
-                </tr>
+          <p className="cs-muted">
+            Dates use Asia/Colombo and refer to assignment, not completion.
+          </p>
+          <Button
+            onClick={() => {
+              setSearch('');
+              setState('ALL');
+              setFrom('');
+              setTo('');
+              setPage(1);
+            }}
+          >
+            Clear filters
+          </Button>
+          {invalidRange && <p role="alert">The start date must be on or before the end date.</p>}
+          <p role="status">{matches.length} matching proof records</p>
+          {visible.length ? (
+            <ul className="cs-list">
+              {visible.map((row) => (
+                <li key={row.parcelId}>
+                  <div>
+                    <h3>Parcel {row.parcelId}</h3>
+                    <p className="cs-muted">Assigned {assignedDate(row.assignedAt)}</p>
+                    <ProofBadge state={row.completionState} />
+                  </div>
+                  <Link to={`/courier/deliveries/${row.parcelId}`}>View delivery and proof</Link>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
+            </ul>
+          ) : (
+            <div className="cs-state">
+              <h3>
+                {records.length ? 'No records match your filters' : 'No proof records available'}
+              </h3>
+              <p className="cs-muted">
+                {records.length
+                  ? 'Try another proof state, parcel ID or assignment date.'
+                  : 'Proof recorded for your current assignments will appear here.'}
+              </p>
+            </div>
+          )}
+          {pages > 1 && (
+            <nav className="cs-pagination" aria-label="Pages of loaded proof records">
+              <Button disabled={current <= 1} onClick={() => setPage(current - 1)}>
+                Previous
+              </Button>
+              <span aria-live="polite">
+                Page {current} of {pages}
+              </span>
+              <Button disabled={current >= pages} onClick={() => setPage(current + 1)}>
+                Next
+              </Button>
+            </nav>
+          )}
+        </section>
+      )}
+    </CourierPage>
   );
 }
-
