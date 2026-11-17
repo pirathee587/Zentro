@@ -29,6 +29,16 @@ public interface ParcelSource {
 
   Snapshot eligibleParcels(String bearerToken);
 
+  /** Selection is a read-only hint, always revalidated by the guarded assignment. */
+  default <T> T inspectEligibleParcel(UUID parcelId, String token, Function<Parcel,T> read) {
+    return withEligibleParcel(parcelId, token, read);
+  }
+
+
+  /** Resolve an earlier uncertain outcome before duplicate checks; legacy fixtures need no recovery. */
+  default void reconcileParcel(UUID parcelId, String bearerToken) {}
+
+
   /**
    * Invoke the callback only for an existing, currently eligible parcel. The
    * adapter must preserve the agreed eligibility guarantee through the callback
