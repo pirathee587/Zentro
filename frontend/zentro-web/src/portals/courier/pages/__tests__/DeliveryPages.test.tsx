@@ -13,6 +13,7 @@ import { ProofOfDeliveryForm } from '../ProofOfDeliveryForm';
 import type { ProofResponse } from '../../api/deliveryApi';
 import { CourierLayout } from '../../layout/CourierLayout';
 import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
+import { dashboardDelivery, dashboardEnvelope, dashboardFixture } from './dashboardFixtures';
 
 const parcelId = '11111111-1111-4111-8111-111111111111';
 const root = `*/api/v1/courier/deliveries`;
@@ -60,6 +61,7 @@ function renderSession(path = '/courier') {
 beforeEach(() => {
   currentProof = null; requests = 0; submitted = undefined;
   server.use(
+    http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope())),
     http.get(root, () => HttpResponse.json([summary])),
     http.get(`${root}/${parcelId}`, () => HttpResponse.json(summary)),
     http.get(`${root}/${parcelId}/proof`, () => currentProof ? HttpResponse.json(currentProof)
@@ -79,11 +81,11 @@ describe('courier delivery pages', () => {
     const requested = new Promise<void>(resolve => { started = resolve; });
     const responded = new Promise<void>(resolve => { finished = resolve; });
     const otherId = '22222222-2222-4222-8222-222222222222';
-    server.use(http.get(root, async ({ request }) => {
+    server.use(http.post('*/graphql', async ({ request }) => {
       if (request.headers.get('Authorization') === 'Bearer courier-test-token') {
-        started(); await gate; finished(); return HttpResponse.json([summary]);
+        started(); await gate; finished(); return HttpResponse.json(dashboardEnvelope());
       }
-      return HttpResponse.json([{ ...summary, parcelId: otherId }]);
+      return HttpResponse.json(dashboardEnvelope([dashboardDelivery({ parcelId: otherId })]));
     }));
     const session = renderSession();
     await requested;
@@ -135,12 +137,12 @@ describe('courier delivery pages', () => {
     expect(await screen.findByLabelText(/Recipient Name/)).toBeInTheDocument();
   });
   it('shows a meaningful empty assignment state', async () => {
-    server.use(http.get(root, () => HttpResponse.json([])));
+    server.use(http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope([]))));
     renderPages('/courier');
     expect(await screen.findByText('No deliveries are assigned to you yet.')).toBeInTheDocument();
   });
   it('shows list loading and dependency errors', async () => {
-    server.use(http.get(root, async () => { await delay(60); return HttpResponse.json({}, { status: 503 }); }));
+    server.use(http.post('*/graphql', async () => { await delay(60); return HttpResponse.json({}, { status: 503 }); }));
     renderPages('/courier');
     expect(screen.getByRole('status')).toHaveTextContent('Loading deliveries');
     expect(await screen.findByRole('alert')).toHaveTextContent('unavailable');
@@ -245,7 +247,7 @@ describe('assigned-delivery access and recovery', () => {
   });
   it.each([401, 403])('does not retry list access failure %s', async status => {
     let calls = 0;
-    server.use(http.get(root, () => { calls++; return HttpResponse.json({}, { status }); }));
+    server.use(http.post('*/graphql', () => { calls++; return HttpResponse.json({}, { status }); }));
     renderPages('/courier');
     expect(await screen.findByRole('alert')).toHaveTextContent(status === 401 ? 'session has expired' : "You don't have access");
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
@@ -256,10 +258,10 @@ describe('assigned-delivery access and recovery', () => {
     }
   });
   it('retries a list dependency failure explicitly', async () => {
-    server.use(http.get(root, () => HttpResponse.json({}, { status: 503 })));
+    server.use(http.post('*/graphql', () => HttpResponse.json({}, { status: 503 })));
     renderPages('/courier');
     await screen.findByRole('alert');
-    server.use(http.get(root, () => HttpResponse.json([summary])));
+    server.use(http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope())));
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText(parcelId)).toBeInTheDocument();
   });
@@ -290,12 +292,18 @@ describe('assigned-delivery access and recovery', () => {
     await screen.findByLabelText(/Recipient Name/);
     const scope = principalCacheScope(auth.user.id);
     client.setQueryData(queryKeys.courier.deliveries(scope), [summary]);
+    const dashboardPage = queryKeys.courier.dashboard(scope, { page: 1, size: 10 });
+    const otherDashboard = queryKeys.courier.dashboard('other-account', { page: 1, size: 10 });
+    client.setQueryData(dashboardPage, { dashboard: dashboardFixture(), partial: false });
+    client.setQueryData(otherDashboard, { dashboard: dashboardFixture(), partial: false });
     client.setQueryData(queryKeys.courier.profile(scope), { name: 'Synthetic Courier' });
     client.setQueryData(queryKeys.courier.delivery('other-parcel', scope), { parcelId: 'other-parcel' });
     client.setQueryData(queryKeys.customer.dashboard(), { count: 1 });
     fillForm(); fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
     await screen.findByRole('heading', { name: 'Saved proof' });
     expect(client.getQueryState(queryKeys.courier.deliveries(scope))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(dashboardPage)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(otherDashboard)?.isInvalidated).toBe(false);
     expect(client.getQueryState(queryKeys.courier.profile(scope))?.isInvalidated).toBe(false);
     expect(client.getQueryState(queryKeys.courier.delivery('other-parcel', scope))?.isInvalidated).toBe(false);
     expect(client.getQueryState(queryKeys.customer.dashboard())?.isInvalidated).toBe(false);
@@ -350,7 +358,7 @@ describe('delivery navigation', () => {
     const other = '22222222-2222-4222-8222-222222222222';
     server.use(
       http.get(`${root}/${parcelId}`, () => HttpResponse.json({}, { status: 403 })),
-      http.get(root, () => HttpResponse.json([{ ...summary, parcelId: other }])),
+      http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope([dashboardDelivery({ parcelId: other })]))),
       http.get(`${root}/${other}`, () => HttpResponse.json({ ...summary, parcelId: other })),
       http.get(`${root}/${other}/proof`, () => HttpResponse.json({ code: 'PROOF_NOT_FOUND' }, { status: 404 })),
     );

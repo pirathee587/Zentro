@@ -41,7 +41,10 @@ describe('portal routing', () => {
   it('renders the courier portal for an authenticated courier', async () => {
     server.use(
       http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Zentro Courier', roles: ['COURIER'] })),
-      http.get('*/api/v1/courier/deliveries', () => HttpResponse.json([])),
+      http.post('*/graphql', () => HttpResponse.json({ data: { courierTodayDashboard: {
+        businessDate: '2026-11-16', timeZone: 'Asia/Colombo', counts: { assigned: 0, delivered: 0, failed: 0, remaining: 0 },
+        currentDelivery: null, deliveries: [], pageInfo: { page: 1, size: 10, totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false },
+      } } })),
     );
     getUser.mockResolvedValueOnce({
       expired: false,

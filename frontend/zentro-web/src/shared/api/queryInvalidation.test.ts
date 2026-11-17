@@ -54,4 +54,16 @@ describe('mutation invalidation matrix', () => {
     expect(invalidate).not.toHaveBeenCalled();
     client.clear();
   });
+  it('courier proof invalidates every dashboard page for the same account only', async () => {
+    const client = makeClient();
+    const first = queryKeys.courier.dashboard('account-a', { page: 1, size: 10 });
+    const second = queryKeys.courier.dashboard('account-a', { page: 2, size: 10 });
+    const other = queryKeys.courier.dashboard('account-b', { page: 1, size: 10 });
+    for (const key of [first, second, other]) client.setQueryData(key, {});
+    await invalidateAfterCourierProof(client, 'delivery-1', 'account-a');
+    expect(client.getQueryState(first)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(second)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(other)?.isInvalidated).toBe(false);
+    client.clear();
+  });
 });

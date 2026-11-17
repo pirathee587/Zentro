@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { delay, http, HttpResponse } from 'msw';
 import { server } from '@/shared/testing/mocks/server';
 import { queryClient } from '@/shared/api/queryClient';
+import { dashboardEnvelope } from '@/portals/courier/pages/__tests__/dashboardFixtures';
 
 const { getUser, signinSilent, signinRedirect } = vi.hoisted(() => ({
   getUser: vi.fn(),
@@ -114,6 +115,7 @@ beforeEach(() => {
   signinRedirect.mockResolvedValue(undefined);
   // Pages load their own data; any API call other than the profile gets an empty answer.
   server.use(http.all('*/api/*', () => HttpResponse.json([])));
+  server.use(http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope([]))));
   // No merchant application yet, so the application page stays on /merchant/register-business.
   server.use(http.get('*/api/v1/merchants/me', () => HttpResponse.json({ title: 'Not Found' }, { status: 404 })));
 });
@@ -267,6 +269,7 @@ describe('route access matrix', () => {
     ] as const)('%#: a %s page answered with 401 or 403 keeps the portal and shows a message', async (who, path, navigation) => {
       for (const status of [401, 403]) {
         signIn(who);
+        if (path === '/courier') server.use(http.post('*/graphql', () => HttpResponse.json({}, { status })));
         server.use(http.all('*/api/*', ({ request }) => (request.url.includes('/api/v1/users/me')
           ? HttpResponse.json({ id: who.label, roles: who.roles, ...who.profile })
           : HttpResponse.json({ title: status === 401 ? 'Unauthorized' : 'Forbidden', status }, { status }))));
