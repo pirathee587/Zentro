@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 class CourierDashboardGraphQlTest {
   @Autowired GraphQlTester graph;
   @MockBean CourierAssignmentSnapshotClient snapshots;
+  @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   @MockBean TrackingParcelRepository parcels;
   @MockBean TrackingEventRepository events;
   @MockBean JwtDecoder decoder;
