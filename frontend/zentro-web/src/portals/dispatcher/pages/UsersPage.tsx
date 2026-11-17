@@ -13,7 +13,6 @@ import {
   createCourier,
   type AdminUserProfile,
   type AdminUpdateUserRequest,
-  type CreateCourierRequest,
 } from '../api/adminApi';
 
 // ─── Query key ─────────────────────────────────────────────────────────────────

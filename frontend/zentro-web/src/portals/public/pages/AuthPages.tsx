@@ -24,15 +24,33 @@ function GoogleSignInButton({returnTo,entryPoint}:{returnTo:string;entryPoint:'c
 }
 
 export function SignupPage() {
-  const {login, logout, register, user}=useAuth();
+  const {login, register, user}=useAuth();
   const location=useLocation();
   const navigate=useNavigate();
   const page=location.pathname;
   const merchantApplication=page==='/register/merchant'||new URLSearchParams(location.search).get('next')==='merchant';
   const isRegisterPage=page==='/register'||page==='/register/customer'||page==='/register/merchant';
-  if(!isRegisterPage) return <Navigate to="/register" replace/>;
   const returnTo=merchantApplication?'/merchant/register-business':'/customer';
   const entryPoint=merchantApplication?'merchant':'customer';
+
+  const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  if(!isRegisterPage) return <Navigate to="/register" replace/>;
 
   if (user) {
     return (
@@ -52,23 +70,6 @@ export function SignupPage() {
       </section>
     );
   }
-
-  const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const interval = setInterval(() => setResendCooldown((c) => c - 1), 1000);
-    return () => clearInterval(interval);
-  }, [resendCooldown]);
 
   const handleSendOtp = async (event: FormEvent) => {
     event.preventDefault();
@@ -195,21 +196,23 @@ export function SignupPage() {
       </form>
 
       <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-        <button
+        <Button
           type="button"
+          variant="secondary"
           onClick={handleResend}
           disabled={resendCooldown > 0 || loading}
           style={{ background: 'none', border: 'none', color: resendCooldown > 0 ? 'var(--stone)' : 'var(--bronze)', cursor: resendCooldown > 0 ? 'default' : 'pointer', padding: 0 }}
         >
           {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="secondary"
           onClick={() => { setStep('form'); setError(''); }}
           style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0 }}
         >
           Change email address
-        </button>
+        </Button>
       </div>
 
       <p className="auth-switch" style={{ marginTop: '20px' }}>
@@ -266,8 +269,9 @@ export function SignupPage() {
             onChange={(e) => { setPassword(e.target.value); setError(''); }}
             placeholder="At least 8 characters"
           />
-          <button
+          <Button
             type="button"
+            variant="secondary"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             onClick={() => setShowPassword(!showPassword)}
             style={{
@@ -280,10 +284,11 @@ export function SignupPage() {
               color: 'var(--muted)',
               cursor: 'pointer',
               fontSize: '13px',
+              padding: 0,
             }}
           >
             {showPassword ? 'Hide' : 'Show'}
-          </button>
+          </Button>
         </div>
       </label>
 
@@ -481,8 +486,9 @@ export function ForgotPasswordPage() {
                 onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
                 placeholder="At least 8 characters"
               />
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setShowPassword((v) => !v)}
                 style={{
                   position: 'absolute',
@@ -494,10 +500,11 @@ export function ForgotPasswordPage() {
                   color: 'var(--muted)',
                   cursor: 'pointer',
                   fontSize: '13px',
+                  padding: 0,
                 }}
               >
                 {showPassword ? 'Hide' : 'Show'}
-              </button>
+              </Button>
             </div>
           </label>
 
@@ -564,8 +571,9 @@ export function ForgotPasswordPage() {
         </form>
 
         <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={handleResend}
             disabled={resendCooldown > 0 || loading}
             style={{
@@ -579,9 +587,10 @@ export function ForgotPasswordPage() {
             }}
           >
             {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => { setStep('email'); setError(''); }}
             style={{
               background: 'none',
@@ -593,7 +602,7 @@ export function ForgotPasswordPage() {
             }}
           >
             Change email
-          </button>
+          </Button>
         </div>
 
         <p className="auth-switch" style={{ marginTop: '24px' }}>
