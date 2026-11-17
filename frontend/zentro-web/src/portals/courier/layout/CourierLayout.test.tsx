@@ -30,6 +30,12 @@ const renderLayout = (roles: Role[]) => render(
 );
 
 describe('courier navigation', () => {
+  it('uses canonical Zentro branding for the courier home link', () => {
+    renderLayout(['COURIER']);
+    expect(screen.getByRole('link', { name: 'Zentro Courier Home' })).toHaveAttribute('href', '/courier');
+    expect(screen.getByText('Zentro')).toBeInTheDocument();
+    expect(screen.queryByText('SwiftDrop')).not.toBeInTheDocument();
+  });
   it.each<[string, Role[]]>([
     ['COURIER', ['COURIER']],
     ['COURIER + DISPATCHER', ['COURIER', 'DISPATCHER']],

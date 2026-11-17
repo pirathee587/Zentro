@@ -44,7 +44,7 @@ export function CourierLayout() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const displayName = user?.name || 'Courier';
+  const displayName = user?.name?.trim() || 'Courier';
   const displayRole = user?.roles?.join(', ') || 'COURIER';
 
   return (
@@ -57,13 +57,13 @@ export function CourierLayout() {
       {/* Top Header */}
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
-          {/* Logo pill "SwiftDrop Courier" */}
+          {/* Logo pill "Zentro Courier" */}
           <Link
             to="/courier"
             className="sd-logo-pill sd-courier-logo"
-            aria-label="SwiftDrop Courier Home"
+            aria-label="Zentro Courier Home"
           >
-            <span className="sd-brand-name">SwiftDrop</span>
+            <span className="sd-brand-name">Zentro</span>
             <span className="sd-brand-role">Courier</span>
           </Link>
 
