@@ -218,7 +218,7 @@ body#keycloak-bg {
   border: 0 !important;
   border-radius: 0 !important;
   outline: none !important;
-  background: transparent !important;
+  background: var(--transparent) !important;
   box-shadow: none !important;
   color: inherit !important;
   font: inherit !important;
@@ -286,7 +286,7 @@ body#keycloak-bg {
 .pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-form-control {
   border: 0 !important;
   border-radius: 0 !important;
-  background: transparent !important;
+  background: var(--transparent) !important;
   box-shadow: none !important;
   min-height: 50px !important;
   padding: 0 15px !important;
@@ -296,7 +296,7 @@ body#keycloak-bg {
   min-height: 50px !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: transparent !important;
+  background: var(--transparent) !important;
   color: var(--espresso) !important;
   padding: 0 16px !important;
   cursor: pointer !important;
@@ -307,7 +307,7 @@ body#keycloak-bg {
 }
 
 .pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary):hover {
-  background: rgba(0, 0, 0, 0.04) !important;
+  background: var(--palette-30261f0b) !important;
 }
 
 .pf-v5-c-button.pf-m-primary {
@@ -366,9 +366,9 @@ body#keycloak-bg {
 .pf-v5-c-alert.pf-m-warning,
 .alert-error,
 .alert-warning {
-  background: #fef2f2 !important;
-  border: 1px solid #fca5a5 !important;
-  color: #991b1b !important;
+  background: var(--warm-pale) !important;
+  border: 1px solid var(--err) !important;
+  color: var(--err) !important;
 }
 
 .pf-v5-c-alert__title {
@@ -378,16 +378,16 @@ body#keycloak-bg {
 
 .pf-v5-c-alert.pf-m-success,
 .alert-success {
-  background: #f0fdf4 !important;
-  border: 1px solid #86efac !important;
-  color: #166534 !important;
+  background: var(--warm-pale) !important;
+  border: 1px solid var(--ochre) !important;
+  color: var(--umber) !important;
 }
 
 .pf-v5-c-login__main .pf-v5-c-input-group:has([aria-invalid="true"]),
 .pf-v5-c-login__main .pf-v5-c-form__group-control .pf-v5-c-form-control[aria-invalid="true"],
 .pf-v5-c-login__main .pf-v5-c-form-control[aria-invalid="true"] {
   border-color: var(--err) !important;
-  background: #fdf5f5 !important;
+  background: var(--warm-pale) !important;
 }
 
 .pf-v5-c-login__main .pf-v5-c-form__helper-text .pf-m-error,

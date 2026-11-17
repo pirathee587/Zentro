@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/merchants/api-key")
-@PreAuthorize("hasAnyRole('MERCHANT', 'CUSTOMER')")
+@PreAuthorize("hasRole('MERCHANT')")
 public class MerchantApiKeyController {
   private final MerchantApiKeyService keys;
 

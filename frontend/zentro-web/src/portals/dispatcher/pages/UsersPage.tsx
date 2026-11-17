@@ -149,7 +149,7 @@ function AddCourierModal({
               placeholder="courier@gmail.com"
               onChange={(e) => setEmail(e.target.value)}
             />
-            <small style={{ color: '#766757', marginTop: '4px', display: 'block', fontSize: '12px' }}>
+            <small style={{ color: 'var(--muted)', marginTop: '4px', display: 'block', fontSize: '12px' }}>
               A temporary password will be sent to this email. Keycloak will mandate changing password on first login.
             </small>
           </div>
@@ -258,7 +258,7 @@ function DeleteUserModal({
       >
         <div className="staff-edit-panel-header">
           <div>
-            <span className="staff-eyebrow" style={{ color: '#c53030' }}>DELETE ACCOUNT</span>
+            <span className="staff-eyebrow" style={{ color: 'var(--err)' }}>DELETE ACCOUNT</span>
             <h2>Delete User?</h2>
           </div>
           <button type="button" aria-label="Close" className="staff-close-btn" disabled={loading} onClick={onClose}>
@@ -267,10 +267,10 @@ function DeleteUserModal({
         </div>
 
         <div className="staff-edit-panel-body">
-          <p style={{ color: '#231d19', fontSize: '14px', lineHeight: 1.6 }}>
+          <p style={{ color: 'var(--espresso)', fontSize: '14px', lineHeight: 1.6 }}>
             Are you sure you want to permanently delete <strong>{user.name || user.email}</strong> (<code>{user.email}</code>)?
           </p>
-          <p style={{ color: '#8c2525', fontSize: '13px', background: '#fff5f5', padding: '10px', borderRadius: '6px', border: '1px solid #fed7d7' }}>
+          <p style={{ color: 'var(--err)', fontSize: '13px', background: 'var(--warm-pale)', padding: '10px', borderRadius: '6px', border: '1px solid var(--warm-pale)' }}>
             This will permanently delete the user in Keycloak and remove all associated profile data in Zentro.
           </p>
 
@@ -285,7 +285,7 @@ function DeleteUserModal({
               className="staff-review-button is-reject"
               disabled={loading}
               onClick={handleDelete}
-              style={{ flex: 1, background: '#c53030', color: '#fff', borderColor: '#c53030' }}
+              style={{ flex: 1, background: 'var(--err)', color: 'var(--white)', borderColor: 'var(--err)' }}
             >
               {loading ? 'Deleting...' : 'Yes, Delete Account'}
             </button>
@@ -544,9 +544,9 @@ export function UsersPage({ embedded = false }: { embedded?: boolean } = {}) {
             style={{
               marginTop: '16px',
               padding: '12px 16px',
-              background: '#e6f6ee',
-              color: '#0e6245',
-              border: '1px solid #b7ebcf',
+              background: 'var(--warm-pale)',
+              color: 'var(--umber)',
+              border: '1px solid var(--warm-pale)',
               borderRadius: '8px',
               display: 'flex',
               justifyContent: 'space-between',
@@ -557,7 +557,7 @@ export function UsersPage({ embedded = false }: { embedded?: boolean } = {}) {
             <button
               type="button"
               onClick={() => setBannerNotice('')}
-              style={{ background: 'none', border: 'none', color: '#0e6245', cursor: 'pointer', fontWeight: 'bold' }}
+              style={{ background: 'none', border: 'none', color: 'var(--umber)', cursor: 'pointer', fontWeight: 'bold' }}
             >
               ✕
             </button>

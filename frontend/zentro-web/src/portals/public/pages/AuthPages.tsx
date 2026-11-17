@@ -24,7 +24,7 @@ function GoogleSignInButton({returnTo,entryPoint}:{returnTo:string;entryPoint:'c
 }
 
 export function SignupPage() {
-  const {login, logout, user}=useAuth();
+  const {login, logout, register, user}=useAuth();
   const location=useLocation();
   const navigate=useNavigate();
   const page=location.pathname;
@@ -33,6 +33,25 @@ export function SignupPage() {
   if(!isRegisterPage) return <Navigate to="/register" replace/>;
   const returnTo=merchantApplication?'/merchant/register-business':'/customer';
   const entryPoint=merchantApplication?'merchant':'customer';
+
+  if (user) {
+    return (
+      <section className="auth-card" aria-labelledby="register-title">
+        <span className="eyebrow">{merchantApplication ? 'ZENTRO BUSINESS' : 'WELCOME TO ZENTRO'}</span>
+        <h1 id="register-title">
+          {merchantApplication ? <>One account.<br/><em>More ways to move.</em></> : <>Make room for<br/><em>one less worry.</em></>}
+        </h1>
+        <p>You are already signed in. Continue to your account, or create a separate Zentro account.</p>
+        <Button className="auth-submit" onClick={() => navigate(returnTo, { replace: true })}>
+          Continue with this account <Arrow/>
+        </Button>
+        <Button type="button" variant="secondary" className="auth-submit" onClick={() => void register(returnTo, entryPoint)}>
+          Create a different account <Arrow/>
+        </Button>
+        <p className="auth-switch">Already have an account? <Link to={merchantApplication ? '/merchant/login' : '/login'}>Sign in</Link></p>
+      </section>
+    );
+  }
 
   const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
   const [name, setName] = useState('');
@@ -56,6 +75,10 @@ export function SignupPage() {
     setError('');
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
+    if (!trimmedName && !trimmedEmail && register) {
+      void register(returnTo, entryPoint);
+      return;
+    }
     if (!trimmedName) {
       setError('Please enter your full name.');
       return;
@@ -131,7 +154,7 @@ export function SignupPage() {
 
   if (step === 'success') {
     return <section className="auth-card" aria-labelledby="success-title">
-      <span className="eyebrow" style={{ color: '#0e6245' }}>ACCOUNT VERIFIED</span>
+      <span className="eyebrow" style={{ color: 'var(--umber)' }}>ACCOUNT VERIFIED</span>
       <h1 id="success-title">Welcome to Zentro!</h1>
       <p>Your account has been created and verified. Connecting you to sign in...</p>
       <Button className="auth-submit" onClick={() => void login(returnTo, email.trim(), entryPoint)}>
@@ -176,14 +199,14 @@ export function SignupPage() {
           type="button"
           onClick={handleResend}
           disabled={resendCooldown > 0 || loading}
-          style={{ background: 'none', border: 'none', color: resendCooldown > 0 ? '#998b7a' : '#ad7f46', cursor: resendCooldown > 0 ? 'default' : 'pointer', padding: 0 }}
+          style={{ background: 'none', border: 'none', color: resendCooldown > 0 ? 'var(--stone)' : 'var(--bronze)', cursor: resendCooldown > 0 ? 'default' : 'pointer', padding: 0 }}
         >
           {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
         </button>
         <button
           type="button"
           onClick={() => { setStep('form'); setError(''); }}
-          style={{ background: 'none', border: 'none', color: '#63584e', cursor: 'pointer', padding: 0 }}
+          style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 0 }}
         >
           Change email address
         </button>
@@ -254,7 +277,7 @@ export function SignupPage() {
               transform: 'translateY(-50%)',
               background: 'none',
               border: 'none',
-              color: '#766757',
+              color: 'var(--muted)',
               cursor: 'pointer',
               fontSize: '13px',
             }}
@@ -279,7 +302,7 @@ export function SignupPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
 
       <Button className="auth-submit" type="submit" disabled={loading}>
-        {loading ? 'Sending code...' : (merchantApplication ? 'Continue with business signup' : 'Continue with customer signup')} <Arrow/>
+        {loading ? 'Sending code...' : (merchantApplication ? 'Create merchant account' : 'Create customer account')} <Arrow/>
       </Button>
     </form>
 
@@ -311,7 +334,7 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
       {emailError?<p id="auth-email-error" className="form-error" role="alert" aria-live="polite">{emailError}</p>:<small id="auth-email-hint" className="auth-hint">Use your Zentro account email.</small>}
       <Button className="auth-submit" type="submit">Continue securely <Arrow/></Button>
     </form>
-    {!staff&&<div style={{ textAlign: 'center', marginTop: '10px' }}><Link to="/forgot-password" style={{ color: '#0e6245', fontSize: '13px', fontWeight: 500, textDecoration: 'none' }}>Forgot your password?</Link></div>}
+    {!staff&&<div style={{ textAlign: 'center', marginTop: '10px' }}><Link to="/forgot-password" style={{ color: 'var(--umber)', fontSize: '13px', fontWeight: 500, textDecoration: 'none' }}>Forgot your password?</Link></div>}
     {!staff&&<><div className="auth-divider"><span>or</span></div><GoogleSignInButton returnTo={from} entryPoint={merchant?'merchant':'customer'}/></>}
     {staff?<p className="auth-switch">For dispatchers and couriers only. Staff accounts are created by Zentro.</p>:merchant?<>
       <p className="auth-switch">New to Zentro? <Link to="/register?next=merchant">Create an account and apply</Link></p>
@@ -424,7 +447,7 @@ export function ForgotPasswordPage() {
   if (step === 'success') {
     return (
       <section className="auth-card" aria-labelledby="success-title">
-        <span className="eyebrow" style={{ color: '#0e6245' }}>PASSWORD UPDATED</span>
+        <span className="eyebrow" style={{ color: 'var(--umber)' }}>PASSWORD UPDATED</span>
         <h1 id="success-title">Password Reset Successful!</h1>
         <p>Your password has been changed successfully. You can now log in using your new credentials.</p>
         <Link to="/login" style={{ textDecoration: 'none' }}>
@@ -439,7 +462,7 @@ export function ForgotPasswordPage() {
   if (step === 'new-password') {
     return (
       <section className="auth-card" aria-labelledby="new-pwd-title">
-        <span className="eyebrow" style={{ color: '#0e6245' }}>CODE VERIFIED</span>
+        <span className="eyebrow" style={{ color: 'var(--umber)' }}>CODE VERIFIED</span>
         <h1 id="new-pwd-title">Set new password</h1>
         <p>
           Your verification code has been confirmed. Enter your new password for <strong>{email.trim()}</strong> below.
@@ -468,7 +491,7 @@ export function ForgotPasswordPage() {
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
-                  color: '#766757',
+                  color: 'var(--muted)',
                   cursor: 'pointer',
                   fontSize: '13px',
                 }}
@@ -548,7 +571,7 @@ export function ForgotPasswordPage() {
             style={{
               background: 'none',
               border: 'none',
-              color: resendCooldown > 0 ? '#999' : '#0e6245',
+              color: resendCooldown > 0 ? 'var(--stone)' : 'var(--umber)',
               cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
               fontWeight: 500,
               fontSize: '14px',
@@ -563,7 +586,7 @@ export function ForgotPasswordPage() {
             style={{
               background: 'none',
               border: 'none',
-              color: '#766757',
+              color: 'var(--muted)',
               cursor: 'pointer',
               fontSize: '14px',
               padding: 0,
