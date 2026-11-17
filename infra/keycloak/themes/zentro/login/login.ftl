@@ -7,27 +7,25 @@
      "Restart login" before reaching the normal sign-in form. -->
 <#if message?? && message.summary == msg("reauthenticate")>
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background: #120e0b;">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="refresh" content="0;url=${url.loginRestartFlowUrl}" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="${url.resourcesPath}/css/zentro.css" />
-    <title>Restarting sign in</title>
+    <script>window.location.replace("${url.loginRestartFlowUrl}");</script>
+    <style>
+      html, body {
+        background: #120e0b !important;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <title>Signing in...</title>
   </head>
-  <body id="keycloak-bg">
-    <div class="pf-v5-c-login">
-      <div class="pf-v5-c-login__container">
-        <main class="pf-v5-c-login__main" style="grid-column: 1 / -1; margin: auto; border-radius: 26px;">
-          <div class="zentro-message" role="status">
-            <span class="zentro-login-brand"><span class="zentro-login-mark">z</span>zentro</span>
-            <p>Restarting your sign in session...</p>
-            <a class="zentro-message-action" href="${url.loginRestartFlowUrl}">Continue</a>
-          </div>
-        </main>
-      </div>
-    </div>
-  </body>
+  <body style="background: #120e0b !important;"></body>
 </html>
 <#else>
 <@layout.registrationLayout displayMessage=true displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>

@@ -1,13 +1,22 @@
 <#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=false; section>
-  <#if section = "header">
-    <span class="zentro-login-brand"><span class="zentro-login-mark">z</span>zentro</span>
-    <span class="zentro-login-title">Sign-in page expired</span>
-    <span class="zentro-login-subtitle">For your security, sign in sessions expire after a short period of inactivity.</span>
-  <#elseif section = "form">
-    <div class="zentro-message" role="alert" aria-live="polite">
-      <p>Your previous sign-in session has expired. Click below to start fresh.</p>
-      <a class="zentro-message-action" href="${url.loginRestartFlowUrl}">Restart sign in</a>
-    </div>
-  </#if>
-</@layout.registrationLayout>
+<!doctype html>
+<html lang="en" style="background: #120e0b;">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0;url=${url.loginRestartFlowUrl}" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>window.location.replace("${url.loginRestartFlowUrl}");</script>
+    <style>
+      html, body {
+        background: #120e0b !important;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <title>Signing in...</title>
+  </head>
+  <body style="background: #120e0b !important;"></body>
+</html>
