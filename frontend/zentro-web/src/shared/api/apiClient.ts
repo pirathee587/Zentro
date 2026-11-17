@@ -3,7 +3,7 @@ import { env } from '@/shared/config/env';
 let token: string | undefined;
 export const setAccessToken=(value:string|undefined) => { token=value; };
 export const getAccessToken=() => token;
-export const apiClient=axios.create({baseURL:env.VITE_API_BASE_URL,timeout:5000});
+export const apiClient=axios.create({baseURL:env.VITE_API_BASE_URL,timeout:30000});
 
 export type ApiProblem = {
   title?: string;
@@ -74,5 +74,8 @@ export function friendlyApiError(error: unknown, fallback: string): string {
   if (error.response?.status === 401) return 'Your session has expired. Please sign in again.';
   if (error.response?.status === 403) return 'Your account does not have permission to do that.';
   if (!error.response) return 'We could not reach Zentro. Check your connection and try again.';
+  const data = error.response.data as { message?: string; detail?: string; error?: string } | undefined;
+  if (data?.message && typeof data.message === 'string') return data.message;
+  if (data?.detail && typeof data.detail === 'string') return data.detail;
   return fallback;
 }

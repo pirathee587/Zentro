@@ -1,32 +1,34 @@
 <#import "template.ftl" as layout>
-<#import "field.ftl" as field>
-<#import "register-commons.ftl" as registerCommons>
-<#import "password-validation.ftl" as validator>
-<@layout.registrationLayout displayMessage=messagesPerField.exists('global') displayRequiredFields=true; section>
+<@layout.registrationLayout displayMessage=false displayRequiredFields=false; section>
   <#if section = "header">
     <span class="zentro-login-brand"><span class="zentro-login-mark">z</span>zentro</span>
-    <span class="zentro-login-title"><#if messageHeader??>${msg(messageHeader)}<#else>${msg("registerTitle")}</#if></span>
-    <span class="zentro-login-subtitle">Create your account with your email and a secure password. We will verify your email before you can sign in.</span>
+    <span class="zentro-login-title">Create Zentro Account</span>
+    <span class="zentro-login-subtitle">Email code verification is required to activate your account.</span>
   <#elseif section = "form">
-    <form id="kc-register-form" class="${properties.kcFormClass!}" action="${url.registrationAction}" method="post" novalidate="novalidate">
-      <div class="${properties.kcFormGroupClass!}">
-        <label class="${properties.kcLabelClass!}" for="email">${msg("email")}</label>
-        <input id="email" class="${properties.kcInputClass!}" name="email" type="email" value="${(register.formData.email!'')}" autocomplete="email" autofocus required aria-invalid="${messagesPerField.exists('email')?string('true', 'false')}" />
-        <#if messagesPerField.exists('email')>
-          <span class="${properties.kcInputErrorMessageClass!}" role="alert">${kcSanitize(messagesPerField.get('email'))?no_esc}</span>
-        </#if>
+    <div class="zentro-message" role="status" style="text-align: center; padding: 20px 0;">
+      <p style="margin-bottom: 24px; color: #63584e; font-size: 15px; line-height: 1.6;">
+        We verify accounts with a secure <strong>6-digit code</strong> sent directly to your email. Click below to continue to the registration portal:
+      </p>
+      <a id="zentro-direct-register-btn" class="zentro-message-action" href="http://localhost/register" style="display: inline-block; background: #231d19; color: #ffffff; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: bold;">
+        Continue to Registration
+      </a>
+      <div style="margin-top: 24px;">
+        <a data-zentro-signin-return href="${url.loginUrl}" style="color: #ad7f46; font-size: 14px; text-decoration: none;">
+          Already have an account? Sign in
+        </a>
       </div>
-      <#if passwordRequired??>
-        <@field.password name="password" required=true label=msg("password") autocomplete="new-password" />
-        <@field.password name="password-confirm" required=true label=msg("passwordConfirm") autocomplete="new-password" />
-      </#if>
-      <@registerCommons.termsAcceptance/>
-      <div id="kc-form-buttons" class="${properties.kcFormButtonsClass!}">
-        <input class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!} ${properties.kcButtonLargeClass!}" type="submit" value="${msg("doRegister")}"/>
-      </div>
-      <p class="zentro-verification-note" role="note">After registration, check your Gmail inbox for the verification email. Verify it to activate your Zentro account.</p>
-      <div class="${properties.kcFormGroupClass!} pf-v5-c-login__main-footer-band"><div id="kc-form-options" class="zentro-register-signin-links"><a data-zentro-signin-return href="http://localhost:5173/login">Sign in</a></div></div>
-    </form>
-    <@validator.templates/><@validator.script field="password"/>
+    </div>
+    <script>
+      (function() {
+        var matchOrigin = document.cookie.match(/(?:^|;\s*)zentro_app_origin=([^;]+)/);
+        var origin = matchOrigin ? decodeURIComponent(matchOrigin[1]) : (window.location.protocol + '//' + window.location.hostname);
+        var matchEntry = document.cookie.match(/(?:^|;\s*)zentro_entry_point=([^;]+)/);
+        var entry = matchEntry ? decodeURIComponent(matchEntry[1]) : 'customer';
+        var target = entry === 'merchant' ? (origin + '/register?next=merchant') : (origin + '/register');
+        var btn = document.getElementById('zentro-direct-register-btn');
+        if (btn) btn.href = target;
+        window.location.replace(target);
+      })();
+    </script>
   </#if>
 </@layout.registrationLayout>

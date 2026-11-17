@@ -51,17 +51,10 @@ export function MerchantApplicationPage() {
   }, [application.data, location.pathname, navigate]);
 
   useEffect(() => {
-    if (status === 'APPROVED') {
-      if (user?.roles.includes('MERCHANT')) {
-        navigate('/merchant/dashboard', { replace: true });
-      } else if (!attemptedRoleRefresh && refreshAccessToken) {
-        setAttemptedRoleRefresh(true);
-        void refreshAccessToken(true).then(() =>
-          queryClient.invalidateQueries({ queryKey: ['current-user', user?.id] }),
-        );
-      }
+    if (status === 'APPROVED' || user?.merchantStatus === 'APPROVED') {
+      navigate('/merchant/dashboard', { replace: true });
     }
-  }, [status, user?.roles, user?.id, attemptedRoleRefresh, refreshAccessToken, navigate, queryClient]);
+  }, [status, user?.merchantStatus, navigate]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,27 +88,19 @@ export function MerchantApplicationPage() {
     return <section className="auth-card merchant-application-card"><ErrorState message={friendlyApiError(application.error, 'We could not load your business status. Please try again.')} /></section>;
   }
 
-  if (status === 'APPROVED') {
+  if (status === 'APPROVED' || user?.merchantStatus === 'APPROVED') {
     return <section className="auth-card merchant-application-card">
-      <h1>Your business is approved.</h1>
-      <p>Your merchant profile is approved. Continue to your merchant dashboard or sign in again to refresh your access token.</p>
+      <span className="eyebrow" style={{ color: '#0e6245' }}>APPLICATION APPROVED</span>
+      <h1>Your business is approved!</h1>
+      <p>Your merchant profile has been reviewed and approved. Enter your merchant dashboard to manage shipments, track deliveries, and issue API keys.</p>
       <Button
         className="auth-submit"
-        onClick={async () => {
-          if (refreshAccessToken) {
-            await refreshAccessToken(true);
-            await queryClient.invalidateQueries({ queryKey: ['current-user', user?.id] });
-          }
-          if (user?.roles.includes('MERCHANT')) {
-            navigate('/merchant/dashboard', { replace: true });
-          } else {
-            void login('/merchant/dashboard', undefined, 'merchant');
-          }
+        onClick={() => {
+          navigate('/merchant/dashboard', { replace: true });
         }}
       >
-        Open merchant dashboard
+        Open Merchant Dashboard
       </Button>
-      <EmptyState message="Merchant access requires the MERCHANT role." />
     </section>;
   }
 
@@ -124,7 +109,22 @@ export function MerchantApplicationPage() {
       <span className="eyebrow">APPLICATION STATUS</span>
       <h1>Your application is <em>PENDING.</em></h1>
       <p>Your business profile is pending review. We'll update this page when a decision is made.</p>
-      <Button variant="secondary" onClick={() => { setForcedPending(false); void application.refetch(); }}>Refresh status</Button>
+      <Button
+        variant="secondary"
+        onClick={async () => {
+          setForcedPending(false);
+          const res = await application.refetch();
+          if (refreshAccessToken) {
+            await refreshAccessToken(true).catch(() => undefined);
+          }
+          await queryClient.invalidateQueries({ queryKey: ['current-user', user?.id] });
+          if (res.data?.status === 'APPROVED' || user?.merchantStatus === 'APPROVED') {
+            navigate('/merchant/dashboard', { replace: true });
+          }
+        }}
+      >
+        Refresh status
+      </Button>
     </section>;
   }
 
@@ -136,14 +136,19 @@ export function MerchantApplicationPage() {
     </section>;
   }
 
-  return <form className="auth-card merchant-application-card" onSubmit={submit}>
+  return <form className="auth-card auth-form merchant-application-card" onSubmit={submit}>
     <span className="eyebrow">BUSINESS REGISTRATION</span>
     <h1>Let's get<br /><em>good things moving.</em></h1>
-    <label>Business name<Input required maxLength={140} value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} /></label>
-    <label>Business registration number<Input maxLength={80} value={form.businessRegNo} onChange={(event) => setForm({ ...form, businessRegNo: event.target.value })} /></label>
-    <label htmlFor="contact-phone">Contact phone</label>
-    <Input id="contact-phone" required type="tel" aria-describedby="contact-phone-help" value={form.contactPhone} onChange={(event) => setForm({ ...form, contactPhone: event.target.value })} />
-    <small id="contact-phone-help">Use 9 to 15 digits, with an optional + prefix.</small>
+    <label htmlFor="business-name">Business name
+      <Input id="business-name" required maxLength={140} value={form.businessName} onChange={(event) => setForm({ ...form, businessName: event.target.value })} placeholder="Your company or shop name" />
+    </label>
+    <label htmlFor="business-reg-no">Business registration number
+      <Input id="business-reg-no" maxLength={80} value={form.businessRegNo} onChange={(event) => setForm({ ...form, businessRegNo: event.target.value })} placeholder="e.g. PV-123456" />
+    </label>
+    <label htmlFor="contact-phone">Contact phone
+      <Input id="contact-phone" required type="tel" aria-describedby="contact-phone-help" value={form.contactPhone} onChange={(event) => setForm({ ...form, contactPhone: event.target.value })} placeholder="07XXXXXXXX or +947XXXXXXXX" />
+    </label>
+    <small id="contact-phone-help" className="auth-hint">Use 9 to 15 digits, with an optional + prefix.</small>
     {formError && <ErrorState message={formError} />}
     {createApplication.isError && responseStatus(createApplication.error) !== 409 && <ErrorState message={friendlyApiError(createApplication.error, 'We could not submit your business details. Please try again.')} />}
     <Button className="auth-submit" disabled={createApplication.isPending}>{createApplication.isPending ? <Spinner label="Submitting business details" /> : 'Submit for review'}</Button>

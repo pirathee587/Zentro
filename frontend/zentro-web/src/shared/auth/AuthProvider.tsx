@@ -145,6 +145,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
           signal,
         })).data;
       } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          // The user was deleted by admin or does not exist in DB: evict dead session immediately.
+          try {
+            await oidcManager.removeUser();
+          } catch {
+            // ignore
+          }
+          setAccessToken(undefined);
+          setOidcUser(null);
+          throw error;
+        }
         // Access tokens can expire while the Keycloak session is still active.
         // Renew once and retry the profile request before treating the user as signed out.
         if (!axios.isAxiosError(error) || error.response?.status !== 401) throw error;
@@ -211,6 +222,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   ) => {
     setAuthError('');
     try {
+      document.cookie = `zentro_app_origin=${encodeURIComponent(window.location.origin)}; Max-Age=900; Path=/; SameSite=Lax`;
       savePendingAuthFlow({ returnTo, entryPoint });
       await oidcManager.signinRedirect({
         state: { returnTo, entryPoint },
@@ -231,6 +243,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       // Keycloak is on another localhost port, but localhost cookies are shared
       // across ports. The login theme uses this short-lived hint for its return link.
+      document.cookie = `zentro_app_origin=${encodeURIComponent(window.location.origin)}; Max-Age=900; Path=/; SameSite=Lax`;
       document.cookie = `zentro_entry_point=${encodeURIComponent(entryPoint)}; Max-Age=900; Path=/; SameSite=Lax`;
       savePendingAuthFlow({ returnTo, entryPoint });
       await oidcManager.signinRedirect({

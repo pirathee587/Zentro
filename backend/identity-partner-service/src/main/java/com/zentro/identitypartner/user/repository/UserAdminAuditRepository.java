@@ -21,18 +21,21 @@ public class UserAdminAuditRepository {
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void insert(UserAdminAuditRecord record) {
-    jdbc.update("""
-        INSERT INTO identity.user_admin_audit
-            (actor_user_id, actor_subject, target_user_id, action, changed_fields, old_status, new_status, reason)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        record.actorUserId(),
-        record.actorSubject(),
-        record.targetUserId(),
-        record.action().name(),
-        record.changedFields().toArray(String[]::new),
-        record.oldStatus(),
-        record.newStatus(),
-        record.reason());
+    jdbc.update(con -> {
+      var ps = con.prepareStatement("""
+          INSERT INTO identity.user_admin_audit
+              (actor_user_id, actor_subject, target_user_id, action, changed_fields, old_status, new_status, reason)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          """);
+      ps.setObject(1, record.actorUserId());
+      ps.setString(2, record.actorSubject());
+      ps.setObject(3, record.targetUserId());
+      ps.setString(4, record.action().name());
+      ps.setArray(5, con.createArrayOf("text", record.changedFields().toArray(String[]::new)));
+      ps.setString(6, record.oldStatus());
+      ps.setString(7, record.newStatus());
+      ps.setString(8, record.reason());
+      return ps;
+    });
   }
 }

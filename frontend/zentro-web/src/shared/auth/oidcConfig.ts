@@ -14,7 +14,7 @@ export const oidcConfig = {
   scope: 'openid profile email roles',
   automaticSilentRenew: true,
   silentRequestTimeoutInSeconds: 15,
-  userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
+  userStore: new WebStorageStateStore({ store: typeof window !== 'undefined' ? window.localStorage : new InMemoryWebStorage() }),
   stateStore: new WebStorageStateStore({ store: window.sessionStorage }),
 };
 
@@ -51,11 +51,7 @@ oidcManager.signinSilent = async function (args) {
   return originalSigninSilent(args);
 };
 
-/** Remove tokens left by older builds that persisted OIDC users in browser storage. */
+/** Retained for compatibility; active sessions in localStorage are preserved so page reloads do not log the user out. */
 export function clearLegacyStoredTokens(): void {
-  for (const storage of [window.localStorage, window.sessionStorage]) {
-    const legacyKeys = Array.from({ length: storage.length }, (_, index) => storage.key(index))
-      .filter((key): key is string => key?.startsWith('oidc.user:') === true);
-    legacyKeys.forEach((key) => storage.removeItem(key));
-  }
+  // Active session keys in localStorage are preserved on page reload.
 }

@@ -78,6 +78,13 @@ body#keycloak-bg {
   line-height: 1.08;
   white-space: pre-line;
 }
+.pf-v5-c-login__container.has-side-art::before,
+.pf-v5-c-login__container.has-side-art::after,
+.pf-v5-c-login__container:has(#zentro-auth-side-art)::before,
+.pf-v5-c-login__container:has(#zentro-auth-side-art)::after {
+  content: none !important;
+  display: none !important;
+}
 .pf-v5-c-login__container::after {
   position: absolute;
   top: calc(50% - 245px);
@@ -193,14 +200,43 @@ body#keycloak-bg {
   box-shadow: none;
   font: inherit;
   font-size: 15px;
+  display: flex;
+  align-items: center;
   transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
+
+/* Remove default browser borders, background and inner box on any <input> inside .pf-v5-c-form-control */
+.pf-v5-c-form-control input,
+.pf-v5-c-form-control > input,
+.pf-v5-c-login__main .pf-v5-c-form-control input,
+.pf-v5-c-login__main .pf-v5-c-form-control > input {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  font-size: 15px !important;
+  line-height: inherit !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
 .pf-v5-c-form-control:focus,
-.pf-v5-c-login__main .pf-v5-c-form-control:focus {
+.pf-v5-c-form-control:focus-within,
+.pf-v5-c-login__main .pf-v5-c-form-control:focus,
+.pf-v5-c-login__main .pf-v5-c-form-control:focus-within {
   border-color: var(--ochre);
   background: var(--paper);
   box-shadow: 0 0 0 4px var(--login-focus-ring);
 }
+
 /* Keycloak user-profile fields wrap the real input in another form-control.
    Keep the wrapper as the visible field and remove the inner duplicate box. */
 .pf-v5-c-login__main .pf-v5-c-form-control .pf-v5-c-form-control {
@@ -219,12 +255,61 @@ body#keycloak-bg {
   background: var(--transparent);
   box-shadow: none;
 }
-.pf-v5-c-form-control:focus-within {
-  border-color: var(--ochre);
-  background: var(--paper);
-  box-shadow: 0 0 0 4px var(--login-focus-ring);
+.pf-v5-c-form-control::placeholder,
+.pf-v5-c-form-control input::placeholder { color: var(--login-placeholder); }
+
+/* Unified Password Input Group (Eye Toggle Button) */
+.pf-v5-c-login__main .pf-v5-c-input-group {
+  display: flex !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  min-height: 52px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  background: var(--login-field-background) !important;
+  overflow: hidden !important;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease !important;
 }
-.pf-v5-c-form-control::placeholder { color: var(--login-placeholder); }
+
+.pf-v5-c-login__main .pf-v5-c-input-group:focus-within {
+  border-color: var(--ochre) !important;
+  background: var(--paper) !important;
+  box-shadow: 0 0 0 4px var(--login-focus-ring) !important;
+}
+
+.pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-input-group__item.pf-m-fill {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  min-width: 0 !important;
+}
+
+.pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-form-control {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-height: 50px !important;
+  padding: 0 15px !important;
+}
+
+.pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary) {
+  min-height: 50px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--espresso) !important;
+  padding: 0 16px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary):hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
 .pf-v5-c-button.pf-m-primary {
   min-height: 52px;
   border: 0;
@@ -241,13 +326,7 @@ body#keycloak-bg {
 .pf-v5-c-button.pf-m-primary:active { transform: translateY(1px); }
 .pf-v5-c-button:focus-visible,
 .pf-v5-c-login a:focus-visible { outline: 3px solid var(--login-focus-outline); outline-offset: 3px; }
-.pf-v5-c-login__main .pf-v5-c-input-group .pf-v5-c-button:not(.pf-m-primary) {
-  min-height: 52px;
-  border: 1px solid var(--line);
-  border-radius: 0 12px 12px 0;
-  background: var(--login-input-group-background);
-  color: var(--espresso);
-}
+
 .pf-v5-c-login__main-footer-band { margin-top: 15px; text-align: center; font-size: 13px; }
 .pf-v5-c-login__main-footer-band a,
 .pf-v5-c-login a { color: var(--bronze); font-weight: 600; text-decoration: none; }
@@ -268,9 +347,57 @@ body#keycloak-bg {
 .pf-v5-c-login__main .pf-v5-c-form__helper-text ul { margin: 7px 0 0; padding-left: 18px; }
 .pf-v5-c-login__main .pf-v5-c-check { display: flex; align-items: flex-start; gap: 9px; color: var(--muted); font-size: 12px; }
 .pf-v5-c-login__main .pf-v5-c-check input { accent-color: var(--espresso); }
+
+/* Polished Alerts and Error Styling */
 .pf-v5-c-alert,
-.pf-v5-c-login__main .alert { border-radius: 12px; }
-.pf-v5-c-login__main .pf-v5-c-form__group-control .pf-v5-c-form-control[aria-invalid="true"] { border-color: var(--err); }
+.pf-v5-c-login__main .alert,
+.pf-v5-c-login__main .alert-error {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 14px 18px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  margin-bottom: 20px !important;
+}
+
+.pf-v5-c-alert.pf-m-danger,
+.pf-v5-c-alert.pf-m-warning,
+.alert-error,
+.alert-warning {
+  background: #fef2f2 !important;
+  border: 1px solid #fca5a5 !important;
+  color: #991b1b !important;
+}
+
+.pf-v5-c-alert__title {
+  font-weight: 600 !important;
+  color: inherit !important;
+}
+
+.pf-v5-c-alert.pf-m-success,
+.alert-success {
+  background: #f0fdf4 !important;
+  border: 1px solid #86efac !important;
+  color: #166534 !important;
+}
+
+.pf-v5-c-login__main .pf-v5-c-input-group:has([aria-invalid="true"]),
+.pf-v5-c-login__main .pf-v5-c-form__group-control .pf-v5-c-form-control[aria-invalid="true"],
+.pf-v5-c-login__main .pf-v5-c-form-control[aria-invalid="true"] {
+  border-color: var(--err) !important;
+  background: #fdf5f5 !important;
+}
+
+.pf-v5-c-login__main .pf-v5-c-form__helper-text .pf-m-error,
+.pf-v5-c-form-error,
+.pf-v5-c-form__helper-text.pf-m-error {
+  color: var(--err) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin-top: 6px !important;
+}
 
 /* Email hint, Google button, and Keycloak error/info pages. */
 .zentro-email-chip {
@@ -329,6 +456,110 @@ body#keycloak-bg {
   .pf-v5-c-login__header { padding: 30px 34px 0; border-radius: 24px 24px 0 0; }
   .pf-v5-c-login__main { padding: 22px 34px 32px; border-radius: 0 0 24px 24px; }
 }
+
+/* Zentro Keycloak Left Side Art Panel ("Mattra Pakkam") */
+.zentro-auth-side-panel {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 100%;
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 30px 24px 0;
+  z-index: 2;
+  animation: kc-side-enter .75s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes kc-side-enter {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.zentro-side-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+  text-decoration: none;
+}
+.zentro-side-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--espresso);
+  color: var(--gold);
+  font-family: Georgia, serif;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+}
+.zentro-side-name {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  color: var(--espresso);
+}
+.zentro-side-truck-stage {
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+  margin: 10px 0 24px;
+}
+.zentro-side-truck-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.zentro-side-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.zentro-side-title {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 54px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.1;
+  color: var(--espresso);
+}
+.zentro-side-title em {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--bronze);
+}
+.zentro-side-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--stone);
+  font-weight: 500;
+}
+@media (max-width: 960px) {
+  .zentro-auth-side-panel {
+    display: none !important;
+  }
+}
+@keyframes kc-truck-drive {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes kc-road-move {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -22; }
+}
+.kc-truck-bounce {
+  animation: kc-truck-drive 1.4s ease-in-out infinite;
+}
+.kc-road-dash {
+  animation: kc-road-move 0.6s linear infinite;
+}
+.kc-wheel-spin {
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+
 @media (max-width: 540px) {
   .pf-v5-c-login__container { width: min(calc(100% - 24px), 460px); padding: 16px 0 24px; }
   .pf-v5-c-login__header { padding: 25px 22px 0; border-radius: 20px 20px 0 0; }
