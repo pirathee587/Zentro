@@ -24,6 +24,7 @@ import org.springframework.graphql.test.tester.GraphQlTester;
 @Import({GraphQlConfig.class, GraphQlExceptionResolver.class, DeliveryAuthorizationService.class})
 class TrackingGraphQlReadOnlyTest {
 
+  @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   @Autowired
   private GraphQlTester graphQlTester;
 

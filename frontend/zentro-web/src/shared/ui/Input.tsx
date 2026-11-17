@@ -1,1 +1,12 @@
-import type { InputHTMLAttributes } from 'react'; export function Input(props:InputHTMLAttributes<HTMLInputElement>) { return <input className="w-full rounded-md border bg-surface px-3 py-2 text-text" {...props} />; }
+import type { InputHTMLAttributes } from 'react';
+
+export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      className={['w-full rounded-md border bg-surface px-3 py-2 text-text', className]
+        .filter(Boolean)
+        .join(' ')}
+      {...props}
+    />
+  );
+}

@@ -655,8 +655,8 @@ describe('TrackView and Tracking Pages', () => {
       expect(screen.getByText('ZTR-SD8941K2M7')).toBeInTheDocument();
     });
 
-    // Public page must NEVER expose courier phone or Call courier button
-    expect(screen.queryByRole('button', { name: /Call courier/i })).not.toBeInTheDocument();
+    // Public page must NEVER expose courier phone or enable Call courier button
+    expect(screen.getByRole('button', { name: /Call courier/i })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByText(/\+94 77 800 1234/i)).not.toBeInTheDocument();
   });
 });

@@ -86,7 +86,7 @@ export const Header: React.FC = () => {
             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            {theme === 'dark' ? <SunIcon size={22} strokeWidth={2} /> : <MoonIcon size={22} strokeWidth={2} />}
+            {theme === 'dark' ? <SunIcon size={26} strokeWidth={1.8} /> : <MoonIcon size={26} strokeWidth={1.8} />}
           </BaseButton>
 
           {/* Notifications button */}
@@ -96,8 +96,7 @@ export const Header: React.FC = () => {
             aria-label="View notifications"
             title="Notifications"
           >
-            <BellIcon size={22} strokeWidth={2} />
-            <span className="sd-notification-badge" aria-hidden="true" />
+            <BellIcon size={26} strokeWidth={1.8} />
           </BaseButton>
 
           {/* Profile button (circular, --card background) */}
@@ -114,7 +113,7 @@ export const Header: React.FC = () => {
               aria-expanded={profileOpen}
               aria-controls="customer-profile-panel"
             >
-              <UserIcon size={22} strokeWidth={2} />
+              <UserIcon size={26} strokeWidth={1.8} />
             </BaseButton>
 
             {profileOpen && (

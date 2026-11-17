@@ -73,9 +73,9 @@ public class PricingService {
         return rules.get(0);
       }
     } catch (DataAccessException e) {
-      // Fallback to approved defaults if table is not yet initialized
+      throw new PricingUnavailableException("Pricing database is unavailable.", e);
     }
-    return PricingRule.defaultStandard();
+    throw new PricingUnavailableException("No active pricing rule is configured.");
   }
 
   @Transactional

@@ -36,7 +36,7 @@ const mockCreatedParcel: ParcelBookingResponse = {
   estimatedDays: 2,
   createdAt: '2026-10-27T10:00:00.000Z',
   sender: {
-    name: 'Sender Contact',
+    name: '',
     phone: '0771234567',
     address: '123 Galle Road, Colombo 03',
   },
@@ -81,16 +81,11 @@ describe('SendParcelPage Component', () => {
   afterEach(() => {
     setAccessToken(undefined);
     setCustomerApiConfig({
-      mode: 'mock',
-      useMocks: true,
-      baseUrl: '/api/v1/customer',
       parcelsPath: '/api/v1/parcels',
-      deliveriesEndpoint: undefined,
     });
   });
 
   it('valid submission in real mode completes 3-step flow (Estimate -> Review -> Booked) with exact headers and body', async () => {
-    setCustomerApiConfig({ mode: 'real' });
     setAccessToken('jwt-real-customer-56');
 
     let estimateUrl = '';
@@ -182,7 +177,7 @@ describe('SendParcelPage Component', () => {
     expect(bookingIdempotencyKey!.length).toBeGreaterThanOrEqual(8);
     expect(bookingBody).toEqual({
       sender: {
-        name: 'Sender Contact',
+        name: 'Customer',
         phone: '0771234567',
         address: '123 Galle Road, Colombo 03',
       },
@@ -205,7 +200,6 @@ describe('SendParcelPage Component', () => {
   });
 
   it('treats 200 OK idempotent replay the same as 201 Created and shows server fee mismatch notice when fees differ', async () => {
-    setCustomerApiConfig({ mode: 'real' });
     setAccessToken('jwt-real-customer-replay');
 
     server.use(

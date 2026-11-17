@@ -3,6 +3,18 @@ server:
 spring:
   application:
     name: identity-partner-service
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
   config:
     import: optional:file:./.env[.properties]
   datasource:
@@ -14,6 +26,9 @@ spring:
     default-schema: identity
     create-schemas: true
 zentro:
+  app-base-url: ${APP_BASE_URL:http://localhost}
+  mail:
+    from: ${SMTP_FROM:tkirusigan@gmail.com}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}

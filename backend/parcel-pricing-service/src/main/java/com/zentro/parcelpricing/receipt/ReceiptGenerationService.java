@@ -6,7 +6,6 @@ import com.zentro.parcelpricing.parcel.repository.MerchantOrderRepository;
 import com.zentro.parcelpricing.parcel.repository.ParcelBookingRepository;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Optional;
@@ -67,8 +66,13 @@ public class ReceiptGenerationService {
         .map(this::fromMerchantOrder);
   }
 
+  public java.util.List<ReceiptResponse> customerReceipts(String subject) {
+    return bookingRepository.findCustomerPage(subject, java.util.List.of("DELIVERED"), null, 0, 50)
+        .stream().map(this::fromBooking).map(this::toResponse).toList();
+  }
+
   public Receipt fromBooking(ParcelBooking booking) {
-    String cleanRef = booking.trackingRef() != null ? booking.trackingRef().replace("-", "") : "00000";
+    String cleanRef = booking.trackingRef().replace("-", "");
     String receiptNum = "REC-" + (cleanRef.length() >= 6 ? cleanRef.substring(cleanRef.length() - 6) : cleanRef);
     UUID receiptId = UUID.nameUUIDFromBytes(("receipt:" + booking.id()).getBytes(StandardCharsets.UTF_8));
 
@@ -80,27 +84,27 @@ public class ReceiptGenerationService {
         booking.customerSubject(),
         null,
         new Receipt.Contact(
-            booking.sender() != null ? booking.sender().name() : "Sender",
-            booking.sender() != null ? booking.sender().phone() : "N/A",
-            booking.sender() != null ? booking.sender().address() : "N/A",
-            booking.sender() != null ? booking.sender().city() : "Colombo"),
+            booking.sender() != null ? booking.sender().name() : "",
+            booking.sender() != null ? booking.sender().phone() : "",
+            booking.sender() != null ? booking.sender().address() : "",
+            booking.sender() != null ? booking.sender().city() : ""),
         new Receipt.Contact(
-            booking.recipient() != null ? booking.recipient().name() : "Recipient",
-            booking.recipient() != null ? booking.recipient().phone() : "N/A",
-            booking.recipient() != null ? booking.recipient().address() : "N/A",
-            booking.recipient() != null ? booking.recipient().city() : "Colombo"),
+            booking.recipient() != null ? booking.recipient().name() : "",
+            booking.recipient() != null ? booking.recipient().phone() : "",
+            booking.recipient() != null ? booking.recipient().address() : "",
+            booking.recipient() != null ? booking.recipient().city() : ""),
         booking.fee(), // Strictly persisted fee: NO REPRICING
-        booking.currency() != null ? booking.currency() : "LKR",
-        "Paid",
-        "Credit Card (•••• 4242)",
-        booking.createdAt() != null ? booking.createdAt() : OffsetDateTime.now(),
+        booking.currency(),
+        "Unknown",
+        "Not recorded",
+        booking.createdAt(),
         booking.description(),
         booking.category()
     );
   }
 
   public Receipt fromMerchantOrder(MerchantOrder order) {
-    String cleanRef = order.trackingRef() != null ? order.trackingRef().replace("-", "") : "00000";
+    String cleanRef = order.trackingRef().replace("-", "");
     String receiptNum = "REC-M-" + (cleanRef.length() >= 6 ? cleanRef.substring(cleanRef.length() - 6) : cleanRef);
     UUID receiptId = UUID.nameUUIDFromBytes(("receipt:" + order.id()).getBytes(StandardCharsets.UTF_8));
 
@@ -112,20 +116,20 @@ public class ReceiptGenerationService {
         order.merchantId(),
         order.merchantId(),
         new Receipt.Contact(
-            order.sender() != null ? order.sender().name() : "Sender",
-            order.sender() != null ? order.sender().phone() : "N/A",
-            order.sender() != null ? order.sender().address() : "N/A",
-            order.sender() != null ? order.sender().city() : "Colombo"),
+            order.sender() != null ? order.sender().name() : "",
+            order.sender() != null ? order.sender().phone() : "",
+            order.sender() != null ? order.sender().address() : "",
+            order.sender() != null ? order.sender().city() : ""),
         new Receipt.Contact(
-            order.recipient() != null ? order.recipient().name() : "Recipient",
-            order.recipient() != null ? order.recipient().phone() : "N/A",
-            order.recipient() != null ? order.recipient().address() : "N/A",
-            order.recipient() != null ? order.recipient().city() : "Colombo"),
+            order.recipient() != null ? order.recipient().name() : "",
+            order.recipient() != null ? order.recipient().phone() : "",
+            order.recipient() != null ? order.recipient().address() : "",
+            order.recipient() != null ? order.recipient().city() : ""),
         order.fee(), // Strictly persisted fee: NO REPRICING
-        order.currency() != null ? order.currency() : "LKR",
-        "Paid",
-        "Merchant Account Invoice",
-        order.createdAt() != null ? order.createdAt() : OffsetDateTime.now(),
+        order.currency(),
+        "Unknown",
+        "Not recorded",
+        order.createdAt(),
         order.description(),
         order.category()
     );
@@ -149,8 +153,8 @@ public class ReceiptGenerationService {
         "/api/v1/parcels/" + receipt.parcelId() + "/receipt/pdf",
         dateStr,
         formattedDate,
-        receipt.sender() != null ? receipt.sender().name() : "Sender",
-        receipt.recipient() != null ? receipt.recipient().name() : "Recipient"
+        receipt.sender() != null ? receipt.sender().name() : "",
+        receipt.recipient() != null ? receipt.recipient().name() : ""
     );
   }
 
