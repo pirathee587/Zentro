@@ -39,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @Service
 public class MerchantApplicationService {
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MerchantApplicationService.class);
   private static final RowMapper<MerchantApplication> ROW_MAPPER = MerchantApplicationService::mapApplication;
 
   /** Status values that block approved-merchant operations. */
@@ -47,19 +48,22 @@ public class MerchantApplicationService {
   private final JdbcTemplate jdbc;
   private final UserProfileService profiles;
   private final KeycloakMerchantRoleSyncer roleSyncer;
+  private final com.zentro.identitypartner.email.EmailSenderService emailSender;
 
   public MerchantApplicationService(JdbcTemplate jdbc, UserProfileService profiles) {
-    this(jdbc, profiles, null);
+    this(jdbc, profiles, null, null);
   }
 
   @org.springframework.beans.factory.annotation.Autowired
   public MerchantApplicationService(
       JdbcTemplate jdbc,
       UserProfileService profiles,
-      KeycloakMerchantRoleSyncer roleSyncer) {
+      KeycloakMerchantRoleSyncer roleSyncer,
+      com.zentro.identitypartner.email.EmailSenderService emailSender) {
     this.jdbc = jdbc;
     this.profiles = profiles;
     this.roleSyncer = roleSyncer;
+    this.emailSender = emailSender;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -220,6 +224,19 @@ public class MerchantApplicationService {
       if (roleSyncer != null) {
         roleSyncer.syncByAppUserId(result.appUserId(), "APPROVED".equals(result.status()));
       }
+      if ("APPROVED".equals(status) && emailSender != null) {
+        try {
+          List<String> emails = jdbc.queryForList(
+              "SELECT email FROM identity.app_user WHERE id = ?",
+              String.class,
+              result.appUserId());
+          if (!emails.isEmpty() && emails.getFirst() != null) {
+            emailSender.sendMerchantApproved(emails.getFirst(), result.businessName(), null);
+          }
+        } catch (Exception ex) {
+          log.warn("Failed to send merchant approval email: {}", ex.getMessage());
+        }
+      }
       return result;
     }
 
@@ -301,6 +318,19 @@ public class MerchantApplicationService {
       MerchantApplication result = updated.getFirst();
       if (roleSyncer != null) {
         roleSyncer.syncByAppUserId(result.appUserId(), true);
+      }
+      if (emailSender != null) {
+        try {
+          List<String> emails = jdbc.queryForList(
+              "SELECT email FROM identity.app_user WHERE id = ?",
+              String.class,
+              result.appUserId());
+          if (!emails.isEmpty() && emails.getFirst() != null) {
+            emailSender.sendMerchantApproved(emails.getFirst(), result.businessName(), null);
+          }
+        } catch (Exception ex) {
+          log.warn("Failed to send merchant reinstatement email: {}", ex.getMessage());
+        }
       }
       return result;
     }

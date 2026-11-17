@@ -55,6 +55,7 @@ public class GatewaySecurityConfig {
                 .access(RoleAuthorizationManager.notServiceOnly())
             .pathMatchers("/api/v1/tracking/**").denyAll()
             .pathMatchers("/actuator/health/**", "/actuator/health").permitAll()
+            .pathMatchers("/api/v1/auth/**", "/error").permitAll()
             .pathMatchers("/api/v1/admin/**", "/api/v1/dispatch/**", "/api/v1/reports/**")
                 .access(RoleAuthorizationManager.has(GatewayConstants.ROLE_DISPATCHER))
             .pathMatchers("/api/v1/courier/**")
