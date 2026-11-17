@@ -1,3 +1,4 @@
+import { ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,10 +10,7 @@ import {
   listUsers,
   type AdminUserProfile,
 } from '../api/adminApi';
-import {
-  listCouriersAdmin,
-  updateCourierAdmin,
-} from '../api/courierAdminApi';
+import { listCouriersAdmin, updateCourierAdmin } from '../api/courierAdminApi';
 import {
   mapMerchantToPartner,
   mapCourierToPartner,
@@ -62,7 +60,9 @@ export function useCourierPartnerApplications(enabled = true) {
   });
 }
 
-export function MerchantApprovalsPage() {
+export function MerchantApprovalsPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const Container = embedded ? 'div' : 'main';
+  const Heading = embedded ? 'h2' : 'h1';
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -140,9 +140,7 @@ export function MerchantApprovalsPage() {
     onSuccess: async (updated, variables) => {
       setActionError('');
       const statusLabel = variables.active ? 'activated' : 'deactivated';
-      setSuccessMessage(
-        `Courier ${variables.name} has been ${statusLabel} successfully.`,
-      );
+      setSuccessMessage(`Courier ${variables.name} has been ${statusLabel} successfully.`);
       await queryClient.invalidateQueries({ queryKey: couriersApprovalKey });
       setTimeout(() => setSuccessMessage(''), 5000);
     },
@@ -205,17 +203,15 @@ export function MerchantApprovalsPage() {
         : applications.isPending && couriers.isPending;
 
   const queryError =
-    partnerTypeFilter === 'COURIER'
-      ? couriers.error
-      : applications.error || couriers.error;
+    partnerTypeFilter === 'COURIER' ? couriers.error : applications.error || couriers.error;
 
   return (
-    <main className="staff-main">
+    <Container className={`staff-main ${embedded ? 'people-embedded' : ''}`}>
       <section className="staff-section">
         <div className="staff-section-heading">
           <div>
             <span className="staff-eyebrow">DISPATCH DESK</span>
-            <h1>Merchant applications</h1>
+            <Heading>Merchant applications</Heading>
             <p>Review and action pending business and courier fleet profiles.</p>
           </div>
           <Link className="staff-text-link" to="/dispatcher">
@@ -311,10 +307,12 @@ export function MerchantApprovalsPage() {
             )}
           </div>
         ) : !allPartners.length ? (
-          <div className="staff-panel staff-empty">
-            {partnerTypeFilter === 'COURIER'
+          <div className={`staff-panel staff-empty ${embedded ? 'people-empty' : ''}`}>
+            {embedded && <ClipboardCheck size={28} aria-hidden="true" />}
+            {embedded ? 'No applications match these filters.' : partnerTypeFilter === 'COURIER'
               ? 'No courier applications are waiting for review.'
               : 'No merchant applications are waiting for review.'}
+            {embedded && <p>Try another status or search term. Submitted applications will appear here for review.</p>}
           </div>
         ) : (
           <div className="staff-review-list">
@@ -322,7 +320,14 @@ export function MerchantApprovalsPage() {
               <article className="staff-review-card" key={`${partner.partnerType}-${partner.id}`}>
                 <div className="staff-review-top">
                   <div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '8px',
+                        alignItems: 'center',
+                        marginBottom: '6px',
+                      }}
+                    >
                       <StatusChip status={partner.status} />
                       <span className="staff-role-pill">
                         {partner.partnerType === 'MERCHANT' ? 'Merchant' : 'Courier Fleet'}
@@ -342,14 +347,17 @@ export function MerchantApprovalsPage() {
                     Contact phone
                     <strong>{partner.phone}</strong>
                   </span>
-                  {partner.partnerType === 'MERCHANT' && (partner.applicantName || partner.applicantEmail) && (
-                    <span>
-                      Applicant account
-                      <strong>
-                        {[partner.applicantName, partner.applicantEmail].filter(Boolean).join(' · ')}
-                      </strong>
-                    </span>
-                  )}
+                  {partner.partnerType === 'MERCHANT' &&
+                    (partner.applicantName || partner.applicantEmail) && (
+                      <span>
+                        Applicant account
+                        <strong>
+                          {[partner.applicantName, partner.applicantEmail]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </strong>
+                      </span>
+                    )}
                   {partner.partnerType === 'COURIER' && (
                     <>
                       <span>
@@ -376,7 +384,10 @@ export function MerchantApprovalsPage() {
                   )}
                 </div>
 
-                <div className="staff-review-actions" style={{ justifyContent: 'space-between', marginTop: '16px' }}>
+                <div
+                  className="staff-review-actions"
+                  style={{ justifyContent: 'space-between', marginTop: '16px' }}
+                >
                   <button
                     type="button"
                     className="staff-text-link"
@@ -410,7 +421,9 @@ export function MerchantApprovalsPage() {
                           onClick={() => {
                             const reason = rejectionReasons[partner.id]?.trim();
                             if (!reason) {
-                              setActionError('Add a rejection reason before rejecting an application.');
+                              setActionError(
+                                'Add a rejection reason before rejecting an application.',
+                              );
                               return;
                             }
                             setActionError('');
@@ -449,7 +462,11 @@ export function MerchantApprovalsPage() {
                             disabled={isActionPending}
                             onClick={() => {
                               setActionError('');
-                              reviewCourier.mutate({ id: partner.id, active: false, name: partner.name });
+                              reviewCourier.mutate({
+                                id: partner.id,
+                                active: false,
+                                name: partner.name,
+                              });
                             }}
                           >
                             Deactivate
@@ -462,7 +479,11 @@ export function MerchantApprovalsPage() {
                             disabled={isActionPending}
                             onClick={() => {
                               setActionError('');
-                              reviewCourier.mutate({ id: partner.id, active: true, name: partner.name });
+                              reviewCourier.mutate({
+                                id: partner.id,
+                                active: true,
+                                name: partner.name,
+                              });
                             }}
                           >
                             Activate
@@ -478,16 +499,13 @@ export function MerchantApprovalsPage() {
         )}
 
         <p className="staff-review-notice" style={{ marginTop: '18px' }}>
-          Recording approval updates the application status. Merchant and courier role access is managed
-          separately in Keycloak by an administrator.
+          Recording approval updates the application status. Merchant and courier role access is
+          managed separately in Keycloak by an administrator.
         </p>
       </section>
 
       {/* Details inspection modal */}
-      <PartnerDetailModal
-        partner={inspectedPartner}
-        onClose={() => setInspectedPartner(null)}
-      />
+      <PartnerDetailModal partner={inspectedPartner} onClose={() => setInspectedPartner(null)} />
 
       {/* Action confirmation dialog */}
       <ActionConfirmDialog
@@ -500,6 +518,6 @@ export function MerchantApprovalsPage() {
         onConfirm={pendingConfirm.onConfirm}
         onCancel={() => setPendingConfirm((prev) => ({ ...prev, isOpen: false }))}
       />
-    </main>
+    </Container>
   );
 }

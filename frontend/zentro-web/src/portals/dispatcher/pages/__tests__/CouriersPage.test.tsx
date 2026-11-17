@@ -1,3 +1,5 @@
+import * as workloadApi from '../../api/workloadApi';
+import * as adminApi from '../../api/adminApi';
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
@@ -67,13 +69,26 @@ function renderComponent() {
           <CouriersPage />
         </MemoryRouter>
       </AuthContext.Provider>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
 describe('CouriersPage (Dispatcher Portal)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(workloadApi, 'getCourierWorkload').mockResolvedValue({
+      items: mockCouriers.map((courier, index) => ({
+        courierId: courier.id,
+        userId: courier.userId,
+        name: courier.name ?? null,
+        active: courier.active,
+        accountStatus: courier.accountStatus,
+        assignmentCount: index === 0 ? 4 : 0,
+        availability: 'AVAILABLE' as const,
+      })),
+      total: 2,
+      overloadConfigured: false,
+    });
   });
 
   it('renders registered courier directory with operational details', async () => {
@@ -135,7 +150,7 @@ describe('CouriersPage (Dispatcher Portal)', () => {
           name: 'Kamal Silva',
           phone: '+94711112222',
         },
-        'mock-dispatcher-token'
+        'mock-dispatcher-token',
       );
     });
 
@@ -143,7 +158,9 @@ describe('CouriersPage (Dispatcher Portal)', () => {
   });
 
   it('filters couriers when search text or status is changed', async () => {
-    const listSpy = vi.spyOn(courierAdminApi, 'listCouriersAdmin').mockResolvedValue([mockCouriers[0]]);
+    const listSpy = vi
+      .spyOn(courierAdminApi, 'listCouriersAdmin')
+      .mockResolvedValue([mockCouriers[0]]);
 
     renderComponent();
 
@@ -161,5 +178,44 @@ describe('CouriersPage (Dispatcher Portal)', () => {
         expect.anything(),
       );
     });
+  });
+  it('shows recorded workload and performs activation through the existing API', async () => {
+    vi.spyOn(courierAdminApi, 'listCouriersAdmin').mockResolvedValue(mockCouriers);
+    const update = vi
+      .spyOn(courierAdminApi, 'updateCourierAdmin')
+      .mockResolvedValue({ ...mockCouriers[0], active: false });
+    renderComponent();
+    expect(await screen.findByText('4')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Deactivate Kamal Silva' }));
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith('cp-1', { active: false }, 'mock-dispatcher-token'),
+    );
+  });
+  it('shows an honest empty directory instead of sample people', async () => {
+    vi.spyOn(courierAdminApi, 'listCouriersAdmin').mockResolvedValue([]);
+    renderComponent();
+    expect(await screen.findByText('No couriers match these filters')).toBeInTheDocument();
+    expect(screen.queryByText('Saman Perera')).not.toBeInTheDocument();
+  });
+  it('supports keyboard tab navigation and embeds Users and Merchants without nested main landmarks', async () => {
+    vi.spyOn(courierAdminApi, 'listCouriersAdmin').mockResolvedValue([]);
+    vi.spyOn(adminApi, 'listUsers').mockResolvedValue([]);
+    vi.spyOn(adminApi, 'listMerchantApplications').mockResolvedValue([]);
+    renderComponent();
+    const couriers = screen.getByRole('tab', { name: 'Couriers' });
+    fireEvent.keyDown(couriers, { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: 'Users' })).toHaveFocus();
+    expect(
+      await screen.findByRole('heading', { name: 'User management', level: 2 }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Users' }), {
+      key: 'ArrowRight',
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Merchant applications', level: 2 }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('No applications match these filters.')).toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 });

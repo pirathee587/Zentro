@@ -1319,6 +1319,162 @@ html[data-theme="dark"] .sd-metric-card {
 .staff-field-error { color: #a83d30; font-size: 11px; font-weight: 600; }
 
 /* Modal overlay & dialog */
+/* Keep the pricing editor readable inside its two-column page layout. */
+.sd-zones-pricing-page .sd-card,
+.sd-zones-pricing-page .staff-panel,
+.sd-zones-pricing-page .staff-field {
+  min-width: 0;
+}
+
+.sd-zones-pricing-page .staff-pricing-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--mute);
+}
+
+.sd-zones-pricing-page .staff-pricing-meta > span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.sd-zones-pricing-page .staff-pricing-meta strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.sd-zones-pricing-page .staff-pricing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 18px;
+}
+
+.sd-zones-pricing-page .staff-field,
+.sd-zones-pricing-page .sd-zone-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sd-zones-pricing-page .staff-field > label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.sd-zones-pricing-page .staff-field-hint,
+.sd-zones-pricing-page .staff-field-error {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sd-zones-pricing-page .staff-field-hint {
+  color: var(--mute);
+}
+
+.sd-zones-pricing-page .staff-pricing-zones > .staff-field-hint {
+  margin: 16px 0 0;
+}
+
+.sd-zones-pricing-page input:not([type="checkbox"]),
+.sd-zones-pricing-page select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card, #fff);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.sd-zones-pricing-page input:hover,
+.sd-zones-pricing-page select:hover {
+  border-color: var(--mute);
+}
+
+.sd-zones-pricing-page input:focus-visible,
+.sd-zones-pricing-page select:focus-visible,
+.sd-zones-pricing-page button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.sd-zones-pricing-page input[aria-invalid="true"],
+.sd-zones-pricing-page select[aria-invalid="true"] {
+  border-color: #a83d30;
+}
+
+.sd-zones-pricing-page .staff-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sd-zones-pricing-page input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #a66a24;
+}
+
+.sd-zones-pricing-page button {
+  min-height: 40px;
+  cursor: pointer;
+  transition: filter 150ms ease, box-shadow 150ms ease;
+}
+
+.sd-zones-pricing-page button:not(:disabled):hover {
+  filter: brightness(0.96);
+  box-shadow: 0 3px 8px rgb(0 0 0 / 8%);
+}
+
+.sd-zones-pricing-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sd-zones-pricing-page .staff-pricing-actions > .staff-muted {
+  flex: 1 1 100%;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sd-zones-pricing-page .staff-pricing-table {
+  line-height: 1.6;
+}
+
+.sd-zones-pricing-page .staff-pricing-table tbody tr:hover {
+  background: var(--card);
+}
+
+.sd-zones-pricing-page .staff-pricing-total {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .sd-zones-pricing-page .staff-pricing-grid,
+  .sd-zones-pricing-page .staff-pricing-result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sd-zones-pricing-page .staff-panel {
+    padding: 16px;
+  }
+}
+
 .staff-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 1000; padding: 20px; }
 .staff-modal-card { width: min(100%, 540px); background: #ffffff; border-radius: 24px; padding: 32px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
 .staff-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }

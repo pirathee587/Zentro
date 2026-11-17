@@ -157,7 +157,7 @@ public class TrackingKafkaConsumer {
       projections.lock(event.parcel());
     }
     tracking.recordEvent(event.ref(), event.parcel(), event.status(), event.previous(), event.actor(),
-        event.status().defaultTitle(), event.reason() != null ? event.reason() : event.status().defaultDescription(),
+        event.status().defaultTitle(), event.reason(),
         event.reason(), null, event.time(), event.id());
     if (processed != null) {
       processed.flush(); // history must be visible to the JDBC projection update in this same transaction

@@ -90,6 +90,26 @@ class BookingPersistenceIntegrationTest {
         .andReturn().getResponse().getContentAsString());
   }
 
+  @Test void customerReadsPersistedBookingThroughOwnedApisAndPublicViewExcludesPii() throws Exception {
+    var created=book("synthetic-live-owner",BODY,"synthetic-live-attempt");
+    String ref=created.path("trackingRef").asText();
+    var owned=objectMapper.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/parcels/mine/{ref}",ref)
+        .with(customer("synthetic-live-owner"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertThat(owned.path("fee").decimalValue()).isEqualByComparingTo(created.path("fee").decimalValue());
+    assertThat(owned.path("sender").path("name").asText()).isEqualTo("Nimal Perera");
+    mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/parcels/mine/{ref}",ref)
+        .with(customer("synthetic-other-owner"))).andExpect(status().isNotFound());
+    mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/parcels/mine"))
+        .andExpect(status().isUnauthorized());
+    var publicView=objectMapper.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/parcels/tracking/{ref}",ref))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertThat(publicView.path("trackingRef").asText()).isEqualTo(ref);
+    assertThat(publicView.has("sender")).isFalse();assertThat(publicView.has("customerSubject")).isFalse();assertThat(publicView.has("fee")).isFalse();
+    var page=objectMapper.readTree(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/parcels/mine")
+        .with(customer("synthetic-live-owner"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertThat(page.path("content").findValuesAsText("trackingRef")).contains(ref);
+  }
+
   @Test
   void invalidRequestsLeaveNoParcelIdempotencyOrOutboxRows() throws Exception {
     long parcels = jdbc.queryForObject("SELECT count(*) FROM parcel.parcel", Long.class);

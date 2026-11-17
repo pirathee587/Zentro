@@ -1,4 +1,7 @@
-import { useState, useId, useRef, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
+import './UsersPage.css';
+import { useState, useId, useRef, useEffect, type FormEvent } from 'react';
 import { useDialogFocus } from '@/shared/ui/useDialogFocus';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -24,9 +27,7 @@ function StatusBadge({ status }: { status: string }) {
     DISABLED: 'staff-badge-disabled',
     SUSPENDED: 'staff-badge-suspended',
   };
-  return (
-    <span className={`staff-badge ${map[status] ?? 'staff-badge-unknown'}`}>{status}</span>
-  );
+  return <span className={`staff-badge ${map[status] ?? 'staff-badge-unknown'}`}>{status}</span>;
 }
 
 // ─── Role pill ──────────────────────────────────────────────────────────────────
@@ -97,107 +98,116 @@ function AddCourierModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      role="dialog"
-      ref={dialog}
-      tabIndex={-1}
-      aria-modal="true"
-      aria-label="Add New Courier"
-      className="staff-edit-panel"
-      style={{ maxWidth: '520px' }}
+      className="user-edit-backdrop"
+      data-testid="add-courier-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose();
+      }}
     >
-      <div className="staff-edit-panel-header">
-        <div>
-          <span className="staff-eyebrow">STAFF ONBOARDING</span>
-          <h2>Add New Courier</h2>
-          <small>Assign courier with their real Gmail. A temporary password will be emailed.</small>
+      <div
+        role="dialog"
+        ref={dialog}
+        tabIndex={-1}
+        aria-modal="true"
+        aria-label="Add New Courier"
+        className="staff-edit-panel user-edit-dialog"
+        style={{ maxWidth: '520px' }}
+      >
+        <div className="staff-edit-panel-header">
+          <div>
+            <span className="staff-eyebrow">STAFF ONBOARDING</span>
+            <h2>Add New Courier</h2>
+            <small>Assign courier with their real Gmail. A temporary password will be emailed.</small>
+          </div>
+          <button type="button" aria-label="Close" className="staff-close-btn" disabled={loading} onClick={onClose}>
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
-        <button type="button" aria-label="Close" className="staff-close-btn" onClick={onClose}>
-          ✕
-        </button>
+
+        <form onSubmit={handleSubmit} className="staff-edit-panel-body">
+          <div className="staff-field">
+            <label htmlFor="courier-name">Full Name *</label>
+            <input
+              id="courier-name"
+              type="text"
+              required
+              value={name}
+              placeholder="e.g. Priyantha Silva"
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="staff-field">
+            <label htmlFor="courier-email">Courier Real Gmail *</label>
+            <input
+              id="courier-email"
+              type="email"
+              required
+              value={email}
+              placeholder="courier@gmail.com"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <small style={{ color: '#766757', marginTop: '4px', display: 'block', fontSize: '12px' }}>
+              A temporary password will be sent to this email. Keycloak will mandate changing password on first login.
+            </small>
+          </div>
+
+          <div className="staff-field">
+            <label htmlFor="courier-phone">Phone Number</label>
+            <input
+              id="courier-phone"
+              type="tel"
+              value={phone}
+              placeholder="07XXXXXXXX or +947XXXXXXXX"
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+
+          <div className="staff-field">
+            <label htmlFor="courier-zone">Assigned Delivery Zone</label>
+            <select id="courier-zone" value={assignedZone} onChange={(e) => setAssignedZone(e.target.value)}>
+              <option value="Colombo Central">Colombo Central</option>
+              <option value="Colombo North">Colombo North</option>
+              <option value="Colombo South">Colombo South</option>
+              <option value="Dehiwala-Mount Lavinia">Dehiwala-Mount Lavinia</option>
+              <option value="Moratuwa">Moratuwa</option>
+              <option value="Kaduwela">Kaduwela</option>
+              <option value="Gampaha">Gampaha</option>
+              <option value="Negombo">Negombo</option>
+              <option value="Kandy">Kandy</option>
+              <option value="Galle">Galle</option>
+              <option value="Jaffna">Jaffna</option>
+              <option value="Kurunegala">Kurunegala</option>
+            </select>
+          </div>
+
+          <div className="staff-field">
+            <label htmlFor="courier-vehicle">Vehicle Type</label>
+            <select id="courier-vehicle" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
+              <option value="MOTORCYCLE">Motorcycle</option>
+              <option value="VAN">Van</option>
+              <option value="THREE_WHEELER">Three-Wheeler</option>
+              <option value="CAR">Car</option>
+              <option value="BICYCLE">Bicycle</option>
+            </select>
+          </div>
+
+          {error && <div className="staff-error" role="alert" style={{ marginBottom: '12px' }}>{error}</div>}
+
+          <div className="staff-edit-panel-footer" style={{ marginTop: '16px' }}>
+            <button type="button" className="staff-review-button" disabled={loading} onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="staff-review-button is-approve" disabled={loading} style={{ flex: 1 }}>
+              {loading ? 'Creating & Sending Email...' : 'Create Courier & Send Password'}
+            </button>
+          </div>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} className="staff-edit-panel-body">
-        <div className="staff-field">
-          <label htmlFor="courier-name">Full Name *</label>
-          <input
-            id="courier-name"
-            type="text"
-            required
-            value={name}
-            placeholder="e.g. Priyantha Silva"
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor="courier-email">Courier Real Gmail *</label>
-          <input
-            id="courier-email"
-            type="email"
-            required
-            value={email}
-            placeholder="courier@gmail.com"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <small style={{ color: '#766757', marginTop: '4px', display: 'block', fontSize: '12px' }}>
-            A temporary password will be sent to this email. Keycloak will mandate changing password on first login.
-          </small>
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor="courier-phone">Phone Number</label>
-          <input
-            id="courier-phone"
-            type="tel"
-            value={phone}
-            placeholder="07XXXXXXXX or +947XXXXXXXX"
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor="courier-zone">Assigned Delivery Zone</label>
-          <select id="courier-zone" value={assignedZone} onChange={(e) => setAssignedZone(e.target.value)}>
-            <option value="Colombo Central">Colombo Central</option>
-            <option value="Colombo North">Colombo North</option>
-            <option value="Colombo South">Colombo South</option>
-            <option value="Dehiwala-Mount Lavinia">Dehiwala-Mount Lavinia</option>
-            <option value="Moratuwa">Moratuwa</option>
-            <option value="Kaduwela">Kaduwela</option>
-            <option value="Gampaha">Gampaha</option>
-            <option value="Negombo">Negombo</option>
-            <option value="Kandy">Kandy</option>
-            <option value="Galle">Galle</option>
-            <option value="Jaffna">Jaffna</option>
-            <option value="Kurunegala">Kurunegala</option>
-          </select>
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor="courier-vehicle">Vehicle Type</label>
-          <select id="courier-vehicle" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
-            <option value="MOTORCYCLE">Motorcycle</option>
-            <option value="VAN">Van</option>
-            <option value="THREE_WHEELER">Three-Wheeler</option>
-            <option value="CAR">Car</option>
-            <option value="BICYCLE">Bicycle</option>
-          </select>
-        </div>
-
-        {error && <div className="staff-error" role="alert" style={{ marginBottom: '12px' }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-          <button type="submit" className="staff-review-button is-approve" disabled={loading} style={{ flex: 1 }}>
-            {loading ? 'Creating & Sending Email...' : 'Create Courier & Send Password'}
-          </button>
-          <button type="button" className="staff-review-button" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -229,52 +239,61 @@ function DeleteUserModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      role="dialog"
-      ref={dialog}
-      tabIndex={-1}
-      aria-modal="true"
-      aria-label="Confirm User Deletion"
-      className="staff-edit-panel"
-      style={{ maxWidth: '440px' }}
+      className="user-edit-backdrop"
+      data-testid="delete-user-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose();
+      }}
     >
-      <div className="staff-edit-panel-header">
-        <div>
-          <span className="staff-eyebrow" style={{ color: '#c53030' }}>DELETE ACCOUNT</span>
-          <h2>Delete User?</h2>
-        </div>
-        <button type="button" aria-label="Close" className="staff-close-btn" onClick={onClose}>
-          ✕
-        </button>
-      </div>
-
-      <div className="staff-edit-panel-body">
-        <p style={{ color: '#231d19', fontSize: '14px', lineHeight: 1.6 }}>
-          Are you sure you want to permanently delete <strong>{user.name || user.email}</strong> (<code>{user.email}</code>)?
-        </p>
-        <p style={{ color: '#8c2525', fontSize: '13px', background: '#fff5f5', padding: '10px', borderRadius: '6px', border: '1px solid #fed7d7' }}>
-          This will permanently delete the user in Keycloak and remove all associated profile data in Zentro.
-        </p>
-
-        {error && <div className="staff-error" role="alert" style={{ marginBottom: '12px' }}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-          <button
-            type="button"
-            className="staff-review-button is-reject"
-            disabled={loading}
-            onClick={handleDelete}
-            style={{ flex: 1, background: '#c53030', color: '#fff', borderColor: '#c53030' }}
-          >
-            {loading ? 'Deleting...' : 'Yes, Delete Account'}
-          </button>
-          <button type="button" className="staff-review-button" onClick={onClose}>
-            Cancel
+      <div
+        role="dialog"
+        ref={dialog}
+        tabIndex={-1}
+        aria-modal="true"
+        aria-label="Confirm User Deletion"
+        className="staff-edit-panel user-edit-dialog"
+        style={{ maxWidth: '440px' }}
+      >
+        <div className="staff-edit-panel-header">
+          <div>
+            <span className="staff-eyebrow" style={{ color: '#c53030' }}>DELETE ACCOUNT</span>
+            <h2>Delete User?</h2>
+          </div>
+          <button type="button" aria-label="Close" className="staff-close-btn" disabled={loading} onClick={onClose}>
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
+
+        <div className="staff-edit-panel-body">
+          <p style={{ color: '#231d19', fontSize: '14px', lineHeight: 1.6 }}>
+            Are you sure you want to permanently delete <strong>{user.name || user.email}</strong> (<code>{user.email}</code>)?
+          </p>
+          <p style={{ color: '#8c2525', fontSize: '13px', background: '#fff5f5', padding: '10px', borderRadius: '6px', border: '1px solid #fed7d7' }}>
+            This will permanently delete the user in Keycloak and remove all associated profile data in Zentro.
+          </p>
+
+          {error && <div className="staff-error" role="alert" style={{ marginBottom: '12px' }}>{error}</div>}
+
+          <div className="staff-edit-panel-footer" style={{ marginTop: '16px' }}>
+            <button type="button" className="staff-review-button" disabled={loading} onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="staff-review-button is-reject"
+              disabled={loading}
+              onClick={handleDelete}
+              style={{ flex: 1, background: '#c53030', color: '#fff', borderColor: '#c53030' }}
+            >
+              {loading ? 'Deleting...' : 'Yes, Delete Account'}
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -291,6 +310,7 @@ function UserEditPanel({
   onSaved: () => void;
 }) {
   const nameId = useId();
+  const emailId = useId();
   const phoneId = useId();
   const statusId = useId();
 
@@ -302,8 +322,17 @@ function UserEditPanel({
   );
   const [saveError, setSaveError] = useState('');
   const isSelf = user.id === currentUserId;
+  useEffect(() => {
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+    };
+  }, []);
   const dialog = useRef<HTMLDivElement>(null);
-  useDialogFocus(dialog, () => { if (!save.isPending) onClose(); });
+  useDialogFocus(dialog, () => {
+    if (!save.isPending) onClose();
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -324,117 +353,144 @@ function UserEditPanel({
       setSaveError(friendlyApiError(error, 'Could not update the user. Please try again.')),
   });
 
-  return (
+  return createPortal(
     <div
-      role="dialog"
-      ref={dialog}
-      tabIndex={-1}
-      aria-modal="true"
-      aria-label="Edit user"
-      className="staff-edit-panel"
+      className="user-edit-backdrop"
+      data-testid="user-edit-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !save.isPending) onClose();
+      }}
     >
-      <div className="staff-edit-panel-header">
-        <div>
-          <span className="staff-eyebrow">EDIT USER</span>
-          <h2>{user.name ?? user.email}</h2>
-          <small>{user.email}</small>
-        </div>
-        <button type="button" aria-label="Close" className="staff-close-btn" onClick={onClose}>
-          ✕
-        </button>
-      </div>
-
-      <div className="staff-edit-panel-body">
-        <div className="staff-field">
-          <label htmlFor={nameId}>Display name</label>
-          <input
-            id={nameId}
-            type="text"
-            value={name}
-            maxLength={200}
-            placeholder={user.email}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor={phoneId}>Phone</label>
-          <input
-            id={phoneId}
-            type="tel"
-            value={phone}
-            maxLength={32}
-            placeholder="Not set"
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
-
-        <div className="staff-field">
-          <label htmlFor={statusId}>Account status</label>
-          <select
-            id={statusId}
-            value={accountStatus}
-            disabled={isSelf}
-            onChange={(e) =>
-              setAccountStatus(e.target.value as AdminUpdateUserRequest['accountStatus'])
-            }
-          >
-            <option value="ACTIVE">Active</option>
-            <option value="DISABLED">Disabled</option>
-            <option value="SUSPENDED">Suspended</option>
-          </select>
-          {isSelf && (
-            <small style={{ color: '#888', marginTop: '4px', display: 'block' }}>
-              You cannot change your own account status.
-            </small>
-          )}
-        </div>
-
-        <div className="staff-field">
-          <span className="staff-label">Assigned roles</span>
-          <div className="staff-role-list" style={{ marginTop: '4px' }}>
-            {user.roles.length > 0 ? (
-              user.roles.map((r) => <RolePill key={r} role={r} />)
-            ) : (
-              <span className="staff-muted">No roles</span>
-            )}
+      <div
+        role="dialog"
+        ref={dialog}
+        tabIndex={-1}
+        aria-modal="true"
+        aria-label="Edit user"
+        className="staff-edit-panel user-edit-dialog"
+      >
+        <div className="staff-edit-panel-header">
+          <div>
+            <span className="staff-eyebrow">ACCOUNT DETAILS</span>
+            <h2>Edit user</h2>
+            <small>{user.email}</small>
           </div>
-          <small style={{ color: '#888', marginTop: '4px', display: 'block' }}>
-            Roles are assigned in Keycloak and read-only here.
-          </small>
-        </div>
-
-        {saveError && (
-          <div className="staff-error" role="alert" style={{ marginBottom: '12px' }}>
-            {saveError}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
           <button
             type="button"
-            className="staff-review-button is-approve"
-            disabled={save.isPending}
-            onClick={() => save.mutate()}
-          >
-            {save.isPending ? 'Saving…' : 'Save changes'}
-          </button>
-          <button
-            type="button"
-            className="staff-review-button"
+            aria-label="Close"
+            className="staff-close-btn"
             disabled={save.isPending}
             onClick={onClose}
           >
-            Cancel
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
+
+        <form
+          className="user-edit-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!save.isPending) save.mutate();
+          }}
+        >
+          <div className="staff-edit-panel-body">
+            <div className="staff-field">
+              <label htmlFor={nameId}>Display name</label>
+              <input
+                id={nameId}
+                type="text"
+                value={name}
+                maxLength={200}
+                placeholder={user.email}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div className="staff-field">
+              <label htmlFor={emailId}>Email address</label>
+              <input id={emailId} type="email" readOnly value={user.email} />
+            </div>
+
+            <div className="staff-field">
+              <label htmlFor={phoneId}>Phone</label>
+              <input
+                id={phoneId}
+                type="tel"
+                value={phone}
+                maxLength={32}
+                placeholder="Not set"
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="staff-field">
+              <label htmlFor={statusId}>Account status</label>
+              <select
+                id={statusId}
+                value={accountStatus}
+                disabled={isSelf}
+                onChange={(e) =>
+                  setAccountStatus(e.target.value as AdminUpdateUserRequest['accountStatus'])
+                }
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="DISABLED">Disabled</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+              {isSelf && (
+                <small className="staff-field-hint">
+                  You cannot change your own account status.
+                </small>
+              )}
+            </div>
+
+            <div className="staff-field-row">
+              <strong>Roles</strong>
+              <div className="staff-role-list">
+                {user.roles.length > 0 ? (
+                  user.roles.map((r) => <RolePill key={r} role={r} />)
+                ) : (
+                  <span className="staff-muted">No roles assigned</span>
+                )}
+              </div>
+              <small className="staff-field-hint">Role assignment is managed in Keycloak.</small>
+            </div>
+
+            {saveError && (
+              <p role="alert" className="staff-error" style={{ marginTop: '12px' }}>
+                {saveError}
+              </p>
+            )}
+          </div>
+
+          <div className="staff-edit-panel-footer">
+            <button
+              type="button"
+              className="staff-review-button"
+              disabled={save.isPending}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="staff-review-button is-approve"
+              disabled={save.isPending}
+            >
+              {save.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // ─── Main page component ───────────────────────────────────────────────────────
-export function UsersPage() {
+export function UsersPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const Container = embedded ? 'div' : 'main';
+  const Heading = embedded ? 'h2' : 'h1';
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
@@ -448,6 +504,7 @@ export function UsersPage() {
 
   const usersQuery = useQuery({
     queryKey: usersKey(statusFilter, liveSearch),
+    enabled: Boolean(currentUser?.accessToken),
     queryFn: ({ signal }) =>
       listUsers(
         {
@@ -464,12 +521,12 @@ export function UsersPage() {
   };
 
   return (
-    <main className="staff-page">
+    <Container className={`staff-main users-page ${embedded ? 'people-embedded' : ''}`}>
       <section className="staff-section" aria-labelledby="users-heading">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <span className="staff-eyebrow">DISPATCH DESK</span>
-            <h1 id="users-heading">User management</h1>
+            <Heading id="users-heading">User management</Heading>
             <p>View and manage registered user accounts.</p>
           </div>
           <button
@@ -634,60 +691,42 @@ export function UsersPage() {
 
       {/* Edit panel overlay */}
       {selectedUser && currentUser && (
-        <>
-          <div
-            className="staff-overlay"
-            aria-hidden="true"
-            onClick={() => setSelectedUser(null)}
-          />
-          <UserEditPanel
-            user={selectedUser}
-            currentUserId={currentUser.id}
-            onClose={() => setSelectedUser(null)}
-            onSaved={() => setSelectedUser(null)}
-          />
-        </>
+        <UserEditPanel
+          user={selectedUser}
+          currentUserId={currentUser.id}
+          onClose={() => setSelectedUser(null)}
+          onSaved={() => {
+            setSelectedUser(null);
+            setBannerNotice('User updated successfully.');
+          }}
+        />
       )}
 
       {/* Add Courier Modal */}
       {isAddCourierOpen && (
-        <>
-          <div
-            className="staff-overlay"
-            aria-hidden="true"
-            onClick={() => setIsAddCourierOpen(false)}
-          />
-          <AddCourierModal
-            onClose={() => setIsAddCourierOpen(false)}
-            onCreated={(courierEmail) => {
-              setIsAddCourierOpen(false);
-              setBannerNotice(`Courier created! Temporary login credentials have been sent to ${courierEmail}.`);
-              void queryClient.invalidateQueries({ queryKey: ['dispatcher', 'admin-users'] });
-            }}
-          />
-        </>
+        <AddCourierModal
+          onClose={() => setIsAddCourierOpen(false)}
+          onCreated={(courierEmail) => {
+            setIsAddCourierOpen(false);
+            setBannerNotice(`Courier created! Temporary login credentials have been sent to ${courierEmail}.`);
+            void queryClient.invalidateQueries({ queryKey: ['dispatcher', 'admin-users'] });
+          }}
+        />
       )}
 
       {/* Delete Confirmation Modal */}
       {userToDelete && (
-        <>
-          <div
-            className="staff-overlay"
-            aria-hidden="true"
-            onClick={() => setUserToDelete(null)}
-          />
-          <DeleteUserModal
-            user={userToDelete}
-            onClose={() => setUserToDelete(null)}
-            onDeleted={() => {
-              const deletedEmail = userToDelete.email;
-              setUserToDelete(null);
-              setBannerNotice(`User ${deletedEmail} has been deleted.`);
-              void queryClient.invalidateQueries({ queryKey: ['dispatcher', 'admin-users'] });
-            }}
-          />
-        </>
+        <DeleteUserModal
+          user={userToDelete}
+          onClose={() => setUserToDelete(null)}
+          onDeleted={() => {
+            const deletedEmail = userToDelete.email;
+            setUserToDelete(null);
+            setBannerNotice(`User ${deletedEmail} has been deleted.`);
+            void queryClient.invalidateQueries({ queryKey: ['dispatcher', 'admin-users'] });
+          }}
+        />
       )}
-    </main>
+    </Container>
   );
 }

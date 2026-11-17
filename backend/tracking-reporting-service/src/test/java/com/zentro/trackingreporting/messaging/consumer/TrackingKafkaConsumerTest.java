@@ -7,7 +7,9 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zentro.trackingreporting.messaging.idempotency.ProcessedEventRepository;
 import com.zentro.trackingreporting.reporting.DeliveryProjectionRepository;
+import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
 import com.zentro.trackingreporting.tracking.service.TrackingService;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +40,9 @@ class TrackingKafkaConsumerTest {
     var order = inOrder(processed, projections, tracking);
     order.verify(processed).claim("tracking-reporting-service", id);
     order.verify(projections).lock(any());
-    order.verify(tracking).recordEvent(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), eq(id));
+    order.verify(tracking).recordEvent(eq("ZT-7K3QX9M2PA"), any(), eq(TrackingStatus.CREATED), isNull(),
+        eq("SYSTEM"), eq("Parcel Booked"), isNull(), isNull(), isNull(),
+        eq(Instant.parse("2026-11-05T08:00:00Z")), eq(id));
     order.verify(processed).flush();
     order.verify(projections).refresh(any());
   }

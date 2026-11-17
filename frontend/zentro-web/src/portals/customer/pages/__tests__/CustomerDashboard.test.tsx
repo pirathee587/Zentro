@@ -1,4 +1,6 @@
 import React from 'react';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/shared/testing/mocks/server';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -138,6 +140,43 @@ const mockDashboardData: DashboardData = {
 describe('CustomerDashboard Page', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(customerApi, 'estimateDashboardFee').mockResolvedValue({ fee: 800, formattedFee: 'LKR 800', currency: 'LKR',
+      estimatedDays: 1, breakdown: { baseFee: 550, weightFee: 250 } });
+  });
+
+  it('renders GraphQL values without courier/notification or tracking placeholders', async () => {
+    const p = mockDashboardData.recentParcels[0];
+    const delivery = { ...p, status: 'IN_TRANSIT', rawStatus: 'IN_TRANSIT', category: 'Documents',
+      weightKg: 2.75, size: 'SMALL', description: 'Documents', currency: 'LKR', events: [],
+      estimatedDeliveryDate: '2026-11-20T12:00:00Z', deliveredAt: null, failureReason: null };
+    server.use(http.post('*/graphql', async ({ request }) => {
+      const body = await request.json() as { query: string };
+      if (body.query.includes('customerDashboardSummary')) return HttpResponse.json({ data: { customerDashboardSummary: {
+        activeCount: 7, deliveredCount: 12, awaitingPickupCount: 2, failedCount: 1, inTransitCount: 5, totalParcels: 20,
+        totalFees: [{ currency: 'LKR', amount: 5432.5 }], monthlyFees: [{ currency: 'LKR', amount: 1234.5 }],
+      } } });
+      if (body.query.includes('myDeliveries')) return HttpResponse.json({ data: { myDeliveries: { items: [delivery] } } });
+      return HttpResponse.json({ data: { customerLiveDelivery: delivery } });
+    }));
+    render(<MemoryRouter><CustomerDashboard /></MemoryRouter>);
+    expect(await screen.findByText('LKR 1,234.5')).toBeInTheDocument();
+    expect(screen.getByText('7', { selector: '.dash-big-stat-value' })).toBeInTheDocument();
+    expect(screen.getByText(/2.75 kg • SMALL/)).toBeInTheDocument();
+    expect(screen.getByText('Courier unavailable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Call courier' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Customer notifications are not available yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Saman Perera')).not.toBeInTheDocument();
+    expect(screen.queryByText('4:30 PM')).not.toBeInTheDocument();
+  });
+
+  it('reports tracking refresh failures without inventing a parcel state and offers retry', async () => {
+    vi.spyOn(customerApi, 'getDashboard').mockResolvedValue(mockDashboardData);
+    vi.spyOn(customerApi, 'getDashboardLiveParcel').mockRejectedValue(new Error('Unavailable'));
+    render(<MemoryRouter><CustomerDashboard /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Simulate next update' }));
+    expect(await screen.findByText('Tracking unavailable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh tracking' })).toBeInTheDocument();
+    expect(screen.queryByText('All scheduled parcels have been delivered or await pickup.')).not.toBeInTheDocument();
   });
 
   it('renders skeleton loading state initially', () => {
@@ -157,7 +196,7 @@ describe('CustomerDashboard Page', () => {
 
   it('renders top row with greeting, segmented bar, monthly spend and 3 large stats', async () => {
     vi.spyOn(customerApi, 'getDashboard').mockResolvedValue(mockDashboardData);
-    vi.spyOn(customerApi, 'estimateFee').mockResolvedValue({
+    vi.spyOn(customerApi, 'estimateDashboardFee').mockResolvedValue({
       fee: 800,
       formattedFee: 'LKR 800',
       currency: 'LKR',
@@ -235,7 +274,7 @@ describe('CustomerDashboard Page', () => {
 
   it('renders Quick fee estimate card and enables continuing to send', async () => {
     vi.spyOn(customerApi, 'getDashboard').mockResolvedValue(mockDashboardData);
-    vi.spyOn(customerApi, 'estimateFee').mockResolvedValue({
+    vi.spyOn(customerApi, 'estimateDashboardFee').mockResolvedValue({
       fee: 1250,
       formattedFee: 'LKR 1,250',
       currency: 'LKR',
@@ -277,7 +316,7 @@ describe('CustomerDashboard Page', () => {
       trackingRef: 'ZTR-SD9999K001',
       recipient: { name: 'Test', phone: '123', address: 'Road', city: 'Galle' },
     };
-    vi.spyOn(customerApi, 'getParcel').mockResolvedValue(mockLookupParcel);
+    vi.spyOn(customerApi, 'getDashboardTracking').mockResolvedValue(mockLookupParcel);
 
     render(
       <MemoryRouter>

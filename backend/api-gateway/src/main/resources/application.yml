@@ -38,7 +38,13 @@ spring:
             - id: notification
               uri: ${S5_URI:http://localhost:8085}
               predicates:
-                - Path=/api/v1/merchant/webhooks/**,/api/v1/admin/audit-logs/**,/api/v1/admin/notification-attempts/**,/api/v1/admin/webhook-deliveries/**
+                - Path=/api/v1/support/**,/api/v1/merchant/webhooks/**,/api/v1/admin/audit-logs/**,/api/v1/admin/notification-attempts/**,/api/v1/admin/webhook-deliveries/**
+            - id: assistant
+              uri: ${S5_URI:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/assistant/**
+              metadata:
+                response-timeout: ${GATEWAY_ASSISTANT_RESPONSE_TIMEOUT_MS:90000}
   security:
     oauth2:
       resourceserver:

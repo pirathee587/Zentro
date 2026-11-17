@@ -36,7 +36,8 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
     String ip = clientIp(exchange);
-    boolean tracking = exchange.getRequest().getPath().value().startsWith("/api/v1/tracking/");
+    String path = exchange.getRequest().getPath().value();
+    boolean tracking = isTrackingRequest(path);
     int limit = tracking ? trackingLimit : defaultLimit;
     Bucket bucket = buckets.get(ip + (tracking ? ":tracking" : ":default"), key -> Bucket.builder()
         .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1)))).build());
@@ -46,6 +47,13 @@ public class RateLimitFilter implements GlobalFilter, Ordered {
     exchange.getResponse().getHeaders().set("Retry-After", Long.toString(seconds));
     return ProblemWriter.write(exchange.getResponse(), HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests",
         "Request rate limit exceeded.", exchange.getRequest().getPath().value());
+  }
+
+  private boolean isTrackingRequest(String path) {
+    return path.startsWith("/api/v1/tracking/")
+        || path.startsWith("/api/v1/parcels/tracking/")
+        || path.equals("/graphql")
+        || path.startsWith("/graphql/");
   }
 
   private String clientIp(ServerWebExchange exchange) {

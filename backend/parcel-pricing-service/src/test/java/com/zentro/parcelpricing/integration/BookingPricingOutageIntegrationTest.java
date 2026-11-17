@@ -31,8 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * What a booking does when pricing cannot give a usable fee: no parcel row and no outbox event, with a clear
- * error. Also records how PricingService behaves when reading the pricing rule fails (it falls back to the
- * default rates) - a finding for the pricing owner, documented here and not changed.
+ * error. Also verifies unreadable pricing rules do not silently create a booking at a made-up rate.
  * Never touches the shared database. Skipped when Docker is not available.
  */
 @SpringBootTest
@@ -136,8 +135,8 @@ class BookingPricingOutageIntegrationTest {
   }
 
   @Test
-  @DisplayName("Finding: if the pricing rule cannot be read, bookings are priced with the default rates instead of failing")
-  void unreadablePricingRuleFallsBackToDefaultRates() throws Exception {
+  @DisplayName("When the pricing rule cannot be read, booking fails without creating a parcel or event")
+  void unreadablePricingRuleFailsAndStoresNothing() throws Exception {
     BigDecimal originalBaseFee = jdbc.queryForObject(
         "SELECT base_fee FROM pricing.pricing_rule WHERE rule_name = 'STANDARD_DEFAULT'", BigDecimal.class);
     // An operator-configured rate: 600 base instead of the default 550.
@@ -151,12 +150,11 @@ class BookingPricingOutageIntegrationTest {
       // Make the rule unreadable (as if the pricing table were unavailable) while the parcel tables still work.
       jdbc.execute("ALTER TABLE pricing.pricing_rule RENAME TO pricing_rule_unavailable");
       try {
-        MockHttpServletResponse fallback = book("outage-4b");
-
-        // Current behaviour: the booking succeeds at the built-in default rate (550 base), not the configured 600.
-        assertThat(fallback.getStatus()).isEqualTo(201);
-        assertThat(objectMapper.readTree(fallback.getContentAsString()).get("fee").decimalValue())
-            .isEqualByComparingTo("670.00");
+        int eventsBefore = outboxRows();
+        MockHttpServletResponse unavailable = book("outage-4b");
+        assertThat(unavailable.getStatus()).isEqualTo(503);
+        assertNothingStored("outage-4b");
+        assertThat(outboxRows()).isEqualTo(eventsBefore);
       } finally {
         jdbc.execute("ALTER TABLE pricing.pricing_rule_unavailable RENAME TO pricing_rule");
       }
