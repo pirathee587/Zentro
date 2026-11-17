@@ -1,17 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
-import { Button } from '@/shared/ui';
+import { Button, Input, Select } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useCourierAssignments } from '../hooks/useCourierAssignments';
-import {
-  CourierPage,
-  ReadState,
-  ProofBadge,
-  assignedDate,
-  assignedDay,
-  completionLabels,
-} from './CourierPageParts';
+import { CourierPage, ReadState, ProofBadge } from './CourierPageParts';
+import { assignedDate, assignedDay, completionLabels } from './courierPageUtils';
 
 export function CourierHistoryPage() {
   const { user } = useAuth();
@@ -71,7 +65,7 @@ function HistoryRecords() {
           <div className="cs-filter">
             <label>
               Search parcel ID
-              <input
+              <Input
                 type="search"
                 value={search}
                 onChange={(e) => {
@@ -82,7 +76,7 @@ function HistoryRecords() {
             </label>
             <label>
               Proof state
-              <select
+              <Select
                 value={state}
                 onChange={(e) => {
                   setState(e.target.value);
@@ -95,11 +89,11 @@ function HistoryRecords() {
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               Assigned from
-              <input
+              <Input
                 type="date"
                 value={from}
                 onChange={(e) => {
@@ -110,7 +104,7 @@ function HistoryRecords() {
             </label>
             <label>
               Assigned through
-              <input
+              <Input
                 type="date"
                 value={to}
                 onChange={(e) => {

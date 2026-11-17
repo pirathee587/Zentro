@@ -123,8 +123,11 @@ function PersonalDetails({ profile, token }: { profile: CourierProfile; token: s
   const [phone, setPhone] = useState(profile.phone ?? '');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const nameInput = useRef<HTMLInputElement>(null);
-  const phoneInput = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const focusField = (id: string) => {
+    const field = formRef.current?.elements.namedItem(id);
+    if (field instanceof HTMLInputElement) field.focus();
+  };
   const { user } = useAuth();
   const client = useQueryClient();
   const profileKey = queryKeys.courier.profile(principalCacheScope(user?.id));
@@ -156,22 +159,22 @@ function PersonalDetails({ profile, token }: { profile: CourierProfile; token: s
       cleanPhone = phone.trim();
     if (!cleanName) {
       setError('Display name cannot be empty.');
-      nameInput.current?.focus();
+      focusField('courier-name-input');
       return;
     }
     if (cleanName.length > 200) {
       setError('Display name must not exceed 200 characters.');
-      nameInput.current?.focus();
+      focusField('courier-name-input');
       return;
     }
     if (cleanPhone.length > 32) {
       setError('Phone number must not exceed 32 characters.');
-      phoneInput.current?.focus();
+      focusField('courier-phone-input');
       return;
     }
     if (profile.phone && !cleanPhone) {
       setError('Phone number cannot be cleared through this form.');
-      phoneInput.current?.focus();
+      focusField('courier-phone-input');
       return;
     }
     update.mutate({ name: cleanName, ...(cleanPhone ? { phone: cleanPhone } : {}) });
@@ -181,7 +184,7 @@ function PersonalDetails({ profile, token }: { profile: CourierProfile; token: s
     <div className="cs-grid">
       <section className="cs-card" aria-labelledby="personal-details">
         <h2 id="personal-details">Your details</h2>
-        <form onSubmit={submit} noValidate>
+        <form ref={formRef} onSubmit={submit} noValidate>
           {error && (
             <p id="profile-validation" role="alert">
               {error}
@@ -196,9 +199,8 @@ function PersonalDetails({ profile, token }: { profile: CourierProfile; token: s
           <div className="cs-filter">
             <label htmlFor="courier-name-input">
               Full Name
-              <input
+              <Input
                 id="courier-name-input"
-                ref={nameInput}
                 value={name}
                 maxLength={200}
                 autoComplete="name"
@@ -212,9 +214,8 @@ function PersonalDetails({ profile, token }: { profile: CourierProfile; token: s
             </label>
             <label htmlFor="courier-phone-input">
               Phone Number
-              <input
+              <Input
                 id="courier-phone-input"
-                ref={phoneInput}
                 type="tel"
                 value={phone}
                 maxLength={32}

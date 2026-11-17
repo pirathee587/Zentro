@@ -4,6 +4,7 @@ import { AlertCircle, PackageOpen } from 'lucide-react';
 import { Button } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
 import { deliveryError, deliverySessionExpired, type CompletionState } from '../api/deliveryApi';
+import { completionLabels } from './courierPageUtils';
 import './CourierSecondaryPages.css';
 
 export function CourierPage({
@@ -64,31 +65,6 @@ export function ReadState({
     </section>
   );
 }
-export const completionLabels: Record<CompletionState, string> = {
-  PENDING: 'Completion pending',
-  COMPLETED: 'Completion confirmed',
-  REJECTED: 'Completion rejected',
-  BLOCKED: 'Completion needs attention',
-};
 export function ProofBadge({ state }: { state: CompletionState | null }) {
   return <span className="cs-badge">{state ? completionLabels[state] : 'Awaiting proof'}</span>;
-}
-export function assignedDate(value: string) {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Colombo',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-export function assignedDay(value: string) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Colombo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(value));
-  return ['year', 'month', 'day']
-    .map((type) => parts.find((p) => p.type === type)?.value)
-    .join('-');
 }

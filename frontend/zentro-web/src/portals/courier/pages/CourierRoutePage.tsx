@@ -3,7 +3,8 @@ import { MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useCourierAssignments } from '../hooks/useCourierAssignments';
-import { CourierPage, ReadState, ProofBadge, assignedDate } from './CourierPageParts';
+import { CourierPage, ReadState, ProofBadge } from './CourierPageParts';
+import { assignedDate } from './courierPageUtils';
 
 export function CourierRoutePage() {
   const { user } = useAuth();

@@ -135,6 +135,7 @@ describe('CourierProfilePage', () => {
     fireEvent.click(submitBtn);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Display name cannot be empty.');
+    expect(nameInput).toHaveFocus();
     expect(updateSpy).not.toHaveBeenCalled();
   });
 
@@ -226,6 +227,7 @@ describe('CourierProfilePage', () => {
     fireEvent.change(screen.getByLabelText(/Phone Number/), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Personal Details' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('cannot be cleared');
+    expect(screen.getByLabelText(/Phone Number/)).toHaveFocus();
     expect(save).not.toHaveBeenCalled();
   });
 
