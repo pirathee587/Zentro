@@ -74,8 +74,8 @@ export function friendlyApiError(error: unknown, fallback: string): string {
   const data = error.response?.data as { detail?: string; message?: string; error?: string } | undefined;
   if (data?.detail && typeof data.detail === 'string') return data.detail;
   if (data?.message && typeof data.message === 'string') return data.message;
-  if (data?.error && typeof data.error === 'string') return data.error;
-  if (error.response?.status === 409) return 'An account with this email address already exists. Please choose a different email or manage the existing user.';
+  if (error.response?.status === 409) return 'An account with this email address already exists. Please sign in or use a different email.';
+  if (data?.error && typeof data.error === 'string' && data.error.toLowerCase() !== 'conflict') return data.error;
   if (error.response?.status === 401) return 'Your session has expired. Please sign in again.';
   if (error.response?.status === 403) return 'Your account does not have permission to do that.';
   if (!error.response) return 'We could not reach Zentro. Check your connection and try again.';

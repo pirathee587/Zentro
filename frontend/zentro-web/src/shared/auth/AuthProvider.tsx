@@ -238,7 +238,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     } catch {
       window.sessionStorage.removeItem(AUTH_FLOW_STORAGE_KEY);
-      setAuthError('Cannot reach the sign-in service. Check Keycloak and try again.');
+      setAuthError('Sign-in is temporarily unavailable. Please refresh the page and try again.');
     }
   }, []);
 
@@ -256,7 +256,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     } catch {
       window.sessionStorage.removeItem(AUTH_FLOW_STORAGE_KEY);
-      setAuthError('Cannot reach the registration service. Check Keycloak and try again.');
+      setAuthError('Registration is temporarily unavailable. Please refresh the page and try again.');
     }
   }, []);
 
