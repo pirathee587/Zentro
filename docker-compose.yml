@@ -18,6 +18,7 @@ services:
       JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8081:8081"
+      - "${BIND_ADDRESS:-127.0.0.1}:9081:9081"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/actuator/health/liveness"]
       interval: 30s
@@ -67,6 +68,7 @@ services:
       IDENTITY_GRPC_PORT: "9081"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8082:8082"
+      - "${BIND_ADDRESS:-127.0.0.1}:9082:9082"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/actuator/health/liveness"]
       interval: 30s
@@ -92,8 +94,13 @@ services:
       POD_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
       POD_CLIENT_ID: zentro-dispatch-service
       POD_CLIENT_SECRET: ${ZENTRO_DISPATCH_SERVICE_CLIENT_SECRET:-}
+      IDENTITY_GRPC_HOST: identity-partner-service
+      IDENTITY_GRPC_PORT: "9081"
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      PARCEL_GRPC_PORT: "9082"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8083:8083"
+      - "${BIND_ADDRESS:-127.0.0.1}:9083:9083"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/actuator/health/liveness"]
       interval: 30s
@@ -121,6 +128,10 @@ services:
       SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
       SERVICE_CLIENT_ID: zentro-tracking-service
       SERVICE_CLIENT_SECRET: ${ZENTRO_TRACKING_SERVICE_CLIENT_SECRET:-}
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      PARCEL_GRPC_PORT: "9082"
+      DISPATCH_GRPC_HOST: dispatch-courier-service
+      DISPATCH_GRPC_PORT: "9083"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
@@ -150,6 +161,10 @@ services:
       SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
       SERVICE_CLIENT_ID: zentro-notification-service
       SERVICE_CLIENT_SECRET: ${ZENTRO_NOTIFICATION_SERVICE_CLIENT_SECRET:-}
+      IDENTITY_GRPC_HOST: identity-partner-service
+      IDENTITY_GRPC_PORT: "9081"
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      PARCEL_GRPC_PORT: "9082"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8085:8085"
     healthcheck:

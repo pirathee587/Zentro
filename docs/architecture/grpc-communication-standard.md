@@ -29,16 +29,25 @@
 ## 3. Architecture & POD Sequence Diagrams
 
 ```mermaid
-flowchart LR
-  UI["React Frontend (zentro-web)"] -->|HTTP/REST & GraphQL| GW["API Gateway (8080)"]
-  GW --> S1["S1 Identity (8081 / gRPC 9081)"]
-  GW --> S2["S2 Parcel & Pricing (8082 / gRPC 9082)"]
-  GW --> S3["S3 Dispatch & Courier (8083 / gRPC 9083)"]
-  GW --> S4["S4 Tracking & Reporting (8084)"]
-  GW --> S5["S5 Notification & Integration (8085)"]
-  S3 -->|"gRPC :9082 + SERVICE JWT"| S2
+flowchart TD
+  UI["React Frontend (zentro-web)"] -->|HTTP/REST & GraphQL| GW["API Gateway (:8080)"]
+  GW --> S1["S1 Identity (:8081 / gRPC :9081)"]
+  GW --> S2["S2 Parcel & Pricing (:8082 / gRPC :9082)"]
+  GW --> S3["S3 Dispatch & Courier (:8083 / gRPC :9083)"]
+  GW --> S4["S4 Tracking & Reporting (:8084)"]
+  GW --> S5["S5 Notification & Integration (:8085)"]
+  
+  S2 -->|"gRPC :9081 (Merchant Verification)"| S1
+  S3 -->|"gRPC :9081 (Courier Lookup)"| S1
+  S3 -->|"gRPC :9082 (POD & Status)"| S2
+  S4 -->|"gRPC :9082 (Customer & Public Reads)"| S2
+  S4 -->|"gRPC :9083 (Assignment Summary)"| S3
+  S5 -->|"gRPC :9081 (Merchant Verification)"| S1
+  S5 -->|"gRPC :9082 (Support Reads)"| S2
+  
   S2 -.->|Kafka Outbox| S4
   S2 -.->|Kafka Outbox| S5
+  S3 -.->|Kafka Outbox| S4
 ```
 
 ```mermaid
