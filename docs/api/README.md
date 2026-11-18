@@ -29,6 +29,8 @@ mvn --batch-mode -pl parcel-pricing-service -Dtest=OpenApiArtifactValidationTest
 
 There is no springdoc dependency or generated `/v3/api-docs` or Swagger UI in the current build. The files above are reviewed and checked in directly. `--check` uses only Python's standard library and checks JSON/OpenAPI structure, required operation metadata and responses, references, path parameters, and equality with mapped `@RestController` endpoints. The S2 test scope includes Swagger Parser and validates all five artifacts during Maven tests.
 
+Service-to-service REST mappings under `/internal/*` are not part of the public gateway contract. `build_openapi.py` keeps an exact `INTERNAL` allowlist that mirrors `INTERNAL` in `backend/api-gateway/src/test/java/com/zentro/gateway/routes/GatewayInventoryTests.java`; update both together. `--check` fails if an allowlisted mapping becomes reachable through a public gateway route or no longer exists in a controller. An `/internal` prefix alone is not approval.
+
 ## Authentication and authorization
 
 Protected operations use `bearerAuth` (Keycloak JWT). Operation descriptions state the service-level role rule; the gateway applies its own role rule before forwarding.
