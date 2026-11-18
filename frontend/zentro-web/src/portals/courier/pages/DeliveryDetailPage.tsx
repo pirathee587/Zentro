@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
-import { Button } from '@/shared/ui';
+import { Button, Input } from '@/shared/ui';
 import { acceptDelivery, deliveryAccessDenied, deliverySessionExpired, deliveryError, getDelivery, getProof, rejectDelivery, submitProof, updateDeliveryStatus, type DeliverySummary, type ProofResponse } from '../api/deliveryApi';
 import { ProofOfDeliveryForm } from './ProofOfDeliveryForm';
 import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
@@ -87,7 +87,7 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
                   catch (e) { setActionNotice(deliveryError(e)); }
                   finally { setActionBusy(false); }
                 }}>Accept assignment</Button>
-                <input
+                <Input
                   type="text"
                   value={rejectReason}
                   onChange={e => setRejectReason(e.target.value)}

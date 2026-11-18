@@ -100,7 +100,7 @@ export const Header: React.FC = () => {
         {/* Right side actions */}
         <div className="sd-header-actions">
           {/* Theme toggle */}
-          <button
+          <BaseButton
             type="button"
             onClick={toggleTheme}
             className="sd-icon-btn"
@@ -108,17 +108,17 @@ export const Header: React.FC = () => {
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? <SunIcon size={19} strokeWidth={1.75} /> : <MoonIcon size={19} strokeWidth={1.75} />}
-          </button>
+          </BaseButton>
 
           {/* Notifications button */}
-          <button
+          <BaseButton
             type="button"
             className="sd-icon-btn"
             aria-label="View notifications"
             title="Notifications"
           >
             <BellIcon size={19} strokeWidth={1.75} />
-          </button>
+          </BaseButton>
 
           {/* Profile button (circular, --card background) */}
           <div className="sd-profile-menu-wrap" ref={profileRef} onKeyDown={event => {
@@ -126,7 +126,7 @@ export const Header: React.FC = () => {
               event.preventDefault(); setProfileOpen(false); profileRef.current?.querySelector('button')?.focus();
             }
           }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setProfileOpen(false); }}>
-            <button
+            <BaseButton
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
               className="sd-icon-btn sd-profile-btn"
@@ -135,7 +135,7 @@ export const Header: React.FC = () => {
               aria-controls="customer-profile-panel"
             >
               <UserIcon size={19} strokeWidth={1.75} />
-            </button>
+            </BaseButton>
 
             {profileOpen && (
               <div className="sd-profile-menu" id="customer-profile-panel">
