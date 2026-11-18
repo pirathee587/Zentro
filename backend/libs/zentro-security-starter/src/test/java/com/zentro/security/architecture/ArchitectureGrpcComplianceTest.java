@@ -29,7 +29,12 @@ class ArchitectureGrpcComplianceTest {
       "backend/libs/zentro-security-starter/src/main/java/com/zentro/security/config/CorrelationAutoConfiguration.java",
       "backend/libs/zentro-security-starter/src/main/java/com/zentro/security/grpc/GrpcServiceTokenProvider.java",
       "backend/notification-integration-service/src/main/java/com/zentro/notificationintegration/assistant/service/DeepSeekAssistant.java",
-      "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/courier/service/ServiceTokenProvider.java"
+      "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/courier/service/ServiceTokenProvider.java",
+      // Transitional courier coordination / dashboard HTTP clients merged from main (PR #393)
+      "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/dashboard/CourierIdentityReadClient.java",
+      "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/dispatch/coordination/ParcelClaimClient.java",
+      "backend/parcel-pricing-service/src/main/java/com/zentro/parcelpricing/assignment/AssignmentOutcomeClient.java",
+      "backend/tracking-reporting-service/src/main/java/com/zentro/trackingreporting/graphql/dashboard/CourierAssignmentSnapshotClient.java"
   );
 
   @Test
