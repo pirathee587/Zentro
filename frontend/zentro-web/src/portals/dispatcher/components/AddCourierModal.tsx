@@ -1,5 +1,6 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 import { X } from 'lucide-react';
 import { useDialogFocus } from '@/shared/ui/useDialogFocus';
 import { friendlyApiError } from '@/shared/api/apiClient';
@@ -45,7 +46,11 @@ export function AddCourierModal({ onClose, onCreated }: AddCourierModalProps) {
       });
       onCreated(email.trim());
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to create courier. Please check details and try again.'));
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        setError('A user or courier with this email address already exists in the system.');
+      } else {
+        setError(friendlyApiError(err, 'Failed to create courier. Please check details and try again.'));
+      }
     } finally {
       setLoading(false);
     }

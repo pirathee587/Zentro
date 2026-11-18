@@ -3,7 +3,7 @@ import { env } from '@/shared/config/env';
 let token: string | undefined;
 export const setAccessToken=(value:string|undefined) => { token=value; };
 export const getAccessToken=() => token;
-export const apiClient=axios.create({baseURL:env.VITE_API_BASE_URL,timeout:30000});
+export const apiClient=axios.create({baseURL:env.VITE_API_BASE_URL,timeout:5000});
 
 export type ApiProblem = {
   title?: string;
@@ -71,11 +71,6 @@ export function withBearerToken<D = unknown, P = unknown>(
 }
 export function friendlyApiError(error: unknown, fallback: string): string {
   if (!axios.isAxiosError(error)) return fallback;
-  const data = error.response?.data as { detail?: string; message?: string; error?: string } | undefined;
-  if (data?.detail && typeof data.detail === 'string') return data.detail;
-  if (data?.message && typeof data.message === 'string' && data.message.trim() && data.message !== 'No message available') return data.message;
-  if (error.response?.status === 409) return 'An account with this email address already exists. Please sign in or use a different email.';
-  if (data?.error && typeof data.error === 'string' && data.error.toLowerCase() !== 'conflict' && data.error.toLowerCase() !== 'bad request') return data.error;
   if (error.response?.status === 401) return 'Your session has expired. Please sign in again.';
   if (error.response?.status === 403) return 'Your account does not have permission to do that.';
   if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return 'The request timed out. Please check your connection and try again.';

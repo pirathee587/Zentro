@@ -1,9 +1,20 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { ArrowIcon } from '../assets/ArrowIcon';
+
+function authApiError(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { detail?: string; message?: string } | undefined;
+    if (data?.detail && typeof data.detail === 'string') return data.detail;
+    if (data?.message && typeof data.message === 'string' && data.message.trim() && data.message !== 'No message available') return data.message;
+    if (error.response?.status === 409) return 'An account with this email address already exists. Please sign in or use a different email.';
+  }
+  return friendlyApiError(error, fallback);
+}
 import {
   sendRegistrationOtp,
   verifyRegistrationOtp,
@@ -103,7 +114,7 @@ export function SignupPage() {
       setStep('otp');
       setResendCooldown(60);
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to send verification code. Please check your email and try again.'));
+      setError(authApiError(err, 'Failed to send verification code. Please check your email and try again.'));
     } finally {
       setLoading(false);
     }
@@ -132,7 +143,7 @@ export function SignupPage() {
         void login(returnTo, email.trim(), entryPoint);
       }, 1200);
     } catch (err) {
-      setError(friendlyApiError(err, 'Invalid or expired verification code.'));
+      setError(authApiError(err, 'Invalid or expired verification code.'));
     } finally {
       setLoading(false);
     }
@@ -147,7 +158,7 @@ export function SignupPage() {
       setResendCooldown(60);
       setError('');
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to resend code. Please try again.'));
+      setError(authApiError(err, 'Failed to resend code. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -444,7 +455,7 @@ export function ForgotPasswordPage() {
       setStep('otp');
       setResendCooldown(60);
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to send password reset code. Please check your email and try again.'));
+      setError(authApiError(err, 'Failed to send password reset code. Please check your email and try again.'));
     } finally {
       setLoading(false);
     }
@@ -458,7 +469,7 @@ export function ForgotPasswordPage() {
       await sendForgotPasswordOtp(email.trim());
       setResendCooldown(60);
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to resend code. Please try again.'));
+      setError(authApiError(err, 'Failed to resend code. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -479,7 +490,7 @@ export function ForgotPasswordPage() {
       });
       setStep('new-password');
     } catch (err) {
-      setError(friendlyApiError(err, 'Invalid or expired verification code. Please check your code and try again.'));
+      setError(authApiError(err, 'Invalid or expired verification code. Please check your code and try again.'));
     } finally {
       setLoading(false);
     }
@@ -505,7 +516,7 @@ export function ForgotPasswordPage() {
       });
       setStep('success');
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to reset password. Please try requesting a new code.'));
+      setError(authApiError(err, 'Failed to reset password. Please try requesting a new code.'));
     } finally {
       setLoading(false);
     }

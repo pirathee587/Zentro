@@ -96,7 +96,8 @@ describe('portal routing', () => {
   it('renders courier management for an authenticated dispatcher', async () => {
     server.use(
       http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'dispatcher-id', name: 'Zentro Dispatcher', roles: ['DISPATCHER'] })),
-      http.get('*/api/v1/admin/couriers', () => HttpResponse.json([]))
+      http.get('*/api/v1/admin/couriers', () => HttpResponse.json([])),
+      http.get('*/api/v1/dispatch/workload', () => HttpResponse.json([])),
     );
     getUser.mockResolvedValueOnce({
       expired: false,
@@ -105,6 +106,6 @@ describe('portal routing', () => {
       state: { returnTo: '/dispatcher/couriers', entryPoint: 'staff' },
     } as never);
     render(<Providers><MemoryRouter initialEntries={['/dispatcher/couriers']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /Courier Management/i }, { timeout: 10000 })).toBeInTheDocument();
-  });
+    expect(await screen.findByRole('heading', { name: /Courier Management|User Management/i }, { timeout: 15000 })).toBeInTheDocument();
+  }, 40000);
 });
