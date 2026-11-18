@@ -69,9 +69,11 @@ export function DispatcherLayout() {
               </NavLink>
               <NavLink
                 to="/dispatcher/couriers"
-                className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}
+                className={({ isActive }) =>
+                  `sd-nav-link ${isActive || location.pathname.startsWith('/dispatcher/users') ? 'active is-active' : ''}`
+                }
               >
-                Couriers
+                User Management
               </NavLink>
               <NavLink
                 to="/dispatcher/zones-pricing"

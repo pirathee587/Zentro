@@ -64,11 +64,12 @@
   margin-left: 2px;
 }
 
-/* Center Pill Nav */
+/* Side Pill Nav */
 .dispatcher-portal .sd-nav-scroll-wrap {
   flex: 1;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
+  margin-left: 16px;
   overflow-x: auto;
   padding: 4px;
   scrollbar-width: none;

@@ -20,138 +20,8 @@ export interface ParcelItem {
   weightKg?: string;
 }
 
-const INITIAL_PARCELS: ParcelItem[] = [
-  {
-    reference: 'ZT-7K2M9QX4PA',
-    route: 'Colombo 03 to Kandy',
-    status: 'Unassigned',
-    courier: 'None',
-    weightCategory: 'Medium',
-    weightKg: '2 kg',
-  },
-  {
-    reference: 'ZT-3HD8V1NC6R',
-    route: 'Galle to Matara',
-    status: 'Unassigned',
-    courier: 'None',
-    weightCategory: 'Small',
-    weightKg: '0.8 kg',
-  },
-  {
-    reference: 'ZT-9WQ4T7BE2X',
-    route: 'Negombo to Colombo 07',
-    status: 'Unassigned',
-    courier: 'None',
-    weightCategory: 'Large',
-    weightKg: '5 kg',
-  },
-  {
-    reference: 'ZT-5RN2K8YD1V',
-    route: 'Kandy to Nuwara Eliya',
-    status: 'Unassigned',
-    courier: 'None',
-    weightCategory: 'Small',
-    weightKg: '1.5 kg',
-  },
-  {
-    reference: 'ZT-2XB6M4QH8C',
-    route: 'Colombo 02 to Gampaha',
-    status: 'Unassigned',
-    courier: 'None',
-    weightCategory: 'Medium',
-    weightKg: '3 kg',
-  },
-  {
-    reference: 'ZT-8FT1P5ZK3J',
-    route: 'Colombo 05 to Dehiwala',
-    status: 'Assigned',
-    courier: 'Saman Perera',
-    weightCategory: 'Small',
-    weightKg: '1 kg',
-  },
-  {
-    reference: 'ZT-4CJ9W2LR7N',
-    route: 'Colombo 07 to Maharagama',
-    status: 'Assigned',
-    courier: 'Kumari Silva',
-    weightCategory: 'Medium',
-    weightKg: '2.5 kg',
-  },
-  {
-    reference: 'ZT-6MV3D8HA9E',
-    route: 'Kandy to Peradeniya',
-    status: 'Picked up',
-    courier: 'Ruwan Jayasinghe',
-    weightCategory: 'Small',
-    weightKg: '1.2 kg',
-  },
-  {
-    reference: 'ZT-10K7S4TB5G',
-    route: 'Galle to Hikkaduwa',
-    status: 'In transit',
-    courier: 'Dilani Fernando',
-    weightCategory: 'Medium',
-    weightKg: '3.4 kg',
-  },
-  {
-    reference: 'ZT-9DP5X1NW2Y',
-    route: 'Colombo 03 to Nugegoda',
-    status: 'In transit',
-    courier: 'Saman Perera',
-    weightCategory: 'Large',
-    weightKg: '4.5 kg',
-  },
-  {
-    reference: 'ZT-3ZG8R6CE4U',
-    route: 'Colombo 04 to Piliyandala',
-    status: 'Out for delivery',
-    courier: 'Kumari Silva',
-    weightCategory: 'Small',
-    weightKg: '0.9 kg',
-  },
-  {
-    reference: 'ZT-7HN2L9VM6F',
-    route: 'Colombo 01 to Kottawa',
-    status: 'Out for delivery',
-    courier: 'Saman Perera',
-    weightCategory: 'Medium',
-    weightKg: '2.1 kg',
-  },
-  {
-    reference: 'ZT-2YB4F8KQ1D',
-    route: 'Colombo 06 to Moratuwa',
-    status: 'Delivered',
-    courier: 'Kumari Silva',
-    weightCategory: 'Medium',
-    weightKg: '2 kg',
-  },
-  {
-    reference: 'ZT-8RC1W5NT3M',
-    route: 'Kandy to Katugastota',
-    status: 'Delivered',
-    courier: 'Ruwan Jayasinghe',
-    weightCategory: 'Small',
-    weightKg: '1.5 kg',
-  },
-  {
-    reference: 'ZT-5GD9Z2XH7B',
-    route: 'Galle to Unawatuna',
-    status: 'Delivered',
-    courier: 'Dilani Fernando',
-    weightCategory: 'Small',
-    weightKg: '0.8 kg',
-  },
-  {
-    reference: 'ZT-4TK603MV9E',
-    route: 'Colombo 05 to Ratmalana',
-    status: 'Failed',
-    courier: 'Saman Perera',
-    weightCategory: 'Medium',
-    weightKg: '3 kg',
-  },
-];
-
-const COURIER_OPTIONS = [
+/** Default courier options available in the preview assignment dropdown. */
+const COURIER_OPTIONS: string[] = [
   'Saman Perera',
   'Kumari Silva',
   'Ruwan Jayasinghe',
@@ -161,12 +31,18 @@ const COURIER_OPTIONS = [
 
 type FilterTab = 'All' | 'Unassigned' | 'Active' | 'Delivered' | 'Failed';
 
-export function ParcelsPage() {
-  const [parcels, setParcels] = useState<ParcelItem[]>(INITIAL_PARCELS);
+export interface ParcelsPageProps {
+  /** Seed parcel list — used only by unit tests to inject fixtures. Live UI shows no data. */
+  initialParcels?: ParcelItem[];
+}
+
+export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
+  const seed = initialParcels ?? [];
+  const [parcels, setParcels] = useState<ParcelItem[]>(seed);
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedParcel, setSelectedParcel] = useState<ParcelItem>(INITIAL_PARCELS[0]);
-  const [assignCourier, setAssignCourier] = useState(COURIER_OPTIONS[0]);
+  const [selectedParcel, setSelectedParcel] = useState<ParcelItem | null>(seed[0] ?? null);
+  const [assignCourier, setAssignCourier] = useState(COURIER_OPTIONS[0] ?? '');
   const [notice, setNotice] = useState<string | null>(null);
 
   const filteredParcels = useMemo(() => {
@@ -203,12 +79,9 @@ export function ParcelsPage() {
           : item,
       ),
     );
-    setSelectedParcel((prev) => ({
-      ...prev,
-      status: 'Assigned',
-      courier: assignCourier,
-    }));
-    setNotice(`Preview updated: ${selectedParcel.reference} → ${assignCourier}. No changes saved.`);
+    setSelectedParcel((prev) =>
+      prev ? { ...prev, status: 'Assigned', courier: assignCourier } : prev,
+    );    setNotice(`Preview updated: ${selectedParcel.reference} → ${assignCourier}. No changes saved.`);
     setTimeout(() => setNotice(null), 4000);
   };
 
@@ -256,7 +129,7 @@ export function ParcelsPage() {
         <div className="sd-page-title-group">
           <h1 className="sd-page-title">Parcels</h1>
           <p className="sd-page-subtitle">
-            {parcels.length} preview parcels ·{' '}
+            {parcels.length} parcels ·{' '}
             {parcels.filter((parcel) => parcel.status === 'Unassigned').length} unassigned
           </p>
         </div>
@@ -332,7 +205,7 @@ export function ParcelsPage() {
                   </tr>
                 )}
                 {filteredParcels.map((parcel) => {
-                  const isSelected = selectedParcel.reference === parcel.reference;
+                  const isSelected = selectedParcel?.reference === parcel.reference;
                   return (
                     <tr
                       key={parcel.reference}
@@ -369,103 +242,115 @@ export function ParcelsPage() {
           className="sd-card sd-detail-card"
           id="parcel-detail-panel"
           aria-labelledby="parcel-detail-title"
+          aria-label="Parcel detail"
         >
-          <div className="sd-detail-header">
-            <h2 className="sd-detail-title" id="parcel-detail-title">
-              Parcel detail
-            </h2>
-            <div className="sd-detail-ref">{selectedParcel.reference}</div>
-            <div className="sd-detail-tags">
-              <span className="sd-tag-status">{selectedParcel.status}</span>
-            </div>
-          </div>
+          {selectedParcel ? (
+            <>
+              <div className="sd-detail-header">
+                <h2 className="sd-detail-title" id="parcel-detail-title">
+                  Parcel detail
+                </h2>
+                <div className="sd-detail-ref">{selectedParcel.reference}</div>
+                <div className="sd-detail-tags">
+                  <span className="sd-tag-status">{selectedParcel.status}</span>
+                </div>
+              </div>
 
-          <dl className="sd-detail-facts">
-            <div className="sd-detail-route">
-              <dt>Route</dt>
-              <dd>{selectedParcel.route}</dd>
-            </div>
-            <div>
-              <dt>Size</dt>
-              <dd>{selectedParcel.weightCategory || 'Unavailable'}</dd>
-            </div>
-            <div>
-              <dt>Weight</dt>
-              <dd>{selectedParcel.weightKg || 'Unavailable'}</dd>
-            </div>
-          </dl>
-          {/* Courier row */}
-          <div className="sd-detail-courier-row">
-            <span className="sd-courier-label">Courier</span>
-            <span className="sd-courier-val">
-              {selectedParcel.courier === 'None' ? 'Unassigned' : selectedParcel.courier}
-            </span>
-          </div>
+              <dl className="sd-detail-facts">
+                <div className="sd-detail-route">
+                  <dt>Route</dt>
+                  <dd>{selectedParcel.route}</dd>
+                </div>
+                <div>
+                  <dt>Size</dt>
+                  <dd>{selectedParcel.weightCategory || 'Unavailable'}</dd>
+                </div>
+                <div>
+                  <dt>Weight</dt>
+                  <dd>{selectedParcel.weightKg || 'Unavailable'}</dd>
+                </div>
+              </dl>
+              {/* Courier row */}
+              <div className="sd-detail-courier-row">
+                <span className="sd-courier-label">Courier</span>
+                <span className="sd-courier-val">
+                  {selectedParcel.courier === 'None' ? 'Unassigned' : selectedParcel.courier}
+                </span>
+              </div>
 
-          {/* Stepper Timeline */}
-          <h3 className="sd-timeline-heading">Delivery progress</h3>
-          <div className="sd-timeline-stepper" role="list" aria-label="Delivery progress">
-            {['Created', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'].map(
-              (step, i, arr) => {
-                const reached = isMilestoneReached(step, selectedParcel.status);
-                return (
-                  <div
-                    key={step}
-                    className="sd-stepper-node"
-                    role="listitem"
-                    aria-current={
-                      step === selectedParcel.status ||
-                      (step === 'Created' &&
-                        ['Unassigned', 'Assigned'].includes(selectedParcel.status))
-                        ? 'step'
-                        : undefined
-                    }
+              {/* Stepper Timeline */}
+              <h3 className="sd-timeline-heading">Delivery progress</h3>
+              <div className="sd-timeline-stepper" role="list" aria-label="Delivery progress">
+                {['Created', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'].map(
+                  (step, i, arr) => {
+                    const reached = isMilestoneReached(step, selectedParcel.status);
+                    return (
+                      <div
+                        key={step}
+                        className="sd-stepper-node"
+                        role="listitem"
+                        aria-current={
+                          step === selectedParcel.status ||
+                          (step === 'Created' &&
+                            ['Unassigned', 'Assigned'].includes(selectedParcel.status))
+                            ? 'step'
+                            : undefined
+                        }
+                      >
+                        <div className="sd-node-bullet-col" aria-hidden="true">
+                          <div className={`sd-bullet ${reached ? 'is-reached' : ''}`} />
+                          {i < arr.length - 1 && (
+                            <div className={`sd-bullet-line ${reached ? 'is-reached' : ''}`} />
+                          )}
+                        </div>
+                        <div className="sd-node-text-col">
+                          <span className={`sd-step-name ${reached ? 'is-bold' : ''}`}>{step}</span>
+                          {step === selectedParcel.status && (
+                            <span className="sd-current-step">Current</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+
+              <p className="sd-timeline-note">
+                Progress reflects the selected status. Event timestamps are unavailable.
+              </p>
+              {/* Assign To Section */}
+              <div className="sd-detail-assign-section">
+                <label htmlFor="assign-courier-select" className="sd-assign-label">
+                  Preview courier
+                </label>
+                <div className="sd-assign-actions">
+                  <select
+                    id="assign-courier-select"
+                    className="sd-select"
+                    value={assignCourier}
+                    onChange={(e) => setAssignCourier(e.target.value)}
                   >
-                    <div className="sd-node-bullet-col" aria-hidden="true">
-                      <div className={`sd-bullet ${reached ? 'is-reached' : ''}`} />
-                      {i < arr.length - 1 && (
-                        <div className={`sd-bullet-line ${reached ? 'is-reached' : ''}`} />
-                      )}
-                    </div>
-                    <div className="sd-node-text-col">
-                      <span className={`sd-step-name ${reached ? 'is-bold' : ''}`}>{step}</span>
-                      {step === selectedParcel.status && (
-                        <span className="sd-current-step">Current</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              },
-            )}
-          </div>
+                    {COURIER_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
 
-          <p className="sd-timeline-note">
-            Progress reflects the selected status. Event timestamps are unavailable.
-          </p>
-          {/* Assign To Section */}
-          <div className="sd-detail-assign-section">
-            <label htmlFor="assign-courier-select" className="sd-assign-label">
-              Preview courier
-            </label>
-            <div className="sd-assign-actions">
-              <select
-                id="assign-courier-select"
-                className="sd-select"
-                value={assignCourier}
-                onChange={(e) => setAssignCourier(e.target.value)}
-              >
-                {COURIER_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-
-              <button type="button" className="sd-btn-yellow" onClick={handleAssign}>
-                Update preview
-              </button>
+                  <button type="button" className="sd-btn-yellow" onClick={handleAssign}>
+                    Update preview
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="sd-detail-empty">
+              <h2 className="sd-detail-title" id="parcel-detail-title">
+                Parcel detail
+              </h2>
+              <p className="sd-detail-empty-msg">Select a parcel to view its details.</p>
             </div>
-          </div>
+          )}
         </section>
       </div>
     </main>

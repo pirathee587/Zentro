@@ -36,7 +36,7 @@ describe('dispatcher navigation', () => {
     expect(within(nav).getAllByRole('link').map((link) => [link.textContent?.trim(), link.getAttribute('href')])).toEqual([
       ['Dashboard', '/dispatcher'],
       ['Parcels', '/dispatcher/parcels'],
-      ['Couriers', '/dispatcher/couriers'],
+      ['User Management', '/dispatcher/couriers'],
       ['Zones & pricing', '/dispatcher/zones-pricing'],
       ['Reports', '/dispatcher/reports'],
     ]);

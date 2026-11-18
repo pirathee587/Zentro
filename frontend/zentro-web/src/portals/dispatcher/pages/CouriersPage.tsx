@@ -118,9 +118,9 @@ export function CouriersPage() {
           <h1
             className="sd-page-title"
             id="courier-mgmt-title"
-            aria-label="Courier Management — Couriers and people"
+            aria-label="User Management — Couriers and people"
           >
-            Couriers and people
+            User Management
           </h1>
           <p className="sd-page-subtitle">
             Manage couriers, user accounts and merchant applications.
