@@ -59,14 +59,14 @@ Schema source of truth is `contracts/events/*.schema.json`; the table summarizes
 
 ## Pending interface decisions
 
-All rows below are **PENDING APPROVAL**, with no new production adapters implemented. Issue #351 authorizes inventory and tests; it does not approve these new contracts.
+Except for the S2/S3 claim/release implementation noted below, these rows remain **PENDING APPROVAL**. Issue #351 alone authorizes inventory and tests, not new contracts. The separately authorized assignment implementation is documented in [S2/S3 coordination](s2-s3-assignment-coordination.md).
 
 Dependency #350 was read on 2026-11-12: GitHub reports it closed, with no issue comments. That state alone does not approve new shared interfaces. Its merged source at this base supplies account checks and Keycloak mapper/runbooks, while `docs/identity/dispatcher-claims-and-credentials.md` still explicitly records dynamic transport as blocked. The merchant provisioning runbook's reference to downstream gRPC checks differs from current S2/S5 REST clients; source and the REST seam inventory above take precedence. No new provisioning RPC or stale-token SLA is inferred from issue closure.
 
 | Needed interface | Exact unresolved contract decisions | Required owners / next action |
 |---|---|---|
 | Identity/eligibility | Canonical subject versus profile UUID; eligible state; REST versus gRPC; caller authority; missing/disabled status; deadline/error mapping | #350 kirusigan03 with #354 Nilakshana23 and #351 pavi3alnx. Review existing REST DTO and proto differences first. |
-| Claim/release | Atomic ownership token, expected version, replay/idempotency, conflict and compensation semantics; method/fields not approved | #353 Jathuja and #354 Nilakshana23; approve versioned provider contract before adapters. |
+| Claim/release | Implemented S2 durable claims plus S3 operation-row fencing, outcome verification and explicit reconciliation; no timeout expiry | See [coordination contract](s2-s3-assignment-coordination.md). Production eligible-state policy remains fail-closed until explicitly configured; migrations and deployment require separate approval. |
 | Tracking hydration | Allowed customer/merchant/courier references, minimum private fields, authorized lookup versus event enrichment, retention and replay | #353 Jathuja, #357 hephzibah-peries, #350 kirusigan03; no cross-service SQL or fabricated event identities. |
 | Reporting | Approved paths, dispatcher permission, aggregate/time semantics and error shape | #358 14Jannan supplies spec; #351 serializes gateway/generator integration. Reserved routes are not implemented endpoints. |
 

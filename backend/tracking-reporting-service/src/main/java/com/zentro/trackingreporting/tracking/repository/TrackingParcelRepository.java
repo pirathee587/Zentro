@@ -14,6 +14,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TrackingParcelRepository extends JpaRepository<TrackingParcel, UUID> {
 
+  @org.springframework.transaction.annotation.Transactional(readOnly = true)
+  java.util.List<TrackingParcel> findByParcelIdIn(java.util.Collection<UUID> parcelIds);
+
   Optional<TrackingParcel> findByTrackingRef(String trackingRef);
 
   Optional<TrackingParcel> findByParcelId(UUID parcelId);

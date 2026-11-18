@@ -104,6 +104,10 @@ abstract class DisposableGatewayStack {
 
   @BeforeAll
   static void startStack() throws Exception {
+    if (Boolean.getBoolean("zentro.e2e.courierDashboard")) {
+      CourierDashboardFlowIT.startDashboardStack();
+      return;
+    }
     // Fail before starting anything if another local stack occupies this fixture's ports.
     try (var p0 = new java.net.ServerSocket(18080, 1, java.net.InetAddress.getLoopbackAddress());
          var p1 = new java.net.ServerSocket(18081, 1, java.net.InetAddress.getLoopbackAddress());

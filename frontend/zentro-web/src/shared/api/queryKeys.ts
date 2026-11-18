@@ -31,6 +31,10 @@ export const queryKeys = {
     workload: (params?: QueryParams, scope?: string) => params === undefined && scope === undefined ? ['dispatcher', 'workload'] as const : ['dispatcher', 'workload', stableParams({ ...params, ...(scope ? { scope } : {}) })] as const,
   },
   courier: {
+    dashboard: (scope?: string, params?: QueryParams) => scope
+      ? params ? ['courier', 'dashboard', { scope }, stableParams(params)] as const
+        : ['courier', 'dashboard', { scope }] as const
+      : ['courier', 'dashboard'] as const,
     deliveries: (scope?: string) => scope ? ['courier', 'deliveries', { scope }] as const : ['courier', 'deliveries'] as const,
     delivery: (deliveryId: string, scope?: string) => ['courier', 'delivery', stableParams({ deliveryId, scope })] as const,
     proof: (deliveryId: string, scope?: string) => ['courier', 'proof', stableParams({ deliveryId, scope })] as const,

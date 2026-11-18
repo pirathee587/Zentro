@@ -53,7 +53,12 @@ export function deliveryError(error: unknown): string {
     if (error.response?.status === 409) return 'Proof is already recorded with different evidence. Refresh to view the saved proof.';
     if (error.response?.status === 404) return 'This delivery is no longer available to your account.';
     if (error.response?.status === 400) return 'Check the required fields and character limits.';
-    if (error.response?.status === 503) return 'Delivery services are unavailable. Your entries are preserved; refresh before retrying.';
+    if (error.response?.status === 503) {
+      const code = error.response.data?.code;
+      if (code === 'COURIER_VERIFICATION_FAILED') return 'We could not verify your courier access right now. Please try again later.';
+      if (code === 'PROOF_STORAGE_UNAVAILABLE') return 'Delivery data is temporarily unavailable. Please try again later.';
+      return 'Delivery services are temporarily unavailable. Please try again later.';
+    }
   }
   return friendlyApiError(error, 'Could not load or save delivery information. Please try again.');
 }

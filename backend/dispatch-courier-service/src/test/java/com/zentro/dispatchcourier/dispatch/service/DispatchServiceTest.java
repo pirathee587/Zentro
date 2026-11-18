@@ -32,6 +32,9 @@ class DispatchServiceTest {
   final IdentityCourierClient.Courier courier = new IdentityCourierClient.Courier(courierId, UUID.randomUUID(), "Courier", true, "ACTIVE");
 
   @BeforeEach void setup() {
+    doAnswer(call -> source.withEligibleParcel(call.getArgument(0), call.getArgument(1), call.getArgument(2)))
+        .when(source).inspectEligibleParcel(any(), anyString(), any());
+
     when(assignments.assignedIds(any())).thenReturn(Set.of());
     when(assignments.assignmentCounts()).thenReturn(Map.of());
     when(source.eligibleParcels("token")).thenReturn(new ParcelSource.Snapshot(List.of(parcel), true));
@@ -112,10 +115,12 @@ class DispatchServiceTest {
     order.verify(assignments).insert(parcelId, courier, "dispatcher");
   }
 
-  @Test void alreadyAssignedNeverCallsRemoteDependencies() {
+  @Test void alreadyAssignedReconcilesPriorOutcomeWithoutAcquiringNewClaim() {
     when(assignments.exists(parcelId)).thenReturn(true);
     assertCode(() -> service.assign(parcelId, courierId, "dispatcher", "token"), "DELIVERY_ALREADY_ASSIGNED");
-    verifyNoInteractions(source, identity);
+    verify(source).reconcileParcel(parcelId, "token");
+    verify(source, never()).withEligibleParcel(any(), anyString(), any());
+    verifyNoInteractions(identity);
   }
 
   @Test void reassignRequiresFreshEligibleCourierAndUsesDispatcherSubject() {
