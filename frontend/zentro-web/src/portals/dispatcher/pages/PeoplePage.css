@@ -188,6 +188,25 @@
   color: var(--mute);
   overflow-wrap: anywhere;
 }
+.people-page .staff-user-row span[role="cell"].staff-user-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end;
+  gap: 8px !important;
+}
+.people-page .staff-user-row .staff-user-actions .staff-review-button {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
 .people-page :is(button, a, input, select, [tabindex]):focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 3px;

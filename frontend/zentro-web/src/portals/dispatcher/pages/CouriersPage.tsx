@@ -11,6 +11,7 @@ import {
 import type { CourierProfile, VehicleType } from '@/portals/courier/api/courierApi';
 import { UsersPage } from './UsersPage';
 import { MerchantApprovalsPage } from './MerchantApprovalsPage';
+import { AddCourierModal } from '../components/AddCourierModal';
 import { UsersRound } from 'lucide-react';
 import { getCourierWorkload, workloadQueryKey } from '../api/workloadApi';
 import './PeoplePage.css';
@@ -22,6 +23,7 @@ export function CouriersPage() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'Couriers' | 'Users' | 'Merchants'>('Couriers');
+  const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
@@ -181,6 +183,18 @@ export function CouriersPage() {
         {/* Tab: Couriers */}
         {activeTab === 'Couriers' && (
           <>
+            {/* Courier Header Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, marginBottom: 8 }}>
+              <button
+                type="button"
+                className="sd-btn-yellow"
+                style={{ fontWeight: 600, padding: '9px 18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => setIsAddCourierOpen(true)}
+              >
+                + Add Courier
+              </button>
+            </div>
+
             {/* Success / Error Banners */}
             {actionSuccess && (
               <div className="sd-flash-notice" role="status" style={{ marginTop: 20 }}>
@@ -455,6 +469,22 @@ export function CouriersPage() {
                   </form>
                 </div>
               </div>
+            )}
+
+            {/* Add Courier Modal */}
+            {isAddCourierOpen && (
+              <AddCourierModal
+                onClose={() => setIsAddCourierOpen(false)}
+                onCreated={async (courierEmail) => {
+                  setIsAddCourierOpen(false);
+                  setActionSuccess(
+                    `Courier created! Temporary credentials sent to ${courierEmail}. Keycloak will require them to set their password on first sign-in.`,
+                  );
+                  setActionError(null);
+                  await queryClient.invalidateQueries({ queryKey: ['dispatcher', 'couriers'] });
+                  await queryClient.invalidateQueries({ queryKey: ['dispatcher', 'workload'] });
+                }}
+              />
             )}
           </>
         )}
