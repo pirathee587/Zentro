@@ -1464,6 +1464,120 @@ html[data-theme="dark"] .sd-metric-card {
   gap: 8px;
 }
 
+/* These pages have their own theme aliases so shared dispatcher styling and
+   the light theme stay untouched. */
+html[data-theme='dark'] .sd-zones-pricing-page,
+html[data-theme='dark'] .sd-reports-page {
+  --card: #262626;
+  --ink: #f5f5f5;
+  --mute: #bdbdbd;
+  --line: #404040;
+  color: var(--ink);
+}
+
+html[data-theme='dark'] :is(.sd-zones-pricing-page, .sd-reports-page) .sd-card,
+html[data-theme='dark'] .sd-zones-pricing-page .staff-panel,
+html[data-theme='dark'] .sd-reports-page .sd-metric-card {
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+html[data-theme='dark'] :is(.sd-zones-pricing-page, .sd-reports-page) :is(
+  .sd-page-title, .sd-page-subtitle, .sd-card-title, .sd-card-subtitle,
+  .sd-card-footnote, .sd-text-link, .sd-field-label, .sd-failure-reason,
+  .sd-failure-count, .sd-metric-label, .sd-metric-val, .sd-bar-label,
+  .staff-pricing-meta, .staff-pricing-meta strong, .staff-field > label,
+  .staff-field-hint, .staff-muted, .staff-checkbox-label,
+  .staff-pricing-table, .staff-pricing-changes, .staff-pricing-total,
+  .staff-pricing-breakdown, .staff-empty
+) {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] :is(.sd-zones-pricing-page, .sd-reports-page) :is(
+  .sd-page-subtitle, .sd-card-subtitle, .sd-card-footnote, .sd-text-link,
+  .sd-field-label, .sd-metric-label, .sd-bar-label, .staff-field-hint,
+  .staff-muted, .staff-pricing-meta, .staff-pricing-breakdown dt
+) {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page :is(input:not([type='checkbox']), select),
+html[data-theme='dark'] .sd-reports-page .sd-date-input {
+  color: var(--ink);
+  background: #1f1f1f;
+  border-color: #5a5a5a;
+  color-scheme: dark;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page input::placeholder {
+  color: #bdbdbd;
+  opacity: 1;
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-notice-box {
+  color: var(--ink);
+  background: #303030;
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-parcels-table :is(th, td),
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-table :is(th, td),
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-changes :is(th, td) {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-parcels-table th {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-table code {
+  color: #e5b574;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-badge-active {
+  background: #173b27;
+  color: #a7f3c0;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-badge-disabled {
+  background: #482725;
+  color: #ffc1bb;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page :is(.staff-field-error, .staff-error) {
+  color: #fca5a5;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .sd-flash-notice {
+  background: #173b27;
+  color: #a7f3c0;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-result {
+  background: #1f1f1f;
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-bar-chart {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-bar-fill.is-dark {
+  background: #a3a3a3;
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-bar-track {
+  border-radius: 6px 6px 0 0;
+  background: #333;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-zones tbody tr:hover {
+  background: #333;
+}
+
 @media (max-width: 600px) {
   .sd-zones-pricing-page .staff-pricing-grid,
   .sd-zones-pricing-page .staff-pricing-result {
