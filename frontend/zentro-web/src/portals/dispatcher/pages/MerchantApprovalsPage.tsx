@@ -206,7 +206,7 @@ export function MerchantApprovalsPage({ embedded = false }: { embedded?: boolean
     partnerTypeFilter === 'COURIER' ? couriers.error : applications.error || couriers.error;
 
   return (
-    <Container className={`staff-main ${embedded ? 'people-embedded' : ''}`}>
+    <Container className={`staff-main staff-merchant-approvals ${embedded ? 'people-embedded' : ''}`}>
       <section className="staff-section">
         <div className="staff-section-heading">
           <div>

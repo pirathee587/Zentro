@@ -34,7 +34,7 @@ export function DispatchQueuePage() {
     void invalidateAfterDispatchAssignment(client);
   };
   const change = (field: keyof QueueFilters, value: string) => setDraft(current => ({ ...current, [field]: value }));
-  return <main className="staff-main">
+  return <main className="staff-main staff-dispatch-queue">
     <section className="staff-section">
       <div className="staff-section-heading">
         <div><span className="staff-eyebrow">DISPATCH DESK</span><h1 tabIndex={-1} ref={heading}>Dispatch Queue</h1><p>Review deliveries waiting for courier assignment.</p></div>

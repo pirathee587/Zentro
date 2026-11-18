@@ -56,7 +56,7 @@ export function WorkloadPage() {
   const items = workload.data?.items ?? [];
 
   return (
-    <main className="staff-main" aria-labelledby="workload-title">
+    <main className="staff-main staff-workload-page" aria-labelledby="workload-title">
       <section className="staff-hero">
         <div>
           <span className="staff-eyebrow">FLEET &amp; DISPATCH OPERATIONS</span>
