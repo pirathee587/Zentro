@@ -297,6 +297,8 @@ npm run lint && npm run typecheck && npm test && npm run build
 
 Targets: at least 70% line coverage on service and security layers. Authorization tests are required for every protected endpoint.
 
+On a low-memory machine, or one whose service `.env` files point at shared databases, follow [Phase 5 local verification](docs/testing/phase-5-local-verification.md). It covers building with `-am`, the 1 GB Maven heap cap, running container tests one module at a time, and the safety checks to do before running full-context tests.
+
 ## Useful commands
 
 ```bash

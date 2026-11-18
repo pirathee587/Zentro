@@ -857,6 +857,13 @@ Rules:
 
 Local gateway performance smoke tests are opt-in with Maven's `perf` profile and are excluded from the default build. Follow [performance smoke testing](docs/testing/performance-smoke-tests.md) for the disposable fixture, bounded commands, reference evidence and unresolved API gaps. These developer-machine numbers are not production capacity; no performance CI job is enabled.
 
+On low-memory developer machines, follow [Phase 5 local verification](docs/testing/phase-5-local-verification.md):
+
+- Build with `mvn -T1 -f backend/pom.xml -pl <module> -am` so the security starter comes from source rather than a stale `~/.m2` jar.
+- Set `MAVEN_OPTS=-Xmx1g`.
+- Run one module's Testcontainers classes at a time.
+- Before running full-context tests, confirm each one overrides the datasource, because every service imports its local `./.env`.
+
 ## Backend
 
 Use:

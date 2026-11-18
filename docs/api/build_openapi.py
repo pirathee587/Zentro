@@ -545,10 +545,31 @@ def gateway_matches(path, pattern):
     return fnmatch.fnmatchcase(path, pattern) or (pattern.endswith("/**") and path == pattern[:-3])
 
 
+# Service-internal REST mappings that are deliberately absent from the public gateway contract.
+# Keep exactly in sync with INTERNAL in backend/api-gateway/.../routes/GatewayInventoryTests.java:
+# an "/internal" prefix alone is not approval, and every entry must stay unreachable via the gateway.
+INTERNAL = {
+    "identity": {("get", "/internal/courier-dashboard/identity")},
+    "parcel": {("get", "/internal/assignment-claims/candidates"), ("get", "/internal/assignment-claims/candidates/{parcel}"),
+               ("get", "/internal/assignment-claims/{operation}"), ("post", "/internal/assignment-claims/{operation}/acquire"),
+               ("post", "/internal/assignment-claims/{operation}/confirm"), ("post", "/internal/assignment-claims/{operation}/release")},
+    "dispatch": {("get", "/internal/courier-dashboard/assignments"), ("get", "/internal/dispatch/assignment-operations"),
+                 ("get", "/internal/dispatch/assignment-operations/{id}"), ("post", "/internal/dispatch/assignment-operations/{id}/reconcile")},
+}
+
+
 def validate():
     expected = controller_inventory()
     routes = gateway_inventory()
+    all_patterns = [p for patterns in routes.values() for p in patterns]
     errors = []
+    for service, internal in INTERNAL.items():
+        for method, path in sorted(internal - expected[service]):
+            errors.append(f"{service}: approved internal mapping {method.upper()} {path} no longer exists in a controller; update INTERNAL")
+        for method, path in sorted(internal):
+            if any(gateway_matches(path, pattern) for pattern in all_patterns):
+                errors.append(f"{service}: internal mapping {method.upper()} {path} is reachable through a public gateway route")
+        expected[service] -= internal
     for service in OPS:
         spec_path = OUT / f"{service}.openapi.json"
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
