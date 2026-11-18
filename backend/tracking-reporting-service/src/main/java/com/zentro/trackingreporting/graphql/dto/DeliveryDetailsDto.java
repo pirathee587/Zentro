@@ -31,8 +31,35 @@ public record DeliveryDetailsDto(
     String failureReason,
     List<TrackingEventDto> events,
     BigDecimal weightKg,
-    String estimatedDeliveryDate
+    String estimatedDeliveryDate,
+    AssignedCourierDto courier
 ) {
+  public record AssignedCourierDto(
+      String name,
+      String phone,
+      String vehicle,
+      String zone,
+      String assignmentStatus,
+      String assignedAt,
+      String respondedAt
+  ) {}
+
+  public DeliveryDetailsDto(
+      UUID id, String trackingRef, TrackingStatus status, String rawStatus, String category,
+      String size, String description, String destinationType, boolean isExpress,
+      PartyDto sender, PartyDto recipient, BigDecimal fee, String currency, String formattedFee,
+      int estimatedDays, String createdAt, String deliveredAt, String failureReason,
+      List<TrackingEventDto> events, BigDecimal weightKg, String estimatedDeliveryDate) {
+    this(id, trackingRef, status, rawStatus, category, size, description, destinationType, isExpress,
+        sender, recipient, fee, currency, formattedFee, estimatedDays, createdAt, deliveredAt,
+        failureReason, events, weightKg, estimatedDeliveryDate, null);
+  }
+
+  public DeliveryDetailsDto withCourier(AssignedCourierDto assignedCourier) {
+    return new DeliveryDetailsDto(id, trackingRef, status, rawStatus, category, size, description,
+        destinationType, isExpress, sender, recipient, fee, currency, formattedFee, estimatedDays,
+        createdAt, deliveredAt, failureReason, events, weightKg, estimatedDeliveryDate, assignedCourier);
+  }
   public static DeliveryDetailsDto from(TrackingParcel parcel) {
     PartyDto sender = new PartyDto(
         parcel.getSenderName(),

@@ -1,75 +1,198 @@
 package com.zentro.trackingreporting.graphql.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.zentro.contracts.parcel.v1.CurrencyAmountProto;
+import com.zentro.contracts.parcel.v1.CustomerDashboardSummaryResponse;
+import com.zentro.contracts.parcel.v1.CustomerParcelPageResponse;
+import com.zentro.contracts.parcel.v1.CustomerParcelViewResponse;
+import com.zentro.contracts.parcel.v1.OptionalCustomerParcelViewResponse;
+import com.zentro.contracts.parcel.v1.ParcelHistoryResponse;
+import com.zentro.contracts.parcel.v1.PublicTrackingResponse;
+import com.zentro.contracts.parcel.v1.StatusHistoryEntryProto;
 import com.zentro.trackingreporting.graphql.dto.CustomerDashboardSummary;
+import com.zentro.trackingreporting.graphql.dto.DeliveryDetailsDto;
 import com.zentro.trackingreporting.graphql.dto.PublicTrackingParcelDto;
-import com.zentro.trackingreporting.tracking.entity.*;
-import java.time.*;
-import java.util.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.*;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import com.zentro.trackingreporting.tracking.dto.TrackingEventDto;
+import com.zentro.trackingreporting.tracking.entity.TrackingParcel;
+import com.zentro.trackingreporting.tracking.entity.TrackingStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.*;
 
-/** S4 read aggregation calls S2's authorized APIs through the gateway, never S2's database. */
+/**
+ * Customer dashboard read-only client backed by S2 ({@link ParcelPricingGrpcClient}) and
+ * S3 ({@link DispatchCourierGrpcClient}) over gRPC.
+ */
 @Component
 public class CustomerBookingClient {
-  private final RestClient client;
-  @Autowired public CustomerBookingClient(RestClient.Builder builder,
-      @Value("${zentro.dashboard.gateway-url:http://localhost:8080}") String gateway) {
-    var factory=new SimpleClientHttpRequestFactory(); factory.setConnectTimeout(1000); factory.setReadTimeout(4000);
-    client=builder.clone().baseUrl(gateway).requestFactory(factory).build();
+  private final ParcelPricingGrpcClient parcelGrpc;
+  private final DispatchCourierGrpcClient dispatchGrpc;
+
+  public CustomerBookingClient(ParcelPricingGrpcClient parcelGrpc, DispatchCourierGrpcClient dispatchGrpc) {
+    this.parcelGrpc = parcelGrpc;
+    this.dispatchGrpc = dispatchGrpc;
   }
-  public CustomerBookingClient(RestClient client) { this.client=client; }
+
   public CustomerDashboardSummary summary(Jwt jwt) {
-    return client.get().uri("/api/v1/parcels/mine/summary").headers(h->h.setBearerAuth(jwt.getTokenValue()))
-        .retrieve().body(CustomerDashboardSummary.class);
+    CustomerDashboardSummaryResponse resp = parcelGrpc.getSummary(jwt.getSubject());
+    return new CustomerDashboardSummary(
+        resp.getActiveCount(),
+        resp.getDeliveredCount(),
+        resp.getAwaitingPickupCount(),
+        resp.getFailedCount(),
+        resp.getInTransitCount(),
+        resp.getTotalParcels(),
+        resp.getMonth(),
+        resp.getTimeZone(),
+        toCurrencyAmounts(resp.getTotalFeesList()),
+        toCurrencyAmounts(resp.getMonthlyFeesList()));
   }
-  public TrackingParcel reference(Jwt jwt,String reference) {
-    JsonNode row=client.get().uri("/api/v1/parcels/mine/{reference}",reference)
-        .headers(h->h.setBearerAuth(jwt.getTokenValue())).retrieve().body(JsonNode.class);
-    return row==null?null:parcel(row,jwt.getSubject());
+
+  public TrackingParcel reference(Jwt jwt, String reference) {
+    return toParcel(parcelGrpc.getParcelByReference(jwt.getSubject(), reference));
   }
+
   public TrackingParcel live(Jwt jwt) {
-    JsonNode row=client.get().uri("/api/v1/parcels/mine/live").headers(h->h.setBearerAuth(jwt.getTokenValue())).retrieve().body(JsonNode.class);
-    return row==null || row.isNull()?null:parcel(row,jwt.getSubject());
+    OptionalCustomerParcelViewResponse resp = parcelGrpc.getLiveParcel(jwt.getSubject());
+    return resp.getFound() ? toParcel(resp.getParcel()) : null;
   }
+
   public Page<TrackingParcel> page(Jwt jwt, Pageable pageable, TrackingStatus status, String search) {
-    JsonNode result=client.get().uri(b->{
-      b.path("/api/v1/parcels/mine").queryParam("page",pageable.getPageNumber()+1).queryParam("size",pageable.getPageSize());
-      if(status!=null)b.queryParam("status",status.name()); if(search!=null)b.queryParam("q",search); return b.build();
-    }).headers(h->h.setBearerAuth(jwt.getTokenValue())).retrieve().body(JsonNode.class);
-    if(result==null)throw new IllegalStateException("Booking data unavailable");
-    var rows=new ArrayList<TrackingParcel>();
-    for(var row:result.path("content")) rows.add(parcel(row,jwt.getSubject()));
-    return new PageImpl<>(rows,pageable,result.path("totalElements").asLong());
+    CustomerParcelPageResponse resp = parcelGrpc.listParcels(
+        jwt.getSubject(),
+        pageable.getPageNumber() + 1,
+        pageable.getPageSize(),
+        status != null ? status.name() : null,
+        search);
+    List<TrackingParcel> content = resp.getContentList().stream()
+        .map(CustomerBookingClient::toParcel)
+        .toList();
+    return new PageImpl<>(content, pageable, resp.getTotalElements());
   }
+
   public PublicTrackingParcelDto publicTracking(String ref) {
-    JsonNode p;
-    try { p=client.get().uri("/api/v1/parcels/tracking/{ref}",ref).retrieve().body(JsonNode.class); }
-    catch(HttpClientErrorException.NotFound ex) { return null; }
-    if(p==null) return null;
-    String created=p.path("createdAt").asText(); int days=p.path("estimatedDays").asInt();
-    return new PublicTrackingParcelDto(p.path("trackingRef").asText(),TrackingStatus.valueOf(p.path("status").asText()),
-        p.path("status").asText(),p.path("category").asText(),text(p,"size"),text(p,"description"),text(p,"originCity"),text(p,"destinationCity"),
-        days,days>0?OffsetDateTime.parse(created).plusDays(days).toInstant().toString():null,created,null,null,List.of());
+    PublicTrackingResponse resp = parcelGrpc.getPublicTracking(ref);
+    TrackingStatus mappedStatus = TrackingStatus.fromString(resp.getStatus());
+    return new PublicTrackingParcelDto(
+        resp.getTrackingRef(),
+        mappedStatus,
+        resp.getStatus(),
+        emptyToNull(resp.getCategory()),
+        emptyToNull(resp.getSize()),
+        emptyToNull(resp.getDescription()),
+        emptyToNull(resp.getOriginCity()),
+        emptyToNull(resp.getDestinationCity()),
+        resp.getEstimatedDays(),
+        null,
+        emptyToNull(resp.getCreatedAt()),
+        null,
+        null,
+        List.of());
   }
-  private String text(JsonNode row,String key) { return row.path(key).isNull()||row.path(key).isMissingNode()?null:row.path(key).asText(); }
-  private TrackingParcel parcel(JsonNode row,String owner) {
-    var p=new TrackingParcel(); p.setId(UUID.fromString(row.path("id").asText())); p.setParcelId(p.getId());
-    p.setCustomerSubject(owner); p.setTrackingRef(row.path("trackingRef").asText());
-    p.setStatus(TrackingStatus.valueOf(row.path("status").asText()));
-    p.setFee(row.path("fee").decimalValue()); p.setCurrency(row.path("currency").asText());
-    p.setCreatedAt(OffsetDateTime.parse(row.path("createdAt").asText()).toInstant()); p.setEstimatedDays(row.path("estimatedDays").asInt());
-    p.setDestinationType(text(row,"destinationType")); p.setExpress(row.path("isExpress").asBoolean());
-    p.setSenderName(text(row.path("sender"),"name")); p.setSenderPhone(text(row.path("sender"),"phone"));
-    p.setSenderAddress(text(row.path("sender"),"address")); p.setSenderCity(text(row.path("sender"),"city"));
-    p.setRecipientName(text(row.path("recipient"),"name")); p.setRecipientPhone(text(row.path("recipient"),"phone"));
-    p.setRecipientAddress(text(row.path("recipient"),"address")); p.setRecipientCity(text(row.path("recipient"),"city"));
-    p.setWeightKg(row.path("parcel").path("weightKg").decimalValue()); p.setCategory(text(row.path("parcel"),"category"));
-    p.setSize(text(row.path("parcel"),"size")); p.setDescription(text(row.path("parcel"),"description")); return p;
+
+  public List<TrackingEventDto> customerHistory(Jwt jwt, String ref) {
+    ParcelHistoryResponse resp = parcelGrpc.getHistory(jwt.getSubject(), ref);
+    return resp.getEntriesList().stream()
+        .map(entry -> toEventDto(ref, entry))
+        .toList();
+  }
+
+  public DeliveryDetailsDto.AssignedCourierDto assignedCourier(Jwt jwt, UUID parcelId) {
+    return dispatchGrpc.getAssignmentSummary(parcelId)
+        .map(a -> new DeliveryDetailsDto.AssignedCourierDto(
+            emptyToNull(a.getCourierName()),
+            emptyToNull(a.getCourierPhone()),
+            emptyToNull(a.getCourierVehicle()),
+            emptyToNull(a.getCourierZone()),
+            emptyToNull(a.getAssignmentStatus()),
+            emptyToNull(a.getAssignedAt()),
+            emptyToNull(a.getRespondedAt())))
+        .orElse(null);
+  }
+
+  private static TrackingEventDto toEventDto(String ref, StatusHistoryEntryProto entry) {
+    String status = entry.getStatus();
+    String title = switch (status) {
+      case "CREATED" -> "Parcel booked";
+      case "PICKED_UP" -> "Picked up by courier";
+      case "IN_TRANSIT" -> "In transit";
+      case "OUT_FOR_DELIVERY" -> "Out for delivery";
+      case "DELIVERED" -> "Delivered";
+      case "FAILED" -> "Delivery failed";
+      case "CANCELLED" -> "Cancelled";
+      default -> status;
+    };
+    String desc = !entry.getNote().isBlank() ? entry.getNote() : entry.getReason();
+    Instant occurredAt = entry.getChangedAt().isBlank() ? Instant.now() : OffsetDateTime.parse(entry.getChangedAt()).toInstant();
+    return new TrackingEventDto(
+        UUID.randomUUID(),
+        ref,
+        status,
+        title,
+        desc,
+        emptyToNull(entry.getActorRole()),
+        null,
+        occurredAt,
+        "FAILED".equals(status) ? emptyToNull(entry.getReason()) : null);
+  }
+
+  private static TrackingParcel toParcel(CustomerParcelViewResponse v) {
+    TrackingParcel p = new TrackingParcel();
+    if (!v.getId().isBlank()) {
+      UUID id = UUID.fromString(v.getId());
+      p.setId(id);
+      p.setParcelId(id);
+    }
+    p.setTrackingRef(v.getTrackingRef());
+    p.setStatus(TrackingStatus.fromString(v.getStatus()));
+    if (!v.getFee().isBlank()) {
+      p.setFee(new BigDecimal(v.getFee()));
+    }
+    p.setCurrency(emptyToNull(v.getCurrency()));
+    p.setEstimatedDays(v.getEstimatedDays());
+    p.setDestinationType(emptyToNull(v.getDestinationType()));
+    p.setExpress(v.getIsExpress());
+    if (!v.getCreatedAt().isBlank()) {
+      p.setCreatedAt(OffsetDateTime.parse(v.getCreatedAt()).toInstant());
+    }
+    if (v.hasSender()) {
+      p.setSenderName(emptyToNull(v.getSender().getName()));
+      p.setSenderPhone(emptyToNull(v.getSender().getPhone()));
+      p.setSenderAddress(emptyToNull(v.getSender().getAddress()));
+      p.setSenderCity(emptyToNull(v.getSender().getCity()));
+    }
+    if (v.hasRecipient()) {
+      p.setRecipientName(emptyToNull(v.getRecipient().getName()));
+      p.setRecipientPhone(emptyToNull(v.getRecipient().getPhone()));
+      p.setRecipientAddress(emptyToNull(v.getRecipient().getAddress()));
+      p.setRecipientCity(emptyToNull(v.getRecipient().getCity()));
+    }
+    if (v.hasParcel()) {
+      if (!v.getParcel().getWeightKg().isBlank()) {
+        p.setWeightKg(new BigDecimal(v.getParcel().getWeightKg()));
+      }
+      p.setCategory(emptyToNull(v.getParcel().getCategory()));
+      p.setSize(emptyToNull(v.getParcel().getSize()));
+      p.setDescription(emptyToNull(v.getParcel().getDescription()));
+    }
+    return p;
+  }
+
+  private static List<CustomerDashboardSummary.CurrencyAmount> toCurrencyAmounts(List<CurrencyAmountProto> protos) {
+    return protos.stream()
+        .map(c -> new CustomerDashboardSummary.CurrencyAmount(
+            c.getCurrency(),
+            c.getAmount().isBlank() ? BigDecimal.ZERO : new BigDecimal(c.getAmount())))
+        .toList();
+  }
+
+  private static String emptyToNull(String value) {
+    return value == null || value.isBlank() ? null : value;
   }
 }

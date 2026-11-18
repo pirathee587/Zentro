@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 
 @Validated
 @ConfigurationProperties("zentro.assistant")
-public record AssistantProperties(String apiKey, @NotBlank String baseUrl, @NotBlank String model, @NotBlank String gatewayUrl,
+public record AssistantProperties(String apiKey, @NotBlank String baseUrl, @NotBlank String model,
     @Min(1) @Max(1000) int connectTimeoutMs, @Min(1) @Max(15000) int readTimeoutMs,
     @Min(1) @Max(3000) int toolTimeoutMs) {
   @Override public String toString() { return "AssistantProperties[credentials redacted]"; }

@@ -35,6 +35,30 @@ public class CourierDeliveryController {
     return ResponseEntity.status(result.created() ? 201 : 200).header("Cache-Control", "no-store")
         .body(ProofResponse.from(result.proof()));
   }
+
+  public record RejectAssignmentRequest(String reason) {}
+  public record CourierStatusRequest(String status, String reason, String note) {}
+
+  @PostMapping("/{parcelId}/accept")
+  public ResponseEntity<?> accept(@PathVariable("parcelId") UUID parcelId, @AuthenticationPrincipal Jwt jwt) {
+    return privateResponse(service.accept(parcelId, jwt));
+  }
+
+  @PostMapping("/{parcelId}/reject")
+  public ResponseEntity<?> reject(@PathVariable("parcelId") UUID parcelId, @AuthenticationPrincipal Jwt jwt,
+      @RequestBody(required = false) RejectAssignmentRequest request) {
+    return privateResponse(service.reject(parcelId, jwt, request == null ? null : request.reason()));
+  }
+
+  @PatchMapping("/{parcelId}/status")
+  public ResponseEntity<?> updateStatus(@PathVariable("parcelId") UUID parcelId, @AuthenticationPrincipal Jwt jwt,
+      @RequestBody CourierStatusRequest request) {
+    return privateResponse(service.updateStatus(parcelId, jwt,
+        request == null ? null : request.status(),
+        request == null ? null : request.reason(),
+        request == null ? null : request.note()));
+  }
+
   private static <T> ResponseEntity<T> privateResponse(T body) {
     return ResponseEntity.ok().header("Cache-Control", "no-store").body(body);
   }

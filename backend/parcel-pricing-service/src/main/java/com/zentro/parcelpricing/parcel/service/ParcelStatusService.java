@@ -117,6 +117,56 @@ public class ParcelStatusService {
   }
 
   /**
+   * Applies a status transition on behalf of an assigned, accepted courier verified by S3.
+   */
+  @Transactional
+  public ParcelStatusResponse updateCourierVerifiedStatus(UUID parcelId, ParcelStatus targetStatus, String reason,
+      String note, String courierSubject) {
+    if (targetStatus == null) {
+      throw new StatusFieldException("status", "Status is required.");
+    }
+    String cleanReason = trimToNull(reason);
+    String cleanNote = trimToNull(note);
+    if (cleanReason != null && cleanReason.length() > MAX_REASON_LENGTH) {
+      throw new StatusFieldException("reason", "Reason must be at most " + MAX_REASON_LENGTH + " characters.");
+    }
+    if (cleanNote != null && cleanNote.length() > MAX_NOTE_LENGTH) {
+      throw new StatusFieldException("note", "Note must be at most " + MAX_NOTE_LENGTH + " characters.");
+    }
+    if (courierSubject == null || courierSubject.isBlank()) {
+      throw new IllegalArgumentException("Courier subject is required.");
+    }
+
+    LockedParcel parcel = repository.lockForUpdate(parcelId).orElseThrow(() -> new ParcelNotFoundException(parcelId));
+    ParcelStatus current = parcel.status();
+
+    if (current == targetStatus) {
+      return new ParcelStatusResponse(parcel.id(), parcel.trackingRef(), current, current, false, null);
+    }
+    if (ParcelLifecycle.isTerminal(current)) {
+      throw InvalidTransitionException.terminal(current, targetStatus);
+    }
+    if (!ParcelLifecycle.isAllowed(current, targetStatus)) {
+      throw InvalidTransitionException.notAllowed(current, targetStatus, "COURIER");
+    }
+    if (targetStatus == ParcelStatus.FAILED && cleanReason == null) {
+      throw new StatusFieldException("reason", "A reason is required when the status is FAILED.");
+    }
+
+    OffsetDateTime now = OffsetDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
+    ParcelStatusChange change = new ParcelStatusChange(parcel.id(), parcel.trackingRef(), current, targetStatus,
+        cleanReason, cleanNote, courierSubject, "COURIER", now);
+
+    repository.updateStatus(parcel.id(), targetStatus, parcel.version(), now);
+    repository.insertHistory(change);
+    UUID eventId = UUID.randomUUID();
+    repository.insertOutboxEvent(eventId, parcel.id(), EVENT_TYPE, eventJson(eventId, change, parcel.merchantId()), now);
+
+    log.info("Parcel status changed: parcelId={} {} -> {} by COURIER", parcel.id(), current, targetStatus);
+    return new ParcelStatusResponse(parcel.id(), parcel.trackingRef(), current, targetStatus, true, now);
+  }
+
+  /**
    * Event envelope (eventId, eventType, occurredAt, aggregateId, payload). The payload holds only the tracking
    * reference, statuses, actor role, time, failure reason and, for merchant parcels, the merchant account id:
    * never names, phone numbers, addresses, notes or the actor subject.

@@ -3,164 +3,171 @@ package com.zentro.notificationintegration.webhook.client;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import com.zentro.notificationintegration.support.StubHttpServer;
-import com.zentro.notificationintegration.webhook.exception.MerchantVerificationException;
-import java.time.Duration;
+import com.zentro.contracts.identity.v1.IdentityPartnerServiceGrpc;
+import com.zentro.contracts.identity.v1.MerchantVerificationResponse;
+import com.zentro.contracts.identity.v1.VerifyMerchantAccountRequest;
+import com.zentro.security.grpc.BearerServiceGrpcClientInterceptor;
+import com.zentro.security.grpc.GrpcServiceTokenProvider;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.Server;
+import io.grpc.Status;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.StreamObserver;
+import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Timeouts and outage handling of the S5 -> S1 merchant check used by webhook subscriptions (ZD-072). The client
- * is built with its production constructor, so the real 3 s connect and 5 s read timeouts apply, and talks to a
- * local stub of S1.
- */
 @ExtendWith(OutputCaptureExtension.class)
 class IdentityMerchantClientResilienceTest {
 
-  private static final String TOKEN = "merchant-access-token-072";
-  private static final String APPROVED = """
-      {"id":"8a6d1b8e-6f0e-4a57-9a43-0d6b8e2c9f10","email":"shop@example.test","name":"Nimal Perera",
-       "phone":"0771234567","accountStatus":"ACTIVE","merchantStatus":"APPROVED","roles":["MERCHANT"]}""";
+  private static final String TOKEN = jwtWithSub("merchant-sub-072");
 
-  private StubHttpServer identity;
-
-  @BeforeEach
-  void startStub() {
-    identity = StubHttpServer.start();
-  }
+  private Server server;
+  private ManagedChannel channel;
 
   @AfterEach
   void stopStub() {
-    identity.close();
+    if (channel != null) {
+      channel.shutdownNow();
+    }
+    if (server != null) {
+      server.shutdownNow();
+    }
+  }
+
+  private static String jwtWithSub(String sub) {
+    String header = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
+    String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(("{\"sub\":\"" + sub + "\"}").getBytes(StandardCharsets.UTF_8));
+    return header + "." + payload + ".sig";
+  }
+
+  private IdentityMerchantClient clientWith(IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase impl,
+      GrpcServiceTokenProvider tokens) throws Exception {
+    String name = InProcessServerBuilder.generateName();
+    server = InProcessServerBuilder.forName(name).directExecutor().addService(impl).build().start();
+    channel = InProcessChannelBuilder.forName(name).directExecutor().build();
+    return new IdentityMerchantClient(new IdentityPartnerGrpcClient(channel, tokens));
   }
 
   @Test
-  void approvedMerchantPassesWithOneRequestAndTheCallersToken() {
-    identity.respond(200, APPROVED);
+  void approvedMerchantPassesWithOneRequest() throws Exception {
+    AtomicInteger requests = new AtomicInteger();
+    IdentityMerchantClient client = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void verifyMerchantAccount(
+          VerifyMerchantAccountRequest req, StreamObserver<MerchantVerificationResponse> obs) {
+        requests.incrementAndGet();
+        assertThat(req.getKeycloakSubject()).isEqualTo("merchant-sub-072");
+        obs.onNext(MerchantVerificationResponse.newBuilder()
+            .setKeycloakSubject("merchant-sub-072")
+            .setUserId("8a6d1b8e-6f0e-4a57-9a43-0d6b8e2c9f10")
+            .setAccountStatus("ACTIVE")
+            .setMerchantStatus("APPROVED")
+            .setApproved(true)
+            .build());
+        obs.onCompleted();
+      }
+    }, null);
 
-    assertThatCode(() -> client(identity.baseUrl()).requireApprovedMerchant(TOKEN)).doesNotThrowAnyException();
-
-    assertThat(identity.requests()).isEqualTo(1);
-    assertThat(identity.lastAuthorization()).isEqualTo("Bearer " + TOKEN);
+    assertThatCode(() -> client.requireApprovedMerchant(TOKEN)).doesNotThrowAnyException();
+    assertThat(requests.get()).isEqualTo(1);
   }
 
   @Test
-  void slowIdentityFailsWithinTheReadTimeoutAsUnavailable() {
-    identity.respondAfter(Duration.ofMillis(6500), 200, APPROVED);
+  void slowIdentityFailsWithinDeadlineWith503() throws Exception {
+    IdentityMerchantClient client = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void verifyMerchantAccount(
+          VerifyMerchantAccountRequest req, StreamObserver<MerchantVerificationResponse> obs) {
+        // Intentionally hang to trigger 5s gRPC deadline.
+      }
+    }, null);
 
     long start = System.nanoTime();
-    MerchantVerificationException error = check(identity.baseUrl());
+    ResponseStatusException error = catchThrowableOfType(
+        ResponseStatusException.class, () -> client.requireApprovedMerchant(TOKEN));
+    long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
-    assertUnavailable(error);
-    assertThat(elapsedMs(start)).isBetween(4500L, 7000L);
-    assertThat(identity.requests()).isEqualTo(1);
+    assertThat(error.getStatusCode().value()).isEqualTo(503);
+    assertThat(elapsedMs).isBetween(4500L, 7000L);
   }
 
   @Test
-  void refusedConnectionFailsFastAsUnavailable() {
-    long start = System.nanoTime();
-    MerchantVerificationException error = check("http://127.0.0.1:" + StubHttpServer.unusedPort());
+  void refusedConnectionFailsFastWith503(CapturedOutput output) throws Exception {
+    int unusedPort;
+    try (ServerSocket socket = new ServerSocket(0)) {
+      unusedPort = socket.getLocalPort();
+    }
+    GrpcServiceTokenProvider tokens = mock(GrpcServiceTokenProvider.class);
+    when(tokens.token()).thenReturn("service-jwt-secret");
+    channel = ManagedChannelBuilder.forAddress("127.0.0.1", unusedPort)
+        .usePlaintext()
+        .intercept(new BearerServiceGrpcClientInterceptor(tokens))
+        .build();
+    IdentityMerchantClient client = new IdentityMerchantClient(new IdentityPartnerGrpcClient(channel, tokens));
 
-    assertUnavailable(error);
-    // Windows takes about 1 s to report a refused local connection; still well below the 3 s connect timeout.
-    assertThat(elapsedMs(start)).isLessThan(2500);
-  }
+    ResponseStatusException error = catchThrowableOfType(
+        ResponseStatusException.class, () -> client.requireApprovedMerchant(TOKEN));
 
-  @Test
-  void unreachableHostFailsWithinTheConnectTimeoutAsUnavailable() {
-    long start = System.nanoTime();
-    // Non-routable address: either the 3 s connect timeout or an immediate network error, never a hang.
-    MerchantVerificationException error = check("http://10.255.255.1:81");
-
-    assertUnavailable(error);
-    assertThat(elapsedMs(start)).isLessThan(5000);
+    assertThat(error.getStatusCode().value()).isEqualTo(503);
+    assertThat(output.getAll()).doesNotContain("service-jwt-secret", TOKEN);
   }
 
   @ParameterizedTest
-  @ValueSource(ints = {500, 502, 503, 504, 429, 404})
-  void failingOrUnexpectedStatusIsUnavailableWithoutRetry(int status) {
-    identity.respond(status, "{\"detail\":\"internal identity details\"}");
+  @CsvSource({"SUSPENDED,APPROVED", "ACTIVE,PENDING", "DISABLED,APPROVED"})
+  void nonApprovedOrSuspendedMerchantBecomes403(String accountStatus, String merchantStatus) throws Exception {
+    IdentityMerchantClient client = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void verifyMerchantAccount(
+          VerifyMerchantAccountRequest req, StreamObserver<MerchantVerificationResponse> obs) {
+        obs.onNext(MerchantVerificationResponse.newBuilder()
+            .setAccountStatus(accountStatus)
+            .setMerchantStatus(merchantStatus)
+            .setApproved(false)
+            .build());
+        obs.onCompleted();
+      }
+    }, null);
 
-    MerchantVerificationException error = check(identity.baseUrl());
+    ResponseStatusException error = catchThrowableOfType(
+        ResponseStatusException.class, () -> client.requireApprovedMerchant(TOKEN));
 
-    assertUnavailable(error);
-    assertThat(error.getMessage()).doesNotContain("internal identity details");
-    assertThat(identity.requests()).isEqualTo(1);
-  }
-
-  @ParameterizedTest
-  @ValueSource(ints = {401, 403})
-  void authenticationAndAccessErrorsAreForbidden(int status) {
-    identity.respond(status, "{}");
-
-    MerchantVerificationException error = check(identity.baseUrl());
-
-    assertThat(error.status().value()).isEqualTo(403);
-    assertThat(error.code()).isEqualTo("MERCHANT_NOT_APPROVED");
-    assertThat(identity.requests()).isEqualTo(1);
-  }
-
-  @Test
-  void connectionClosedWithoutReplyIsUnavailableAfterAtMostOneTransportRetry() {
-    identity.closeWithoutReply();
-
-    long start = System.nanoTime();
-    MerchantVerificationException error = check(identity.baseUrl());
-
-    assertUnavailable(error);
-    assertThat(elapsedMs(start)).isLessThan(2000);
-    // HttpURLConnection repeats an idempotent GET once when the connection drops before any reply.
-    assertThat(identity.requests()).isBetween(1, 2);
+    assertThat(error.getStatusCode().value()).isEqualTo(403);
   }
 
   @Test
-  void readTimeoutLimitsEachReadNotTheWholeCall() {
-    // Finding F1: eight 800 ms pauses (6.4 s in total) never exceed the 5 s read timeout, so the call succeeds.
-    identity.trickle(200, APPROVED, 8, Duration.ofMillis(800));
+  void unauthenticatedGrpcInvalidatesServiceTokenAndReturns503(CapturedOutput output) throws Exception {
+    GrpcServiceTokenProvider tokens = mock(GrpcServiceTokenProvider.class);
+    IdentityMerchantClient client = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void verifyMerchantAccount(
+          VerifyMerchantAccountRequest req, StreamObserver<MerchantVerificationResponse> obs) {
+        obs.onError(Status.UNAUTHENTICATED.withDescription("internal identity details").asRuntimeException());
+      }
+    }, tokens);
 
-    long start = System.nanoTime();
-    assertThatCode(() -> client(identity.baseUrl()).requireApprovedMerchant(TOKEN)).doesNotThrowAnyException();
+    ResponseStatusException error = catchThrowableOfType(
+        ResponseStatusException.class, () -> client.requireApprovedMerchant(TOKEN));
 
-    assertThat(elapsedMs(start)).isGreaterThan(5000);
-    assertThat(identity.requests()).isEqualTo(1);
-  }
-
-  @Test
-  void failuresDoNotLogTokensOrPersonalData(CapturedOutput output) {
-    identity.respond(500, "{\"name\":\"Nimal Perera\"}");
-    check(identity.baseUrl());
-    identity.respond(200, APPROVED.replace("\"ACTIVE\"", "\"SUSPENDED\""));
-    assertThat(check(identity.baseUrl()).status().value()).isEqualTo(403);
-    check("http://127.0.0.1:" + StubHttpServer.unusedPort());
-
-    assertThat(output.getAll()).doesNotContain(TOKEN, "Nimal Perera", "0771234567", "shop@example.test");
-  }
-
-  private static IdentityMerchantClient client(String baseUrl) {
-    return new IdentityMerchantClient(RestClient.builder(), baseUrl);
-  }
-
-  private static MerchantVerificationException check(String baseUrl) {
-    return catchThrowableOfType(() -> client(baseUrl).requireApprovedMerchant(TOKEN),
-        MerchantVerificationException.class);
-  }
-
-  private static void assertUnavailable(MerchantVerificationException error) {
-    assertThat(error).isNotNull();
-    assertThat(error.status().value()).isEqualTo(503);
-    assertThat(error.code()).isEqualTo("IDENTITY_UNAVAILABLE");
-  }
-
-  private static long elapsedMs(long start) {
-    return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+    assertThat(error.getStatusCode().value()).isEqualTo(503);
+    assertThat(error.getReason()).doesNotContain("internal identity details");
+    assertThat(output.getAll()).doesNotContain(TOKEN);
+    verify(tokens).invalidate();
   }
 }

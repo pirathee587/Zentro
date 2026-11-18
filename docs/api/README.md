@@ -9,7 +9,11 @@ The checked-in OpenAPI 3.1 JSON files are the REST contract for paths as clients
 | S3 Dispatch & Courier | `/api/v1/dispatch/**`, `/api/v1/courier/deliveries/**` | [`dispatch.openapi.json`](openapi/dispatch.openapi.json) |
 | S4 Tracking & Reporting | `/api/v1/tracking/**`; the gateway also reserves `/api/v1/reports/**`, with no active report controller | [`tracking.openapi.json`](openapi/tracking.openapi.json) |
 | S4 Tracking & Reporting (GraphQL) | `/graphql` read-only tracking and delivery status history query endpoint | [`graphql.md`](graphql.md) |
-| S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
+| S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**`, `/api/v1/assistant/**`, `/api/v1/support/tickets/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
+
+The four S5 assistant operations (chat, conversation create/list/history) and customer support ticket operations are included in `notifications.openapi.json`. The gateway forwards `/api/v1/assistant/**` and `/api/v1/support/tickets/**`; internal gRPC methods have no gateway route.
+
+The dispatcher route `/api/v1/dispatch/assignments` uses S1 courier verification and S2's private gRPC `GetParcel` status check. The gRPC method is internal and is not exposed through the gateway. S3's live unassigned queue remains incomplete until S2 provides an enumeration contract.
 
 S3's [workload metric definitions](dispatcher-workload.md) explain lifetime assignment counts, courier totals, timezone/reassignment limitations and #134 verification evidence.
 
@@ -36,7 +40,7 @@ Protected operations use `bearerAuth` (Keycloak JWT). Operation descriptions sta
 | S1 `/admin/**` | DISPATCHER only. |
 | S1 courier self-profile aliases | COURIER only. |
 | S2 parcel booking; fee estimate | CUSTOMER only for booking; CUSTOMER or DISPATCHER for estimates. |
-| S2 status update | DISPATCHER through the gateway. Direct internal S2 use also accepts SERVICE for the established S3 completion flow; SERVICE-only traffic is not admitted by the gateway. |
+| S2 status update | DISPATCHER through the gateway. SERVICE completion is restricted to authenticated gRPC POD methods; S2 REST rejects SERVICE tokens. |
 | S2 zones; admin pricing | CUSTOMER, MERCHANT, COURIER, DISPATCHER for zones; DISPATCHER only for pricing administration. |
 | S2 merchant orders | MERCHANT with approved and active account; order resources are subject-scoped. |
 | S3 dispatch queue, courier eligibility, workload and assignment | DISPATCHER only. |

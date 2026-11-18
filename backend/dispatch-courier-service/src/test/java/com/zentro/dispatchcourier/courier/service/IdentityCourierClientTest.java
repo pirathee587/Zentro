@@ -2,94 +2,159 @@ package com.zentro.dispatchcourier.courier.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
-import java.io.IOException;
+import com.zentro.contracts.identity.v1.CourierDetails;
+import com.zentro.contracts.identity.v1.GetCourierByIdRequest;
+import com.zentro.contracts.identity.v1.GetCourierByUserSubjectRequest;
+import com.zentro.contracts.identity.v1.IdentityPartnerServiceGrpc;
+import com.zentro.contracts.identity.v1.ListCouriersRequest;
+import com.zentro.contracts.identity.v1.ListCouriersResponse;
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
+import io.grpc.Status;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.StreamObserver;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 class IdentityCourierClientTest {
   private static final UUID PROFILE = UUID.fromString("00000000-0000-0000-0000-000000000001");
   private static final UUID USER = UUID.fromString("00000000-0000-0000-0000-000000000002");
-  private MockRestServiceServer server;
-  private IdentityCourierClient client;
 
-  @BeforeEach void setup() {
-    RestClient.Builder builder = RestClient.builder();
-    server = MockRestServiceServer.bindTo(builder).build();
-    client = new IdentityCourierClient(builder.baseUrl("http://identity").build());
+  private Server server;
+  private ManagedChannel channel;
+
+  @AfterEach
+  void tearDown() {
+    if (channel != null) {
+      channel.shutdownNow();
+    }
+    if (server != null) {
+      server.shutdownNow();
+    }
   }
 
-  private static String profile(boolean active, String status) {
-    return "{\"id\":\"" + PROFILE + "\",\"userId\":\"" + USER
-        + "\",\"name\":\"Courier\",\"active\":" + active + ",\"accountStatus\":\"" + status + "\"}";
+  private IdentityCourierClient clientWith(IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase impl)
+      throws Exception {
+    String name = InProcessServerBuilder.generateName();
+    server = InProcessServerBuilder.forName(name).directExecutor().addService(impl).build().start();
+    channel = InProcessChannelBuilder.forName(name).directExecutor().build();
+    return new IdentityCourierClient(new IdentityPartnerGrpcClient(channel, null));
   }
 
-  @Test void resolvesSelfProfileWithCourierTokenAndDistinctIds() {
-    server.expect(requestTo("http://identity/api/v1/users/courier-profile"))
-        .andExpect(header("Authorization", "Bearer courier-token"))
-        .andRespond(withSuccess(profile(true, "ACTIVE"), MediaType.APPLICATION_JSON));
-    var courier = client.currentCourier("courier-token");
+  private static CourierDetails details(boolean active, String status) {
+    return CourierDetails.newBuilder()
+        .setId(PROFILE.toString())
+        .setUserId(USER.toString())
+        .setName("Courier")
+        .setActive(active)
+        .setAccountStatus(status)
+        .build();
+  }
+
+  private static String jwtWithSub(String sub) {
+    String header = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
+    String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(("{\"sub\":\"" + sub + "\"}").getBytes(StandardCharsets.UTF_8));
+    return header + "." + payload + ".sig";
+  }
+
+  @Test
+  void resolvesSelfProfileWithCourierSubjectAndDistinctIds() throws Exception {
+    IdentityCourierClient client = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void getCourierByUserSubject(
+          GetCourierByUserSubjectRequest request, StreamObserver<CourierDetails> responseObserver) {
+        assertThat(request.getKeycloakSubject()).isEqualTo("kc-sub-1");
+        responseObserver.onNext(details(true, "ACTIVE"));
+        responseObserver.onCompleted();
+      }
+    });
+
+    var courier = client.currentCourier(jwtWithSub("kc-sub-1"));
     assertThat(courier.id()).isEqualTo(PROFILE);
     assertThat(courier.userId()).isEqualTo(USER);
-    server.verify();
-  }
-  @Test void selfProfileFailsClosedForInactiveOrMalformedIdentity() {
-    server.expect(anything()).andRespond(withSuccess(profile(false, "ACTIVE"), MediaType.APPLICATION_JSON));
-    server.expect(anything()).andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
-    assertStatus(() -> client.currentCourier("token"), 403);
-    assertStatus(() -> client.currentCourier("token"), 503);
   }
 
-  @Test void listsOnlyEffectivelyActiveCouriersAndForwardsAuthentication() {
-    server.expect(requestTo("http://identity/api/v1/admin/couriers?active=true"))
-        .andExpect(header("Authorization", "Bearer dispatcher-token"))
-        .andRespond(withSuccess("[" + profile(true, "ACTIVE") + "," + profile(false, "ACTIVE")
-            + "," + profile(true, "SUSPENDED") + "]", MediaType.APPLICATION_JSON));
-    assertThat(client.listEligible("dispatcher-token")).extracting(IdentityCourierClient.Courier::id)
+  @Test
+  void selfProfileFailsClosedForInactiveOrMalformedIdentity() throws Exception {
+    IdentityCourierClient inactiveClient = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void getCourierByUserSubject(
+          GetCourierByUserSubjectRequest request, StreamObserver<CourierDetails> responseObserver) {
+        responseObserver.onNext(details(false, "ACTIVE"));
+        responseObserver.onCompleted();
+      }
+    });
+    assertStatus(() -> inactiveClient.currentCourier(jwtWithSub("kc-sub-1")), 403);
+    tearDown();
+
+    IdentityCourierClient malformedClient = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void getCourierByUserSubject(
+          GetCourierByUserSubjectRequest request, StreamObserver<CourierDetails> responseObserver) {
+        responseObserver.onNext(CourierDetails.getDefaultInstance());
+        responseObserver.onCompleted();
+      }
+    });
+    assertStatus(() -> malformedClient.currentCourier(jwtWithSub("kc-sub-1")), 503);
+  }
+
+  @Test
+  void listsOnlyEffectivelyActiveCouriers() throws Exception {
+    IdentityCourierClient client = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void listCouriers(
+          ListCouriersRequest request, StreamObserver<ListCouriersResponse> responseObserver) {
+        assertThat(request.getFilterActive()).isTrue();
+        assertThat(request.getActiveOnly()).isTrue();
+        responseObserver.onNext(ListCouriersResponse.newBuilder()
+            .addAllCouriers(List.of(
+                details(true, "ACTIVE"),
+                details(false, "ACTIVE"),
+                details(true, "SUSPENDED")))
+            .build());
+        responseObserver.onCompleted();
+      }
+    });
+
+    assertThat(client.listEligible("dispatcher-token"))
+        .extracting(IdentityCourierClient.Courier::id)
         .containsExactly(PROFILE);
-    server.verify();
   }
 
-  @Test void revalidatesUsingUserIdAndReturnsCanonicalProfileId() {
-    server.expect(requestTo("http://identity/api/v1/admin/couriers/" + USER))
-        .andRespond(withSuccess(profile(true, "ACTIVE"), MediaType.APPLICATION_JSON));
-    assertThat(client.requireEligible(USER, "token").id()).isEqualTo(PROFILE);
+  @Test
+  void requireEligibleRejectsInactiveOrNotFound() throws Exception {
+    IdentityCourierClient inactiveClient = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void getCourierById(
+          GetCourierByIdRequest request, StreamObserver<CourierDetails> responseObserver) {
+        responseObserver.onNext(details(false, "ACTIVE"));
+        responseObserver.onCompleted();
+      }
+    });
+    assertStatus(() -> inactiveClient.requireEligible(PROFILE, "dispatcher-token"), 409);
+    tearDown();
+
+    IdentityCourierClient notFoundClient = clientWith(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+      @Override
+      public void getCourierById(
+          GetCourierByIdRequest request, StreamObserver<CourierDetails> responseObserver) {
+        responseObserver.onError(Status.NOT_FOUND.withDescription("not found").asRuntimeException());
+      }
+    });
+    assertStatus(() -> notFoundClient.requireEligible(PROFILE, "dispatcher-token"), 404);
   }
 
-  @Test void inactiveCourierConflicts() {
-    server.expect(anything()).andRespond(withSuccess(profile(false, "ACTIVE"), MediaType.APPLICATION_JSON));
-    assertStatus(() -> client.requireEligible(PROFILE, "token"), 409);
-  }
-
-  @ParameterizedTest @ValueSource(ints = {401, 403, 404, 500})
-  void mapsDependencyStatus(int status) {
-    server.expect(anything()).andRespond(withStatus(HttpStatus.valueOf(status)));
-    assertStatus(() -> client.requireEligible(PROFILE, "token"), status == 500 ? 503 : status);
-  }
-
-  @Test void networkFailureFailsClosed() {
-    server.expect(anything()).andRespond(withException(new IOException("timeout")));
-    assertStatus(() -> client.listEligible("token"), 503);
-  }
-
-  @Test void malformedResponseFailsClosed() {
-    server.expect(anything()).andRespond(withSuccess("[{}]", MediaType.APPLICATION_JSON));
-    assertStatus(() -> client.listEligible("token"), 503);
-  }
-
-  private static void assertStatus(Runnable operation, int expected) {
-    assertThatThrownBy(operation::run).isInstanceOfSatisfying(ResponseStatusException.class,
-        error -> assertThat(error.getStatusCode().value()).isEqualTo(expected));
+  private static void assertStatus(Runnable action, int expectedStatus) {
+    assertThatThrownBy(action::run)
+        .isInstanceOf(ResponseStatusException.class)
+        .extracting(e -> ((ResponseStatusException) e).getStatusCode().value())
+        .isEqualTo(expectedStatus);
   }
 }
-

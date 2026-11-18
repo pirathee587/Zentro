@@ -1,6 +1,20 @@
-# Cross-service contract inventory — Issue #351
+# Cross-service contract inventory — Phase 4 verification
 
-Source inspection at base `9275ea8ccb3170097757e332525125264769d21f`, 2026-11-12. Runtime verification is distinguished in [the implementation report](../testing/issue-351-implementation.md). No contract fields, RPCs, transport rules or business policies are changed.
+Updated from current source on 2026-11-18. Historical issue #351 evidence is retained below only where marked historical; Phase 4 runtime verification is recorded in the final task report.
+
+## Current synchronous gRPC calls
+
+| Caller | Receiver | Contract / purpose | Authentication |
+|---|---|---|---|
+| S2 Parcel & Pricing | S1 Identity & Partner | Merchant status and approval verification | `zentro-parcel-service` SERVICE JWT |
+| S3 Dispatch & Courier | S1 Identity & Partner | Courier profile, eligibility, and dispatcher directory | `zentro-dispatch-service` SERVICE JWT |
+| S3 Dispatch & Courier | S2 Parcel & Pricing | `GetParcel` status check for assignment, POD completion, and courier status | `zentro-dispatch-service` SERVICE JWT; reads require `pod:read`, mutations require `pod:update` |
+| S4 Tracking & Reporting | S2 Parcel & Pricing | Customer parcel/dashboard reads, public tracking, fee estimates | `zentro-tracking-service` SERVICE JWT |
+| S4 Tracking & Reporting | S3 Dispatch & Courier | Customer delivery assignment summary | `zentro-tracking-service` SERVICE JWT |
+| S5 Notification & Integration | S1 Identity & Partner | Merchant verification for webhook registration | `zentro-notification-service` SERVICE JWT |
+| S5 Notification & Integration | S2 Parcel & Pricing | Customer-support parcel read tools | `zentro-notification-service` SERVICE JWT |
+
+S1/S2/S3 listen on gRPC ports 9081/9082/9083. S4/S5 are outbound-only gRPC clients and expose no gRPC server ports. Docker service DNS uses the Compose container/service names; internal Keycloak requests use `keycloak:8080` while JWT issuer validation keeps the canonical development issuer. The four confidential service clients and their least-privilege mappings are reproducibly configured by `infra/keycloak/service-clients.json` and `infra/keycloak/provision_service_clients.py`. Inject each client secret separately through deployment secret storage or ignored local `.env` files; only `zentro-dispatch-service` receives POD permissions.
 
 ## Canonical protobuf v1
 
@@ -14,7 +28,9 @@ Definitions: `contracts/proto/identity_partner.proto`, `contracts/proto/parcel_p
 
 S1 authentication is `GrpcSecurityInterceptor`: configured nonblank `x-internal-token`, or validated bearer JWT with SERVICE or DISPATCHER realm authority. `x-internal-service` is caller context when using the internal credential, not an independent credential. Invalid credentials return UNAUTHENTICATED; insufficient JWT authority returns PERMISSION_DENIED. No new internal credentials or permissive fallbacks were introduced. `GrpcPropagationInterceptor` handles correlation/W3C propagation; IdentityPartnerGrpcPropagationTest exercises the actual gRPC server with test dependencies. Resilience tests exercise deadlines/cancellation; no production client deadline policy exists for a client that is not implemented. TLS/private-network deployment evidence remains unverified.
 
-## Active synchronous REST seams
+## Historical REST baseline (superseded by Phase 4)
+
+The following table records the pre-migration synchronous REST clients and must not be read as the current transport inventory. Current internal service calls use gRPC as listed above.
 
 | Provider / consumer | Operations / data consumed | Authentication / authorization | Deadlines / errors / tests |
 |---|---|---|---|
@@ -22,7 +38,7 @@ S1 authentication is `GrpcSecurityInterceptor`: configured nonblank `x-internal-
 | S1 / S5 webhook IdentityMerchantClient | GET /api/v1/users/me; accountStatus,merchantStatus | Merchant bearer; ACTIVE and APPROVED required | 3s/5s; absent token 401; upstream 401/403 map to 403; other failure 503. IdentityMerchantClientResilienceTest (S5). Preserve the difference from S2. |
 | S1 / S3 IdentityCourierClient | GET /api/v1/users/courier-profile; GET /api/v1/admin/couriers[?active=true]; GET /api/v1/admin/couriers/{id}; id,userId,name,active,accountStatus,assignedZone | Caller bearer; courier self-profile or dispatcher directory; effective eligibility active=true and accountStatus ACTIVE | 3s/5s; upstream 401/403 retained; requireEligible missing 404, ineligible 409, malformed/unavailable 503. IdentityCourierClientTest and IdentityCourierClientResilienceTest. |
 | Identity token endpoint / S3 ServiceTokenProvider | OAuth client-credentials access token | Configured service credentials; no human ownership impersonation | ServiceTokenProviderTest, ServiceTokenProviderResilienceTest. Deployment credentials and provider availability unverified. |
-| S2 / S3 ParcelStatusClient | PATCH /api/v1/parcels/{id}/status with status=DELIVERED; requires matching parcelId, DELIVERED status and boolean changed response | ServiceTokenProvider bearer; S2 permits SERVICE directly, gateway deliberately denies SERVICE on this route | ServiceTokenProvider.httpFactory supplies HTTP budgets; 401 invalidates token, 409 yields REJECTED, 429/5xx/transport yields PENDING, other failures BLOCKED. ParcelStatusClientTest; live completion/provider acceptance pending. |
+| S3 ParcelStatusClient → S2 ParcelPricingGrpcClient | `CompleteParcelDelivery` gRPC; validates parcel ID and `DELIVERED` response | Keycloak SERVICE JWT with S2 `SERVICE` role and `pod:update` permission | Explicit 5-second deadline; invalid credentials invalidate the token cache; failed precondition is terminal and unavailable/deadline failures remain pending for the completion worker. |
 
 Source paths: S2 `integration/IdentityMerchantClient.java`; S3 `courier/service/IdentityCourierClient.java`, `ServiceTokenProvider.java`; S5 `webhook/client/IdentityMerchantClient.java`, under their respective `backend/*/src/main/java/com/zentro/` trees. Provider fields and complete public operations are in [the operation matrix](../testing/backend-contract-matrix.md) and current OpenAPI components. RestClient requests use Boot observability; correlation propagation has existing shared-starter tests, but a live end-to-end provider/consumer correlation run is still missing. REST and gRPC responses differ; do not substitute one without owner agreement.
 

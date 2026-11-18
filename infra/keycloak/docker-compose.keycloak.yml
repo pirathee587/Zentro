@@ -5,6 +5,7 @@
     restart: unless-stopped
     environment:
       KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:8180
       KC_HEALTH_ENABLED: "true"
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}

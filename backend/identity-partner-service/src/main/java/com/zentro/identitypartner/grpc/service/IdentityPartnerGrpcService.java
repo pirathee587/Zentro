@@ -1,18 +1,31 @@
 package com.zentro.identitypartner.grpc.service;
 
+import com.zentro.contracts.identity.v1.CourierDetails;
 import com.zentro.contracts.identity.v1.CourierProfileResponse;
+import com.zentro.contracts.identity.v1.GetCourierByIdRequest;
+import com.zentro.contracts.identity.v1.GetCourierByUserSubjectRequest;
 import com.zentro.contracts.identity.v1.GetCourierProfileRequest;
 import com.zentro.contracts.identity.v1.GetMerchantStatusRequest;
 import com.zentro.contracts.identity.v1.IdentityPartnerServiceGrpc;
+import com.zentro.contracts.identity.v1.ListCouriersRequest;
+import com.zentro.contracts.identity.v1.ListCouriersResponse;
 import com.zentro.contracts.identity.v1.MerchantStatusResponse;
+import com.zentro.contracts.identity.v1.MerchantVerificationResponse;
+import com.zentro.contracts.identity.v1.VerifyMerchantAccountRequest;
 import com.zentro.identitypartner.courier.dto.CourierGrpcResponse;
+import com.zentro.identitypartner.courier.dto.CourierProfile;
 import com.zentro.identitypartner.courier.service.CourierProfileService;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * gRPC server implementation for the IdentityPartnerService contract.
@@ -109,5 +122,151 @@ public class IdentityPartnerGrpcService extends IdentityPartnerServiceGrpc.Ident
       log.debug("Merchant application not found");
       return STATUS_NOT_FOUND;
     }
+  }
+
+  @Override
+  public void listCouriers(
+      ListCouriersRequest request, StreamObserver<ListCouriersResponse> responseObserver) {
+    Boolean activeOnly = request.getFilterActive() ? request.getActiveOnly() : null;
+    List<CourierProfile> couriers = courierProfileService.listCouriers(
+        blankToNull(request.getStatus()),
+        activeOnly,
+        blankToNull(request.getZone()),
+        blankToNull(request.getSearch()));
+    ListCouriersResponse.Builder response = ListCouriersResponse.newBuilder();
+    for (CourierProfile profile : couriers) {
+      response.addCouriers(toCourierDetails(profile));
+    }
+    responseObserver.onNext(response.build());
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void getCourierById(
+      GetCourierByIdRequest request, StreamObserver<CourierDetails> responseObserver) {
+    UUID courierId;
+    try {
+      courierId = UUID.fromString(request.getCourierId().trim());
+    } catch (IllegalArgumentException e) {
+      responseObserver.onError(Status.INVALID_ARGUMENT
+          .withDescription("Invalid courier_id UUID")
+          .asRuntimeException());
+      return;
+    }
+    try {
+      CourierProfile profile = courierProfileService.getByCourierId(courierId);
+      responseObserver.onNext(toCourierDetails(profile));
+      responseObserver.onCompleted();
+    } catch (ResponseStatusException e) {
+      responseObserver.onError(mapStatusException(e).asRuntimeException());
+    }
+  }
+
+  @Override
+  public void getCourierByUserSubject(
+      GetCourierByUserSubjectRequest request, StreamObserver<CourierDetails> responseObserver) {
+    String subject = request.getKeycloakSubject() != null ? request.getKeycloakSubject().trim() : "";
+    if (subject.isEmpty()) {
+      responseObserver.onError(Status.INVALID_ARGUMENT
+          .withDescription("keycloak_subject must not be blank")
+          .asRuntimeException());
+      return;
+    }
+    try {
+      UUID userId = jdbc.queryForObject(
+          "SELECT id FROM identity.app_user WHERE keycloak_subject = ?",
+          UUID.class,
+          subject);
+      if (userId == null) {
+        responseObserver.onError(Status.NOT_FOUND
+            .withDescription("Courier user not found")
+            .asRuntimeException());
+        return;
+      }
+      CourierProfile profile = courierProfileService.getOrCreateProfile(userId);
+      responseObserver.onNext(toCourierDetails(profile));
+      responseObserver.onCompleted();
+    } catch (EmptyResultDataAccessException e) {
+      responseObserver.onError(Status.NOT_FOUND
+          .withDescription("Courier user not found")
+          .asRuntimeException());
+    } catch (ResponseStatusException e) {
+      responseObserver.onError(mapStatusException(e).asRuntimeException());
+    }
+  }
+
+  @Override
+  public void verifyMerchantAccount(
+      VerifyMerchantAccountRequest request,
+      StreamObserver<MerchantVerificationResponse> responseObserver) {
+    String subject = request.getKeycloakSubject() != null ? request.getKeycloakSubject().trim() : "";
+    if (subject.isEmpty()) {
+      responseObserver.onError(Status.INVALID_ARGUMENT
+          .withDescription("keycloak_subject must not be blank")
+          .asRuntimeException());
+      return;
+    }
+    try {
+      MerchantVerificationResponse response = jdbc.queryForObject("""
+          SELECT u.id::text AS user_id,
+                 u.account_status,
+                 COALESCE(m.status, '') AS merchant_status
+            FROM identity.app_user u
+            LEFT JOIN identity.merchant_application m ON m.app_user_id = u.id
+           WHERE u.keycloak_subject = ?
+          """,
+          (rs, rowNum) -> {
+            String accountStatus = rs.getString("account_status");
+            String merchantStatus = rs.getString("merchant_status");
+            boolean approved = "ACTIVE".equalsIgnoreCase(accountStatus)
+                && "APPROVED".equalsIgnoreCase(merchantStatus);
+            return MerchantVerificationResponse.newBuilder()
+                .setKeycloakSubject(subject)
+                .setUserId(nullToEmpty(rs.getString("user_id")))
+                .setAccountStatus(nullToEmpty(accountStatus))
+                .setMerchantStatus(nullToEmpty(merchantStatus))
+                .setApproved(approved)
+                .build();
+          },
+          subject);
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    } catch (EmptyResultDataAccessException e) {
+      responseObserver.onError(Status.NOT_FOUND
+          .withDescription("Merchant account not found")
+          .asRuntimeException());
+    }
+  }
+
+  private static CourierDetails toCourierDetails(CourierProfile profile) {
+    return CourierDetails.newBuilder()
+        .setId(profile.id() != null ? profile.id().toString() : "")
+        .setUserId(profile.userId() != null ? profile.userId().toString() : "")
+        .setEmail(nullToEmpty(profile.email()))
+        .setName(nullToEmpty(profile.name()))
+        .setPhone(nullToEmpty(profile.phone()))
+        .setActive(profile.active())
+        .setAccountStatus(nullToEmpty(profile.accountStatus()))
+        .setAssignedZone(nullToEmpty(profile.assignedZone()))
+        .setVehicleType(nullToEmpty(profile.vehicleType()))
+        .build();
+  }
+
+  private static Status mapStatusException(ResponseStatusException e) {
+    if (e.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
+      return Status.NOT_FOUND.withDescription(e.getReason());
+    }
+    if (e.getStatusCode().is4xxClientError()) {
+      return Status.INVALID_ARGUMENT.withDescription(e.getReason());
+    }
+    return Status.INTERNAL.withDescription(e.getReason());
+  }
+
+  private static String blankToNull(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private static String nullToEmpty(String value) {
+    return value != null ? value : "";
   }
 }

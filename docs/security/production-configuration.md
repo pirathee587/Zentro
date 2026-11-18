@@ -145,10 +145,8 @@ Names only are listed below. “Configured” means supply a deployment-specific
 | `backend/dispatch-courier-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
 | `backend/dispatch-courier-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
 | `backend/dispatch-courier-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
-| `backend/dispatch-courier-service/.env.example` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/dispatch-courier-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/dispatch-courier-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
-| `backend/dispatch-courier-service/.env.example` | `PARCEL_BASE_URL` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/dispatch-courier-service/.env.example` | `POD_CLIENT_ID` | Proof completion worker | no | template empty; no runtime default | configured / feature-dependent |
 | `backend/dispatch-courier-service/.env.example` | `POD_CLIENT_SECRET` | Proof completion worker | yes | template empty; no runtime default | conditional; provision privately |
 | `backend/dispatch-courier-service/.env.example` | `POD_MAX_ATTEMPTS` | Proof completion worker | no | template development example; no runtime default | configured / feature-dependent |
@@ -160,11 +158,9 @@ Names only are listed below. “Configured” means supply a deployment-specific
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `DB_USER` | Service datasource | no | none (required reference) | required; service-specific |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |
-| `backend/dispatch-courier-service/src/main/resources/application.yml` | `PARCEL_BASE_URL` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_CLIENT_ID` | Proof completion worker | no | empty | configured / feature-dependent |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_CLIENT_SECRET` | Proof completion worker | yes | empty | conditional; provision privately |
 | `backend/dispatch-courier-service/src/main/resources/application.yml` | `POD_MAX_ATTEMPTS` | Proof completion worker | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
@@ -194,7 +190,6 @@ Names only are listed below. “Configured” means supply a deployment-specific
 | `backend/notification-integration-service/.env.example` | `DB_PASSWORD` | Service datasource | yes | template synthetic placeholder; no runtime default | required; service-specific |
 | `backend/notification-integration-service/.env.example` | `DB_URL` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
 | `backend/notification-integration-service/.env.example` | `DB_USER` | Service datasource | no | template synthetic placeholder; no runtime default | required; service-specific |
-| `backend/notification-integration-service/.env.example` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/notification-integration-service/.env.example` | `JWT_AUDIENCE` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/notification-integration-service/.env.example` | `JWT_ISSUER_URI` | Identity provider / token validation | no | template development example; no runtime default | configured / feature-dependent |
 | `backend/notification-integration-service/.env.example` | `KAFKA_BOOTSTRAP_SERVERS` | Broker connection / consumer | no | template development example; no runtime default | configured / feature-dependent |
@@ -225,7 +220,6 @@ Names only are listed below. “Configured” means supply a deployment-specific
 | `backend/notification-integration-service/src/main/resources/application.yml` | `DB_PASSWORD` | Service datasource | yes | none (required reference) | required; service-specific |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `DB_URL` | Service datasource | no | none (required reference) | required; service-specific |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `DB_USER` | Service datasource | no | none (required reference) | required; service-specific |
-| `backend/notification-integration-service/src/main/resources/application.yml` | `IDENTITY_BASE_URL` | Service feature / integration configuration | no | nonsecret development/tuning default; review for production | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `JWT_AUDIENCE` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `JWT_ISSUER_URI` | Identity provider / token validation | no | none (required reference) | configured / feature-dependent |
 | `backend/notification-integration-service/src/main/resources/application.yml` | `JWT_JWKS_URI` | Identity provider / token validation | no | empty | configured / feature-dependent |

@@ -1,0 +1,28 @@
+{
+  "realm": "zentro",
+  "audience": "zentro-api",
+  "serviceRole": "SERVICE",
+  "clients": [
+    {
+      "clientId": "zentro-parcel-service",
+      "secretEnv": "ZENTRO_PARCEL_SERVICE_CLIENT_SECRET",
+      "description": "S2 calls S1 merchant verification RPCs."
+    },
+    {
+      "clientId": "zentro-dispatch-service",
+      "secretEnv": "ZENTRO_DISPATCH_SERVICE_CLIENT_SECRET",
+      "description": "S3 calls S1 courier RPCs and S2 POD RPCs.",
+      "podPermissions": ["pod:read", "pod:update"]
+    },
+    {
+      "clientId": "zentro-tracking-service",
+      "secretEnv": "ZENTRO_TRACKING_SERVICE_CLIENT_SECRET",
+      "description": "S4 reads customer and public tracking data from S2 and assignment summaries from S3."
+    },
+    {
+      "clientId": "zentro-notification-service",
+      "secretEnv": "ZENTRO_NOTIFICATION_SERVICE_CLIENT_SECRET",
+      "description": "S5 verifies merchants through S1 and reads customer parcel context from S2."
+    }
+  ]
+}

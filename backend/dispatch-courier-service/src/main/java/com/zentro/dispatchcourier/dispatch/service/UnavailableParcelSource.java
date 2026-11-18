@@ -6,7 +6,7 @@ import java.util.function.Function;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
-/** Production integration stays unavailable until S2 contract/policy confirmation. */
+/** Fail-closed source used only when the authenticated S2 gRPC adapter is not configured. */
 @Component
 public class UnavailableParcelSource implements ParcelSource {
   @Override public Snapshot eligibleParcels(String token) { throw unavailable(); }

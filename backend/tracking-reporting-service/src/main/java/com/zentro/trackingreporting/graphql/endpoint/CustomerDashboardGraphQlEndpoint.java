@@ -18,10 +18,19 @@ public class CustomerDashboardGraphQlEndpoint {
   private final DashboardPricingClient pricing;
   private final CustomerDashboardService dashboard;
   private final DeliveryAuthorizationService authorization;
+  private final com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
+  @org.springframework.beans.factory.annotation.Autowired
+  public CustomerDashboardGraphQlEndpoint(CustomerDashboardService dashboard, DeliveryAuthorizationService authorization,
+      DashboardPricingClient pricing,
+      @org.springframework.lang.Nullable com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings) {
+    this.pricing = pricing;
+    this.dashboard = dashboard;
+    this.authorization = authorization;
+    this.bookings = bookings;
+  }
   public CustomerDashboardGraphQlEndpoint(CustomerDashboardService dashboard, DeliveryAuthorizationService authorization,
       DashboardPricingClient pricing) {
-    this.pricing = pricing;
-    this.dashboard = dashboard; this.authorization = authorization;
+    this(dashboard, authorization, pricing, null);
   }
   @QueryMapping public CustomerDashboardSummary customerDashboardSummary(Authentication authentication) {
     return dashboard.summary(customer(authentication));
@@ -29,12 +38,16 @@ public class CustomerDashboardGraphQlEndpoint {
   @QueryMapping public DeliveryDetailsDto customerDelivery(@Argument("trackingRef") String trackingRef, Authentication authentication) {
     if (trackingRef==null || !trackingRef.matches("[A-Za-z0-9_-]{6,32}"))
       throw new IllegalArgumentException("Invalid tracking reference");
-    var parcel=dashboard.parcel(customer(authentication),trackingRef);
-    return parcel==null?null:DeliveryDetailsDto.from(parcel);
+    Jwt jwt = customer(authentication);
+    var parcel = dashboard.parcel(jwt, trackingRef);
+    if (parcel == null) return null;
+    return DeliveryDetailsDto.from(parcel).withCourier(bookings == null ? null : bookings.assignedCourier(jwt, parcel.getId()));
   }
   @QueryMapping public DeliveryDetailsDto customerLiveDelivery(Authentication authentication) {
-    var parcel = dashboard.liveParcel(customer(authentication));
-    return parcel == null ? null : DeliveryDetailsDto.from(parcel);
+    Jwt jwt = customer(authentication);
+    var parcel = dashboard.liveParcel(jwt);
+    if (parcel == null) return null;
+    return DeliveryDetailsDto.from(parcel).withCourier(bookings == null ? null : bookings.assignedCourier(jwt, parcel.getId()));
   }
   @QueryMapping public DashboardFeeEstimate dashboardFeeEstimate(
       @Argument("pickupCity") String pickupCity,

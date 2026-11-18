@@ -275,7 +275,9 @@ All settings come from environment variables. Names are listed in `backend/notif
 | `WEBHOOK_READ_TIMEOUT_MS` | `5000` | Response timeout |
 | `WEBHOOK_HEALTH_FAILED_WINDOW_MINUTES` | `60` | A `FAILED` delivery in this window turns health DOWN |
 | `WEBHOOK_HEALTH_STUCK_MINUTES` | `10` | An open delivery overdue by more than this turns health DOWN |
-| `IDENTITY_BASE_URL` | `http://localhost:8081` | S1 Identity, for the merchant approval check |
+| `IDENTITY_GRPC_HOST` | `zentro-identity-partner-service` in Compose; `localhost` for host-based runs |
+| `IDENTITY_GRPC_PORT` | `9081` | S1 gRPC listener for merchant approval checks |
+| `SERVICE_CLIENT_ID` / `SERVICE_CLIENT_SECRET` | `zentro-notification-service` and its private credential | S5's least-privilege SERVICE identity |
 
 `KAFKA_BOOTSTRAP_SERVERS` and the database settings are shared with notifications ([notifications.md](notifications.md)).
 

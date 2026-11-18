@@ -18,7 +18,7 @@ class GrpcSecurityInterceptorTest {
       public String parse(InputStream stream) { return ""; }
     };
     when(call.getMethodDescriptor()).thenReturn(MethodDescriptor.<String,String>newBuilder()
-        .setType(MethodDescriptor.MethodType.UNARY).setFullMethodName("synthetic.Service/Check")
+        .setType(MethodDescriptor.MethodType.UNARY).setFullMethodName("zentro.identity.v1.IdentityPartnerService/GetMerchantStatus")
         .setRequestMarshaller(marshaller).setResponseMarshaller(marshaller).build());
     return call;
   }
@@ -39,6 +39,7 @@ class GrpcSecurityInterceptorTest {
   @Test void anExplicitMatchingSharedTokenStillAuthenticates() {
     var call = call(); var next = next(); var headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, SYNTHETIC_TOKEN);
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "parcel-pricing-service");
     new GrpcSecurityInterceptor(SYNTHETIC_TOKEN, null).interceptCall(call, headers, next);
     verify(next).startCall(any(), any()); verify(call, never()).close(any(), any());
   }
@@ -49,13 +50,57 @@ class GrpcSecurityInterceptorTest {
     verify(next, never()).startCall(any(), any());
     verify(call).close(argThat(status -> status.getCode() == Status.Code.UNAUTHENTICATED), any());
   }
+
+  @Test void sharedInternalTokenCannotCrossServiceRpcAllowlist() {
+    var call = call(); var next = next(); var headers = new Metadata();
+    headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, SYNTHETIC_TOKEN);
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "parcel-pricing-service");
+    when(call.getMethodDescriptor()).thenReturn(MethodDescriptor.<String,String>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNARY)
+        .setFullMethodName("zentro.identity.v1.IdentityPartnerService/ListCouriers")
+        .setRequestMarshaller(new MethodDescriptor.Marshaller<>() {
+          public InputStream stream(String value) { return InputStream.nullInputStream(); }
+          public String parse(InputStream stream) { return ""; }
+        }).setResponseMarshaller(new MethodDescriptor.Marshaller<>() {
+          public InputStream stream(String value) { return InputStream.nullInputStream(); }
+          public String parse(InputStream stream) { return ""; }
+        }).build());
+
+    new GrpcSecurityInterceptor(SYNTHETIC_TOKEN, null).interceptCall(call, headers, next);
+    verify(next, never()).startCall(any(), any());
+    verify(call).close(argThat(status -> status.getCode() == Status.Code.PERMISSION_DENIED), any());
+  }
   @Test void theExistingServiceJwtPathWorksWithoutASharedToken() {
     var call = call(); var next = next(); var headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.AUTHORIZATION_METADATA_KEY, "Bearer synthetic-jwt");
     JwtDecoder decoder = mock(JwtDecoder.class);
     when(decoder.decode("synthetic-jwt")).thenReturn(Jwt.withTokenValue("synthetic-jwt").header("alg", "synthetic")
-        .subject("synthetic-service").claim("realm_access", Map.of("roles", List.of("SERVICE"))).build());
+        .subject("synthetic-service").claim("azp", "zentro-parcel-service")
+        .claim("realm_access", Map.of("roles", List.of("SERVICE"))).build());
     new GrpcSecurityInterceptor("", decoder).interceptCall(call, headers, next);
     verify(next).startCall(any(), any()); verify(call, never()).close(any(), any());
+  }
+
+  @Test void serviceClientCannotReadCourierDirectoryWithMerchantIdentity() {
+    var call = call(); var next = next(); var headers = new Metadata();
+    headers.put(GrpcSecurityInterceptor.AUTHORIZATION_METADATA_KEY, "Bearer synthetic-jwt");
+    JwtDecoder decoder = mock(JwtDecoder.class);
+    when(decoder.decode("synthetic-jwt")).thenReturn(Jwt.withTokenValue("synthetic-jwt").header("alg", "synthetic")
+        .subject("synthetic-service").claim("azp", "zentro-parcel-service")
+        .claim("realm_access", Map.of("roles", List.of("SERVICE"))).build());
+    when(call.getMethodDescriptor()).thenReturn(MethodDescriptor.<String,String>newBuilder()
+        .setType(MethodDescriptor.MethodType.UNARY)
+        .setFullMethodName("zentro.identity.v1.IdentityPartnerService/ListCouriers")
+        .setRequestMarshaller(new MethodDescriptor.Marshaller<>() {
+          public InputStream stream(String value) { return InputStream.nullInputStream(); }
+          public String parse(InputStream stream) { return ""; }
+        }).setResponseMarshaller(new MethodDescriptor.Marshaller<>() {
+          public InputStream stream(String value) { return InputStream.nullInputStream(); }
+          public String parse(InputStream stream) { return ""; }
+        }).build());
+
+    new GrpcSecurityInterceptor("", decoder).interceptCall(call, headers, next);
+    verify(next, never()).startCall(any(), any());
+    verify(call).close(argThat(status -> status.getCode() == Status.Code.PERMISSION_DENIED), any());
   }
 }

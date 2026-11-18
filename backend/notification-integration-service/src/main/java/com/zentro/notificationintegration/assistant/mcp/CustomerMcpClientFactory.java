@@ -10,6 +10,8 @@ import java.util.Map;
 import org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration;
 import org.springframework.ai.mcp.client.autoconfigure.McpToolCallbackAutoConfiguration;
 import org.springframework.ai.mcp.client.autoconfigure.NamedClientMcpTransport;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.ResolvableType;
@@ -27,12 +29,25 @@ public class CustomerMcpClientFactory {
   private final AssistantProperties properties;
   private final ObjectMapper mapper;
   private final ConfigurableEnvironment environment;
+  private final ParcelPricingGrpcClient parcelGrpc;
 
   public CustomerMcpClientFactory(AssistantProperties properties, ObjectMapper mapper,
       ConfigurableEnvironment environment) {
+    this(properties, mapper, environment, (ParcelPricingGrpcClient) null);
+  }
+
+  @Autowired
+  public CustomerMcpClientFactory(AssistantProperties properties, ObjectMapper mapper,
+      ConfigurableEnvironment environment, ObjectProvider<ParcelPricingGrpcClient> parcelGrpcProvider) {
+    this(properties, mapper, environment, parcelGrpcProvider.getIfAvailable());
+  }
+
+  public CustomerMcpClientFactory(AssistantProperties properties, ObjectMapper mapper,
+      ConfigurableEnvironment environment, ParcelPricingGrpcClient parcelGrpc) {
     this.properties = properties;
     this.mapper = mapper;
     this.environment = environment;
+    this.parcelGrpc = parcelGrpc;
   }
 
   public CustomerMcpSession open(Jwt jwt) {
@@ -48,7 +63,7 @@ public class CustomerMcpClientFactory {
     context.registerBean("customerMcpServer", McpSyncServer.class, () -> McpServer.sync(transport)
         .serverInfo("zentro-customer-support", "1.0")
         .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
-        .tools(new CustomerSupportTools(properties, jwt, mapper).specifications()).build(),
+        .tools(new CustomerSupportTools(parcelGrpc, jwt, mapper).specifications()).build(),
         definition -> definition.setDestroyMethodName("close"));
     var transports = new RootBeanDefinition(List.class);
     transports.setTargetType(ResolvableType.forClassWithGenerics(List.class, NamedClientMcpTransport.class));

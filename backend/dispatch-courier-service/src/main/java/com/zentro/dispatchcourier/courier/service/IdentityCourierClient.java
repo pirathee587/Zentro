@@ -1,130 +1,115 @@
 package com.zentro.dispatchcourier.courier.service;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Reuses Identity's dispatcher REST API and effective-active rule. No zone/vehicle inference. */
+/**
+ * Courier identity client backed by S1 {@link IdentityPartnerGrpcClient} over gRPC.
+ */
 @Component
 public class IdentityCourierClient {
-  private final RestClient client;
+  private static final ObjectMapper JSON = new ObjectMapper();
 
-  @Autowired
-  public IdentityCourierClient(RestClient.Builder builder,
-      @Value("${zentro.identity.base-url:http://localhost:8081}") String baseUrl) {
-    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout(3000);
-    factory.setReadTimeout(5000);
-    this.client = builder.baseUrl(baseUrl).requestFactory(factory).build();
+  private final IdentityPartnerGrpcClient grpcClient;
+
+  public IdentityCourierClient(IdentityPartnerGrpcClient grpcClient) {
+    this.grpcClient = grpcClient;
   }
 
-  public IdentityCourierClient(RestClient client) {
-    this.client = client;
-  }
-
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public record Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus, String assignedZone) {
-    public Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus) {
-      this(id, userId, name, active, accountStatus, null);
-    }
-  }
-
-  /** Resolve the authenticated courier, never the dispatcher-only directory. */
   public Courier currentCourier(String bearerToken) {
-    try {
-      Courier courier = client.get().uri("/api/v1/users/courier-profile")
-          .headers(headers -> headers.setBearerAuth(bearerToken)).retrieve().body(Courier.class);
-      if (!valid(courier)) throw unavailable();
-      if (!eligible(courier)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Courier is not eligible.");
-      return courier;
-    } catch (RestClientException ex) {
-      throw translate(ex);
+    String subject = resolveSubject(bearerToken);
+    return currentCourierBySubject(subject);
+  }
+
+  public Courier currentCourierBySubject(String subject) {
+    Courier courier = grpcClient.getCourierByUserSubject(subject);
+    if (!isEligible(courier)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Courier account is inactive or suspended");
     }
+    return courier;
   }
 
   public List<Courier> listEligible(String bearerToken) {
-    try {
-      List<Courier> couriers = client.get()
-          .uri("/api/v1/admin/couriers?active=true")
-          .headers(headers -> headers.setBearerAuth(bearerToken))
-          .retrieve().body(new ParameterizedTypeReference<List<Courier>>() {});
-      if (couriers == null || couriers.stream().anyMatch(courier -> !valid(courier))) {
-        throw unavailable();
-      }
-      return couriers.stream().filter(IdentityCourierClient::eligible).toList();
-    } catch (RestClientException ex) {
-      throw translate(ex);
-    }
+    return grpcClient.listCouriers(true).stream()
+        .filter(IdentityCourierClient::isEligible)
+        .toList();
   }
 
   public List<Courier> listAll(String bearerToken) {
-    try {
-      List<Courier> couriers = client.get()
-          .uri("/api/v1/admin/couriers")
-          .headers(headers -> headers.setBearerAuth(bearerToken))
-          .retrieve().body(new ParameterizedTypeReference<List<Courier>>() {});
-      if (couriers == null || couriers.stream().anyMatch(courier -> !valid(courier))) {
-        throw unavailable();
-      }
-      return couriers;
-    } catch (RestClientException ex) {
-      throw translate(ex);
-    }
+    return grpcClient.listCouriers(null);
   }
 
-  /** Call immediately before assignment persistence; returns Identity's canonical profile UUID. */
   public Courier requireEligible(UUID courierId, String bearerToken) {
-    if (courierId == null) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Courier ID is required.");
+    Courier courier = grpcClient.getCourierById(courierId);
+    if (!isEligible(courier)) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Courier is inactive or suspended");
+    }
+    return courier;
+  }
+
+  private static boolean isEligible(Courier courier) {
+    return courier != null
+        && courier.id() != null
+        && courier.userId() != null
+        && Boolean.TRUE.equals(courier.active())
+        && "ACTIVE".equalsIgnoreCase(courier.accountStatus());
+  }
+
+  private static String resolveSubject(String bearerToken) {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
+      if (bearerToken == null || bearerToken.isBlank() || bearerToken.equals(jwt.getTokenValue())) {
+        if (jwt.getSubject() != null && !jwt.getSubject().isBlank()) {
+          return jwt.getSubject();
+        }
+      }
+    }
+    if (bearerToken == null || bearerToken.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing courier authentication token");
+    }
+    String[] parts = bearerToken.split("\\.");
+    if (parts.length < 2) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid courier authentication token");
     }
     try {
-      Courier courier = client.get().uri("/api/v1/admin/couriers/{id}", courierId)
-          .headers(headers -> headers.setBearerAuth(bearerToken))
-          .retrieve().body(Courier.class);
-      if (!valid(courier)) throw unavailable();
-      if (!courierId.equals(courier.id()) && !courierId.equals(courier.userId())) throw unavailable();
-      if (!eligible(courier)) {
-        throw new ResponseStatusException(HttpStatus.CONFLICT, "This courier is no longer eligible. Choose another courier.");
+      byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
+      JsonNode payload = JSON.readTree(new String(decoded, StandardCharsets.UTF_8));
+      String sub = payload.path("sub").asText("");
+      if (sub.isBlank()) {
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing subject claim in courier token");
       }
-      return courier;
-    } catch (RestClientResponseException ex) {
-      if (ex.getStatusCode().value() == 404) {
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Courier profile not found.");
-      }
-      throw translate(ex);
-    } catch (RestClientException ex) {
-      throw translate(ex);
+      return sub;
+    } catch (IllegalArgumentException | java.io.IOException e) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Malformed courier authentication token", e);
     }
   }
 
-  private static boolean valid(Courier courier) {
-    return courier != null && courier.id() != null && courier.userId() != null
-        && courier.active() != null && courier.accountStatus() != null;
-  }
-
-  public static boolean eligible(Courier courier) {
-    return Boolean.TRUE.equals(courier.active()) && "ACTIVE".equalsIgnoreCase(courier.accountStatus());
-  }
-
-  private static ResponseStatusException translate(RestClientException error) {
-    if (error instanceof RestClientResponseException response
-        && (response.getStatusCode().value() == 401 || response.getStatusCode().value() == 403)) {
-      return new ResponseStatusException(response.getStatusCode(), "Identity rejected courier access.");
+  public record Courier(
+      UUID id,
+      UUID userId,
+      String email,
+      String name,
+      String phone,
+      Boolean active,
+      String accountStatus,
+      String assignedZone,
+      String vehicleType) {
+    public Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus) {
+      this(id, userId, null, name, null, active, accountStatus, null, null);
     }
-    return unavailable();
-  }
 
-  private static ResponseStatusException unavailable() {
-    return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Courier eligibility could not be verified. Try again.");
+    public Courier(UUID id, UUID userId, String name, Boolean active, String accountStatus, String assignedZone) {
+      this(id, userId, null, name, null, active, accountStatus, assignedZone, null);
+    }
   }
 }

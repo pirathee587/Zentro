@@ -148,6 +148,7 @@ class IdentityPartnerGrpcServerIntegrationTest {
 
     Metadata headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "dispatch-courier-service");
 
     IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub =
         IdentityPartnerServiceGrpc.newBlockingStub(channel)
@@ -170,6 +171,7 @@ class IdentityPartnerGrpcServerIntegrationTest {
     String token = "valid.jwt.token";
     Jwt jwt = mock(Jwt.class);
     when(jwt.getSubject()).thenReturn("s3-dispatch-service");
+    when(jwt.getClaimAsString("azp")).thenReturn("zentro-dispatch-service");
     when(jwt.getClaim("realm_access")).thenReturn(Map.of("roles", List.of("SERVICE")));
     when(jwtDecoder.decode(token)).thenReturn(jwt);
 
@@ -232,6 +234,7 @@ class IdentityPartnerGrpcServerIntegrationTest {
 
     Metadata headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "parcel-pricing-service");
 
     IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub =
         IdentityPartnerServiceGrpc.newBlockingStub(channel)
@@ -259,6 +262,7 @@ class IdentityPartnerGrpcServerIntegrationTest {
 
     Metadata headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "parcel-pricing-service");
 
     IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub =
         IdentityPartnerServiceGrpc.newBlockingStub(channel)
@@ -285,6 +289,7 @@ class IdentityPartnerGrpcServerIntegrationTest {
 
     Metadata headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "parcel-pricing-service");
 
     IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub =
         IdentityPartnerServiceGrpc.newBlockingStub(channel)

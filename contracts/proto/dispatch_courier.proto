@@ -1,0 +1,24 @@
+syntax = "proto3";
+package zentro.dispatch.v1;
+option java_multiple_files = true;
+option java_package = "com.zentro.contracts.dispatch.v1";
+
+service DispatchCourierService {
+  rpc GetParcelAssignmentSummary(GetParcelAssignmentSummaryRequest) returns (ParcelAssignmentSummaryResponse);
+}
+
+message GetParcelAssignmentSummaryRequest {
+  string parcel_id = 1;
+}
+
+message ParcelAssignmentSummaryResponse {
+  bool found = 1;
+  string parcel_id = 2;
+  string assignment_status = 3;
+  string courier_name = 4;
+  string courier_phone = 5;
+  string courier_vehicle = 6;
+  string courier_zone = 7;
+  string assigned_at = 8;
+  string responded_at = 9;
+}

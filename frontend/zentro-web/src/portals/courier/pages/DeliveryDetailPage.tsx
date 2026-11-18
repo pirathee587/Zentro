@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button } from '@/shared/ui';
-import { deliveryAccessDenied, deliverySessionExpired, deliveryError, getDelivery, getProof, submitProof, type DeliverySummary, type ProofResponse } from '../api/deliveryApi';
+import { acceptDelivery, deliveryAccessDenied, deliverySessionExpired, deliveryError, getDelivery, getProof, rejectDelivery, submitProof, updateDeliveryStatus, type DeliverySummary, type ProofResponse } from '../api/deliveryApi';
 import { ProofOfDeliveryForm } from './ProofOfDeliveryForm';
 import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import { invalidateAfterCourierProof } from '@/shared/api/queryInvalidation';
@@ -27,6 +27,9 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
   const deliveryKey = queryKeys.courier.delivery(deliveryId, scope);
   const proofKey = queryKeys.courier.proof(deliveryId, scope);
   const [submissionFailure, setSubmissionFailure] = useState<unknown>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionNotice, setActionNotice] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   function denyAccess(error: unknown) {
@@ -73,7 +76,48 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
         : !unavailable && <Button onClick={() => { void delivery.refetch().then(result => { if (result.isSuccess) void proof.refetch(); }); }}>Refresh</Button>}</div>
       : delivery.isPending || proof.isPending ? <p role="status">Loading delivery…</p>
         : <section className="courier-section courier-card">
-          <p>Assigned {new Date(delivery.data!.assignedAt).toLocaleString()}</p>
+          <p>Assigned {new Date(delivery.data!.assignedAt).toLocaleString()} · Status: <strong>{delivery.data!.assignmentStatus || 'PENDING_ACCEPTANCE'}</strong></p>
+          {actionNotice && <p role="status" className="courier-notice">{actionNotice}</p>}
+          {delivery.data!.assignmentStatus === 'PENDING_ACCEPTANCE' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <Button disabled={actionBusy} onClick={async () => {
+                  setActionBusy(true); setActionNotice('');
+                  try { await acceptDelivery(deliveryId, token); await delivery.refetch(); setActionNotice('Assignment accepted.'); }
+                  catch (e) { setActionNotice(deliveryError(e)); }
+                  finally { setActionBusy(false); }
+                }}>Accept assignment</Button>
+                <input
+                  type="text"
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  placeholder="Rejection reason"
+                  aria-label="Rejection reason"
+                />
+                <Button variant="secondary" disabled={actionBusy || !rejectReason.trim()} onClick={async () => {
+                  setActionBusy(true); setActionNotice('');
+                  try { await rejectDelivery(deliveryId, rejectReason.trim(), token); await delivery.refetch(); setActionNotice('Assignment rejected.'); }
+                  catch (e) { setActionNotice(deliveryError(e)); }
+                  finally { setActionBusy(false); }
+                }}>Reject assignment</Button>
+              </div>
+            </div>
+          )}
+          {delivery.data!.assignmentStatus === 'REJECTED' && (
+            <p role="status">Assignment rejected{delivery.data!.rejectionReason ? `: ${delivery.data!.rejectionReason}` : '.'}</p>
+          )}
+          {delivery.data!.assignmentStatus === 'ACCEPTED' && !proof.data && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              {(['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] as const).map(nextStatus => (
+                <Button key={nextStatus} variant="secondary" disabled={actionBusy} onClick={async () => {
+                  setActionBusy(true); setActionNotice('');
+                  try { await updateDeliveryStatus(deliveryId, nextStatus, token); setActionNotice(`Status updated to ${nextStatus}.`); }
+                  catch (e) { setActionNotice(deliveryError(e)); }
+                  finally { setActionBusy(false); }
+                }}>Mark {nextStatus.replaceAll('_', ' ')}</Button>
+              ))}
+            </div>
+          )}
           {proof.data ? <><h2>Saved proof</h2><p role="status">{stateMessage[proof.data.completionState]}</p>
             <dl className="courier-proof-fields">
               <dt>Proof ID</dt><dd>{proof.data.proofId}</dd><dt>Recipient Name</dt><dd>{proof.data.recipientName}</dd>

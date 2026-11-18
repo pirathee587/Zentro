@@ -55,6 +55,10 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
     // 1. Check shared internal service token
     if (!internalToken.isBlank() && internalTokenHeader != null && internalTokenHeader.equals(internalToken)) {
       String caller = internalServiceHeader != null ? internalServiceHeader : "internal-service";
+      if (!internalServiceMayCall(caller, call.getMethodDescriptor().getBareMethodName())) {
+        call.close(Status.PERMISSION_DENIED.withDescription("Internal service is not authorized for this RPC"), new Metadata());
+        return new ServerCall.Listener<ReqT>() {};
+      }
       Context context = Context.current().withValue(CALLER_IDENTITY_CONTEXT_KEY, caller);
       return Contexts.interceptCall(context, call, headers, next);
     }
@@ -65,7 +69,7 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
       if (jwtDecoder != null) {
         try {
           Jwt jwt = jwtDecoder.decode(token);
-          if (isAuthorizedInternalRole(jwt)) {
+          if (isAuthorizedInternalRole(jwt, call.getMethodDescriptor().getBareMethodName())) {
             String caller = jwt.getSubject() != null ? jwt.getSubject() : "jwt-authenticated-service";
             Context context = Context.current().withValue(CALLER_IDENTITY_CONTEXT_KEY, caller);
             return Contexts.interceptCall(context, call, headers, next);
@@ -87,18 +91,45 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
     return new ServerCall.Listener<ReqT>() {};
   }
 
-  private boolean isAuthorizedInternalRole(Jwt jwt) {
+  private boolean isAuthorizedInternalRole(Jwt jwt, String method) {
     Object realmAccess = jwt.getClaim("realm_access");
     if (realmAccess instanceof Map<?, ?> map && map.get("roles") instanceof Collection<?> roles) {
       for (Object r : roles) {
         if (r instanceof String s) {
           String upper = s.trim().toUpperCase();
-          if ("SERVICE".equals(upper) || "DISPATCHER".equals(upper)) {
-            return true;
-          }
+          if ("DISPATCHER".equals(upper)) return true;
+          if ("SERVICE".equals(upper)) return serviceClientMayCall(jwt.getClaimAsString("azp"), method);
         }
       }
     }
     return false;
+  }
+
+  private static boolean serviceClientMayCall(String clientId, String method) {
+    if (clientId == null || method == null) return false;
+    return switch (method) {
+      case "GetCourierProfile", "ListCouriers", "GetCourierById", "GetCourierByUserSubject" ->
+          "zentro-dispatch-service".equals(clientId);
+      case "GetMerchantStatus" -> "zentro-parcel-service".equals(clientId);
+      case "VerifyMerchantAccount" ->
+          "zentro-parcel-service".equals(clientId) || "zentro-notification-service".equals(clientId);
+      default -> false;
+    };
+  }
+
+  private static boolean internalServiceMayCall(String service, String method) {
+    return switch (service) {
+      case "zentro-dispatch-service", "dispatch-courier-service" -> switch (method) {
+        case "GetCourierProfile", "ListCouriers", "GetCourierById", "GetCourierByUserSubject" -> true;
+        default -> false;
+      };
+      case "zentro-parcel-service", "parcel-pricing-service" -> switch (method) {
+        case "GetMerchantStatus", "VerifyMerchantAccount" -> true;
+        default -> false;
+      };
+      case "zentro-notification-service", "notification-integration-service" ->
+          "VerifyMerchantAccount".equals(method);
+      default -> false;
+    };
   }
 }

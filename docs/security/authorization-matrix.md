@@ -93,7 +93,7 @@ Legend: ✅ = Allowed, ❌ = Denied (403/401), 🧪 = test exists, **bold** = ad
 | `GET /api/v1/admin/notification-attempts` | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | **S5 `IntegrationAttemptControllerTest`** |
 | `GET /api/v1/admin/webhook-deliveries` | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | **S5 `IntegrationAttemptControllerTest`** |
 
-\* `SERVICE` allowed on `PATCH /api/v1/parcels/{id}/status` for internal service-to-service calls (S3 → S2 on internal port, bypassing gateway).  
+\* `SERVICE` is rejected by `PATCH /api/v1/parcels/{id}/status`; S3 delivery completion uses S2's authenticated gRPC POD method and `pod:update` permission.
 † MERCHANT scoped to own subject via JWT `sub` (IDOR-safe by design).  
 ‡ COURIER scoped to own assigned deliveries (wrong-courier IDOR → 403).
 

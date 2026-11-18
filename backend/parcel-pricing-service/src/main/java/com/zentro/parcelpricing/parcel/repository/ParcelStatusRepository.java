@@ -91,6 +91,26 @@ public class ParcelStatusRepository {
         change.occurredAt());
   }
 
+  public record StatusHistoryRow(UUID id, String fromStatus, String toStatus, String reason, String note,
+      String actorRole, OffsetDateTime occurredAt) {}
+
+  @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+  public List<StatusHistoryRow> findHistoryByParcelId(UUID parcelId) {
+    return jdbc.query("""
+        SELECT id, from_status, to_status, reason, note, actor_role, occurred_at
+          FROM parcel.parcel_status_history
+         WHERE parcel_id = ?
+         ORDER BY occurred_at ASC, id ASC
+        """, (rs, rowNum) -> new StatusHistoryRow(
+        rs.getObject("id", UUID.class),
+        rs.getString("from_status"),
+        rs.getString("to_status"),
+        rs.getString("reason"),
+        rs.getString("note"),
+        rs.getString("actor_role"),
+        rs.getObject("occurred_at", OffsetDateTime.class)), parcelId);
+  }
+
   /** Stores one event to be published later. {@code payloadJson} must be the full event envelope. */
   public void insertOutboxEvent(UUID eventId, UUID aggregateId, String eventType, String payloadJson,
       OffsetDateTime occurredAt) {

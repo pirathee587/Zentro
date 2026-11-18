@@ -142,7 +142,6 @@ Add these values to **`backend/notification-integration-service/.env` only**:
 DEEPSEEK_API_KEY=your_deepseek_api_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
-ASSISTANT_GATEWAY_URL=http://localhost:8080
 ASSISTANT_CONNECT_TIMEOUT_MS=1000
 ASSISTANT_READ_TIMEOUT_MS=15000
 ASSISTANT_TOOL_TIMEOUT_MS=3000
@@ -151,7 +150,7 @@ ASSISTANT_TOOL_TIMEOUT_MS=3000
 Existing S5 DB_URL, DB_USER, DB_PASSWORD and JWT settings are still required. Use `.env.example` for the
 complete configuration. Actual `.env` files remain ignored by Git. No key belongs in any VITE variable.
 `GATEWAY_ASSISTANT_RESPONSE_TIMEOUT_MS` optionally overrides the gateway timeout (default 90000).
-Root Compose automatically overrides ASSISTANT_GATEWAY_URL with `http://api-gateway:8080`.
+S5 calls S2 directly over gRPC for parcel support tools. The frontend still reaches S5 through the API Gateway.
 The existing S5 `.env` did not contain a DeepSeek key during implementation.
 
 With existing environment files and the existing database/Keycloak/Kafka infrastructure available, run from repository root:

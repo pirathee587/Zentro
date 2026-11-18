@@ -16,10 +16,25 @@ import org.springframework.web.server.ResponseStatusException;
 public class CustomerParcelReadService {
   private static final List<String> ACTIVE = List.of("CREATED", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY");
   private final ParcelBookingRepository repository;
+  private final com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository statusRepository;
   private final Clock clock;
   public record Page(List<CustomerParcelView> content, long totalElements, int page, int size, boolean hasNext, List<Map<String,Object>> totalFees) { }
-  @Autowired public CustomerParcelReadService(ParcelBookingRepository repository) { this(repository, Clock.systemUTC()); }
-  public CustomerParcelReadService(ParcelBookingRepository repository, Clock clock) { this.repository=repository; this.clock=clock; }
+  @Autowired public CustomerParcelReadService(ParcelBookingRepository repository,
+      com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository statusRepository) {
+    this(repository, statusRepository, Clock.systemUTC());
+  }
+  public CustomerParcelReadService(ParcelBookingRepository repository) {
+    this(repository, null, Clock.systemUTC());
+  }
+  public CustomerParcelReadService(ParcelBookingRepository repository, Clock clock) {
+    this(repository, null, clock);
+  }
+  public CustomerParcelReadService(ParcelBookingRepository repository,
+      com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository statusRepository, Clock clock) {
+    this.repository = repository;
+    this.statusRepository = statusRepository;
+    this.clock = clock;
+  }
   public Page page(String subject, int page, int size, String status, String search) {
     if (page<1 || size<1 || size>50 || (search!=null && search.length()>100)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid page or search");
     List<String> states = statuses(status);
@@ -32,6 +47,15 @@ public class CustomerParcelReadService {
     if (reference==null || !reference.matches("[A-Za-z0-9_-]{6,64}")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid parcel reference");
     return repository.findCustomerReference(subject,reference).map(CustomerParcelView::from)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Parcel not found"));
+  }
+
+  public List<com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository.StatusHistoryRow> history(
+      String subject, String reference) {
+    if (reference == null || !reference.matches("[A-Za-z0-9_-]{6,64}"))
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid parcel reference");
+    var booking = repository.findCustomerReference(subject, reference)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Parcel not found"));
+    return statusRepository == null ? List.of() : statusRepository.findHistoryByParcelId(booking.id());
   }
   public CustomerParcelView live(String subject) {
     var active=repository.findCustomerPage(subject,ACTIVE,null,0,1);
