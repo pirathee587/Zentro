@@ -367,10 +367,10 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
       <div style={{
         marginBottom: '16px',
         padding: '12px 14px',
-        background: 'rgba(239, 68, 68, 0.08)',
-        border: '1px solid rgba(239, 68, 68, 0.25)',
+        background: 'var(--warm-pale)',
+        border: '1px solid var(--line)',
         borderRadius: '10px',
-        color: '#ef4444',
+        color: 'var(--err)',
         fontSize: '13px',
         lineHeight: '1.5',
       }}>
@@ -386,8 +386,8 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
             width: '100%',
             fontSize: '12px',
             padding: '6px 12px',
-            color: '#ef4444',
-            borderColor: 'rgba(239, 68, 68, 0.3)',
+            color: 'var(--err)',
+            borderColor: 'var(--line)',
           }}
         >
           Sign out current account

@@ -193,7 +193,7 @@
       <#if realm.password>
         <form id="kc-form-login" class="${properties.kcFormClass!}" onsubmit="login.disabled = true; return true;" action="${url.loginAction}" method="post" novalidate="novalidate">
           <#if login.username?? && login.username?has_content>
-            <div class="zentro-email-chip"><span>${login.username}</span><a href="${url.loginUrl}">Change</a></div>
+            <div class="zentro-email-chip"><span>${login.username}</span><a href="${url.loginRestartFlowUrl}">Change</a></div>
             <input type="hidden" id="username" name="username" value="${login.username}" />
             <@field.password name="password" label=msg("password") error=messagesPerField.getFirstError('password','username') forgotPassword=realm.resetPasswordAllowed autofocus=true autocomplete="current-password">
               <#if realm.rememberMe><@field.checkbox name="rememberMe" label=msg("rememberMe") value=login.rememberMe?? /></#if>

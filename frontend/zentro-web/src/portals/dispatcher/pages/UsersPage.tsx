@@ -477,12 +477,19 @@ export function UsersPage({ embedded = false }: { embedded?: boolean } = {}) {
                   return (
                     <div className="staff-user-row" key={u.id} role="row">
                       <span role="cell" className="staff-user-identity">
-                        <strong className="staff-user-name">
-                          {u.name?.trim() ? u.name.trim() : u.email}
-                        </strong>
-                        <small className="staff-user-email">
-                          {u.name?.trim() ? u.email : '—'}
-                        </small>
+                        {u.name?.trim() ? (
+                          <>
+                            <strong className="staff-user-name">{u.name.trim()}</strong>
+                            <small className="staff-user-email">{u.email}</small>
+                          </>
+                        ) : (
+                          <>
+                            <strong className="staff-user-name">{u.email}</strong>
+                            <small className="staff-user-email staff-user-placeholder" aria-hidden="true">
+                              &nbsp;
+                            </small>
+                          </>
+                        )}
                       </span>
                       <span role="cell" className="staff-role-list">
                         {u.roles.length > 0

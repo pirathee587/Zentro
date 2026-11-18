@@ -79,18 +79,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     clearLegacyStoredTokens();
 
     async function restoreSession(): Promise<User | null> {
-      const path = window.location.pathname;
-      if (path === '/silent-callback') {
-        await oidcManager.signinSilentCallback();
-        return null;
-      }
-      if (path === '/callback') return completeAuthorizationCallback();
-
-      const existing = await oidcManager.getUser();
-      if (existing && !existing.expired) return existing;
-
       try {
-        return await oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } }) ?? null;
+        const path = window.location.pathname;
+        if (path === '/silent-callback') {
+          await oidcManager.signinSilentCallback();
+          return null;
+        }
+        if (path === '/callback') return completeAuthorizationCallback();
+
+        const existing = await oidcManager.getUser();
+        if (existing && !existing.expired) return existing;
+
+        try {
+          return await oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } }) ?? null;
+        } catch {
+          return null;
+        }
       } catch {
         return null;
       }

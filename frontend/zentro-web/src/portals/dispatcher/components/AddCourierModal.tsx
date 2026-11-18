@@ -102,7 +102,7 @@ export function AddCourierModal({ onClose, onCreated }: AddCourierModalProps) {
               placeholder="courier@gmail.com"
               onChange={(e) => setEmail(e.target.value)}
             />
-            <small style={{ color: 'var(--muted, #686868)', marginTop: '4px', display: 'block', fontSize: '12px' }}>
+            <small style={{ color: 'var(--muted)', marginTop: '4px', display: 'block', fontSize: '12px' }}>
               A temporary password will be emailed to this address. On first sign-in, Keycloak will mandate choosing their own password.
             </small>
           </div>

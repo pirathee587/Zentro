@@ -243,21 +243,21 @@ export function ReportsPage() {
           </div>
 
           <div style={{ padding: '16px 0', fontSize: '14px', lineHeight: '1.8' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line, #eee)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
               <span>Period</span>
               <strong>{appliedFrom} to {appliedTo}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line, #eee)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
               <span>Total recorded</span>
               <strong>{createdCount} parcels</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line, #eee)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
               <span>Completed deliveries</span>
               <strong>{deliveredCount} delivered</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
               <span>Failed deliveries</span>
-              <strong style={{ color: failedCount > 0 ? 'var(--err, #e53935)' : 'inherit' }}>{failedCount}</strong>
+              <strong style={{ color: failedCount > 0 ? 'var(--err)' : 'inherit' }}>{failedCount}</strong>
             </div>
           </div>
 
