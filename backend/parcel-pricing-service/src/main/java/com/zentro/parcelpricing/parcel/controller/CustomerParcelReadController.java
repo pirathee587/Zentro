@@ -24,6 +24,10 @@ public class CustomerParcelReadController {
   @GetMapping("/summary") public Map<String,Object> summary(@AuthenticationPrincipal Jwt jwt) { return service.summary(subject(jwt)); }
   @GetMapping("/live") public CustomerParcelView live(@AuthenticationPrincipal Jwt jwt) { return service.live(subject(jwt)); }
   @GetMapping("/{reference}") public CustomerParcelView reference(@AuthenticationPrincipal Jwt jwt,@PathVariable("reference") String reference) { return service.reference(subject(jwt),reference); }
+  @GetMapping("/{reference}/history") public java.util.List<com.zentro.parcelpricing.parcel.repository.ParcelStatusRepository.StatusHistoryRow> history(
+      @AuthenticationPrincipal Jwt jwt, @PathVariable("reference") String reference) {
+    return service.history(subject(jwt), reference);
+  }
   private String subject(Jwt jwt) {
     if(jwt==null || jwt.getSubject()==null || jwt.getSubject().isBlank()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
     return jwt.getSubject();

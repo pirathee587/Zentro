@@ -1,4 +1,20 @@
-# Dispatch queue integration audit — 2026-10-31
+# Dispatch queue integration audit — 2026-10-31 (historical baseline)
+
+## Phase 5 implementation update — 2026-11-18
+
+S2 now implements the `GetParcel` gRPC method and S3's `GrpcParcelSource` calls it
+with the `zentro-dispatch-service` SERVICE token. Assignment checks the authoritative
+S2 status and allows only `CREATED` parcels before inserting the S3 assignment. The
+distributed POD E2E exercises parcel booking, assignment, courier acceptance and
+status progression, proof submission, S2 completion, and S4/S5 event consumption.
+
+Two queue integration gaps remain explicit: S2 has no paged candidate-list RPC, so
+S3 cannot return a complete live unassigned queue; and the current detail read does
+not provide a distributed conditional claim, so S2 status can theoretically change
+between its read and S3's assignment insert. The UI must continue to treat the queue
+as incomplete, and a later contract decision is needed before claiming cross-service
+assignment atomicity. This does not block the single parcel's authenticated POD
+completion workflow verified by the Phase 5 E2E.
 
 S3 queue/assignment components are now implemented behind an internal parcel-source
 port. The production parcel adapter still fails closed with 503 until the S2
@@ -20,7 +36,7 @@ This does not cover unpublished/private work.
 | --- | --- | --- |
 | Booking | Parcel `controller/ParcelBookingController.java`, `service/ParcelBookingService.java`: POST `/api/v1/parcels` | Returns one customer's new booking, not a dispatcher listing. |
 | Source data | Parcel `service/ParcelBookingRepository.java`, migration `V2__create_parcel_booking.sql` | Stores tracking ref, sender/recipient address/city, creation date, status. Only insert and customer/idempotency lookup are implemented. No assignment fields. S3 cannot read this database. |
-| Parcel RPC | `contracts/proto/parcel_pricing.proto` | GetParcel definition only, no server implementation. Returns ID/tracking/status; cannot enumerate or supply summaries/date. |
+| Parcel RPC | `contracts/proto/parcel_pricing.proto`, `ParcelPricingGrpcService` | `GetParcel` returns ID/tracking/status and is used by S3 for assignment eligibility. It does not enumerate candidates or supply queue summaries/date. |
 | Events | `contracts/events/parcel-created.schema.json`, `delivery-assigned.schema.json`, `event-envelope.schema.json` | Payload fields unspecified; no publisher, consumer or replay/backfill implementation. |
 | Customer history | `frontend/zentro-web/src/portals/customer/services/config.ts`, `customerApi.ts` | Defaults to mock adapter, optional live endpoint is configurable. Customer-scoped mock/normalized rows are not authoritative dispatch data. Tracking backend is a scaffold. |
 | S3 ownership | README service table, real-time flow, API overview | Already assigns dispatch and lifecycle/status updates to S3; documents GET `/api/v1/dispatch/unassigned`, POST `/api/v1/dispatch/assignments`. Their missing implementations belong to this task. |
@@ -55,12 +71,11 @@ This does not cover unpublished/private work.
   Escape, loads/refetches couriers, requires selection and prevents duplicate
   submissions. Success removes cached rows and refreshes counts/queries. Stale
   courier selection is cleared; delivery conflicts close the modal and refresh.
-- `ParcelSource` is an internal S3 interface, **not an unapproved S2 endpoint**.
-  Its list method supplies eligible parcels under the eventually agreed policy.
-  Its guarded assignment callback requires eligibility through the write, using
-  agreed lifecycle ownership or conditional claim/recovery. A remote detail read
-  plus S3 locking alone is not a valid adapter. `UnavailableParcelSource` is the
-  only production implementation and never invokes an assignment callback.
+- `ParcelSource` is an internal S3 interface. Its production gRPC adapter checks
+  `GetParcel` and `CREATED` status before invoking the assignment callback. The
+  check is not atomic with the S3 write; cross-service claim/recovery semantics are
+  still undecided. `eligibleParcels` returns an incomplete empty snapshot until S2
+  provides a paged listing contract. `UnavailableParcelSource` remains the fallback.
 
 `IdentityCourierClient` reuses the existing REST directory and lookup, forwards
 dispatcher bearer auth, checks effective active/account state, normalizes either
@@ -240,9 +255,10 @@ was authored. See `identity.out.log`/`identity.err.log` in `.dispatch-runtime/`.
   - ESLint (`npm run lint`): 0 errors (3 non-blocking warnings).
   - Production build (`npm run build`): Completed successfully in ~10.55s.
 - **Authoritative parcel source status**:
-  - Checked `parcel-pricing-service` (S2); no listing, enumeration, or dispatch query endpoint exists.
-  - S3 `ParcelSource` internal port and `UnavailableParcelSource` fail-closed (503) implementation are preserved without faking the S2 contract.
+  - S2 `GetParcel` now supplies the status check for direct assignment; S2 still has no listing/enumeration endpoint.
+  - S3 reports the unassigned queue as incomplete and fails closed if the gRPC source is unavailable.
+  - Eligibility is not protected by a distributed conditional claim; a later S2/S3 contract decision is needed for race-free cross-service assignment.
 - **Clean workspace**:
   - All ad-hoc probe scripts and temporary test files (`scratch/` directory) have been removed.
 - **Client configuration**:
-  - `IDENTITY_BASE_URL` (default `http://localhost:8081`) configured and documented in `backend/dispatch-courier-service/.env.example`. S3 still requires its own database credentials before production deployment.
+  - S3 courier lookup uses S1 gRPC on port 9081; parcel operations use S2 gRPC on port 9082 with a service JWT. S3 still requires its own database credentials before production deployment.

@@ -13,6 +13,9 @@ services:
     container_name: zentro-identity-partner-service
     env_file:
       - ./backend/identity-partner-service/.env
+    environment:
+      JWT_ISSUER_URI: http://localhost:8180/realms/zentro
+      JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8081:8081"
     healthcheck:
@@ -35,17 +38,33 @@ services:
       - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       identity-partner-service:
-        condition: service_started
+        condition: service_healthy
+      parcel-pricing-service:
+        condition: service_healthy
+      dispatch-courier-service:
+        condition: service_healthy
+      tracking-reporting-service:
+        condition: service_healthy
+      notification-integration-service:
+        condition: service_healthy
     networks: [zentro, keycloak]
     restart: unless-stopped
 
   parcel-pricing-service:
     build:
-      context: ./backend
-      dockerfile: parcel-pricing-service/Dockerfile
+      context: .
+      dockerfile: backend/parcel-pricing-service/Dockerfile
     container_name: zentro-parcel-pricing-service
     env_file:
       - ./backend/parcel-pricing-service/.env
+    environment:
+      JWT_ISSUER_URI: http://localhost:8180/realms/zentro
+      JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
+      SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: zentro-parcel-service
+      SERVICE_CLIENT_SECRET: ${ZENTRO_PARCEL_SERVICE_CLIENT_SECRET:-}
+      IDENTITY_GRPC_HOST: identity-partner-service
+      IDENTITY_GRPC_PORT: "9081"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8082:8082"
     healthcheck:
@@ -55,15 +74,28 @@ services:
       start_period: 180s
       retries: 5
     networks: [zentro, keycloak]
+    depends_on:
+      identity-partner-service:
+        condition: service_healthy
     restart: unless-stopped
 
   dispatch-courier-service:
     build:
-      context: ./backend
-      dockerfile: dispatch-courier-service/Dockerfile
+      context: .
+      dockerfile: backend/dispatch-courier-service/Dockerfile
     container_name: zentro-dispatch-courier-service
     env_file:
       - ./backend/dispatch-courier-service/.env
+    environment:
+      JWT_ISSUER_URI: http://localhost:8180/realms/zentro
+      JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
+      POD_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
+      POD_CLIENT_ID: zentro-dispatch-service
+      POD_CLIENT_SECRET: ${ZENTRO_DISPATCH_SERVICE_CLIENT_SECRET:-}
+      IDENTITY_GRPC_HOST: identity-partner-service
+      IDENTITY_GRPC_PORT: "9081"
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      PARCEL_GRPC_PORT: "9082"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8083:8083"
     healthcheck:
@@ -73,17 +105,30 @@ services:
       start_period: 180s
       retries: 5
     networks: [zentro, keycloak]
+    depends_on:
+      identity-partner-service:
+        condition: service_healthy
+      parcel-pricing-service:
+        condition: service_healthy
     restart: unless-stopped
 
   tracking-reporting-service:
     build:
-      context: ./backend
-      dockerfile: tracking-reporting-service/Dockerfile
+      context: .
+      dockerfile: backend/tracking-reporting-service/Dockerfile
     container_name: zentro-tracking-reporting-service
     env_file:
       - ./backend/tracking-reporting-service/.env
     environment:
-      DASHBOARD_GATEWAY_URL: http://api-gateway:8080
+      JWT_ISSUER_URI: http://localhost:8180/realms/zentro
+      JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
+      SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: zentro-tracking-service
+      SERVICE_CLIENT_SECRET: ${ZENTRO_TRACKING_SERVICE_CLIENT_SECRET:-}
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      PARCEL_GRPC_PORT: "9082"
+      DISPATCH_GRPC_HOST: dispatch-courier-service
+      DISPATCH_GRPC_PORT: "9083"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
@@ -93,17 +138,30 @@ services:
       start_period: 180s
       retries: 5
     networks: [zentro, keycloak]
+    depends_on:
+      parcel-pricing-service:
+        condition: service_healthy
+      dispatch-courier-service:
+        condition: service_healthy
     restart: unless-stopped
 
   notification-integration-service:
     build:
-      context: ./backend
-      dockerfile: notification-integration-service/Dockerfile
+      context: .
+      dockerfile: backend/notification-integration-service/Dockerfile
     container_name: zentro-notification-integration-service
     env_file:
       - ./backend/notification-integration-service/.env
     environment:
-      ASSISTANT_GATEWAY_URL: http://api-gateway:8080
+      JWT_ISSUER_URI: http://localhost:8180/realms/zentro
+      JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
+      SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
+      SERVICE_CLIENT_ID: zentro-notification-service
+      SERVICE_CLIENT_SECRET: ${ZENTRO_NOTIFICATION_SERVICE_CLIENT_SECRET:-}
+      IDENTITY_GRPC_HOST: identity-partner-service
+      IDENTITY_GRPC_PORT: "9081"
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      PARCEL_GRPC_PORT: "9082"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8085:8085"
     healthcheck:
@@ -113,6 +171,11 @@ services:
       start_period: 180s
       retries: 5
     networks: [zentro, keycloak]
+    depends_on:
+      identity-partner-service:
+        condition: service_healthy
+      parcel-pricing-service:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Frontend (Vite/React → Nginx) ──────────────────────

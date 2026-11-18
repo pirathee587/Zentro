@@ -52,6 +52,16 @@ type PublicTrackingParcel {
   events: [TrackingEvent!]!
 }
 
+type AssignedCourier {
+  name: String!
+  phone: String
+  vehicle: String
+  zone: String
+  assignmentStatus: String!
+  assignedAt: String
+  respondedAt: String
+}
+
 """
 Authenticated full delivery details view. Available only to authorized resource owners
 (the customer who booked it, the merchant who owns it, the courier assigned to it, or a dispatcher).
@@ -77,6 +87,7 @@ type DeliveryDetails {
   createdAt: String!
   deliveredAt: String
   failureReason: String
+  courier: AssignedCourier
   events: [TrackingEvent!]!
 }
 

@@ -27,7 +27,17 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasRole('DISPATCHER')")
 public class DispatchQueueController {
   private final DispatchService service;
-  public DispatchQueueController(DispatchService service) { this.service = service; }
+  private final AssignmentRepository assignments;
+  @org.springframework.beans.factory.annotation.Autowired
+  public DispatchQueueController(DispatchService service,
+      org.springframework.beans.factory.ObjectProvider<AssignmentRepository> assignments) {
+    this.service = service;
+    this.assignments = assignments.getIfAvailable();
+  }
+  public DispatchQueueController(DispatchService service) {
+    this.service = service;
+    this.assignments = null;
+  }
 
   @GetMapping({"/queue", "/unassigned"})
   @PreAuthorize("hasRole('DISPATCHER') and @dispatchPermissions.has(authentication, 'DISPATCH_VIEW')")
@@ -76,5 +86,35 @@ public class DispatchQueueController {
   public ResponseEntity<Void> cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID parcelId) {
     service.cancel(parcelId, jwt.getSubject(), jwt.getTokenValue());
     return ResponseEntity.noContent().build();
+  }
+
+  @GetMapping("/assignments")
+  @PreAuthorize("hasRole('DISPATCHER') and @dispatchPermissions.has(authentication, 'DISPATCH_VIEW')")
+  public List<AssignmentRepository.Assignment> listAssignments() {
+    return assignments == null ? List.of() : assignments.findAll();
+  }
+
+  public record PublicAssignmentSummary(UUID parcelId, String assignmentStatus, String courierName,
+      String courierPhone, String courierVehicle, String courierZone,
+      java.time.Instant assignedAt, java.time.Instant respondedAt) {}
+
+  @GetMapping("/assignments/{parcelId}")
+  @PreAuthorize("hasAnyRole('DISPATCHER', 'SERVICE', 'CUSTOMER')")
+  public ResponseEntity<PublicAssignmentSummary> assignmentByParcel(@PathVariable UUID parcelId) {
+    if (assignments == null) return ResponseEntity.notFound().build();
+    return assignments.find(parcelId)
+        .map(a -> {
+          boolean accepted = "ACCEPTED".equals(a.assignmentStatus());
+          return ResponseEntity.ok(new PublicAssignmentSummary(
+              a.parcelId(),
+              a.assignmentStatus(),
+              accepted ? (a.courierName() != null ? a.courierName() : "Assigned Courier") : "Awaiting courier confirmation",
+              accepted ? a.courierPhone() : null,
+              accepted ? a.courierVehicle() : null,
+              accepted ? a.courierZone() : null,
+              a.assignedAt(),
+              a.respondedAt()));
+        })
+        .orElseGet(() -> ResponseEntity.notFound().build());
   }
 }

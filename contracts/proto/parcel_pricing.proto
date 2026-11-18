@@ -2,6 +2,167 @@ syntax = "proto3";
 package zentro.parcel.v1;
 option java_multiple_files = true;
 option java_package = "com.zentro.contracts.parcel.v1";
-service ParcelPricingService { rpc GetParcel(GetParcelRequest) returns (ParcelResponse); }
+service ParcelPricingService {
+  rpc GetParcel(GetParcelRequest) returns (ParcelResponse);
+  rpc CompleteParcelDelivery(CompleteParcelDeliveryRequest) returns (ParcelStatusUpdateResponse);
+  rpc UpdateCourierParcelStatus(UpdateCourierParcelStatusRequest) returns (ParcelStatusUpdateResponse);
+  rpc GetCustomerDashboardSummary(CustomerSubjectRequest) returns (CustomerDashboardSummaryResponse);
+  rpc ListCustomerParcels(ListCustomerParcelsRequest) returns (CustomerParcelPageResponse);
+  rpc GetCustomerParcel(CustomerParcelReferenceRequest) returns (CustomerParcelViewResponse);
+  rpc GetCustomerParcelById(CustomerParcelIdRequest) returns (CustomerParcelViewResponse);
+  rpc GetCustomerLiveParcel(CustomerSubjectRequest) returns (OptionalCustomerParcelViewResponse);
+  rpc GetCustomerParcelHistory(CustomerParcelReferenceRequest) returns (ParcelHistoryResponse);
+  rpc GetPublicTracking(PublicTrackingRequest) returns (PublicTrackingResponse);
+  rpc EstimateDeliveryFee(EstimateDeliveryFeeRequest) returns (EstimateDeliveryFeeResponse);
+}
 message GetParcelRequest { string parcel_id = 1; }
 message ParcelResponse { string parcel_id = 1; string tracking_number = 2; string status = 3; }
+message CompleteParcelDeliveryRequest { string parcel_id = 1; }
+message UpdateCourierParcelStatusRequest {
+  string parcel_id = 1;
+  string status = 2;
+  string reason = 3;
+  string note = 4;
+  string courier_subject = 5;
+}
+message ParcelStatusUpdateResponse {
+  string parcel_id = 1;
+  string tracking_ref = 2;
+  string previous_status = 3;
+  string status = 4;
+  bool changed = 5;
+}
+
+message CustomerSubjectRequest {
+  string keycloak_subject = 1;
+}
+
+message CustomerParcelReferenceRequest {
+  string keycloak_subject = 1;
+  string reference = 2;
+}
+
+message CustomerParcelIdRequest {
+  string keycloak_subject = 1;
+  string parcel_id = 2;
+}
+
+message ListCustomerParcelsRequest {
+  string keycloak_subject = 1;
+  int32 page = 2;
+  int32 size = 3;
+  string status = 4;
+  string query = 5;
+}
+
+message CurrencyAmountProto {
+  string currency = 1;
+  string amount = 2;
+}
+
+message CustomerDashboardSummaryResponse {
+  int64 active_count = 1;
+  int64 delivered_count = 2;
+  int64 awaiting_pickup_count = 3;
+  int64 failed_count = 4;
+  int64 in_transit_count = 5;
+  int64 total_parcels = 6;
+  string month = 7;
+  string time_zone = 8;
+  repeated CurrencyAmountProto total_fees = 9;
+  repeated CurrencyAmountProto monthly_fees = 10;
+}
+
+message ParcelContactProto {
+  string name = 1;
+  string phone = 2;
+  string address = 3;
+  string city = 4;
+}
+
+message ParcelDetailsProto {
+  string weight_kg = 1;
+  string category = 2;
+  string size = 3;
+  string description = 4;
+}
+
+message CustomerParcelViewResponse {
+  string id = 1;
+  string tracking_ref = 2;
+  string status = 3;
+  string fee = 4;
+  string currency = 5;
+  int32 estimated_days = 6;
+  string created_at = 7;
+  string destination_type = 8;
+  bool is_express = 9;
+  ParcelContactProto sender = 10;
+  ParcelContactProto recipient = 11;
+  ParcelDetailsProto parcel = 12;
+}
+
+message OptionalCustomerParcelViewResponse {
+  bool found = 1;
+  CustomerParcelViewResponse parcel = 2;
+}
+
+message CustomerParcelPageResponse {
+  repeated CustomerParcelViewResponse content = 1;
+  int64 total_elements = 2;
+  int32 page = 3;
+  int32 size = 4;
+  bool has_next = 5;
+  repeated CurrencyAmountProto total_fees = 6;
+}
+
+message StatusHistoryEntryProto {
+  string status = 1;
+  string reason = 2;
+  string note = 3;
+  string actor_role = 4;
+  string changed_at = 5;
+}
+
+message ParcelHistoryResponse {
+  repeated StatusHistoryEntryProto entries = 1;
+}
+
+message PublicTrackingRequest {
+  string reference = 1;
+}
+
+message PublicTrackingResponse {
+  string tracking_ref = 1;
+  string status = 2;
+  string category = 3;
+  string size = 4;
+  string description = 5;
+  string origin_city = 6;
+  string destination_city = 7;
+  string created_at = 8;
+  int32 estimated_days = 9;
+}
+
+message EstimateDeliveryFeeRequest {
+  string pickup_city = 1;
+  string delivery_city = 2;
+  string weight_kg = 3;
+  string destination_type = 4;
+  string parcel_category = 5;
+}
+
+message FeeBreakdownProto {
+  string base_fee = 1;
+  string weight_fee = 2;
+  string distance_surcharge = 3;
+  string express_fee = 4;
+}
+
+message EstimateDeliveryFeeResponse {
+  string fee = 1;
+  string formatted_fee = 2;
+  string currency = 3;
+  int32 estimated_days = 4;
+  FeeBreakdownProto breakdown = 5;
+}

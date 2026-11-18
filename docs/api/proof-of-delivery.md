@@ -109,9 +109,9 @@ next poll. HTTP never runs inside an S3 database transaction.
 | REJECTED | S2 returned 409; transition rejected; evidence retained |
 | BLOCKED | Missing/invalid service configuration, permanent dependency rejection, invalid success body or retry exhaustion |
 
-S3 calls S2 directly: `PATCH /api/v1/parcels/{parcelId}/status` with only
-`{"status":"DELIVERED"}` and a confidential client-credentials `SERVICE` token.
-The courier token is never forwarded to S2. S2 `changed:false` is successful acknowledgment
+S3 calls S2's `CompleteParcelDelivery` gRPC method on port `9082` with a confidential
+client-credentials `SERVICE` token carrying `pod:update`. The courier token is never
+forwarded to S2. An already-delivered response (`changed:false`) is successful acknowledgment
 of an already-delivered parcel. This supports retries after S2 committed but S3 lost the response.
 It also permits late proof for an already-delivered parcel: the existing contract cannot prove
 that this POD caused that transition. A stricter late-proof policy needs an approved S2 extension.
@@ -166,8 +166,8 @@ Existing S3 database and JWT environment variables remain required. Additional v
 
 | Variable | Default |
 |---|---|
-| `IDENTITY_BASE_URL` | `http://localhost:8081` |
-| `PARCEL_BASE_URL` | `http://localhost:8082` |
+| `PARCEL_GRPC_HOST` | `zentro-parcel-pricing-service` in Compose; `localhost` for host-based runs |
+| `PARCEL_GRPC_PORT` | `9082` |
 | `POD_TOKEN_URI` | Empty (fails closed) |
 | `POD_CLIENT_ID` | Empty (fails closed) |
 | `POD_CLIENT_SECRET` | Empty (fails closed) |

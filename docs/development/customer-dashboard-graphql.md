@@ -154,8 +154,8 @@ Summary/live queries derive the subject from the authenticated principal. Existi
 ownership checks, dispatcher-only queries and public tracking field restrictions are preserved.
 The frontend never supplies a customer ID and never logs credentials.
 
-S4 configuration adds `zentro.dashboard.gateway-url` / `DASHBOARD_GATEWAY_URL` (host default
-`http://localhost:8080`). Root Compose sets it to `http://api-gateway:8080` for S4. No credentials are added.
+S4 calls S2 and S3 directly over gRPC using its own SERVICE client identity. The frontend still reaches S4
+through the API Gateway. No credentials are added to frontend requests.
 The existing frontend VITE_API_BASE_URL must point at the gateway. No GraphQL proxy/client library or
 second authentication mechanism is introduced.
 

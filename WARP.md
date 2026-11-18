@@ -511,13 +511,13 @@ Used for synchronous internal service communication.
 
 Rules:
 
-- Define contracts using Protocol Buffers.
-- Version `.proto` files carefully.
-- Maintain backward compatibility where possible.
-- Configure deadlines and timeouts.
-- Handle service unavailability.
-- Avoid infinite retries.
-- Propagate tracing context.
+- Define contracts using Protocol Buffers (`contracts/proto/identity_partner.proto`, `parcel_pricing.proto`, `dispatch_courier.proto`).
+- Service gRPC ports: S1 `9081`, S2 `9082`, S3 `9083` (internal Docker network only, never published publicly).
+- Authenticate all internal gRPC calls with short-lived Keycloak `client_credentials` `SERVICE` JWTs (`GrpcServiceTokenProvider` + `BearerServiceGrpcClientInterceptor`) and enforce RPC-level least privilege on servers.
+- Version `.proto` files carefully and maintain backward compatibility.
+- Configure explicit deadlines (default `5s`, `3s` for non-critical reads) and handle service unavailability without infinite retries.
+- Propagate tracing context (`correlationId`, W3C traceparent).
+- Enforced in CI by `ArchitectureGrpcComplianceTest` (`zentro-security-starter`).
 
 ## 7.4 Apache Kafka
 
@@ -1349,3 +1349,9 @@ Use [development configuration](docs/development/configuration.md) for local tem
 ## Event projection verification
 
 See [notification and reporting projections](docs/events/projections.md) for S4's event-only daily aggregates and independent recount, S5's append-only attempt history, ordering/replay rules and retention follow-ups. Parcel events do not carry customer/courier identities or destination details; do not fabricate these fields or backfill through another service's database. Reports API approval and implementation remain separate from the internal projections.
+
+## Internal gRPC communication standard
+
+Synchronous backend-to-backend communication uses **gRPC** with Protocol Buffers (`contracts/proto/`) and service-specific Keycloak `SERVICE` JWT identities; Kafka remains asynchronous and React communicates with `api-gateway` over HTTP/REST/GraphQL. S1, S2 and S3 listen on gRPC ports 9081, 9082 and 9083. S4 and S5 currently make outbound gRPC calls but expose no gRPC server. Compose uses service DNS names on the `zentro` network and `keycloak` on the Keycloak network. See [gRPC Communication Standard](docs/architecture/grpc-communication-standard.md) and [POD Service JWT over gRPC](docs/security/pod-service-jwt-grpc.md). CI enforces this via `ArchitectureGrpcComplianceTest` in `zentro-security-starter`.
+
+Keycloak SERVICE clients are declared in `infra/keycloak/service-clients.json` and provisioned with `python3 infra/keycloak/provision_service_clients.py`. Inject `KC_ADMIN_USERNAME`, `KC_ADMIN_PASSWORD` and the four `ZENTRO_*_CLIENT_SECRET` values from an approved secret store; client secrets must be at least 32 characters. Only `zentro-dispatch-service` receives POD permissions. Compose accepts those four secret environment variables. Package service jars before running the disposable cross-service suite: `mvn -f backend/pom.xml -pl merchant-order-webhook-e2e -am -DskipTests package`, then `mvn -f backend/pom.xml -pl merchant-order-webhook-e2e -am -DrunE2E test`. It starts isolated Testcontainers and refuses to start if ports 18080–18085 are occupied.

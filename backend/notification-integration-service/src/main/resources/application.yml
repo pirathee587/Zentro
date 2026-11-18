@@ -38,9 +38,16 @@ spring:
       # Offsets are committed only after the event was stored (see ParcelEventConsumer).
       ack-mode: manual
 zentro:
-  correlation:
-    internal-base-urls:
-      - ${zentro.identity.base-url}
+  service:
+    token-uri: ${SERVICE_TOKEN_URI:}
+    client-id: ${SERVICE_CLIENT_ID:zentro-notification-service}
+    client-secret: ${SERVICE_CLIENT_SECRET:}
+  identity:
+    grpc-host: ${IDENTITY_GRPC_HOST:zentro-identity-partner-service}
+    grpc-port: ${IDENTITY_GRPC_PORT:9081}
+  parcel:
+    grpc-host: ${PARCEL_GRPC_HOST:zentro-parcel-pricing-service}
+    grpc-port: ${PARCEL_GRPC_PORT:9082}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
@@ -49,13 +56,9 @@ zentro:
     api-key: ${DEEPSEEK_API_KEY:}
     base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
     model: ${DEEPSEEK_MODEL:deepseek-chat}
-    gateway-url: ${ASSISTANT_GATEWAY_URL:http://localhost:8080}
     connect-timeout-ms: ${ASSISTANT_CONNECT_TIMEOUT_MS:1000}
     read-timeout-ms: ${ASSISTANT_READ_TIMEOUT_MS:15000}
     tool-timeout-ms: ${ASSISTANT_TOOL_TIMEOUT_MS:3000}
-  identity:
-    # S1 Identity, used to check that a merchant is approved before it registers a webhook endpoint.
-    base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   notifications:
     consumer:
       # Off by default so tests and environments without a broker never connect to Kafka.

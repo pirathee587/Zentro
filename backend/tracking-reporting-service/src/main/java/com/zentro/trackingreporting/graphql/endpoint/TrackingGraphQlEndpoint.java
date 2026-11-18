@@ -153,7 +153,8 @@ public class TrackingGraphQlEndpoint {
    * Batch resolver for DeliveryDetails events, preventing N+1 queries.
    */
   @BatchMapping(typeName = "DeliveryDetails", field = "events")
-  public Map<DeliveryDetailsDto, List<TrackingEventDto>> events(List<DeliveryDetailsDto> deliveries) {
+  public Map<DeliveryDetailsDto, List<TrackingEventDto>> events(List<DeliveryDetailsDto> deliveries,
+      Authentication authentication) {
     if (deliveries == null || deliveries.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -168,9 +169,16 @@ public class TrackingGraphQlEndpoint {
         .map(this::toEventDto)
         .collect(Collectors.groupingBy(TrackingEventDto::trackingRef));
 
+    org.springframework.security.oauth2.jwt.Jwt jwt = authentication != null
+        && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt j ? j : null;
+
     Map<DeliveryDetailsDto, List<TrackingEventDto>> result = new LinkedHashMap<>();
     for (DeliveryDetailsDto delivery : deliveries) {
-      result.put(delivery, grouped.getOrDefault(delivery.trackingRef(), List.of()));
+      List<TrackingEventDto> list = grouped.getOrDefault(delivery.trackingRef(), List.of());
+      if (list.isEmpty() && jwt != null && delivery.trackingRef() != null) {
+        list = bookings.customerHistory(jwt, delivery.trackingRef());
+      }
+      result.put(delivery, list);
     }
     return result;
   }

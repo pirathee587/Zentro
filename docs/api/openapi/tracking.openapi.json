@@ -1076,6 +1076,10 @@
           "type": "string"
         }
       },
+      "BinaryPdf": {
+        "type": "string",
+        "format": "binary"
+      },
       "DailyDeliveryRow": {
         "type": "object",
         "properties": {

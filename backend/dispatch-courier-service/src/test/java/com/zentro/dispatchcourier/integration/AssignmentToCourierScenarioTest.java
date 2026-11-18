@@ -8,7 +8,19 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zentro.contracts.identity.v1.CourierDetails;
+import com.zentro.contracts.identity.v1.GetCourierByIdRequest;
+import com.zentro.contracts.identity.v1.GetCourierByUserSubjectRequest;
+import com.zentro.contracts.identity.v1.IdentityPartnerServiceGrpc;
+import com.zentro.contracts.identity.v1.ListCouriersRequest;
+import com.zentro.contracts.identity.v1.ListCouriersResponse;
 import com.zentro.dispatchcourier.courier.service.IdentityCourierClient;
+import com.zentro.dispatchcourier.courier.service.ServiceTokenProvider;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import com.zentro.dispatchcourier.dispatch.repository.AssignmentRepository;
 import com.zentro.dispatchcourier.dispatch.service.ParcelSource;
 import com.zentro.dispatchcourier.exception.DispatchException;
@@ -54,7 +66,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     "zentro.security.issuer-uri=http://test/realm", "zentro.security.audience=zentro-api"})
 class AssignmentToCourierScenarioTest {
   @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-  static final StubHttpServer identity = StubHttpServer.start();
+  static final StubIdentityGrpc identity = StubIdentityGrpc.start();
   static final StubHttpServer parcelPort = StubHttpServer.start();
   static final String DISPATCH = "/api/v1/dispatch";
   static final String DELIVERIES = "/api/v1/courier/deliveries";
@@ -70,7 +82,8 @@ class AssignmentToCourierScenarioTest {
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
-    registry.add("zentro.identity.base-url", identity::baseUrl);
+    registry.add("zentro.identity.grpc-host", () -> "127.0.0.1");
+    registry.add("zentro.identity.grpc-port", identity::port);
   }
 
   @Autowired TestRestTemplate http;
@@ -79,8 +92,10 @@ class AssignmentToCourierScenarioTest {
   @Autowired ObjectMapper json;
   @MockBean JwtDecoder decoder;
   @MockBean ParcelSource source;
+  @MockBean ServiceTokenProvider serviceTokens;
 
   @BeforeEach void setup() throws Exception {
+    when(serviceTokens.token()).thenReturn("test-service-token");
     http.getRestTemplate().setRequestFactory(new JdkClientHttpRequestFactory());
     jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
     for (String role : List.of("CUSTOMER", "MERCHANT", "COURIER")) token(role.toLowerCase(), role, false);
@@ -105,7 +120,7 @@ class AssignmentToCourierScenarioTest {
       }
     }).when(source).withAssignedParcel(any(), anyString(), any());
     assignments.insert(PARCEL, FIRST, "original-dispatcher");
-    identity.respond(200, json.writeValueAsString(SECOND));
+    identity.setCourier(SECOND);
   }
 
   @AfterAll static void closeStubs() { identity.close(); parcelPort.close(); }
@@ -114,7 +129,7 @@ class AssignmentToCourierScenarioTest {
     assertVisible("courier-one", FIRST, true);
     assertVisible("courier-two", SECOND, false);
     assertWorkload(1, 0);
-    identity.respond(200, json.writeValueAsString(SECOND));
+    identity.setCourier(SECOND);
     var response = reassign(PARCEL, SECOND.id(), ROLE_ONLY);
     assertThat(response.getStatusCode().value()).isEqualTo(200);
     assertThat(json.readTree(response.getBody()).path("courierId").asText()).isEqualTo(SECOND.id().toString());
@@ -132,7 +147,7 @@ class AssignmentToCourierScenarioTest {
     assertThat(assignments.find(PARCEL)).isEmpty();
     assertVisible("courier-one", FIRST, false);
     assertVisible("courier-two", SECOND, false);
-    identity.respond(200, json.writeValueAsString(FIRST));
+    identity.setCourier(FIRST);
     assertThat(request(HttpMethod.GET, DELIVERIES + "/" + PARCEL, "courier-one", null)
         .getStatusCode().value()).isEqualTo(404);
     assertWorkload(0, 0);
@@ -140,7 +155,7 @@ class AssignmentToCourierScenarioTest {
   }
 
   @Test void sameCourierConflictPreservesAssignmentProofAuditAndOutbox() throws Exception {
-    identity.respond(200, json.writeValueAsString(FIRST));
+    identity.setCourier(FIRST);
     var before = snapshot();
     assertProblem(reassign(PARCEL, FIRST.id(), ROLE_ONLY), 409, "COURIER_ALREADY_ASSIGNED");
     assertThat(snapshot()).isEqualTo(before);
@@ -172,8 +187,8 @@ class AssignmentToCourierScenarioTest {
   @ParameterizedTest
   @CsvSource({"false,ACTIVE", "true,DISABLED"})
   void newlyIneligibleReplacementLeavesOwnershipWorkloadAuditAndOutboxUnchanged(boolean active, String accountStatus) throws Exception {
-    identity.respond(200, json.writeValueAsString(new IdentityCourierClient.Courier(
-        SECOND.id(), SECOND.userId(), SECOND.name(), active, accountStatus)));
+    identity.setCourier(new IdentityCourierClient.Courier(
+        SECOND.id(), SECOND.userId(), SECOND.name(), active, accountStatus));
     var before = snapshot();
     assertProblem(reassign(PARCEL, SECOND.id(), ROLE_ONLY), 409, "COURIER_INELIGIBLE");
     assertThat(snapshot()).isEqualTo(before);
@@ -215,7 +230,7 @@ class AssignmentToCourierScenarioTest {
   }
 
   private void assertVisible(String token, IdentityCourierClient.Courier courier, boolean visible) throws Exception {
-    identity.respond(200, json.writeValueAsString(courier));
+    identity.setCourier(courier);
     var response = request(HttpMethod.GET, DELIVERIES, token, null);
     assertThat(response.getStatusCode().value()).isEqualTo(200);
     var items = json.readTree(response.getBody());
@@ -229,7 +244,7 @@ class AssignmentToCourierScenarioTest {
   }
 
   private void assertWorkload(long first, long second) throws Exception {
-    identity.respond(200, json.writeValueAsString(List.of(FIRST, SECOND)));
+    identity.setCouriers(List.of(FIRST, SECOND));
     var response = request(HttpMethod.GET, DISPATCH + "/workload", "dispatcher", null);
     assertThat(response.getStatusCode().value()).isEqualTo(200);
     var counts = new java.util.HashMap<String, Long>();
@@ -271,5 +286,83 @@ class AssignmentToCourierScenarioTest {
         "proofs", jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery ORDER BY parcel_id"),
         "audit", jdbc.queryForList("SELECT * FROM dispatch.assignment_audit ORDER BY audit_id"),
         "outbox", jdbc.queryForList("SELECT * FROM dispatch.outbox_event ORDER BY event_id"));
+  }
+
+  static final class StubIdentityGrpc implements AutoCloseable {
+    private final Server server;
+    private final AtomicInteger requestCount = new AtomicInteger();
+    private final AtomicReference<IdentityCourierClient.Courier> courier = new AtomicReference<>();
+    private final AtomicReference<List<IdentityCourierClient.Courier>> couriers = new AtomicReference<>(List.of());
+
+    private StubIdentityGrpc() {
+      try {
+        this.server = ServerBuilder.forPort(0)
+            .addService(new IdentityPartnerServiceGrpc.IdentityPartnerServiceImplBase() {
+              @Override
+              public void getCourierById(GetCourierByIdRequest req, StreamObserver<CourierDetails> obs) {
+                requestCount.incrementAndGet();
+                obs.onNext(toDetails(courier.get()));
+                obs.onCompleted();
+              }
+
+              @Override
+              public void getCourierByUserSubject(GetCourierByUserSubjectRequest req, StreamObserver<CourierDetails> obs) {
+                requestCount.incrementAndGet();
+                obs.onNext(toDetails(courier.get()));
+                obs.onCompleted();
+              }
+
+              @Override
+              public void listCouriers(ListCouriersRequest req, StreamObserver<ListCouriersResponse> obs) {
+                requestCount.incrementAndGet();
+                ListCouriersResponse.Builder resp = ListCouriersResponse.newBuilder();
+                for (var c : couriers.get()) {
+                  resp.addCouriers(toDetails(c));
+                }
+                obs.onNext(resp.build());
+                obs.onCompleted();
+              }
+            })
+            .build()
+            .start();
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    static StubIdentityGrpc start() {
+      return new StubIdentityGrpc();
+    }
+
+    int port() {
+      return server.getPort();
+    }
+
+    int requests() {
+      return requestCount.get();
+    }
+
+    void setCourier(IdentityCourierClient.Courier value) {
+      courier.set(value);
+    }
+
+    void setCouriers(List<IdentityCourierClient.Courier> value) {
+      couriers.set(value);
+    }
+
+    private static CourierDetails toDetails(IdentityCourierClient.Courier c) {
+      return CourierDetails.newBuilder()
+          .setId(c.id().toString())
+          .setUserId(c.userId().toString())
+          .setName(c.name() != null ? c.name() : "")
+          .setActive(Boolean.TRUE.equals(c.active()))
+          .setAccountStatus(c.accountStatus() != null ? c.accountStatus() : "")
+          .build();
+    }
+
+    @Override
+    public void close() {
+      server.shutdownNow();
+    }
   }
 }

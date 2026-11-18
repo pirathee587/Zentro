@@ -22,6 +22,10 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
+import okhttp3.mockwebserver.Dispatcher;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -55,6 +59,10 @@ abstract class DisposableGatewayStack {
   protected static final String DISPATCHER_SECRET = "dispatcher-" + UUID.randomUUID();
   protected static final String ADMIN_USER = "e2e-admin";
   protected static final String ADMIN_PASSWORD = "e2e-admin-" + UUID.randomUUID();
+  protected static final String PARCEL_SERVICE_SECRET = "e2e-parcel-" + UUID.randomUUID() + UUID.randomUUID();
+  protected static final String DISPATCH_SERVICE_SECRET = "e2e-dispatch-" + UUID.randomUUID() + UUID.randomUUID();
+  protected static final String TRACKING_SERVICE_SECRET = "e2e-tracking-" + UUID.randomUUID() + UUID.randomUUID();
+  protected static final String NOTIFICATION_SERVICE_SECRET = "e2e-notification-" + UUID.randomUUID() + UUID.randomUUID();
   protected static final String REALM = "zentro";
   protected static final Path MODULE = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
   protected static final Path REPO = MODULE.getParent().getParent();
@@ -85,9 +93,12 @@ abstract class DisposableGatewayStack {
   protected static Process s5;
   protected static Process gateway;
   protected static String issuer;
+  private static MockWebServer jwksServer;
+  private static String jwksUri;
   protected static String dispatcherToken;
   protected static String customerToken;
   protected static String customerId;
+  protected static Map<String, String> parcelConfiguration;
   protected static String adminAccessToken;
   protected static Instant adminAccessTokenExpiresAt = Instant.EPOCH;
 
@@ -114,6 +125,9 @@ abstract class DisposableGatewayStack {
     startKeycloak();
     issuer = keycloak() + "/realms/" + REALM;
     createTestClient();
+    provisionProductionServiceClients();
+    provisionProductionServiceClients(); // Reapply against existing client IDs to verify idempotent updates.
+    startJwksSnapshotServer();
     dispatcherToken = tokenForClient(DISPATCHER_CLIENT, DISPATCHER_SECRET);
     customerToken = tokenForClient(CUSTOMER_CLIENT, CUSTOMER_SECRET);
     startServices();
@@ -126,9 +140,44 @@ abstract class DisposableGatewayStack {
     KEYCLOAK.start();
   }
 
+  /** Serve the live Keycloak realm signing keys locally so isolated JVMs do not depend on
+   * Testcontainers' published-port proxy for every service's first JWT validation. */
+  private static void startJwksSnapshotServer() throws Exception {
+    var response = sendRaw("GET", issuer + "/protocol/openid-connect/certs", null, null,
+        "application/json");
+    if (response.statusCode() != 200 || response.body().isBlank()) {
+      throw new IllegalStateException("Could not load the disposable Keycloak realm JWKS.");
+    }
+    if (jwksServer != null) jwksServer.shutdown();
+    String jwks = response.body();
+    jwksServer = new MockWebServer();
+    jwksServer.setDispatcher(new Dispatcher() {
+      @Override public MockResponse dispatch(RecordedRequest request) {
+        if ("GET".equals(request.getMethod()) && "/jwks".equals(request.getPath())) {
+          return new MockResponse().setResponseCode(200)
+              .setHeader("Content-Type", "application/json")
+              .setBody(jwks);
+        }
+        return new MockResponse().setResponseCode(404);
+      }
+    });
+    jwksServer.start(java.net.InetAddress.getByName("127.0.0.1"), 0);
+    jwksUri = jwksServer.url("/jwks").toString();
+  }
+
+  protected static String jwksUri() {
+    if (jwksUri == null) throw new IllegalStateException("The disposable JWKS endpoint has not started.");
+    return jwksUri;
+  }
+
   @AfterAll
-  static void stopStack() {
+  static void stopStack() throws Exception {
     stop(gateway); stop(s5); stop(s4); stop(s3); stop(s2); stop(s1);
+    if (jwksServer != null) {
+      jwksServer.shutdown();
+      jwksServer = null;
+      jwksUri = null;
+    }
     KEYCLOAK.stop(); KAFKA.stop(); POSTGRES.stop();
   }
 
@@ -147,34 +196,70 @@ abstract class DisposableGatewayStack {
     String base = issuer;
     s1 = launch("identity-partner-service", 18081, Map.of(
         "DB_URL", jdbcUrl("identity_db"), "DB_USER", "identity_user", "DB_PASSWORD", "identity-only",
-        "JWT_ISSUER_URI", base, "JWT_JWKS_URI", base + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api",
-        "GRPC_SERVER_ENABLED", "false"));
-    s2 = launch("parcel-pricing-service", 18082, Map.of(
-        "DB_URL", jdbcUrl("parcel_pricing_db"), "DB_USER", "parcel_pricing_user", "DB_PASSWORD", "parcel-pricing-only",
-        "JWT_ISSUER_URI", base, "JWT_JWKS_URI", base + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api",
-        "ZENTRO_IDENTITY_BASE_URL", "http://127.0.0.1:18081", "KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers(),
-        "OUTBOX_PUBLISHER_ENABLED", "true", "SERVER_PORT", "18082"));
+        "JWT_ISSUER_URI", base, "JWT_JWKS_URI", jwksUri(), "JWT_AUDIENCE", "zentro-api",
+        "GRPC_SERVER_ENABLED", "true", "GRPC_SERVER_PORT", "9081", "MANAGEMENT_HEALTH_MAIL_ENABLED", "false"));
+    parcelConfiguration = Map.ofEntries(
+        Map.entry("DB_URL", jdbcUrl("parcel_pricing_db")), Map.entry("DB_USER", "parcel_pricing_user"),
+        Map.entry("DB_PASSWORD", "parcel-pricing-only"), Map.entry("JWT_ISSUER_URI", base),
+        Map.entry("JWT_JWKS_URI", jwksUri()), Map.entry("JWT_AUDIENCE", "zentro-api"),
+        Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", "9081"),
+        Map.entry("SERVICE_TOKEN_URI", issuer + "/protocol/openid-connect/token"),
+        Map.entry("SERVICE_CLIENT_ID", "zentro-parcel-service"), Map.entry("SERVICE_CLIENT_SECRET", PARCEL_SERVICE_SECRET),
+        Map.entry("KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers()),
+        Map.entry("OUTBOX_PUBLISHER_ENABLED", "true"));
+    s2 = launch("parcel-pricing-service", 18082, parcelConfiguration);
     s5 = launch("notification-integration-service", 18085, Map.ofEntries(
         Map.entry("DB_URL", jdbcUrl("notification_integration_db")), Map.entry("DB_USER", "notification_integration_user"), Map.entry("DB_PASSWORD", "notification-integration-only"),
-        Map.entry("JWT_ISSUER_URI", base), Map.entry("JWT_JWKS_URI", base + "/protocol/openid-connect/certs"), Map.entry("JWT_AUDIENCE", "zentro-api"),
-        Map.entry("ZENTRO_IDENTITY_BASE_URL", "http://127.0.0.1:18081"), Map.entry("KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers()),
+        Map.entry("JWT_ISSUER_URI", base), Map.entry("JWT_JWKS_URI", jwksUri()), Map.entry("JWT_AUDIENCE", "zentro-api"),
+        Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", "9081"),
+        Map.entry("SERVICE_TOKEN_URI", issuer + "/protocol/openid-connect/token"),
+        Map.entry("SERVICE_CLIENT_ID", "zentro-notification-service"), Map.entry("SERVICE_CLIENT_SECRET", NOTIFICATION_SERVICE_SECRET),
+        Map.entry("PARCEL_GRPC_HOST", "127.0.0.1"), Map.entry("PARCEL_GRPC_PORT", "9082"),
+        Map.entry("KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers()),
         Map.entry("NOTIFICATIONS_CONSUMER_ENABLED", "true"), Map.entry("WEBHOOKS_ENABLED", "true"), Map.entry("WEBHOOKS_ALLOW_INSECURE_LOCAL", "true"),
         Map.entry("WEBHOOK_SECRET_KEY", Base64.getEncoder().encodeToString(new byte[32])), Map.entry("WEBHOOK_RETRY_POLL_MS", "100"),
         Map.entry("WEBHOOK_RETRY_BASE_DELAY_MS", "100"), Map.entry("WEBHOOK_RETRY_MAX_DELAY_MS", "500"), Map.entry("SERVER_PORT", "18085")));
     if (PERF) {
-      s3 = launch("dispatch-courier-service", 18083, Map.of(
-          "DB_URL", jdbcUrl("dispatch_courier_db"), "DB_USER", "dispatch_user", "DB_PASSWORD", "dispatch-only",
-          "JWT_ISSUER_URI", base, "JWT_JWKS_URI", base + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api",
-          "IDENTITY_BASE_URL", "http://127.0.0.1:18081", "POD_WORKER_ENABLED", "false"));
+      s3 = launch("dispatch-courier-service", 18083, Map.ofEntries(
+          Map.entry("DB_URL", jdbcUrl("dispatch_courier_db")), Map.entry("DB_USER", "dispatch_user"), Map.entry("DB_PASSWORD", "dispatch-only"),
+          Map.entry("JWT_ISSUER_URI", base), Map.entry("JWT_JWKS_URI", jwksUri()), Map.entry("JWT_AUDIENCE", "zentro-api"),
+          Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", "9081"),
+          Map.entry("POD_TOKEN_URI", issuer + "/protocol/openid-connect/token"), Map.entry("POD_CLIENT_ID", "zentro-dispatch-service"),
+          Map.entry("POD_CLIENT_SECRET", DISPATCH_SERVICE_SECRET), Map.entry("POD_WORKER_ENABLED", "false")));
       s4 = launch("tracking-reporting-service", 18084, Map.of(
           "DB_URL", jdbcUrl("tracking_reporting_db"), "DB_USER", "tracking_user", "DB_PASSWORD", "tracking-only",
-          "JWT_ISSUER_URI", base, "JWT_JWKS_URI", base + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api",
+          "JWT_ISSUER_URI", base, "JWT_JWKS_URI", jwksUri(), "JWT_AUDIENCE", "zentro-api",
           "KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers(), "KAFKA_CONSUMER_ENABLED", "true"));
     }
     gateway = launch("api-gateway", 18080, Map.of(
         "GATEWAY_PORT", "18080", "S1_URI", "http://127.0.0.1:18081", "S2_URI", "http://127.0.0.1:18082",
         "S5_URI", "http://127.0.0.1:18085", "JWT_ISSUER_URI", base,
-        "JWT_JWKS_URI", base + "/protocol/openid-connect/certs", "JWT_AUDIENCE", "zentro-api"));
+        "JWT_JWKS_URI", jwksUri(), "JWT_AUDIENCE", "zentro-api"));
+  }
+
+  protected static void restartParcel() throws Exception {
+    stop(s2);
+    s2 = launch("parcel-pricing-service", 18082, parcelConfiguration);
+  }
+
+  protected static void provisionProductionServiceClients() throws Exception {
+    ProcessBuilder provisioner = new ProcessBuilder("python3", REPO.resolve("infra/keycloak/provision_service_clients.py").toString());
+    provisioner.environment().put("KC_URL", keycloak());
+    provisioner.environment().put("KC_REALM", REALM);
+    provisioner.environment().put("KC_ADMIN_USERNAME", ADMIN_USER);
+    provisioner.environment().put("KC_ADMIN_PASSWORD", ADMIN_PASSWORD);
+    provisioner.environment().put("ZENTRO_PARCEL_SERVICE_CLIENT_SECRET", PARCEL_SERVICE_SECRET);
+    provisioner.environment().put("ZENTRO_DISPATCH_SERVICE_CLIENT_SECRET", DISPATCH_SERVICE_SECRET);
+    provisioner.environment().put("ZENTRO_TRACKING_SERVICE_CLIENT_SECRET", TRACKING_SERVICE_SECRET);
+    provisioner.environment().put("ZENTRO_NOTIFICATION_SERVICE_CLIENT_SECRET", NOTIFICATION_SERVICE_SECRET);
+    Process process = provisioner.redirectErrorStream(true).start();
+    if (!process.waitFor(45, TimeUnit.SECONDS)) {
+      process.destroyForcibly();
+      throw new IllegalStateException("Keycloak service-client provisioning timed out.");
+    }
+    String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    if (process.exitValue() != 0) throw new IllegalStateException("Keycloak service-client provisioning failed: " + output);
+    System.out.print(output);
   }
 
   protected static Process launch(String module, int port, Map<String, String> properties) throws Exception {
@@ -218,7 +303,7 @@ abstract class DisposableGatewayStack {
     assertThat(response.statusCode()).isEqualTo(201);
     JsonNode clients = send("GET", keycloak() + "/admin/realms/zentro/clients?clientId=" + clientId, admin, null, 200);
     String internalId = clients.get(0).path("id").asText();
-    if (PERF && role.equals("DISPATCHER")) {
+    if (role.equals("DISPATCHER")) {
       send("POST", keycloak() + "/admin/realms/zentro/clients/" + internalId + "/protocol-mappers/models", admin,
           "{\"name\":\"Fixture dispatch permissions\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-hardcoded-claim-mapper\",\"config\":{\"claim.name\":\"permissions\",\"claim.value\":\"[\\\"DISPATCH_VIEW\\\",\\\"DISPATCH_ASSIGN\\\"]\",\"jsonType.label\":\"JSON\",\"access.token.claim\":\"true\"}}", 201);
     }

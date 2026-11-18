@@ -131,7 +131,7 @@ Service-level rules are in the referenced controllers and security configuration
 | S1 UserProfileController | Any human; subject/owner-or-DISPATCHER check for user-id access |
 | S2 MerchantOrderController | MERCHANT plus approved/active status; JWT subject scopes list/read/write |
 | S2 ParcelBookingController | CUSTOMER; JWT subject scopes booking |
-| S2 ParcelStatusController | DISPATCHER or SERVICE directly; gateway deliberately excludes SERVICE |
+| S2 ParcelStatusController | DISPATCHER only; SERVICE completion is restricted to authenticated gRPC POD methods |
 | S2 AdminPricingRuleController | DISPATCHER |
 | S2 ParcelPricingController | CUSTOMER or DISPATCHER |
 | S2 ZoneController | Any human |

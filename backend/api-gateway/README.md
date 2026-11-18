@@ -24,7 +24,7 @@ Role claims come from `realm_access.roles`; only `CUSTOMER`, `MERCHANT`, `COURIE
 | `/api/v1/merchant/**` | MERCHANT | S2 orders; S5 webhooks |
 | `POST /api/v1/parcels` | CUSTOMER | S2 |
 | `POST /api/v1/parcels/estimate[(-fee)]` | CUSTOMER, DISPATCHER | S2 |
-| `PATCH /api/v1/parcels/{id}/status` | DISPATCHER (SERVICE calls S2 directly) | S2 |
+| `PATCH /api/v1/parcels/{id}/status` | DISPATCHER | S2 |
 | `/api/v1/users/**`, `/api/v1/merchants/**`, `/api/v1/zones/**` | CUSTOMER, MERCHANT, COURIER, DISPATCHER | S1/S2 |
 | Unlisted `/api/v1/**` | Safe 401 anonymous / 403 authenticated problem+json with correlation ID | Deny all |
 | Non-API paths | 404 problem+json | — |
