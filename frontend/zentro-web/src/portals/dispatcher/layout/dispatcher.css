@@ -1464,6 +1464,143 @@ html[data-theme="dark"] .sd-metric-card {
   gap: 8px;
 }
 
+/* These pages have their own theme aliases so shared dispatcher styling and
+   the light theme stay untouched. */
+html[data-theme='dark'] .sd-zones-pricing-page,
+html[data-theme='dark'] .sd-reports-page {
+  --card: #262626;
+  --ink: #f5f5f5;
+  --mute: #bdbdbd;
+  --line: #404040;
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .sd-reports-page {
+  --y: #facc15;
+  --dispatch-highlight-ink: #171717;
+  --dispatch-accent-hover: #fde047;
+  --bg1: #171717;
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-apply-btn {
+  background: var(--y);
+  color: var(--dispatch-highlight-ink);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-apply-btn:hover:not(:disabled) {
+  background: var(--dispatch-accent-hover);
+  filter: none;
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-apply-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px var(--bg1);
+}
+
+html[data-theme='dark'] :is(.sd-zones-pricing-page, .sd-reports-page) .sd-card,
+html[data-theme='dark'] .sd-zones-pricing-page .staff-panel,
+html[data-theme='dark'] .sd-reports-page .sd-metric-card {
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+html[data-theme='dark'] :is(.sd-zones-pricing-page, .sd-reports-page) :is(
+  .sd-page-title, .sd-page-subtitle, .sd-card-title, .sd-card-subtitle,
+  .sd-card-footnote, .sd-text-link, .sd-field-label, .sd-failure-reason,
+  .sd-failure-count, .sd-metric-label, .sd-metric-val, .sd-bar-label,
+  .staff-pricing-meta, .staff-pricing-meta strong, .staff-field > label,
+  .staff-field-hint, .staff-muted, .staff-checkbox-label,
+  .staff-pricing-table, .staff-pricing-changes, .staff-pricing-total,
+  .staff-pricing-breakdown, .staff-empty
+) {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] :is(.sd-zones-pricing-page, .sd-reports-page) :is(
+  .sd-page-subtitle, .sd-card-subtitle, .sd-card-footnote, .sd-text-link,
+  .sd-field-label, .sd-metric-label, .sd-bar-label, .staff-field-hint,
+  .staff-muted, .staff-pricing-meta, .staff-pricing-breakdown dt
+) {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page :is(input:not([type='checkbox']), select),
+html[data-theme='dark'] .sd-reports-page .sd-date-input {
+  color: var(--ink);
+  background: #1f1f1f;
+  border-color: #5a5a5a;
+  color-scheme: dark;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page input::placeholder {
+  color: #bdbdbd;
+  opacity: 1;
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-notice-box {
+  color: var(--ink);
+  background: #303030;
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-parcels-table :is(th, td),
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-table :is(th, td),
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-changes :is(th, td) {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-parcels-table th {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-table code {
+  color: #e5b574;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-badge-active {
+  background: #173b27;
+  color: #a7f3c0;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-badge-disabled {
+  background: #482725;
+  color: #ffc1bb;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page :is(.staff-field-error, .staff-error) {
+  color: #fca5a5;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .sd-flash-notice {
+  background: #173b27;
+  color: #a7f3c0;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-result {
+  background: #1f1f1f;
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-bar-chart {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-bar-fill.is-dark {
+  background: #a3a3a3;
+}
+
+html[data-theme='dark'] .sd-reports-page .sd-bar-track {
+  border-radius: 6px 6px 0 0;
+  background: #333;
+}
+
+html[data-theme='dark'] .sd-zones-pricing-page .staff-pricing-zones tbody tr:hover {
+  background: #333;
+}
+
 @media (max-width: 600px) {
   .sd-zones-pricing-page .staff-pricing-grid,
   .sd-zones-pricing-page .staff-pricing-result {
@@ -1702,4 +1839,201 @@ html[data-theme="dark"] .staff-modal {
   flex-direction: row;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* Scoped dark theme support for the legacy queue, approvals and workload pages. */
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) {
+  --ink: #f5f5f5;
+  --mute: #bdbdbd;
+  --card: #262626;
+  --chip: #333333;
+  --line: #404040;
+  color: var(--ink);
+}
+
+:is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) .staff-review-button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+:is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) .staff-review-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+:is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) :is(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid #a66a24;
+  outline-offset: 3px;
+}
+
+.staff-dispatch-queue .staff-queue-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.035);
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) :is(
+  h1, h2, h3, p, label, .staff-review-top small, .staff-review-meta span,
+  .staff-review-meta strong, .staff-courier-cell, .staff-courier-cell strong,
+  .staff-courier-header p, .staff-empty, .staff-error, .staff-queue-table td,
+  .staff-queue-table th, .staff-text-link, .staff-review-notice
+) {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) :is(
+  .staff-section-heading p, .staff-review-top small, .staff-review-meta span,
+  .staff-courier-cell > span, .staff-courier-header p, .staff-empty,
+  .staff-review-notice
+) {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .staff-dispatch-queue :is(.staff-panel, .staff-queue-results),
+html[data-theme='dark'] .staff-merchant-approvals :is(.staff-panel, .staff-review-card),
+html[data-theme='dark'] .staff-workload-page :is(.staff-panel, .staff-courier-card) {
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) :is(
+  input:not([type='checkbox']), select, .staff-filter-input, .staff-filter-select,
+  .staff-queue-filters select
+) {
+  color: var(--ink);
+  background: #1f1f1f;
+  border-color: #5a5a5a;
+  color-scheme: dark;
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) input::placeholder {
+  color: #bdbdbd;
+  opacity: 1;
+}
+
+html[data-theme='dark'] .staff-dispatch-queue .staff-queue-table :is(th, td) {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .staff-dispatch-queue .staff-queue-table th {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .staff-dispatch-queue .staff-queue-table tbody tr:hover {
+  background: #333;
+}
+
+html[data-theme='dark'] .staff-dispatch-queue .staff-queue-filters label,
+html[data-theme='dark'] .staff-dispatch-queue .staff-queue-results > p {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .staff-dispatch-queue .staff-queue-filters [role='alert'],
+html[data-theme='dark'] .staff-merchant-approvals .staff-error {
+  color: #fca5a5;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-review-meta {
+  background: #303030;
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-role-pill {
+  color: var(--ink);
+  background: var(--chip);
+}
+
+html[data-theme='dark'] .staff-merchant-approvals :is(.staff-badge-pending, .staff-badge-suspended) {
+  color: #ffdf80;
+  background: #443716;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-badge-active,
+html[data-theme='dark'] .staff-workload-page .courier-badge.is-active {
+  color: #a7f3c0;
+  background: #173b27;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-badge-disabled,
+html[data-theme='dark'] .staff-workload-page .courier-badge.is-inactive {
+  color: #ffc1bb;
+  background: #482725;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-review-success {
+  color: #a7f3c0;
+  background: #173b27;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-review-notice {
+  color: #fca5a5;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-review-meta strong[style*='--err'] {
+  color: #fca5a5 !important;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-modal,
+html[data-theme='dark'] .staff-merchant-approvals .staff-modal :is(.staff-modal-body, .staff-modal-header, h2, h3, p) {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-modal-body > div[style*='background'] {
+  background: #303030 !important;
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-modal :is(.staff-review-meta, .staff-review-meta strong) {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-modal :is(.staff-review-meta span, .staff-modal-close) {
+  color: var(--mute);
+}
+
+html[data-theme='dark'] .staff-merchant-approvals .staff-modal-body p[style*='color'] {
+  color: var(--ink) !important;
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) .staff-review-button {
+  color: var(--ink);
+  background: var(--chip);
+  border-color: #5a5a5a;
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) .staff-review-button.is-approve {
+  color: #171717;
+  background: #facc15;
+  border-color: #facc15;
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) .staff-review-button:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) .staff-review-button:disabled {
+  color: #bdbdbd;
+  background: #333;
+  opacity: 1;
+}
+
+html[data-theme='dark'] :is(.staff-dispatch-queue, .staff-merchant-approvals, .staff-workload-page) :is(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 3px;
+}
+
+html[data-theme='dark'] .staff-workload-page .courier-badge.is-status {
+  color: #d4d4d4;
+  background: #3b3b3b;
+}
+
+html[data-theme='dark'] .staff-workload-page .courier-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid #555;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+html[data-theme='dark'] .staff-workload-page .staff-courier-card {
+  border-color: var(--line);
 }

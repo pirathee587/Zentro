@@ -26,7 +26,7 @@ export function ReportsPage() {
   ];
 
   return (
-    <main className="sd-page-container">
+    <main className="sd-page-container sd-reports-page">
       {/* Title */}
       <section className="sd-page-header">
         <div className="sd-page-title-group">
