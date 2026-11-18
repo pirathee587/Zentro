@@ -41,9 +41,9 @@ function Get-KeycloakUser([string]$Email) {
 }
 
 $seedDefinitions = @(
-  @{ Email = 'dispatcher@zentro.test'; First = 'Zentro'; Last = 'Dispatcher'; Phone = '+94770000001'; Role = 'DISPATCHER'; Permissions = @('DISPATCH_VIEW', 'DISPATCH_ASSIGN') },
-  @{ Email = 'courier1@zentro.test'; First = 'Zentro'; Last = 'Courier 1'; Phone = '+94770000002'; Role = 'COURIER' },
-  @{ Email = 'courier2@zentro.test'; First = 'Zentro'; Last = 'Courier 2'; Phone = '+94770000003'; Role = 'COURIER' }
+  @{ Email = 'dispatcher@zentro.test'; First = 'Zentro'; Last = 'Dispatcher'; Phone = '+94770000001'; Role = 'DISPATCHER'; Permissions = @('DISPATCH_VIEW', 'DISPATCH_ASSIGN'); Password = 'Dispatch@123' },
+  @{ Email = 'courier1@zentro.test'; First = 'Zentro'; Last = 'Courier 1'; Phone = '+94770000002'; Role = 'COURIER'; Password = 'Courier1@123' },
+  @{ Email = 'courier2@zentro.test'; First = 'Zentro'; Last = 'Courier 2'; Phone = '+94770000003'; Role = 'COURIER'; Password = 'Courier2@123' }
 )
 $results = [System.Collections.Generic.List[object]]::new()
 $fileLines = [System.Collections.Generic.List[string]]::new()
@@ -66,11 +66,15 @@ foreach ($definition in $seedDefinitions) {
   $update = @{ id = $user.id; username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = $attributes } | ConvertTo-Json -Depth 8
   Invoke-RestMethod -Method Put -Uri "$api/users/$($user.id)" -Headers $headers -ContentType 'application/json' -Body $update | Out-Null
 
-  $randomBytes = New-Object byte[] 24
-  $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-  $rng.GetBytes($randomBytes)
-  $rng.Dispose()
-  $password = [BitConverter]::ToString($randomBytes).Replace('-', '')
+  $password = if ($definition.Password) {
+    $definition.Password
+  } else {
+    $randomBytes = New-Object byte[] 24
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $rng.GetBytes($randomBytes)
+    $rng.Dispose()
+    [BitConverter]::ToString($randomBytes).Replace('-', '')
+  }
   $passwordBody = @{ type = 'password'; value = $password; temporary = $false } | ConvertTo-Json
   Invoke-RestMethod -Method Put -Uri "$api/users/$($user.id)/reset-password" -Headers $headers -ContentType 'application/json' -Body $passwordBody | Out-Null
 

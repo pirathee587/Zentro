@@ -73,6 +73,7 @@ export function friendlyApiError(error: unknown, fallback: string): string {
   if (!axios.isAxiosError(error)) return fallback;
   if (error.response?.status === 401) return 'Your session has expired. Please sign in again.';
   if (error.response?.status === 403) return 'Your account does not have permission to do that.';
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') return 'The request timed out. Please check your connection and try again.';
   if (!error.response) return 'We could not reach Zentro. Check your connection and try again.';
   return fallback;
 }

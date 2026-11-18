@@ -79,18 +79,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     clearLegacyStoredTokens();
 
     async function restoreSession(): Promise<User | null> {
-      const path = window.location.pathname;
-      if (path === '/silent-callback') {
-        await oidcManager.signinSilentCallback();
-        return null;
-      }
-      if (path === '/callback') return completeAuthorizationCallback();
-
-      const existing = await oidcManager.getUser();
-      if (existing && !existing.expired) return existing;
-
       try {
-        return await oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } }) ?? null;
+        const path = window.location.pathname;
+        if (path === '/silent-callback') {
+          await oidcManager.signinSilentCallback();
+          return null;
+        }
+        if (path === '/callback') return completeAuthorizationCallback();
+
+        const existing = await oidcManager.getUser();
+        if (existing && !existing.expired) return existing;
+
+        try {
+          return await oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } }) ?? null;
+        } catch {
+          return null;
+        }
       } catch {
         return null;
       }
@@ -234,7 +238,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     } catch {
       window.sessionStorage.removeItem(AUTH_FLOW_STORAGE_KEY);
-      setAuthError('Cannot reach the sign-in service. Check Keycloak and try again.');
+      setAuthError('Sign-in is temporarily unavailable. Please refresh the page and try again.');
     }
   }, []);
 
@@ -252,7 +256,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     } catch {
       window.sessionStorage.removeItem(AUTH_FLOW_STORAGE_KEY);
-      setAuthError('Cannot reach the registration service. Check Keycloak and try again.');
+      setAuthError('Registration is temporarily unavailable. Please refresh the page and try again.');
     }
   }, []);
 

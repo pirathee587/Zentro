@@ -21,11 +21,11 @@ export type RegistrationResponse = {
 };
 
 export async function sendRegistrationOtp(request: SendOtpRequest): Promise<RegistrationResponse> {
-  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/register/send-otp', request)).data;
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/register/send-otp', request, { timeout: 30000 })).data;
 }
 
 export async function verifyRegistrationOtp(request: VerifyOtpRequest): Promise<RegistrationResponse> {
-  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/register/verify-otp', request)).data;
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/register/verify-otp', request, { timeout: 30000 })).data;
 }
 
 export type ResetPasswordRequest = {
@@ -40,13 +40,13 @@ export type VerifyResetOtpRequest = {
 };
 
 export async function sendForgotPasswordOtp(email: string): Promise<RegistrationResponse> {
-  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/forgot-password/send-otp', { email })).data;
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/forgot-password/send-otp', { email }, { timeout: 30000 })).data;
 }
 
 export async function verifyForgotPasswordOtp(request: VerifyResetOtpRequest): Promise<RegistrationResponse> {
-  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/forgot-password/verify-otp', request)).data;
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/forgot-password/verify-otp', request, { timeout: 30000 })).data;
 }
 
 export async function resetPasswordWithOtp(request: ResetPasswordRequest): Promise<RegistrationResponse> {
-  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/forgot-password/reset', request)).data;
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/forgot-password/reset', request, { timeout: 30000 })).data;
 }

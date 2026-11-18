@@ -60,7 +60,13 @@ export function useCourierPartnerApplications(enabled = true) {
   });
 }
 
-export function MerchantApprovalsPage({ embedded = false }: { embedded?: boolean } = {}) {
+export function MerchantApprovalsPage({
+  embedded = false,
+  showPartnerTabs = false,
+}: {
+  embedded?: boolean;
+  showPartnerTabs?: boolean;
+} = {}) {
   const Container = embedded ? 'div' : 'main';
   const Heading = embedded ? 'h2' : 'h1';
   const { user } = useAuth();
@@ -212,7 +218,7 @@ export function MerchantApprovalsPage({ embedded = false }: { embedded?: boolean
           <div>
             <span className="staff-eyebrow">DISPATCH DESK</span>
             <Heading>Merchant applications</Heading>
-            <p>Review and action pending business and courier fleet profiles.</p>
+            <p>Review and action pending merchant business profiles.</p>
           </div>
           <Link className="staff-text-link" to="/dispatcher">
             ← Back to overview
@@ -221,44 +227,46 @@ export function MerchantApprovalsPage({ embedded = false }: { embedded?: boolean
 
         {/* Filter bar for partner type, status, and search */}
         <div className="staff-filter-bar" style={{ marginBottom: '16px' }}>
-          <div className="staff-filter-group" role="tablist" aria-label="Partner type filters">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={partnerTypeFilter === 'MERCHANT'}
-              className={`staff-review-button ${partnerTypeFilter === 'MERCHANT' ? 'is-approve' : ''}`}
-              onClick={() => {
-                setPartnerTypeFilter('MERCHANT');
-                setActionError('');
-              }}
-            >
-              Merchants ({merchantItems.length})
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={partnerTypeFilter === 'COURIER'}
-              className={`staff-review-button ${partnerTypeFilter === 'COURIER' ? 'is-approve' : ''}`}
-              onClick={() => {
-                setPartnerTypeFilter('COURIER');
-                setActionError('');
-              }}
-            >
-              Couriers ({courierItems.length})
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={partnerTypeFilter === 'ALL'}
-              className={`staff-review-button ${partnerTypeFilter === 'ALL' ? 'is-approve' : ''}`}
-              onClick={() => {
-                setPartnerTypeFilter('ALL');
-                setActionError('');
-              }}
-            >
-              All Partners ({merchantItems.length + courierItems.length})
-            </button>
-          </div>
+          {showPartnerTabs && (
+            <div className="staff-filter-group" role="tablist" aria-label="Partner type filters">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={partnerTypeFilter === 'MERCHANT'}
+                className={`staff-review-button ${partnerTypeFilter === 'MERCHANT' ? 'is-approve' : ''}`}
+                onClick={() => {
+                  setPartnerTypeFilter('MERCHANT');
+                  setActionError('');
+                }}
+              >
+                Merchants ({merchantItems.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={partnerTypeFilter === 'COURIER'}
+                className={`staff-review-button ${partnerTypeFilter === 'COURIER' ? 'is-approve' : ''}`}
+                onClick={() => {
+                  setPartnerTypeFilter('COURIER');
+                  setActionError('');
+                }}
+              >
+                Couriers ({courierItems.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={partnerTypeFilter === 'ALL'}
+                className={`staff-review-button ${partnerTypeFilter === 'ALL' ? 'is-approve' : ''}`}
+                onClick={() => {
+                  setPartnerTypeFilter('ALL');
+                  setActionError('');
+                }}
+              >
+                All Partners ({merchantItems.length + courierItems.length})
+              </button>
+            </div>
+          )}
 
           <div className="staff-filter-group">
             <input

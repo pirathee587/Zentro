@@ -1,9 +1,20 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { ArrowIcon } from '../assets/ArrowIcon';
+
+function authApiError(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as { detail?: string; message?: string } | undefined;
+    if (data?.detail && typeof data.detail === 'string') return data.detail;
+    if (data?.message && typeof data.message === 'string' && data.message.trim() && data.message !== 'No message available') return data.message;
+    if (error.response?.status === 409) return 'An account with this email address already exists. Please sign in or use a different email.';
+  }
+  return friendlyApiError(error, fallback);
+}
 import {
   sendRegistrationOtp,
   verifyRegistrationOtp,
@@ -103,7 +114,7 @@ export function SignupPage() {
       setStep('otp');
       setResendCooldown(60);
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to send verification code. Please check your email and try again.'));
+      setError(authApiError(err, 'Failed to send verification code. Please check your email and try again.'));
     } finally {
       setLoading(false);
     }
@@ -132,7 +143,7 @@ export function SignupPage() {
         void login(returnTo, email.trim(), entryPoint);
       }, 1200);
     } catch (err) {
-      setError(friendlyApiError(err, 'Invalid or expired verification code.'));
+      setError(authApiError(err, 'Invalid or expired verification code.'));
     } finally {
       setLoading(false);
     }
@@ -147,7 +158,7 @@ export function SignupPage() {
       setResendCooldown(60);
       setError('');
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to resend code. Please try again.'));
+      setError(authApiError(err, 'Failed to resend code. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -321,18 +332,80 @@ export function SignupPage() {
 }
 
 function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
-  const {login}=useAuth();
-  const [email,setEmail]=useState('');
-  const [emailError,setEmailError]=useState('');
+  const {login, logout, user}=useAuth();
   const location=useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialEmail = searchParams.get('login_hint') ?? '';
+  const [email,setEmail]=useState(initialEmail);
+  const [emailError,setEmailError]=useState('');
   const from=kind==='staff'?'/staff/login':kind==='merchant'?'/merchant/dashboard':(location.state as {from?:string}|null)?.from ?? '/customer';
   const staff=kind==='staff';
   const merchant=kind==='merchant';
+
+  if (user) {
+    if (kind === 'merchant' && user.roles.includes('MERCHANT')) {
+      return <Navigate to="/merchant/dashboard" replace />;
+    }
+    if (kind === 'customer' && user.roles.includes('CUSTOMER')) {
+      return <Navigate to="/customer" replace />;
+    }
+    if (kind === 'staff') {
+      if (user.roles.includes('DISPATCHER')) return <Navigate to="/dispatcher" replace />;
+      if (user.roles.includes('COURIER')) return <Navigate to="/courier" replace />;
+    }
+  }
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    const value = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setEmailError('Enter a valid email address.');
+      return;
+    }
+    setEmailError('');
+    if (user && logout) {
+      await logout(`${location.pathname}?login_hint=${encodeURIComponent(value)}`);
+      return;
+    }
+    void login(from, value, kind);
+  };
+
   return <section className="auth-card" aria-labelledby="auth-title">
     <span className="eyebrow">{staff?'ZENTRO TEAM':merchant?'ZENTRO BUSINESS':'WELCOME BACK'}</span>
     <h1 id="auth-title">{staff?'Staff sign in':merchant?'Merchant sign in':'Good to see you, again.'}</h1>
     <p>{staff?'Use the separate staff account provided by your Zentro administrator.':merchant?'Sign in with your existing Zentro email and password to manage your business access.':'Sign in to see where your parcels are going.'}</p>
-    <form className="auth-form" noValidate onSubmit={event=>{event.preventDefault();const value=email.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)){setEmailError('Enter a valid email address.');return;}setEmailError('');void login(from,value,kind);}}>
+    {user && (
+      <div style={{
+        marginBottom: '16px',
+        padding: '12px 14px',
+        background: 'var(--warm-pale)',
+        border: '1px solid var(--line)',
+        borderRadius: '10px',
+        color: 'var(--err)',
+        fontSize: '13px',
+        lineHeight: '1.5',
+      }}>
+        <strong>Currently signed in as {user.name || 'another account'}.</strong>
+        <p style={{ margin: '4px 0 8px 0', fontSize: '12px', color: 'var(--espresso)' }}>
+          To sign in as {kind === 'merchant' ? 'a merchant' : kind === 'staff' ? 'staff' : 'a customer'}, switch accounts below.
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => void logout?.(location.pathname)}
+          style={{
+            width: '100%',
+            fontSize: '12px',
+            padding: '6px 12px',
+            color: 'var(--err)',
+            borderColor: 'var(--line)',
+          }}
+        >
+          Sign out current account
+        </Button>
+      </div>
+    )}
+    <form className="auth-form" noValidate onSubmit={handleSubmit}>
       <label htmlFor="auth-username">{staff?'Staff email address':'Email address'}
         <Input id="auth-username" type="email" autoComplete="username" autoFocus required value={email} aria-invalid={Boolean(emailError)} aria-describedby={emailError?'auth-email-error':'auth-email-hint'} onChange={event=>{setEmail(event.target.value);setEmailError('');}} placeholder={staff?'your.work@zentro.lk':'you@example.com'}/>
       </label>
@@ -382,7 +455,7 @@ export function ForgotPasswordPage() {
       setStep('otp');
       setResendCooldown(60);
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to send password reset code. Please check your email and try again.'));
+      setError(authApiError(err, 'Failed to send password reset code. Please check your email and try again.'));
     } finally {
       setLoading(false);
     }
@@ -396,7 +469,7 @@ export function ForgotPasswordPage() {
       await sendForgotPasswordOtp(email.trim());
       setResendCooldown(60);
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to resend code. Please try again.'));
+      setError(authApiError(err, 'Failed to resend code. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -417,7 +490,7 @@ export function ForgotPasswordPage() {
       });
       setStep('new-password');
     } catch (err) {
-      setError(friendlyApiError(err, 'Invalid or expired verification code. Please check your code and try again.'));
+      setError(authApiError(err, 'Invalid or expired verification code. Please check your code and try again.'));
     } finally {
       setLoading(false);
     }
@@ -443,7 +516,7 @@ export function ForgotPasswordPage() {
       });
       setStep('success');
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to reset password. Please try requesting a new code.'));
+      setError(authApiError(err, 'Failed to reset password. Please try requesting a new code.'));
     } finally {
       setLoading(false);
     }

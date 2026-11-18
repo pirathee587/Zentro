@@ -7,27 +7,25 @@
      "Restart login" before reaching the normal sign-in form. -->
 <#if message?? && message.summary == msg("reauthenticate")>
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background: #120e0b;">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="refresh" content="0;url=${url.loginRestartFlowUrl}" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="${url.resourcesPath}/css/zentro.css" />
-    <title>Restarting sign in</title>
+    <script>window.location.replace("${url.loginRestartFlowUrl}");</script>
+    <style>
+      html, body {
+        background: #120e0b !important;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <title>Signing in...</title>
   </head>
-  <body id="keycloak-bg">
-    <div class="pf-v5-c-login">
-      <div class="pf-v5-c-login__container">
-        <main class="pf-v5-c-login__main" style="grid-column: 1 / -1; margin: auto; border-radius: 26px;">
-          <div class="zentro-message" role="status">
-            <span class="zentro-login-brand"><span class="zentro-login-mark">z</span>zentro</span>
-            <p>Restarting your sign in session...</p>
-            <a class="zentro-message-action" href="${url.loginRestartFlowUrl}">Continue</a>
-          </div>
-        </main>
-      </div>
-    </div>
-  </body>
+  <body style="background: #120e0b !important;"></body>
 </html>
 <#else>
 <@layout.registrationLayout displayMessage=true displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>
@@ -195,8 +193,17 @@
       <#if realm.password>
         <form id="kc-form-login" class="${properties.kcFormClass!}" onsubmit="login.disabled = true; return true;" action="${url.loginAction}" method="post" novalidate="novalidate">
           <#if login.username?? && login.username?has_content>
-            <div class="zentro-email-chip"><span>${login.username}</span><a href="${url.loginUrl}">Change</a></div>
-            <input type="hidden" id="username" name="username" value="${login.username}" />
+            <div class="zentro-email-chip" id="zentro-email-chip">
+              <span id="zentro-chip-text">${login.username}</span>
+              <button type="button" id="zentro-change-btn">Change</button>
+            </div>
+            <div id="zentro-username-wrapper" style="display: none; margin-bottom: 16px;">
+              <#assign label><#if !realm.loginWithEmailAllowed>${msg("username")}<#elseif !realm.registrationEmailAsUsername>${msg("usernameOrEmail")}<#else>${msg("email")}</#if></#assign>
+              <@field.input name="username" label=label error=messagesPerField.getFirstError('username','password') autofocus=false autocomplete="username" value=login.username />
+              <div style="text-align: right; margin-top: 6px;">
+                <a id="zentro-back-app-link" href="#" style="font-size: 12px; color: var(--bronze); text-decoration: none; font-weight: 600;">← Change from Zentro sign in</a>
+              </div>
+            </div>
             <@field.password name="password" label=msg("password") error=messagesPerField.getFirstError('password','username') forgotPassword=realm.resetPasswordAllowed autofocus=true autocomplete="current-password">
               <#if realm.rememberMe><@field.checkbox name="rememberMe" label=msg("rememberMe") value=login.rememberMe?? /></#if>
             </@field.password>
@@ -214,6 +221,35 @@
         </form>
       </#if>
     </div></div>
+    <script>
+      (function() {
+        var changeBtn = document.getElementById('zentro-change-btn');
+        var chip = document.getElementById('zentro-email-chip');
+        var wrapper = document.getElementById('zentro-username-wrapper');
+        var input = document.getElementById('username');
+        if (changeBtn && chip && wrapper) {
+          changeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            chip.style.display = 'none';
+            wrapper.style.display = 'block';
+            if (input) {
+              input.focus();
+              input.select();
+            }
+          });
+        }
+        var backLink = document.getElementById('zentro-back-app-link');
+        if (backLink) {
+          var match = document.cookie.match(/(?:^|;\s*)zentro_app_origin=([^;]+)/);
+          var entry = document.cookie.match(/(?:^|;\s*)zentro_entry_point=([^;]+)/);
+          var origin = match ? decodeURIComponent(match[1]) : window.location.origin;
+          var path = entry && decodeURIComponent(entry[1]) === 'staff' ? '/staff/login'
+                   : entry && decodeURIComponent(entry[1]) === 'merchant' ? '/merchant/login'
+                   : '/login';
+          backLink.href = origin + path;
+        }
+      })();
+    </script>
     <@passkeys.conditionalUIData />
   <#elseif section = "socialProviders">
     <#if realm.password && social.providers?? && social.providers?has_content>
