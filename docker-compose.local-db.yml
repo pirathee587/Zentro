@@ -44,6 +44,8 @@ services:
       DB_URL: jdbc:postgresql://local-postgres:5432/dispatch_courier_db
       DB_USER: zentro_dev
       DB_PASSWORD: zentro_dev_local_only
+      # Isolated local database only: allow S3 to build its schema from db/migration.
+      SPRING_FLYWAY_ENABLED: "true"
     depends_on:
       local-postgres:
         condition: service_healthy

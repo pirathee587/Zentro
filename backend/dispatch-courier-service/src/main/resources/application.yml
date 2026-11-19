@@ -6,6 +6,12 @@ spring:
   config:
     import: optional:file:./.env[.properties]
   flyway:
+    # Application-side migrations are OFF by default. Shared S3 Supabase uses a
+    # historical V5 lineage that differs from db/migration; migrations there run
+    # only through a separately authorized runbook. See docs/development/s3-flyway-safety.md.
+    # Isolated local databases and tests enable Flyway explicitly.
+    enabled: false
+    validate-on-migrate: true
     schemas: dispatch
     default-schema: dispatch
     create-schemas: true

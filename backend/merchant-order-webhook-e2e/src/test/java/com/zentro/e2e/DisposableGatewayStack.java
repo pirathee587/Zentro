@@ -269,6 +269,14 @@ abstract class DisposableGatewayStack {
         "-Xms96m", "-Xmx256m", "-Xlog:gc:file=" + MODULE.resolve("target/gc-" + module + ".log"), "-jar", jar.toString());
     builder.environment().putAll(properties);
     builder.environment().put("SERVER_ADDRESS", "127.0.0.1");
+    if (module.equals("dispatch-courier-service")) {
+      // S3 Flyway is off by default (shared Supabase safety). Enable it only for this disposable Testcontainers database.
+      String dbUrl = properties.getOrDefault("DB_URL", "");
+      if (!dbUrl.startsWith("jdbc:postgresql://" + POSTGRES.getHost() + ":" + POSTGRES.getMappedPort(5432) + "/"))
+        throw new IllegalStateException("Refusing to enable S3 Flyway for a non-disposable database");
+      builder.environment().put("SPRING_FLYWAY_ENABLED", "true");
+      builder.environment().put("SPRING_FLYWAY_VALIDATE_ON_MIGRATE", "true");
+    }
     if (PERF && module.equals("api-gateway")) {
       builder.environment().put("S3_URI", "http://127.0.0.1:18083");
       builder.environment().put("S4_URI", "http://127.0.0.1:18084");

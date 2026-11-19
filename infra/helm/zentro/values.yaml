@@ -4,7 +4,17 @@ services:
   api-gateway: { image: "", port: 8080 }
   identity-partner-service: { image: "", port: 8081 }
   parcel-pricing-service: { image: "", port: 8082 }
-  dispatch-courier-service: { image: "", port: 8083 }
+  # S3: application-side Flyway stays OFF. Shared S3 Supabase uses a historical V5
+  # lineage; migrations run only via a separately authorized runbook (docs/development/s3-flyway-safety.md).
+  # These explicit env values override anything in the dispatch-courier-service-runtime Secret.
+  dispatch-courier-service:
+    image: ""
+    port: 8083
+    env:
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      POD_WORKER_ENABLED: "false"
+      OUTBOX_ENABLED: "false"
   tracking-reporting-service: { image: "", port: 8084 }
   notification-integration-service: { image: "", port: 8085 }
 imagePullSecrets: []

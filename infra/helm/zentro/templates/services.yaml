@@ -33,6 +33,14 @@ spec:
           envFrom:
             - secretRef:
                 name: {{ $name }}-runtime
+          {{- with $service.env }}
+          # Explicit env entries take precedence over envFrom (runtime Secret) values.
+          env:
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
           readinessProbe:
             httpGet: { path: /actuator/health/readiness, port: http }
             periodSeconds: 10

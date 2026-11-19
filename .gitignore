@@ -3,6 +3,8 @@
 !.env.example
 !.env.common.example
 target/
+__pycache__/
+*.py[cod]
 *.log
 infra/keycloak/.env
 infra/keycloak/backups/
