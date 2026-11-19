@@ -1,94 +1,105 @@
+param()
 $ErrorActionPreference = 'Stop'
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$envPath = Join-Path $scriptDir '.env'
-if (-not (Test-Path -LiteralPath $envPath)) { throw 'Missing infra/keycloak/.env. Copy .env.example to .env first.' }
-
-Get-Content -LiteralPath $envPath | ForEach-Object {
-  $line = $_.Trim()
-  if (-not $line -or $line.StartsWith('#') -or $line -notmatch '^([^=]+)=(.*)$') { return }
-  $name = $Matches[1].Trim()
-  $value = $Matches[2].Trim()
-  if ($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'")))) { $value = $value.Substring(1, $value.Length - 2) }
-  [Environment]::SetEnvironmentVariable($name, $value, 'Process')
-}
-
-$keycloakPort = if ($env:KC_HTTP_PORT) { $env:KC_HTTP_PORT } else { '8180' }
-$baseUrl = if ($env:KEYCLOAK_URL) { $env:KEYCLOAK_URL.TrimEnd('/') } else { "http://localhost:$keycloakPort" }
-$realm = if ($env:KEYCLOAK_REALM) { $env:KEYCLOAK_REALM } else { 'zentro' }
-if (-not $env:KC_BOOTSTRAP_ADMIN_USERNAME -or -not $env:KC_BOOTSTRAP_ADMIN_PASSWORD) { throw 'Set the Keycloak bootstrap admin credentials in infra/keycloak/.env.' }
-
-$tokenResponse = Invoke-RestMethod -Method Post -Uri "$baseUrl/realms/master/protocol/openid-connect/token" -ContentType 'application/x-www-form-urlencoded' -Body @{
-  grant_type = 'password'; client_id = 'admin-cli'; username = $env:KC_BOOTSTRAP_ADMIN_USERNAME; password = $env:KC_BOOTSTRAP_ADMIN_PASSWORD
-}
-if (-not $tokenResponse.access_token) { throw 'Could not obtain a Keycloak admin token.' }
-$headers = @{ Authorization = "Bearer $($tokenResponse.access_token)" }
-$api = "$baseUrl/admin/realms/$realm"
-
-function Get-KeycloakItems($Response) {
-  $items = [System.Collections.Generic.List[object]]::new()
-  foreach ($item in $Response) {
-    if ($item -is [array]) { foreach ($nested in $item) { $items.Add($nested) } }
-    elseif ($null -ne $item) { $items.Add($item) }
-  }
-  return $items.ToArray()
-}
-
-function Get-KeycloakUser([string]$Email) {
-  $encoded = [Uri]::EscapeDataString($Email)
-  $users = Get-KeycloakItems (Invoke-RestMethod -Method Get -Uri "$api/users?username=$encoded&exact=true" -Headers $headers)
-  if ($users.Count -eq 0) { $users = Get-KeycloakItems (Invoke-RestMethod -Method Get -Uri "$api/users?email=$encoded&exact=true" -Headers $headers) }
-  return $users | Select-Object -First 1
-}
-
-$seedDefinitions = @(
-  @{ Email = 'dispatcher@zentro.test'; First = 'Zentro'; Last = 'Dispatcher'; Phone = '+94770000001'; Role = 'DISPATCHER'; Permissions = @('DISPATCH_VIEW', 'DISPATCH_ASSIGN'); Password = 'Dispatch@123' },
-  @{ Email = 'courier1@zentro.test'; First = 'Zentro'; Last = 'Courier 1'; Phone = '+94770000002'; Role = 'COURIER'; Password = 'Courier1@123' },
-  @{ Email = 'courier2@zentro.test'; First = 'Zentro'; Last = 'Courier 2'; Phone = '+94770000003'; Role = 'COURIER'; Password = 'Courier2@123' }
+$privateDir = Join-Path $env:LOCALAPPDATA 'ZentroSecrets'
+$credentialPath = Join-Path $privateDir 'seed-users.env'
+$adminConfigPath = Join-Path $privateDir 'keycloak-admin.env'
+$accounts = @(
+  @{ Email = 'dispatcher@zentro.test'; First = 'Zentro'; Last = 'Dispatcher'; Phone = '+94770000001'; Role = 'DISPATCHER'; Permissions = @('DISPATCH_VIEW', 'DISPATCH_ASSIGN'); Key = 'ZENTRO_SEED_DISPATCHER_PASSWORD' },
+  @{ Email = 'courier1@zentro.test'; First = 'Zentro'; Last = 'Courier 1'; Phone = '+94770000002'; Role = 'COURIER'; Key = 'ZENTRO_SEED_COURIER1_PASSWORD' },
+  @{ Email = 'courier2@zentro.test'; First = 'Zentro'; Last = 'Courier 2'; Phone = '+94770000003'; Role = 'COURIER'; Key = 'ZENTRO_SEED_COURIER2_PASSWORD' }
 )
-$results = [System.Collections.Generic.List[object]]::new()
-$fileLines = [System.Collections.Generic.List[string]]::new()
-$fileLines.Add("Email`tPassword`tRole")
 
-foreach ($definition in $seedDefinitions) {
-  $email = $definition.Email
-  $user = Get-KeycloakUser $email
-  $attributes = @{ phone = @($definition.Phone) }
-  if ($definition.Permissions) {
-    $attributes['permissions'] = @($definition.Permissions)
+function Stop-Safely([string]$Message) { throw $Message }
+function Read-DotEnv([string]$Path) {
+  $values = @{}
+  foreach ($line in Get-Content -LiteralPath $Path) {
+    if ($line -match '^\s*([^#=\s]+)\s*=\s*(.*)\s*$') {
+      $value = $Matches[2].Trim()
+      if ($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'")))) { $value = $value.Substring(1, $value.Length - 2) }
+      $values[$Matches[1]] = $value
+    }
   }
-  if (-not $user) {
-    $body = @{ username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = $attributes } | ConvertTo-Json -Depth 8
-    Invoke-RestMethod -Method Post -Uri "$api/users" -Headers $headers -ContentType 'application/json' -Body $body | Out-Null
-    $user = Get-KeycloakUser $email
+  return $values
+}
+function Assert-PrivatePath([string]$Path) {
+  $resolved = [IO.Path]::GetFullPath($Path)
+  foreach ($root in @($env:OneDrive, $env:OneDriveCommercial, $env:OneDriveConsumer) | Where-Object { $_ }) {
+    $oneDrive = [IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
+    if ($resolved.StartsWith($oneDrive, [StringComparison]::OrdinalIgnoreCase)) { Stop-Safely 'Private seed credentials must be outside OneDrive.' }
   }
-  if (-not $user.id) { throw "Could not create or find Keycloak account $email." }
-
-  $update = @{ id = $user.id; username = $email; email = $email; firstName = $definition.First; lastName = $definition.Last; enabled = $true; emailVerified = $true; attributes = $attributes } | ConvertTo-Json -Depth 8
-  Invoke-RestMethod -Method Put -Uri "$api/users/$($user.id)" -Headers $headers -ContentType 'application/json' -Body $update | Out-Null
-
-  $password = if ($definition.Password) {
-    $definition.Password
-  } else {
-    $randomBytes = New-Object byte[] 24
-    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-    $rng.GetBytes($randomBytes)
-    $rng.Dispose()
-    [BitConverter]::ToString($randomBytes).Replace('-', '')
+}
+function Assert-RestrictedAcl([string]$Path) {
+  $acl = Get-Acl -LiteralPath $Path
+  if (-not $acl.AreAccessRulesProtected) { Stop-Safely 'Seed credential ACL inheritance must be disabled.' }
+  $rules = @($acl.GetAccessRules($true, $false, [Security.Principal.SecurityIdentifier]))
+  $expected = @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value, 'S-1-5-18', 'S-1-5-32-544')
+  if ($rules.Count -ne 3) { Stop-Safely 'Seed credential ACL must contain exactly owner, SYSTEM, and Administrators.' }
+  foreach ($rule in $rules) {
+    if ($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+        $rule.IdentityReference.Value -notin $expected -or
+        (($rule.FileSystemRights -band [Security.AccessControl.FileSystemRights]::FullControl) -ne [Security.AccessControl.FileSystemRights]::FullControl)) {
+      Stop-Safely 'Seed credential ACL contains an unexpected access rule.'
+    }
   }
-  $passwordBody = @{ type = 'password'; value = $password; temporary = $false } | ConvertTo-Json
-  Invoke-RestMethod -Method Put -Uri "$api/users/$($user.id)/reset-password" -Headers $headers -ContentType 'application/json' -Body $passwordBody | Out-Null
-
-  $role = Invoke-RestMethod -Method Get -Uri "$api/roles/$($definition.Role)" -Headers $headers
-  $mappings = Get-KeycloakItems (Invoke-RestMethod -Method Get -Uri "$api/users/$($user.id)/role-mappings/realm" -Headers $headers)
-  if (-not ($mappings | Where-Object { $_.name -eq $definition.Role })) {
-    $mappingBody = ConvertTo-Json -InputObject @($role) -Depth 8 -Compress
-    Invoke-RestMethod -Method Post -Uri "$api/users/$($user.id)/role-mappings/realm" -Headers $headers -ContentType 'application/json' -Body $mappingBody | Out-Null
-  }
-  $results.Add([pscustomobject]@{ Email = $email; Password = $password; Role = $definition.Role })
-  $fileLines.Add("$email`t$password`t$($definition.Role)")
+  foreach ($sid in $expected) { if (-not ($rules | Where-Object { $_.IdentityReference.Value -eq $sid })) { Stop-Safely 'Seed credential ACL is missing a required principal.' } }
 }
 
-$credentialsPath = Join-Path $scriptDir 'seed-credentials.local.txt'
-Set-Content -LiteralPath $credentialsPath -Value $fileLines -Encoding utf8
-$results | Format-Table -AutoSize
-Write-Output "Fresh credentials saved to $credentialsPath. Keep that ignored local file private."
+try {
+  if (-not $env:LOCALAPPDATA -or -not (Test-Path -LiteralPath $privateDir -PathType Container) -or -not (Test-Path -LiteralPath $credentialPath -PathType Leaf)) { Stop-Safely 'Private seed credential file is missing.' }
+  Assert-PrivatePath $credentialPath
+  Assert-RestrictedAcl $privateDir
+  Assert-RestrictedAcl $credentialPath
+  if (-not (Test-Path -LiteralPath $adminConfigPath -PathType Leaf)) { Stop-Safely 'Private local Keycloak admin configuration is missing.' }
+  Assert-PrivatePath $adminConfigPath
+  Assert-RestrictedAcl $adminConfigPath
+  $admin = Read-DotEnv $adminConfigPath
+  $private = Read-DotEnv $credentialPath
+  $adminUser = $admin['KC_BOOTSTRAP_ADMIN_USERNAME']
+  $adminPassword = $admin['KC_BOOTSTRAP_ADMIN_PASSWORD']
+  if (-not $adminUser -or -not $adminPassword) { Stop-Safely 'Local Keycloak administrator configuration is incomplete.' }
+  $baseUrl = if ($admin['KEYCLOAK_URL']) { $admin['KEYCLOAK_URL'].TrimEnd('/') } else { 'http://localhost:' + $(if ($admin['KC_HTTP_PORT']) { $admin['KC_HTTP_PORT'] } else { '8180' }) }
+  $uri = [Uri]$baseUrl
+  if ($uri.Scheme -ne 'http' -or $uri.Host -notin @('localhost', '127.0.0.1', '::1') -or $uri.Port -ne 8180) { Stop-Safely 'Seed workflow only permits local Keycloak at port 8180.' }
+  $realm = if ($admin['KEYCLOAK_REALM']) { $admin['KEYCLOAK_REALM'] } else { 'zentro' }
+  if ($realm -ne 'zentro') { Stop-Safely 'Seed workflow only permits the local zentro realm.' }
+  $passwords = @{}
+  foreach ($account in $accounts) {
+    $value = $private[$account.Key]
+    if (-not $value -or $value.Length -lt 32) { Stop-Safely 'A required private seed credential is missing or too short.' }
+    $passwords[$account.Email] = $value
+  }
+  if (@($passwords.Values | Select-Object -Unique).Count -ne $accounts.Count) { Stop-Safely 'Seed account credentials must be independent.' }
+
+  $tokenResponse = Invoke-RestMethod -Method Post -Uri "$baseUrl/realms/master/protocol/openid-connect/token" -ContentType 'application/x-www-form-urlencoded' -Body @{ grant_type='password'; client_id='admin-cli'; username=$adminUser; password=$adminPassword }
+  $headers = @{ Authorization = "Bearer $($tokenResponse.access_token)" }
+  if (-not $tokenResponse.access_token) { Stop-Safely 'Could not authenticate to local Keycloak.' }
+  $api = "$baseUrl/admin/realms/$realm"
+  foreach ($account in $accounts) {
+    $escaped = [Uri]::EscapeDataString($account.Email)
+    $users = @(Invoke-RestMethod -Method Get -Uri "$api/users?username=$escaped&exact=true" -Headers $headers)
+    if ($users.Count) { Write-Output "$($account.Email): exists; left unchanged."; continue }
+
+    $attributes = @{ phone = @($account.Phone) }
+    if ($account.Permissions) { $attributes['permissions'] = @($account.Permissions) }
+    $body = @{
+      username = $account.Email; email = $account.Email; firstName = $account.First; lastName = $account.Last
+      enabled = $true; emailVerified = $true; attributes = $attributes
+      credentials = @(@{ type = 'password'; value = $passwords[$account.Email]; temporary = $false })
+    } | ConvertTo-Json -Depth 8 -Compress
+    Invoke-RestMethod -Method Post -Uri "$api/users" -Headers $headers -ContentType 'application/json' -Body $body | Out-Null
+    $created = @(Invoke-RestMethod -Method Get -Uri "$api/users?username=$escaped&exact=true" -Headers $headers)
+    if ($created.Count -ne 1 -or -not $created[0].id) { Stop-Safely 'Created account could not be uniquely verified; stop for inspection.' }
+    $role = Invoke-RestMethod -Method Get -Uri "$api/roles/$($account.Role)" -Headers $headers
+    $mappingBody = ConvertTo-Json -InputObject @($role) -Depth 8 -Compress
+    Invoke-RestMethod -Method Post -Uri "$api/users/$($created[0].id)/role-mappings/realm" -Headers $headers -ContentType 'application/json' -Body $mappingBody | Out-Null
+    Write-Output "$($account.Email): created; credential was not displayed or saved by this script."
+  }
+}
+catch {
+  Write-Error 'Seed workflow stopped. No credential values or response bodies were written to output; inspect local Keycloak state before retrying.'
+  exit 1
+}
+finally {
+  Remove-Variable adminPassword, passwords, private, tokenResponse, headers, body, mappingBody -ErrorAction SilentlyContinue
+}

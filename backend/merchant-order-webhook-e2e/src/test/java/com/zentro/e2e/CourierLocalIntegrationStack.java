@@ -70,6 +70,12 @@ final class CourierLocalIntegrationStack {
     Path jar = MODULE.getParent().resolve(module + "/target/" + module + "-0.1.0-SNAPSHOT.jar");
     assertThat(jar).isRegularFile();
     var env = new HashMap<>(properties);
+    if (module.equals("dispatch-courier-service")) {
+      // S3 Flyway is off by default (shared Supabase safety). Enable it only for the disposable network database.
+      assertThat(env.get("DB_URL")).startsWith("jdbc:postgresql://postgres:5432/");
+      env.put("SPRING_FLYWAY_ENABLED", "true");
+      env.put("SPRING_FLYWAY_VALIDATE_ON_MIGRATE", "true");
+    }
     env.put("SERVER_PORT", Integer.toString(port));
     env.put("JWT_ISSUER_URI", PUBLIC_ISSUER);
     env.put("JWT_JWKS_URI", INTERNAL_JWKS);

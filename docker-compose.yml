@@ -96,6 +96,13 @@ services:
       IDENTITY_GRPC_PORT: "9081"
       PARCEL_GRPC_HOST: parcel-pricing-service
       PARCEL_GRPC_PORT: "9082"
+      # Shared S3 Supabase must never be migrated by application startup: its history
+      # uses the historical V5 lineage. These override any env_file value. Migrations
+      # run only via a separately authorized runbook (docs/development/s3-flyway-safety.md).
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      POD_WORKER_ENABLED: "false"
+      OUTBOX_ENABLED: "false"
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8083:8083"
     healthcheck:
