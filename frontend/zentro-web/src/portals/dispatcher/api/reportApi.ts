@@ -23,7 +23,7 @@ export interface DeliverySummaryReport {
   created: number;
   delivered: number;
   failed: number;
-  rate: number | null;
+  successRate: number | null;
 }
 
 export async function getDeliverySummary(
