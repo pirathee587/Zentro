@@ -25,12 +25,20 @@ export function ApiKeysPage() {
   // Accordion state
   const [openSection, setOpenSection] = useState<'store' | 'leaks' | 'roles' | null>('store');
 
-  const activeKey = key.data?.active !== false;
-  const prefix = key.data?.prefix ? `${key.data.prefix}8Kd2...` : 'zn_live_8Kd2...';
+  const activeKey = key.data?.active === true;
+  const prefix = key.data?.prefix ? `${key.data.prefix}...` : '—';
+  const keyStatus = key.isLoading
+    ? 'Loading'
+    : key.isError
+      ? 'Unavailable'
+      : !key.data
+        ? 'Not configured'
+        : activeKey
+          ? 'Active'
+          : 'Inactive';
   const createdDate = key.data?.createdAt
     ? new Date(key.data.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-    : '12 Oct 2026';
-  const lastUsedText = 'Today, 10:42';
+    : '—';
 
   const actionError = issue.error || revoke.error;
 
@@ -52,7 +60,12 @@ export function ApiKeysPage() {
           <Spinner label="Loading API key status" />
         </div>
       )}
-      {key.isError && <ErrorState message={friendlyApiError(key.error, 'We could not load your API key.')} />}
+      {key.isError && (
+        <div>
+          <ErrorState message={friendlyApiError(key.error, 'We could not load your API key.')} />
+          <Button type="button" variant="secondary" onClick={() => void key.refetch()}>Retry API key</Button>
+        </div>
+      )}
 
       {/* 2-Column Grid */}
       <div className="sd-grid-2col" style={{ gap: 24, alignItems: 'start' }}>
@@ -62,7 +75,7 @@ export function ApiKeysPage() {
             <h2 id="your-key-heading" className="sd-card-title">
               Your API key
             </h2>
-            <span className="sd-badge-dark">{activeKey ? 'Active' : 'Inactive'}</span>
+            <span className="sd-badge-dark">{keyStatus}</span>
           </div>
 
           <div className="sd-health-list" style={{ marginTop: 8 }}>
@@ -76,7 +89,7 @@ export function ApiKeysPage() {
             </div>
             <div className="sd-health-row">
               <span className="sd-health-label">Last used</span>
-              <span className="sd-health-val">{lastUsedText}</span>
+              <span className="sd-health-val">Not available</span>
             </div>
           </div>
 
@@ -136,7 +149,7 @@ export function ApiKeysPage() {
             <Button
               type="button"
               className="sd-btn-pill-light"
-              disabled={issue.isPending || revoke.isPending}
+              disabled={issue.isPending || revoke.isPending || key.isLoading || key.isError || !key.data?.active}
               onClick={() => {
                 if (window.confirm('Revoke this key? The current key will stop working immediately.')) {
                   setSecret('');
