@@ -65,6 +65,14 @@ for (const theme of ['light', 'dark']) describe(`axe DOM checks: ${theme}`, () =
       else if (url.includes('/courier/deliveries/')) data = summary;
       else if (url.includes('/tracking/')) data = { status: 'CREATED', timeline: state === 'empty' ? [] : [{ status: 'CREATED' }] };
       else if (url.includes('api-key')) data = state === 'empty' || state === 'secret' ? null : { active: true, prefix: 'synthetic' };
+      else if (url.includes('/merchant/orders/summary')) data = state === 'empty'
+        ? { totalOrders: 0, deliveredOrders: 0, failedOrders: 0, statusCounts: {} }
+        : { totalOrders: 1, deliveredOrders: 1, failedOrders: 0, statusCounts: { DELIVERED: 1 } };
+      else if (url.includes('/merchant/orders/billing')) data = state === 'empty'
+        ? { month: '2026-11', orderCount: 0, quotedFeeTotal: 0, currency: null, orders: [] }
+        : { month: '2026-11', orderCount: 1, quotedFeeTotal: 100, currency: 'LKR', orders: [{ id: 'synthetic-order', externalOrderRef: 'SYNTHETIC-ORDER', trackingRef: 'SYNTHETIC-1', createdAt: '2026-11-09T00:00:00Z', status: 'DELIVERED', currency: 'LKR', fee: 100 }] };
+      else if (url.includes('/merchant/webhooks/deliveries')) data = { items: [], page: 0, size: 20, total: 0 };
+      else if (url === '/api/v1/merchant/webhooks') throw Object.assign(new Error('No webhook endpoint'), { isAxiosError: true, response: { status: 404, data: { code: 'WEBHOOK_NOT_FOUND' } } });
       else if (url.includes('orders')) data = state === 'empty' ? [] : [{ id: 'synthetic-order', externalOrderRef: 'SYNTHETIC-ORDER', trackingRef: 'SYNTHETIC-1', createdAt: '2026-11-09T00:00:00Z', status: 'DELIVERED', currency: 'LKR', fee: 100 }];
       else data = { businessName: 'Synthetic business', status: 'APPROVED' };
       return { data } as never;
