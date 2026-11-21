@@ -52,19 +52,29 @@ public class UserProfileService {
   private final JdbcTemplate jdbc;
   private final UserAdminAuditRepository audit;
   private final com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer;
+  private final KeycloakAdminService keycloakAdmin;
 
   public UserProfileService(JdbcTemplate jdbc, UserAdminAuditRepository audit) {
-    this(jdbc, audit, null);
+    this(jdbc, audit, null, null);
+  }
+
+  public UserProfileService(
+      JdbcTemplate jdbc,
+      UserAdminAuditRepository audit,
+      com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer) {
+    this(jdbc, audit, roleSyncer, null);
   }
 
   @org.springframework.beans.factory.annotation.Autowired
   public UserProfileService(
       JdbcTemplate jdbc,
       UserAdminAuditRepository audit,
-      com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer) {
+      com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer,
+      KeycloakAdminService keycloakAdmin) {
     this.jdbc = jdbc;
     this.audit = audit;
     this.roleSyncer = roleSyncer;
+    this.keycloakAdmin = keycloakAdmin;
   }
 
   @Transactional
