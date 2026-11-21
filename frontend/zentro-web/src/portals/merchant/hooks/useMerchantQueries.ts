@@ -17,6 +17,7 @@ import {
   disableMerchantWebhook,
   rotateMerchantWebhookSecret,
 } from '../api/merchantApi';
+import type { MerchantApplication } from '../api/merchantApi';
 
 export const merchantQueryKeys = {
   application: (userId?: string) => queryKeys.merchant.application(principalCacheScope(userId)),
