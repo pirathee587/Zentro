@@ -227,6 +227,13 @@ class WebhookDeliveryIntegrationTest {
     return row;
   }
 
+  private void awaitAttempt(UUID eventId, int attemptNumber, int httpStatus) {
+    await().atMost(WAIT).until(() -> jdbc.queryForObject("""
+        SELECT COUNT(*) FROM notification.delivery_attempt_history
+         WHERE event_id = ? AND delivery_kind = 'WEBHOOK' AND attempt_number = ? AND http_status = ?
+        """, Integer.class, eventId, attemptNumber, httpStatus) > 0);
+  }
+
   private static String hmac(String secret, String data) throws Exception {
     Mac mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
@@ -429,7 +436,8 @@ class WebhookDeliveryIntegrationTest {
     UUID parcelId = UUID.randomUUID();
 
     send(STATUS_TOPIC, parcelId, statusEvent(first, parcelId, "PICKED_UP", merchant[0]));
-    awaitDelivery(first, "RETRY");
+    // RETRY is transient; a fast scheduler can advance it to SUCCEEDED before the test thread polls.
+    awaitAttempt(first, 1, 503);
     send(STATUS_TOPIC, parcelId, statusEvent(second, parcelId, "IN_TRANSIT", merchant[0]));
     awaitDelivery(first, "SUCCEEDED");
     awaitDelivery(second, "SUCCEEDED");
