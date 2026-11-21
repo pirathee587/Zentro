@@ -45,6 +45,9 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
+        "http://127.0.0.1/*",
+        "http://127.0.0.1/callback",
+        "http://127.0.0.1/silent-callback",
         "http://localhost:3000/*",
         "http://localhost:3000/callback",
         "http://localhost:3000/silent-callback",
@@ -54,14 +57,19 @@
         "http://localhost:5173/*",
         "http://localhost:5173/callback",
         "http://localhost:5173/silent-callback",
+        "http://localhost:8088/*",
+        "http://localhost:8088/callback",
+        "http://localhost:8088/silent-callback",
         "http://localhost/*",
         "http://localhost/callback",
         "http://localhost/silent-callback"
       ],
       "webOrigins": [
+        "http://127.0.0.1",
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:5173",
+        "http://localhost:8088",
         "http://localhost"
       ],
       "attributes": {

@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -80,6 +82,25 @@ public class MerchantOrderController {
 
     int clampedLimit = Math.min(Math.max(limit, 1), 100);
     return orderService.listByMerchant(merchantId, clampedLimit);
+  }
+
+  @GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
+  public MerchantOrderService.OrderSummary summary(@AuthenticationPrincipal Jwt jwt) {
+    String merchantId = getMerchantSubject(jwt);
+    identityMerchantClient.requireApprovedMerchant(jwt.getTokenValue());
+    return orderService.summary(merchantId);
+  }
+
+  @GetMapping(value = "/billing", produces = MediaType.APPLICATION_JSON_VALUE)
+  public MerchantOrderService.BillingSummary billing(@AuthenticationPrincipal Jwt jwt,
+      @RequestParam(name = "month") String month) {
+    String merchantId = getMerchantSubject(jwt);
+    identityMerchantClient.requireApprovedMerchant(jwt.getTokenValue());
+    try {
+      return orderService.billingSummary(merchantId, YearMonth.parse(month));
+    } catch (DateTimeParseException ex) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Month must use YYYY-MM format.");
+    }
   }
 
   private static String getMerchantSubject(Jwt jwt) {

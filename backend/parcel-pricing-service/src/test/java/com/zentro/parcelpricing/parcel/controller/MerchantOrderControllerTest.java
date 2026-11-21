@@ -31,6 +31,7 @@ import com.zentro.parcelpricing.parcel.service.MerchantOrderService.OrderResult;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -312,6 +313,43 @@ class MerchantOrderControllerTest {
         .andExpect(jsonPath("$[0].externalOrderRef").value("ORD-2026-11-001"));
 
     verify(identityClient).requireApprovedMerchant(any());
+  }
+
+  @Test
+  @DisplayName("GET /summary returns full current-month counts for the approved token subject")
+  void summaryIsApprovedAndMerchantScoped() throws Exception {
+    when(orderService.summary("merchant-123")).thenReturn(
+        new MerchantOrderService.OrderSummary(6, 2, 1, Map.of("CREATED", 3L, "DELIVERED", 2L, "FAILED", 1L)));
+
+    mvc.perform(get(URL + "/summary").with(merchant("merchant-123")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalOrders").value(6))
+        .andExpect(jsonPath("$.deliveredOrders").value(2))
+        .andExpect(jsonPath("$.failedOrders").value(1))
+        .andExpect(jsonPath("$.statusCounts.CREATED").value(3));
+
+    verify(identityClient).requireApprovedMerchant(any());
+    verify(orderService).summary("merchant-123");
+  }
+
+  @Test
+  @DisplayName("GET /billing validates YYYY-MM and returns persisted quoted fee fields")
+  void billingValidatesMonthAndMapsPersistedSummary() throws Exception {
+    when(orderService.billingSummary("merchant-123", java.time.YearMonth.of(2026, 11)))
+        .thenReturn(new MerchantOrderService.BillingSummary("2026-11", 1, new BigDecimal("1072.00"),
+            "LKR", List.of(sampleOrder())));
+
+    mvc.perform(get(URL + "/billing").with(merchant("merchant-123")).param("month", "2026-11"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.month").value("2026-11"))
+        .andExpect(jsonPath("$.orderCount").value(1))
+        .andExpect(jsonPath("$.quotedFeeTotal").value(1072.00))
+        .andExpect(jsonPath("$.currency").value("LKR"))
+        .andExpect(jsonPath("$.orders[0].merchantId").value("merchant-123"));
+
+    verify(identityClient).requireApprovedMerchant(any());
+    mvc.perform(get(URL + "/billing").with(merchant("merchant-123")).param("month", "2026-13"))
+        .andExpect(status().isBadRequest());
   }
 
   private static RequestPostProcessor merchant(String subject) {

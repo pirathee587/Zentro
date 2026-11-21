@@ -1,4 +1,5 @@
 import { apiClient, withBearerToken } from '@/shared/api/apiClient';
+import axios from 'axios';
 
 export type MerchantApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -61,6 +62,8 @@ export type MerchantOrder = {
   recipient: MerchantOrderContact;
   parcel: MerchantOrderParcel;
 };
+export type MerchantOrderSummary = { totalOrders: number; deliveredOrders: number; failedOrders: number; statusCounts: Record<string, number> };
+export type MerchantBillingSummary = { month: string; orderCount: number; quotedFeeTotal: number; currency: string | null; orders: MerchantOrder[] };
 
 export type IssuedMerchantApiKey = {
   secret: string;
@@ -77,6 +80,12 @@ const MERCHANT_APPLICATION_PATH = '/api/v1/merchants/me';
 const MERCHANTS_PATH = '/api/v1/merchants';
 const MERCHANT_API_KEY_PATH = '/api/v1/merchants/api-key';
 const MERCHANT_ORDERS_PATH = '/api/v1/merchant/orders';
+const MERCHANT_WEBHOOK_PATH = '/api/v1/merchant/webhooks';
+
+export type MerchantWebhook = { id: string; url: string; active: boolean; secretPrefix: string; createdAt: string; updatedAt: string };
+export type MerchantWebhookDelivery = { id: string; eventId: string; eventType: string; parcelId: string; status: string; attempts: number; responseStatus: number | null; lastError: string | null; nextAttemptAt: string | null; createdAt: string; updatedAt: string };
+export type MerchantWebhookDeliveryPage = { items: MerchantWebhookDelivery[]; page: number; size: number; total: number };
+export type MerchantWebhookSecret = { id: string; url: string; secret: string; secretPrefix: string; active: boolean };
 
 async function withMerchantAuth<T>(
   auth: MerchantApiAuth,
@@ -112,6 +121,36 @@ export function getMerchantOrders(auth: MerchantApiAuth, limit = 50) {
     })).data,
   );
 }
+export function getMerchantOrderSummary(auth: MerchantApiAuth) {
+  return withMerchantAuth(auth, async token => (await apiClient.get<MerchantOrderSummary>(`${MERCHANT_ORDERS_PATH}/summary`, authorization(token, auth.signal))).data);
+}
+export function getMerchantBillingOrders(auth: MerchantApiAuth, month: string) {
+  return withMerchantAuth(auth, async token => (await apiClient.get<MerchantBillingSummary>(`${MERCHANT_ORDERS_PATH}/billing`, { ...authorization(token, auth.signal), params: { month } })).data);
+}
+
+export function getMerchantWebhook(auth: MerchantApiAuth): Promise<MerchantWebhook | null> {
+  return withMerchantAuth(auth, async token => {
+    try {
+      return (await apiClient.get<MerchantWebhook>(MERCHANT_WEBHOOK_PATH, authorization(token, auth.signal))).data;
+    } catch (error) {
+      // The service uses 404 to mean this merchant has not registered a webhook yet.
+      if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+      throw error;
+    }
+  });
+}
+export function getMerchantWebhookDeliveries(auth: MerchantApiAuth, page = 0, size = 20) {
+  return withMerchantAuth(auth, async token => (await apiClient.get<MerchantWebhookDeliveryPage>(`${MERCHANT_WEBHOOK_PATH}/deliveries`, { ...authorization(token, auth.signal), params: { page, size } })).data);
+}
+export function registerMerchantWebhook(auth: MerchantApiAuth, url: string) {
+  return withMerchantAuth(auth, async token => (await apiClient.post<MerchantWebhookSecret>(MERCHANT_WEBHOOK_PATH, { url }, authorization(token))).data);
+}
+export function disableMerchantWebhook(auth: MerchantApiAuth) {
+  return withMerchantAuth(auth, async token => apiClient.delete(MERCHANT_WEBHOOK_PATH, authorization(token)));
+}
+export function rotateMerchantWebhookSecret(auth: MerchantApiAuth) {
+  return withMerchantAuth(auth, async token => (await apiClient.post<MerchantWebhookSecret>(`${MERCHANT_WEBHOOK_PATH}/secret`, undefined, authorization(token))).data);
+}
 
 export function isMerchantOrderId(orderId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
@@ -138,9 +177,15 @@ export function createMerchantApplication(
 }
 
 export function getMerchantApiKey(auth: MerchantApiAuth) {
-  return withMerchantAuth(auth, async (token) =>
-    (await apiClient.get<MerchantApiKeyMetadata | null>(MERCHANT_API_KEY_PATH, authorization(token, auth.signal))).data,
-  );
+  return withMerchantAuth(auth, async (token) => {
+    try {
+      return (await apiClient.get<MerchantApiKeyMetadata>(MERCHANT_API_KEY_PATH, authorization(token, auth.signal))).data;
+    } catch (error) {
+      // The identity service uses 404 when an approved merchant has not issued a key yet.
+      if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+      throw error;
+    }
+  });
 }
 
 export function issueMerchantApiKey(auth: MerchantApiAuth) {

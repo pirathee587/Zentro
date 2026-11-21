@@ -73,6 +73,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const profilePatchInFlight = useRef(new Set<string>());
+  const merchantRoleRefreshAttempted = useRef(new Set<string>());
 
   useEffect(() => {
     let mounted = true;
@@ -178,6 +179,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const tokenProfile = oidcUser?.profile as OidcProfile | undefined;
   const appProfile = profileQuery.data ?? {};
   const idTokenRoles = getRealmRoles(tokenProfile);
+  const tokenHasMerchantRole = idTokenRoles.includes('MERCHANT');
   const roles = mapSupportedRoles(idTokenRoles);
   const oidcState = oidcUser?.state as { returnTo?: string; entryPoint?: EntryPoint } | undefined;
   const pendingAuthFlow = window.location.pathname === '/callback' ? readPendingAuthFlow() : undefined;
@@ -197,6 +199,33 @@ export function AuthProvider({ children }: PropsWithChildren) {
     merchantStatus,
     profileLoaded: profileQuery.isFetched,
   } : null;
+
+  useEffect(() => {
+    const subject = tokenProfile?.sub;
+    if (!subject
+      || !accessToken
+      || !profileQuery.data
+      || profileQuery.isError
+      || appProfile.merchantStatus !== 'APPROVED'
+      || tokenHasMerchantRole
+      || merchantRoleRefreshAttempted.current.has(subject)) return;
+
+    // Approval can grant MERCHANT after the current ID token was issued. Refresh once,
+    // then rely on the new Keycloak role claim; profile approval alone never grants access.
+    merchantRoleRefreshAttempted.current.add(subject);
+    let mounted = true;
+    void oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } })
+      .then((renewedUser) => {
+        if (!mounted || !renewedUser || renewedUser.expired) return;
+        const renewedRoles = getRealmRoles(renewedUser.profile as OidcProfile);
+        if (!renewedRoles.includes('MERCHANT')) return;
+        setAccessToken(renewedUser.access_token);
+        setOidcUser(renewedUser);
+      })
+      .catch(() => undefined);
+
+    return () => { mounted = false; };
+  }, [accessToken, appProfile.merchantStatus, profileQuery.data, profileQuery.isError, tokenHasMerchantRole, tokenProfile?.sub]);
 
   useEffect(() => {
     if (window.location.pathname === '/callback' && oidcUser) {
