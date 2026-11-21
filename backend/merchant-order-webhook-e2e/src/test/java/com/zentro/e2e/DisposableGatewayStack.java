@@ -64,8 +64,12 @@ abstract class DisposableGatewayStack {
   protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"))
       .withDatabaseName("e2e_admin").withUsername("e2e_admin").withPassword("e2e-admin-only")
       .withCommand("postgres", "-c", "shared_preload_libraries=pg_stat_statements");
-  protected static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.8.0"))
-      .withEnv("KAFKA_HEAP_OPTS", "-Xms128m -Xmx256m");
+  protected static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"))
+      .withEnv("KAFKA_HEAP_OPTS", "-Xms256m -Xmx512m")
+      .withEnv("KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS", "60000")
+      .withEnv("KAFKA_ZOOKEEPER_SESSION_TIMEOUT_MS", "60000")
+      .withStartupAttempts(3)
+      .withStartupTimeout(Duration.ofMinutes(2));
   protected static final GenericContainer<?> KEYCLOAK = new GenericContainer<>(DockerImageName.parse("quay.io/keycloak/keycloak:26.3.3"))
       .withExposedPorts(8080)
       .withEnv("KC_BOOTSTRAP_ADMIN_USERNAME", ADMIN_USER)
