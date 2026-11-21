@@ -67,8 +67,16 @@ public class ParcelStatusRepository {
         UPDATE parcel.parcel
            SET status = ?, updated_at = ?, version = version + 1
          WHERE id = ? AND version = ?
+           AND NOT EXISTS (SELECT 1 FROM parcel.assignment_claim c WHERE c.parcel_id=parcel.parcel.id AND c.state='HELD')
         """, newStatus.name(), changedAt, parcelId, expectedVersion);
     if (updated != 1) {
+      // A HELD claim is a temporary dependency condition, not a rejected lifecycle transition.
+      // Existing proof completion retries 503 responses but treats 409 as definitive rejection.
+      if (Boolean.TRUE.equals(jdbc.queryForObject(
+          "SELECT EXISTS(SELECT 1 FROM parcel.assignment_claim WHERE parcel_id=? AND state='HELD')",
+          Boolean.class, parcelId))) {
+        throw new org.springframework.dao.TransientDataAccessResourceException("Parcel assignment coordination is pending");
+      }
       throw new OptimisticLockingFailureException("Parcel " + parcelId + " changed while its status was being updated");
     }
     return expectedVersion + 1;
@@ -89,6 +97,26 @@ public class ParcelStatusRepository {
         change.actorSubject(),
         change.actorRole(),
         change.occurredAt());
+  }
+
+  public record StatusHistoryRow(UUID id, String fromStatus, String toStatus, String reason, String note,
+      String actorRole, OffsetDateTime occurredAt) {}
+
+  @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+  public List<StatusHistoryRow> findHistoryByParcelId(UUID parcelId) {
+    return jdbc.query("""
+        SELECT id, from_status, to_status, reason, note, actor_role, occurred_at
+          FROM parcel.parcel_status_history
+         WHERE parcel_id = ?
+         ORDER BY occurred_at ASC, id ASC
+        """, (rs, rowNum) -> new StatusHistoryRow(
+        rs.getObject("id", UUID.class),
+        rs.getString("from_status"),
+        rs.getString("to_status"),
+        rs.getString("reason"),
+        rs.getString("note"),
+        rs.getString("actor_role"),
+        rs.getObject("occurred_at", OffsetDateTime.class)), parcelId);
   }
 
   /** Stores one event to be published later. {@code payloadJson} must be the full event envelope. */

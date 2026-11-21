@@ -68,7 +68,7 @@ against `GatewaySecurityConfig`.
 | `/api/v1/zones/**` | S2 parcel/pricing | CUSTOMER, MERCHANT, COURIER, DISPATCHER | No |
 | `POST /api/v1/parcels` | S2 parcel/pricing | CUSTOMER | No |
 | `POST /api/v1/parcels/estimate[(-fee)]` | S2 parcel/pricing | CUSTOMER, DISPATCHER | No |
-| `PATCH /api/v1/parcels/{id}/status` | S2 parcel/pricing | DISPATCHER (SERVICE calls S2 directly) | No |
+| `PATCH /api/v1/parcels/{id}/status` | S2 parcel/pricing | DISPATCHER; SERVICE status completion is gRPC-only | No |
 | `/api/v1/merchant/orders/**` | S2 parcel/pricing | MERCHANT | No |
 | `/api/v1/admin/zones/**` | S2 parcel/pricing | DISPATCHER | No |
 | `/api/v1/admin/pricing-rules/**` | S2 parcel/pricing | DISPATCHER | No |

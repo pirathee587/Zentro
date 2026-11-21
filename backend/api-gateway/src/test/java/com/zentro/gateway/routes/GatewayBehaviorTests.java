@@ -123,7 +123,7 @@ class GatewayBehaviorTests {
 
   @Test
   void realRouteConfigurationForwardsEveryPrefixToOnlyItsOrderedTarget() throws Exception {
-    Map<String, String> services = Map.of("identity", "S1", "parcel", "S2", "dispatch", "S3", "tracking", "S4", "notification", "S5");
+    Map<String, String> services = Map.of("identity", "S1", "parcel", "S2", "dispatch", "S3", "tracking", "S4", "notification", "S5", "assistant", "S5");
     for (var route : routeProperties.getRoutes()) for (String predicate : GatewayInventoryTests.paths(route)) {
       clearRecordedRequests();
       String path = predicate.replace("/**", "");
@@ -131,7 +131,9 @@ class GatewayBehaviorTests {
           : path.contains("/courier") ? "COURIER" : path.contains("/merchant/") ? "MERCHANT" : "CUSTOMER";
       boolean tracking = path.equals("/api/v1/tracking");
       if (tracking) path += "/ZTR-1234567890";
-      boolean post = path.equals("/api/v1/parcels");
+      if (path.equals("/api/v1/assistant")) path += "/chat";
+      if (path.equals("/api/v1/support")) path += "/tickets";
+      boolean post = path.equals("/api/v1/parcels") || path.equals("/api/v1/assistant/chat") || path.equals("/api/v1/support/tickets");
       String query = "?audit=144&preserved=yes";
       var request = client.method(post ? HttpMethod.POST : HttpMethod.GET)
           .uri(URI.create("http://localhost:" + port + path + query))
@@ -219,6 +221,29 @@ class GatewayBehaviorTests {
     RecordedRequest statusUpdate = upstreams.get("S2").takeRequest(2, TimeUnit.SECONDS);
     assertThat(statusUpdate).isNotNull();
     assertThat(statusUpdate.getMethod()).isEqualTo("PATCH");
+  }
+
+  @Test
+  void assistantAndParcelDetailRoutesRequireCustomerAndForwardToExistingServices() throws Exception {
+    clearRecordedRequests();
+    client.post().uri("/api/v1/assistant/chat").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .bodyValue("{\"message\":\"hello\"}").exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("S5");
+    assertThat(upstreams.get("S5").takeRequest(2, TimeUnit.SECONDS).getPath()).isEqualTo("/api/v1/assistant/chat");
+    client.get().uri("/api/v1/assistant/conversations").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("S5");
+    assertThat(upstreams.get("S5").takeRequest(2, TimeUnit.SECONDS).getPath()).isEqualTo("/api/v1/assistant/conversations");
+    for (String role : List.of("COURIER", "DISPATCHER", "MERCHANT", "SERVICE")) {
+      client.post().uri("/api/v1/assistant/chat").header("Authorization", "Bearer test.ROLE_" + role)
+          .bodyValue("{}").exchange().expectStatus().isForbidden();
+    }
+    client.post().uri("/api/v1/support/tickets").header("Authorization", "Bearer test.ROLE_CUSTOMER")
+        .bodyValue("{\"subject\":\"issue\"}").exchange().expectStatus().isOk();
+    assertThat(upstreams.get("S5").takeRequest(2, TimeUnit.SECONDS).getPath()).isEqualTo("/api/v1/support/tickets");
+    for(String role:List.of("COURIER","MERCHANT","DISPATCHER","SERVICE")) client.post().uri("/api/v1/support/tickets")
+        .header("Authorization","Bearer test.ROLE_"+role).bodyValue("{}").exchange().expectStatus().isForbidden();
+    client.get().uri("/api/v1/parcels/550e8400-e29b-41d4-a716-446655440000")
+        .header("Authorization", "Bearer test.ROLE_CUSTOMER").exchange().expectStatus().isOk();
+    assertThat(upstreams.get("S2").takeRequest(2, TimeUnit.SECONDS).getHeader("Authorization")).isEqualTo("Bearer test.ROLE_CUSTOMER");
   }
 
   @Test

@@ -15,6 +15,8 @@ export interface Parcel {
   trackingRef: string;
   status: ParcelStatus;
   rawStatus?: string;
+  destinationType?: string;
+  isExpress?: boolean;
   sender: {
     name: string;
     phone: string;
@@ -29,11 +31,11 @@ export interface Parcel {
   };
   parcel: {
     description: string;
-    weightKg: number;
+    weightKg?: number;
     category: string;
     size?: ParcelSize | string;
   };
-  fee: number;
+  fee?: number;
   formattedFee: string;
   createdAt: string;
   formattedCreatedAt: string;
@@ -72,6 +74,8 @@ export interface Notification {
 }
 
 export interface DashboardData {
+  liveParcel?: Parcel | null;
+  unavailable?: { courier: string; notifications: string };
   greeting: string;
   userName?: string;
   activeCount: number;
@@ -80,9 +84,9 @@ export interface DashboardData {
   awaitingPickupCount: number;
   inTransitCount: number;
   totalParcels: number;
-  totalSpent: number;
+  totalSpent: number | null;
   formattedTotalSpent: string;
-  monthlySpent: number;
+  monthlySpent: number | null;
   formattedMonthlySpent: string;
   recentParcels: Parcel[];
   courier?: CourierAssignment;
@@ -207,6 +211,7 @@ export interface ListParcelsResponse {
   total: number;
   totalSpent?: number;
   formattedTotalSpent?: string;
+  totalFees?: { currency: string; amount: number }[];
 }
 
 export interface Receipt {
@@ -218,13 +223,19 @@ export interface Receipt {
   date: string;
   formattedDate: string;
   paymentMethod: string;
-  paymentStatus: 'Paid' | 'Pending';
+  paymentStatus: 'Paid' | 'Pending' | 'Unknown';
   downloadUrl: string;
   senderName: string;
   recipientName: string;
 }
 
+export interface AssistantHistoryMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export interface AssistantResponse {
+  conversationId?: string;
   reply: string;
   suggestedActions?: {
     label: string;

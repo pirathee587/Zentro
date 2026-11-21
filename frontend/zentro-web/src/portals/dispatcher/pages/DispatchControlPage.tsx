@@ -1,293 +1,407 @@
-import React, { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Info, CheckCircle2, Zap } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Package, RefreshCw, Truck, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { invalidateAfterDispatchAssignment } from '@/shared/api/queryInvalidation';
+import { useDispatchQueue, type QueueParcel } from '../api/dispatchApi';
+import { useCourierWorkload } from '../api/workloadApi';
+import { AssignmentDialog } from './AssignmentDialog';
+import { useMerchantApplications } from './MerchantApprovalsPage';
+import './DispatchControlPage.css';
 
-interface UnassignedParcel {
-  reference: string;
-  route: string;
-  weightCategory: string;
-  weightKg: string;
-  selectedCourier: string;
-}
-
-interface CourierWorkloadItem {
-  name: string;
-  activeCount: number;
-  percentage: number;
-}
-
-interface MerchantAppItem {
-  businessName: string;
-  appliedDate: string;
-}
-
-const INITIAL_UNASSIGNED: UnassignedParcel[] = [
-  {
-    reference: 'ZT-7K2M9QX4PA',
-    route: 'Colombo 03 to Kandy',
-    weightCategory: 'Medium',
-    weightKg: '2 kg',
-    selectedCourier: 'Saman Perera',
-  },
-  {
-    reference: 'ZT-3HD8V1NC6R',
-    route: 'Galle to Matara',
-    weightCategory: 'Small',
-    weightKg: '0.8 kg',
-    selectedCourier: 'Saman Perera',
-  },
-  {
-    reference: 'ZT-9WQ4T7BE2X',
-    route: 'Negombo to Colombo 07',
-    weightCategory: 'Large',
-    weightKg: '5 kg',
-    selectedCourier: 'Saman Perera',
-  },
-  {
-    reference: 'ZT-5RN2K8YD1V',
-    route: 'Kandy to Nuwara Eliya',
-    weightCategory: 'Small',
-    weightKg: '1.5 kg',
-    selectedCourier: 'Saman Perera',
-  },
-  {
-    reference: 'ZT-2XB6M4QH8C',
-    route: 'Colombo 02 to Gampaha',
-    weightCategory: 'Medium',
-    weightKg: '3 kg',
-    selectedCourier: 'Saman Perera',
-  },
-];
-
-const COURIER_OPTIONS = ['Saman Perera', 'Kumari Silva', 'Ruwan Jayasinghe', 'Dilani Fernando', 'Nuwan Perera'];
-
-const COURIER_WORKLOADS: CourierWorkloadItem[] = [
-  { name: 'Saman Perera', activeCount: 3, percentage: 60 },
-  { name: 'Kumari Silva', activeCount: 2, percentage: 40 },
-  { name: 'Ruwan Jayasinghe', activeCount: 1, percentage: 20 },
-  { name: 'Dilani Fernando', activeCount: 1, percentage: 20 },
-];
-
-const INITIAL_MERCHANTS: MerchantAppItem[] = [
-  { businessName: 'Ceylon Crafts', appliedDate: '25 Oct 2026' },
-  { businessName: 'Island Fresh', appliedDate: '26 Oct 2026' },
-];
-
-export function DispatchControlPage() {
-  const [unassignedList, setUnassignedList] = useState<UnassignedParcel[]>(INITIAL_UNASSIGNED);
-  const [assignedNotice, setAssignedNotice] = useState<string | null>(null);
-
-  const handleCourierSelect = (index: number, courier: string) => {
-    setUnassignedList((prev) => {
-      const next = [...prev];
-      next[index] = { ...next[index], selectedCourier: courier };
-      return next;
-    });
-  };
-
-  const handleAssign = (parcel: UnassignedParcel, index: number) => {
-    setAssignedNotice(`Assigned ${parcel.reference} to ${parcel.selectedCourier}`);
-    setTimeout(() => setAssignedNotice(null), 4000);
-    // Optionally remove from unassigned list or mark assigned
-    setUnassignedList((prev) => prev.filter((_, i) => i !== index));
-  };
-
+function Metric({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  pending,
+  error,
+}: {
+  label: string;
+  value?: number;
+  detail: string;
+  icon: LucideIcon;
+  pending: boolean;
+  error: boolean;
+}) {
   return (
-    <main className="sd-page-container">
-      {/* Page Title & Counters */}
-      <section className="sd-page-header">
-        <div className="sd-page-title-group">
-          <h1 className="sd-page-title">Dispatch control</h1>
-          <p className="sd-page-subtitle">Island-wide · live</p>
-        </div>
-
-        <div className="sd-header-stats-group">
-          <div className="sd-header-stat">
-            <span className="sd-stat-number">{unassignedList.length}</span>
-            <span className="sd-stat-label">Unassigned</span>
-          </div>
-          <div className="sd-header-stat">
-            <span className="sd-stat-number">7</span>
-            <span className="sd-stat-label">Active</span>
-          </div>
-          <div className="sd-header-stat">
-            <span className="sd-stat-number">4</span>
-            <span className="sd-stat-label">Couriers on duty</span>
-          </div>
-        </div>
-      </section>
-
-      {assignedNotice && (
-        <div className="sd-flash-notice" role="status">
-          <CheckCircle2 size={16} />
-          <span>{assignedNotice}</span>
-        </div>
-      )}
-
-      {/* Main 2-Column Grid */}
-      <div className="sd-grid-2col">
-        {/* Top-Left: Unassigned Parcels */}
-        <div className="sd-card">
-          <div className="sd-card-header">
-            <h2 className="sd-card-title">Unassigned parcels</h2>
-            <Link to="/dispatcher/parcels" className="sd-text-link">
-              All parcels
-            </Link>
-          </div>
-
-          <div className="sd-unassigned-list">
-            {unassignedList.length === 0 ? (
-              <p className="sd-muted-empty">All parcels currently assigned.</p>
-            ) : (
-              unassignedList.map((parcel, idx) => (
-                <div key={parcel.reference} className="sd-unassigned-row">
-                  <div className="sd-unassigned-info">
-                    <span className="sd-parcel-ref">{parcel.reference}</span>
-                    <span className="sd-parcel-meta">
-                      {parcel.route} · {parcel.weightCategory} · {parcel.weightKg}
-                    </span>
-                  </div>
-
-                  <div className="sd-unassigned-actions">
-                    <select
-                      className="sd-select"
-                      value={parcel.selectedCourier}
-                      onChange={(e) => handleCourierSelect(idx, e.target.value)}
-                      aria-label={`Select courier for ${parcel.reference}`}
-                    >
-                      {COURIER_OPTIONS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      className="sd-btn-yellow"
-                      onClick={() => handleAssign(parcel, idx)}
-                    >
-                      Assign
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Top-Right: Courier Workload */}
-        <div className="sd-card">
-          <div className="sd-card-header">
-            <h2 className="sd-card-title">Courier workload</h2>
-            <Link to="/dispatcher/couriers" className="sd-text-link">
-              Manage
-            </Link>
-          </div>
-
-          <div className="sd-workload-list">
-            {COURIER_WORKLOADS.map((c) => (
-              <div key={c.name} className="sd-workload-item">
-                <div className="sd-workload-meta">
-                  <span className="sd-workload-name">{c.name}</span>
-                  <span className="sd-workload-count">{c.activeCount} active</span>
-                </div>
-                <div className="sd-progress-track">
-                  <div
-                    className="sd-progress-fill"
-                    style={{ width: `${c.percentage}%` }}
-                    aria-valuenow={c.percentage}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="sd-card-footnote">Active = assigned and not yet delivered or failed.</p>
-        </div>
-
-        {/* Bottom-Left: Merchant Applications */}
-        <div className="sd-card">
-          <div className="sd-card-header">
-            <h2 className="sd-card-title">Merchant applications</h2>
-          </div>
-
-          <div className="sd-merchant-list">
-            {INITIAL_MERCHANTS.map((m) => (
-              <div key={m.businessName} className="sd-merchant-row">
-                <div className="sd-merchant-info">
-                  <span className="sd-merchant-name">{m.businessName}</span>
-                  <span className="sd-merchant-date">Applied {m.appliedDate}</span>
-                </div>
-                <Link
-                  to="/dispatcher/merchant-approvals"
-                  className="sd-btn-pill-light"
-                >
-                  Review
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom-Right: Alerts & Activity (Dark Card) */}
-        <div className="sd-card sd-dark-card">
-          <div className="sd-card-header">
-            <h2 className="sd-card-title sd-dark-title">Alerts and activity</h2>
-          </div>
-
-          <div className="sd-alerts-list">
-            {/* Alert 1 */}
-            <div className="sd-alert-item">
-              <div className="sd-alert-icon-wrap sd-icon-warning">
-                <AlertCircle size={18} />
-              </div>
-              <div className="sd-alert-content">
-                <span className="sd-alert-title">2 notification attempts failed in the last hour</span>
-                <Link to="/dispatcher/integration-attempts" className="sd-alert-sub sd-alert-link">
-                  Check the notification log
-                </Link>
-              </div>
-            </div>
-
-            {/* Alert 2 */}
-            <div className="sd-alert-item">
-              <div className="sd-alert-icon-wrap sd-icon-muted">
-                <Info size={18} />
-              </div>
-              <div className="sd-alert-content">
-                <span className="sd-alert-title">1 webhook delivery exhausted its retries</span>
-                <span className="sd-alert-sub">Merchant endpoint unreachable</span>
-              </div>
-            </div>
-
-            {/* Activity 3 */}
-            <div className="sd-alert-item">
-              <div className="sd-alert-icon-wrap sd-icon-muted">
-                <CheckCircle2 size={18} />
-              </div>
-              <div className="sd-alert-content">
-                <span className="sd-alert-title">ZT-2YB4F8KQ1D delivered by Kumari Silva</span>
-                <span className="sd-alert-sub">10:12</span>
-              </div>
-            </div>
-
-            {/* Activity 4 */}
-            <div className="sd-alert-item">
-              <div className="sd-alert-icon-wrap sd-icon-muted">
-                <Zap size={18} />
-              </div>
-              <div className="sd-alert-content">
-                <span className="sd-alert-title">ZT-3ZG8R6CE4U out for delivery</span>
-                <span className="sd-alert-sub">09:58</span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <article className="dispatch-metric" aria-label={label} aria-busy={pending}>
+      <div>
+        <span>{label}</span>
+        <span className="dispatch-metric-icon">
+          <Icon size={22} aria-hidden="true" />
+        </span>
       </div>
+      <strong className={pending || error || value === undefined ? 'dispatch-unavailable' : ''}>
+        {pending
+          ? 'Loading…'
+          : error || value === undefined
+            ? 'Unavailable'
+            : value.toLocaleString()}
+      </strong>
+      <p>
+        <span className={`dispatch-dot ${pending || error || value === undefined ? 'is-muted' : ''}`} aria-hidden="true" />
+        {error ? 'Could not load data' : pending ? 'Fetching service data' : detail}
+      </p>
+    </article>
+  );
+}
+function State({
+  loading,
+  error,
+  empty,
+  retry,
+}: {
+  loading?: boolean;
+  error?: boolean;
+  empty: string;
+  retry: () => void;
+}) {
+  return (
+    <div className="dispatch-state" role={error ? 'alert' : 'status'}>
+      <Package size={25} aria-hidden="true" />
+      <strong>{loading ? 'Loading data…' : error ? 'Data unavailable' : empty}</strong>
+      {error && (
+        <>
+          <p>This section could not be loaded.</p>
+          <button className="sd-btn-pill-light" onClick={retry}>
+            Retry
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+export function DispatchControlPage() {
+  const queue = useDispatchQueue();
+  const workload = useCourierWorkload();
+  const merchants = useMerchantApplications();
+  const client = useQueryClient();
+  const [selected, setSelected] = useState<QueueParcel | null>(null);
+  const [notice, setNotice] = useState('');
+  const heading = useRef<HTMLHeadingElement>(null);
+  const couriers = workload.data?.items ?? [];
+  const complete = workload.data && workload.data.total === couriers.length;
+  const assignments = complete
+    ? couriers.reduce((sum, courier) => sum + courier.assignmentCount, 0)
+    : undefined;
+  const available = complete
+    ? couriers.filter(
+        (c) => c.active && c.accountStatus === 'ACTIVE' && c.availability === 'AVAILABLE',
+      ).length
+    : undefined;
+  const applications = merchants.data?.filter((m) => m.status === 'PENDING') ?? [];
+  const fetching = queue.isFetching || workload.isFetching || merchants.isFetching;
+  const refresh = () => {
+    void queue.refetch();
+    void workload.refetch();
+    void merchants.refetch();
+  };
+  const finish = useCallback(
+    (message: string) => {
+      setSelected(null);
+      setNotice(message);
+      heading.current?.focus();
+      void invalidateAfterDispatchAssignment(client);
+    },
+    [client],
+  );
+  return (
+    <main className="sd-page-container dispatch-dashboard" aria-labelledby="dashboard-title">
+      <header className="dispatch-heading">
+        <div>
+          <span className="dispatch-eyebrow">SWIFTDROP OPERATIONS</span>
+          <h1 id="dashboard-title" tabIndex={-1} ref={heading}>
+            Dispatch control
+          </h1>
+          <p>Your daily overview of parcels, assignments and courier availability.</p>
+        </div>
+        <button
+          className="sd-btn-pill-light dispatch-refresh"
+          disabled={fetching}
+          onClick={refresh}
+        >
+          <RefreshCw size={15} aria-hidden="true" />
+          {fetching ? 'Refreshing…' : 'Refresh overview'}
+        </button>
+      </header>
+      {notice && (
+        <p className="dispatch-notice" role="status">
+          {notice}
+        </p>
+      )}
+      <section className="dispatch-metrics" aria-label="Operations overview">
+        <Metric
+          label="Unassigned parcels"
+          icon={Package}
+          value={queue.data?.total ?? undefined}
+          pending={queue.isPending}
+          error={queue.isError}
+          detail={
+            queue.isFetching
+              ? 'Refreshing…'
+              : queue.data?.complete
+                ? 'Waiting for courier assignment'
+                : 'Total unavailable · incomplete source'
+          }
+        />
+        <Metric
+          label="Recorded assignments"
+          icon={Truck}
+          value={assignments}
+          pending={workload.isPending}
+          error={workload.isError}
+          detail={
+            workload.isFetching ? 'Refreshing…' : 'All assignments reported by the workload service'
+          }
+        />
+        <Metric
+          label="Available couriers"
+          icon={Users}
+          value={available}
+          pending={workload.isPending}
+          error={workload.isError}
+          detail={workload.isFetching ? 'Refreshing…' : 'Active accounts marked available'}
+        />
+      </section>
+      <div className="dispatch-grid">
+        <section
+          className="sd-card dispatch-panel dispatch-parcels"
+          aria-labelledby="queue-title"
+          aria-busy={queue.isFetching}
+        >
+          <div className="dispatch-panel-heading">
+            <div>
+              <h2 id="queue-title">Unassigned parcels</h2>
+              <p>Review the queue and allocate the next delivery.</p>
+            </div>
+            <Link className="sd-text-link" to="/dispatcher/queue">
+              Full queue <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+          {queue.isPending || queue.isError ? (
+            <State
+              loading={queue.isPending}
+              error={queue.isError}
+              empty="Queue unavailable"
+              retry={() => void queue.refetch()}
+            />
+          ) : (
+            <>
+              {!queue.data.complete && (
+                <p className="dispatch-notice" role="status">
+                  Incomplete source snapshot. Queue total is unavailable.
+                </p>
+              )}
+              {!queue.data.items.length ? (
+                <State
+                  empty={
+                    queue.data.complete
+                      ? 'All clear — no parcels waiting.'
+                      : 'No parcels in the current snapshot.'
+                  }
+                  retry={() => void queue.refetch()}
+                />
+              ) : (
+                <>
+                  <div
+                    className="dispatch-table-scroll"
+                    role="region"
+                    aria-label="Unassigned parcels table"
+                    tabIndex={0}
+                  >
+                    <table className="dispatch-table">
+                      <caption className="sr-only">Unassigned parcels</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Parcel ID</th>
+                          <th scope="col">Route</th>
+                          <th scope="col">Size / weight</th>
+                          <th scope="col">Courier</th>
+                          <th scope="col">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {queue.data.items.slice(0, 6).map((parcel) => (
+                          <tr key={parcel.parcelId}>
+                            <td>
+                              <strong className="dispatch-reference">
+                                {parcel.trackingReference || parcel.parcelId}
+                              </strong>
+                              <small>Awaiting assignment</small>
+                            </td>
+                            <td>
+                              <div className="dispatch-route">
+                                <span>{parcel.pickupSummary || 'Pickup unavailable'}</span>
+                                <ArrowRight size={12} aria-hidden="true" />
+                                <span>{parcel.dropoffSummary || 'Drop-off unavailable'}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <small>Unavailable</small>
+                            </td>
+                            <td>
+                              <button
+                                className="dispatch-picker"
+                                disabled={queue.isFetching}
+                                aria-label={`Select courier for ${parcel.trackingReference || parcel.parcelId}`}
+                                onClick={() => {
+                                  setNotice('');
+                                  setSelected(parcel);
+                                }}
+                              >
+                                Select courier ↗
+                              </button>
+                            </td>
+                            <td>
+                              <button
+                                className="sd-btn-yellow"
+                                disabled={queue.isFetching}
+                                aria-label={`Assign ${parcel.trackingReference || parcel.parcelId}`}
+                                onClick={() => {
+                                  setNotice('');
+                                  setSelected(parcel);
+                                }}
+                              >
+                                Assign
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="dispatch-footnote">
+                    Showing {Math.min(queue.data.items.length, 6)} of {queue.data.items.length}{' '}
+                    parcels in this snapshot. Size and weight unavailable. Courier eligibility is
+                    checked before confirmation.
+                  </p>
+                </>
+              )}
+            </>
+          )}
+        </section>
+        <section
+          className="sd-card dispatch-panel"
+          aria-labelledby="workload-title"
+          aria-busy={workload.isFetching}
+        >
+          <div className="dispatch-panel-heading">
+            <div>
+              <h2 id="workload-title">Courier workload</h2>
+              <p>Recorded assignments by courier.</p>
+            </div>
+            <Link className="sd-text-link" to="/dispatcher/workload">
+              View all <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+          {workload.isPending || workload.isError || !couriers.length ? (
+            <State
+              loading={workload.isPending}
+              error={workload.isError}
+              empty="No couriers to display."
+              retry={() => void workload.refetch()}
+            />
+          ) : (
+            <ul className="dispatch-list">
+              {couriers.slice(0, 6).map((courier) => (
+                <li key={courier.courierId}>
+                  <span className="dispatch-avatar" aria-hidden="true">
+                    <Truck size={18} />
+                  </span>
+                  <div>
+                    <strong>{courier.name || 'Unnamed courier'}</strong>
+                    <small>
+                      <span
+                        className={`dispatch-dot ${courier.availability !== 'AVAILABLE' ? 'is-muted' : ''}`}
+                        aria-hidden="true"
+                      />
+                      {courier.availability === 'AVAILABLE' ? 'Available' : 'Unavailable'}
+                    </small>
+                  </div>
+                  <span className="dispatch-count">
+                    <strong>{courier.assignmentCount}</strong>
+                    <small>assigned</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="dispatch-footnote">
+            Counts include all recorded assignments. Active-only counts and capacity are
+            unavailable.
+          </p>
+        </section>
+        <section
+          className="sd-card dispatch-panel"
+          aria-labelledby="applications-title"
+          aria-busy={merchants.isFetching}
+        >
+          <div className="dispatch-panel-heading">
+            <div>
+              <h2 id="applications-title">Merchant applications</h2>
+              <p>Businesses waiting for your review.</p>
+            </div>
+            <Link className="sd-text-link" to="/dispatcher/merchant-approvals">
+              View all <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+          {merchants.isPending || merchants.isError || !applications.length ? (
+            <State
+              loading={merchants.isPending}
+              error={merchants.isError}
+              empty="No applications waiting for review."
+              retry={() => void merchants.refetch()}
+            />
+          ) : (
+            <ul className="dispatch-list">
+              {applications.slice(0, 3).map((m) => (
+                <li key={m.id}>
+                  <div>
+                    <strong>{m.businessName}</strong>
+                    <small>Pending review</small>
+                  </div>
+                  <Link className="sd-btn-pill-light" to="/dispatcher/merchant-approvals">
+                    Review
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section
+          className="sd-card dispatch-panel dispatch-activity"
+          aria-labelledby="activity-title"
+        >
+          <div className="dispatch-panel-heading">
+            <div>
+              <h2 id="activity-title">Operations desk</h2>
+              <p>Keep exceptions and daily performance in view.</p>
+            </div>
+            <Truck size={22} aria-hidden="true" />
+          </div>
+          <p className="dispatch-activity-note">
+            Activity feed unavailable on this overview. Open the operational logs for recorded
+            events.
+          </p>
+          <Link to="/dispatcher/integration-attempts">
+            Notification &amp; webhook logs <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+          <Link to="/dispatcher/reports">
+            Delivery reports <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </section>
+      </div>
+      {selected && (
+        <AssignmentDialog
+          key={selected.parcelId}
+          parcel={selected}
+          close={() => setSelected(null)}
+          completed={() => finish('Delivery assigned successfully.')}
+          stale={finish}
+        />
+      )}
     </main>
   );
 }
-

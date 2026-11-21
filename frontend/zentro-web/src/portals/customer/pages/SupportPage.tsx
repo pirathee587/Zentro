@@ -77,6 +77,7 @@ export const SupportPage: React.FC = () => {
   const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const conversationId = useRef<string>();
 
   useEffect(() => {
     if (typeof chatBottomRef.current?.scrollIntoView === 'function') {
@@ -96,7 +97,15 @@ export const SupportPage: React.FC = () => {
 
     try {
       // The assistant UI must not compute prices or statuses itself
-      const response = await askAssistant(query);
+      const history = messages
+        .filter((m) => m.id !== 'welcome' && !m.isError)
+        .slice(-10)
+        .map((m) => ({ role: m.sender, text: m.text }));
+      const response =
+        conversationId.current
+          ? await askAssistant(query, undefined, conversationId.current)
+          : history.length > 0 ? await askAssistant(query, history) : await askAssistant(query);
+      conversationId.current = response.conversationId;
       const assistantMsgId = `assistant-${Date.now()}`;
       setMessages((prev) => [
         ...prev,

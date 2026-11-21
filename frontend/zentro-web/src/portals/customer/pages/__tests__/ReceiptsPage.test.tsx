@@ -268,7 +268,7 @@ describe('ReceiptsPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('SwiftDrop')).toBeInTheDocument();
-      expect(screen.getByText(/Delivery receipt • RC-2026-1024-02/i)).toBeInTheDocument();
+      expect(screen.getByText(/Delivery receipt • REC-2026-1024-02/i)).toBeInTheDocument();
     });
 
     // Required fields
@@ -292,10 +292,8 @@ describe('ReceiptsPage Component', () => {
     expect(screen.getByText('Colombo 04')).toBeInTheDocument();
     expect(screen.getByText('Negombo')).toBeInTheDocument();
     expect(screen.getByText('Small (0.6 kg)')).toBeInTheDocument();
-    expect(screen.getByText('LKR 550')).toBeInTheDocument();
-    expect(screen.getByText('LKR 0')).toBeInTheDocument();
-    expect(screen.getByText('LKR 100')).toBeInTheDocument();
-    expect(screen.getByText(/Online Bank Transfer \(•••• 8821\)/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Not recorded')).toHaveLength(3);
+    expect(screen.getByText(/Online Bank Transfer/i)).toBeInTheDocument();
 
     // Missing proof state
     expect(screen.getByText('Unavailable')).toBeInTheDocument();
@@ -385,7 +383,7 @@ describe('ReceiptsPage Component', () => {
     expect(rows[1]).toHaveClass('is-selected');
     expect(rows[1]).toHaveAttribute('aria-selected', 'true');
 
-    expect(screen.getByText(/Delivery receipt • RC-2026-1022-05/i)).toBeInTheDocument();
+    expect(screen.getByText(/Delivery receipt • REC-2026-1022-05/i)).toBeInTheDocument();
     expect(screen.getByText('Galle')).toBeInTheDocument();
   });
 

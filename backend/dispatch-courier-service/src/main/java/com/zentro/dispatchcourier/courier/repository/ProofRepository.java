@@ -23,7 +23,11 @@ public class ProofRepository {
   public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
 
   public record DeliverySummary(UUID parcelId, UUID courierId, Instant assignedAt,
-      UUID proofId, String completionState) {}
+      UUID proofId, String completionState, String assignmentStatus, Instant respondedAt, String rejectionReason) {
+    public DeliverySummary(UUID parcelId, UUID courierId, Instant assignedAt, UUID proofId, String completionState) {
+      this(parcelId, courierId, assignedAt, proofId, completionState, "PENDING_ACCEPTANCE", null, null);
+    }
+  }
   public record Submission(ProofOfDelivery proof, boolean created) {}
   public record Claim(UUID proofId, UUID parcelId, UUID leaseToken, int attempts, PropagationMetadata propagation) {
     public Claim(UUID proofId, UUID parcelId, UUID leaseToken, int attempts) {
@@ -35,12 +39,16 @@ public class ProofRepository {
 
   public List<DeliverySummary> deliveries(UUID profileId, UUID userId) {
     return jdbc.query("""
-        SELECT a.parcel_id, a.courier_profile_id, a.assigned_at, p.id AS proof_id, p.completion_state
+        SELECT a.parcel_id, a.courier_profile_id, a.assigned_at,
+               a.assignment_status, a.responded_at, a.rejection_reason,
+               p.id AS proof_id, p.completion_state
         FROM dispatch.delivery_assignment a LEFT JOIN dispatch.proof_of_delivery p ON p.parcel_id = a.parcel_id
         WHERE a.courier_profile_id = ? AND a.courier_user_id = ? ORDER BY a.assigned_at DESC, a.parcel_id
         """, (row, index) -> new DeliverySummary(row.getObject("parcel_id", UUID.class),
         row.getObject("courier_profile_id", UUID.class), instant(row, "assigned_at"),
-        row.getObject("proof_id", UUID.class), row.getString("completion_state")), profileId, userId);
+        row.getObject("proof_id", UUID.class), row.getString("completion_state"),
+        row.getString("assignment_status"), instant(row, "responded_at"), row.getString("rejection_reason")),
+        profileId, userId);
   }
 
   public Optional<ProofOfDelivery> find(UUID parcelId) {

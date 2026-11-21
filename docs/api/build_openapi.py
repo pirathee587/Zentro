@@ -73,7 +73,8 @@ ERROR_RESP = {"description": "RFC 9457 problem response", "content": {"applicati
     }}}}
 
 SCHEMAS = {
-    "common": {"Problem": PROBLEM, "StringMap": {"type": "object", "additionalProperties": STR}},
+    "common": {"Problem": PROBLEM, "StringMap": {"type": "object", "additionalProperties": STR},
+               "BinaryPdf": {"type": "string", "format": "binary"}},
     "identity": {
         "UserProfile": obj({"id": UUID, "email": STR, "name": NULLSTR, "phone": NULLSTR, "enabled": BOOL,
                              "accountStatus": STR, "merchantStatus": NULLSTR, "roles": arr(STR)}),
@@ -103,6 +104,18 @@ SCHEMAS = {
                                              "vehicleType": {"type": ["string", "null"], "enum": ["BICYCLE", "MOTORCYCLE", "CAR", "VAN", "TRUCK", None]},
                                              "name": {"type": ["string", "null"], "maxLength": 200},
                                              "phone": {"type": ["string", "null"], "maxLength": 32}}),
+        "CreateCourierAdminRequest": obj({"name": field(minLength=2, maxLength=100), "email": field(format="email"),
+            "phone": {"type": ["string", "null"]}, "assignedZone": {"type": ["string", "null"]},
+            "vehicleType": {"type": ["string", "null"], "enum": ["BICYCLE", "MOTORCYCLE", "CAR", "VAN", "TRUCK", None]}}, ("name", "email")),
+        "SendOtpRequest": obj({"email": field(format="email"), "name": {"type": ["string", "null"]},
+            "entryPoint": {"type": ["string", "null"]}}, ("email",)),
+        "VerifyOtpRequest": obj({"email": field(format="email"), "name": STR,
+            "password": field(minLength=8, maxLength=100), "code": field(pattern=r"^[0-9]{6}$"),
+            "entryPoint": {"type": ["string", "null"]}}, ("email", "name", "password", "code")),
+        "VerifyResetOtpRequest": obj({"email": field(format="email"), "code": field(pattern=r"^[0-9]{6}$")}, ("email", "code")),
+        "ResetPasswordRequest": obj({"email": field(format="email"), "code": field(pattern=r"^[0-9]{6}$"),
+            "newPassword": field(minLength=8, maxLength=100)}, ("email", "code", "newPassword")),
+        "OtpResult": obj({"success": BOOL, "email": field(format="email"), "message": STR}, ("success", "email", "message")),
     },
     "parcel": {
         "CreateParcelBookingRequest": BOOKING_REQUEST, "ParcelBookingResponse": BOOKING_RESPONSE,
@@ -133,11 +146,40 @@ SCHEMAS = {
             "expressSurcharge": field("number", minimum=0), "perKmRate": field("number", minimum=0), "currency": {"type": ["string", "null"]}},
             ("baseFee", "includedWeightKg", "additionalWeightRatePerKg", "distanceSurchargeOtherDistrict", "expressSurcharge", "perKmRate")),
         "DeliveryZone": obj({"id": UUID, "code": STR, "name": STR, "description": STR, "active": BOOL}),
+        "CustomerParcelView": obj({"id": UUID, "trackingRef": STR, "status": STR, "fee": DEC, "currency": STR,
+            "estimatedDays": INT, "createdAt": DATE, "destinationType": {"type": ["string", "null"]},
+            "isExpress": BOOL, "sender": CONTACT, "recipient": CONTACT, "parcel": PARCEL}),
+        "NullableCustomerParcelView": {"anyOf": [{"$ref": "#/components/schemas/CustomerParcelView"}, {"type": "null"}]},
+        "CustomerParcelPage": obj({"content": arr({"$ref": "#/components/schemas/CustomerParcelView"}), "totalElements": INT,
+            "page": INT, "size": INT, "hasNext": BOOL,
+            "totalFees": arr(obj({"currency": STR, "amount": DEC}))}),
+        "CustomerParcelSummary": obj({"activeCount": INT, "awaitingPickupCount": INT, "inTransitCount": INT,
+            "deliveredCount": INT, "failedCount": INT, "totalParcels": INT, "month": STR, "timeZone": STR,
+            "totalFees": arr(obj({"currency": STR, "amount": DEC})), "monthlyFees": arr(obj({"currency": STR, "amount": DEC}))}),
+        "ParcelStatusHistoryRow": obj({"id": UUID, "fromStatus": STR, "toStatus": STR, "reason": NULLSTR,
+            "note": NULLSTR, "actorRole": STR, "occurredAt": DATE}),
+        "ReceiptResponse": obj({"id": UUID, "receiptNumber": STR, "parcelId": UUID, "trackingRef": STR,
+            "amount": DEC, "formattedAmount": STR, "currency": STR, "paymentStatus": STR, "paymentMethod": STR,
+            "downloadUrl": STR, "date": STR, "formattedDate": STR, "senderName": STR, "recipientName": STR}),
+        "PublicParcelTracking": obj({"trackingRef": STR, "status": STR, "category": {"type": ["string", "null"]},
+            "size": {"type": ["string", "null"]}, "description": {"type": ["string", "null"]},
+            "originCity": {"type": ["string", "null"]}, "destinationCity": {"type": ["string", "null"]},
+            "createdAt": DATE, "estimatedDays": INT}),
     },
     "dispatch": {
         "AssignRequest": obj({"parcelId": UUID, "courierId": UUID}, ("parcelId", "courierId")),
         "ReassignRequest": obj({"courierId": UUID}, ("courierId",)),
-        "Assignment": obj({"parcelId": UUID, "courierId": UUID, "courierUserId": UUID, "assignedBy": STR, "assignedAt": DATE}),
+        "Assignment": obj({"parcelId": UUID, "courierId": UUID, "courierUserId": UUID, "assignedBy": STR,
+            "assignedAt": DATE, "assignmentStatus": STR, "respondedAt": {"type": ["string", "null"], "format": "date-time"},
+            "rejectionReason": NULLSTR, "courierName": NULLSTR, "courierPhone": NULLSTR,
+            "courierVehicle": NULLSTR, "courierZone": NULLSTR}),
+        "PublicAssignmentSummary": obj({"parcelId": UUID, "assignmentStatus": STR, "courierName": NULLSTR,
+            "courierPhone": NULLSTR, "courierVehicle": NULLSTR, "courierZone": NULLSTR,
+            "assignedAt": DATE, "respondedAt": {"type": ["string", "null"], "format": "date-time"}}),
+        "CourierStatusRequest": obj({"status": STR, "reason": NULLSTR, "note": NULLSTR}),
+        "RejectAssignmentRequest": obj({"reason": NULLSTR}),
+        "CourierParcelStatusResponse": obj({"parcelId": UUID, "trackingRef": STR, "previousStatus": STR,
+            "status": STR, "changed": BOOL}),
         "DispatchParcel": obj({"parcelId": UUID, "trackingReference": STR, "pickupSummary": STR, "dropoffSummary": STR, "createdAt": DATE}),
         "DispatchQueue": obj({"items": arr({"$ref": "#/components/schemas/DispatchParcel"}), "total": {"type": ["integer", "null"]},
                                "matchingTotal": {"type": ["integer", "null"]}, "complete": BOOL}),
@@ -148,7 +190,9 @@ SCHEMAS = {
         "Workload": obj({"items": arr({"$ref": "#/components/schemas/CourierWorkload"}),
                          "total": field("integer", format="int64", minimum=0, description="Courier rows after search and availability filtering, not a delivery total."),
                          "overloadConfigured": field("boolean", const=False, description="No capacity threshold is configured.")}),
-        "DeliverySummary": obj({"parcelId": UUID, "courierId": UUID, "assignedAt": DATE, "proofId": {"anyOf": [UUID, {"type": "null"}]}, "completionState": NULLSTR}),
+        "DeliverySummary": obj({"parcelId": UUID, "courierId": UUID, "assignedAt": DATE,
+            "proofId": {"anyOf": [UUID, {"type": "null"}]}, "completionState": NULLSTR,
+            "assignmentStatus": STR, "respondedAt": {"type": ["string", "null"], "format": "date-time"}, "rejectionReason": NULLSTR}),
         "SubmitProofRequest": obj({"recipientName": {"type": ["string", "null"], "maxLength": 100}, "notes": {"type": ["string", "null"], "maxLength": 500},
                                     "proofReference": {"type": ["string", "null"], "maxLength": 200}}, ("recipientName", "proofReference")),
         "ProofResponse": obj({"proofId": UUID, "parcelId": UUID, "recipientName": STR, "notes": NULLSTR, "proofReference": STR,
@@ -201,6 +245,19 @@ SCHEMAS = {
         "WebhookDelivery": obj({"id": UUID, "eventId": UUID, "eventType": STR, "parcelId": UUID, "status": STR, "attempts": INT,
             "responseStatus": {"type": ["integer", "null"]}, "lastError": NULLSTR, "nextAttemptAt": DATE, "createdAt": DATE, "updatedAt": DATE}),
         "WebhookDeliveryPage": obj({"items": arr({"$ref": "#/components/schemas/WebhookDelivery"}), "page": INT, "size": INT, "total": INT}),
+        "AssistantChatRequest": obj({"message": field(minLength=1, maxLength=4000),
+            "conversationId": {"type": ["string", "null"], "format": "uuid"},
+            "history": {"type": ["array", "null"], "maxItems": 10, "items": obj({"role": field(enum=["user", "assistant"]), "text": field(minLength=1, maxLength=4000)}, ("role", "text"))}}, ("message",)),
+        "AssistantChatResponse": obj({"reply": STR, "conversationId": UUID}),
+        "AssistantConversation": obj({"id": UUID, "createdAt": DATE}),
+        "AssistantHistory": obj({"id": UUID, "messages": arr({"$ref": "#/components/schemas/AssistantMessage"})}),
+        "AssistantMessage": obj({"role": STR, "text": STR, "createdAt": DATE}),
+        "SupportTicketRequest": obj({"subject": field(minLength=1, maxLength=200),
+            "category": field(enum=["delivery", "billing", "account", "general"]),
+            "trackingRef": {"type": ["string", "null"], "pattern": r"^[A-Za-z0-9_-]{6,32}$"},
+            "message": field(minLength=10, maxLength=4000)}, ("subject", "category", "message")),
+        "SupportTicketResponse": obj({"id": UUID, "ticketNumber": STR, "subject": STR, "category": STR,
+            "trackingRef": NULLSTR, "message": STR, "status": STR, "createdAt": DATE, "formattedCreatedAt": STR}),
     },
 }
 
@@ -230,16 +287,32 @@ OPS = {
     ("get","/api/v1/admin/users","listUsers","List users","DISPATCHER",200,"UserProfileList","Optional status and text filters.",[("status","string",False,None,None,None),("search","string",False,None,None,None)],None,[],[400,401,403,503],[]),
     ("get","/api/v1/admin/users/{userId}","getAdminUser","Read a user by id","DISPATCHER",200,"UserProfile","Dispatcher-only user lookup.",[],None,[],[400,401,403,404,503],[]),
     ("patch","/api/v1/admin/users/{userId}","patchAdminUser","Update user profile or account status","DISPATCHER",200,"UserProfile","Only name, phone, accountStatus and reason are accepted. Roles, email and identity fields are rejected.",[],"AdminUpdateUserRequest",[],[400,401,403,404,422,503],[]),
+    ("delete","/api/v1/admin/users/{userId}","deleteAdminUser","Delete a user account","DISPATCHER",204,None,"Dispatcher-only deletion; the authenticated dispatcher is recorded as actor.",[],None,[],[400,401,403,404,409,503],[]),
     ("get","/api/v1/admin/couriers","listCouriers","List courier profiles","DISPATCHER",200,"CourierProfileList","Optional status, activity, zone and search filters.",[("status","string",False,None,None,None),("active","boolean",False,None,None,None),("zone","string",False,None,None,None),("search","string",False,None,None,None)],None,[],[401,403,503],[]),
     ("get","/api/v1/admin/couriers/{courierId}","getAdminCourier","Read a courier profile","DISPATCHER",200,"CourierProfile","Dispatcher-only courier profile lookup.",[],None,[],[400,401,403,404,503],[]),
     ("patch","/api/v1/admin/couriers/{courierId}","patchAdminCourier","Update a courier profile","DISPATCHER",200,"CourierProfile","Updates the courier fields accepted by S1.",[],"UpdateCourierProfileRequest",[],[400,401,403,404,422,503],[]),
+    ("post","/api/v1/admin/couriers","createAdminCourier","Create a courier account and profile","DISPATCHER",201,"CourierProfile","Creates a courier using dispatcher-managed profile fields.",[],"CreateCourierAdminRequest",[],[400,401,403,409,422,503],[]),
+    ("post","/api/v1/auth/register/send-otp","sendRegistrationOtp","Send a registration verification code","PUBLIC",200,"OtpResult","Sends a one-time code to the supplied email address.",[],"SendOtpRequest",[],[400,409,429,503],[]),
+    ("post","/api/v1/auth/register/verify-otp","verifyRegistrationOtp","Verify registration code and create account","PUBLIC",201,"OtpResult","Consumes a valid registration code and creates the customer account.",[],"VerifyOtpRequest",[],[400,409,429,503],[]),
+    ("post","/api/v1/auth/forgot-password/send-otp","sendPasswordResetOtp","Send a password reset code","PUBLIC",200,"OtpResult","Sends a one-time password reset code to a registered email address.",[],"SendOtpRequest",[],[400,404,429,503],[]),
+    ("post","/api/v1/auth/forgot-password/verify-otp","verifyPasswordResetOtp","Verify a password reset code","PUBLIC",200,"OtpResult","Verifies a password reset code without changing the password.",[],"VerifyResetOtpRequest",[],[400,404,429,503],[]),
+    ("post","/api/v1/auth/forgot-password/reset","resetPasswordWithOtp","Reset a password using a verified code","PUBLIC",200,"OtpResult","Consumes a valid reset code and changes the account password.",[],"ResetPasswordRequest",[],[400,404,429,503],[]),
 ],
 "parcel": [
     ("post","/api/v1/parcels","createParcelBooking","Create a parcel booking","CUSTOMER",201,"ParcelBookingResponse","Idempotent replay returns 200; a new booking returns 201 and Location. Idempotency-Key is optional, 1–100 characters.",[],"CreateParcelBookingRequest",[("Idempotency-Key","string",False,1,100,None)],[400,401,403,409,422,503],["Location"]),
     ("get","/api/v1/parcels/{id}","getParcelBooking","Retrieve a parcel booking by ID","CUSTOMER, DISPATCHER",200,"ParcelBookingResponse","CUSTOMER may only retrieve their own parcel (scoped by token subject; foreign parcel returns 404). DISPATCHER may retrieve any parcel via internal routing.",[],None,[],[400,401,403,404,503],[]),
     ("post","/api/v1/parcels/estimate","estimateParcelFee","Estimate a parcel fee","CUSTOMER, DISPATCHER",200,"FeeEstimateResponse","Read-only quote. Validation errors are 400 with both fieldErrors and invalidFields.",[],"FeeEstimateRequest",[],[400,401,403,503],[]),
     ("post","/api/v1/parcels/estimate-fee","estimateParcelFeeAlias","Estimate a parcel fee (alias)","CUSTOMER, DISPATCHER",200,"FeeEstimateResponse","Alias of /api/v1/parcels/estimate with identical behavior.",[],"FeeEstimateRequest",[],[400,401,403,503],[]),
-    ("patch","/api/v1/parcels/{parcelId}/status","updateParcelStatus","Update parcel status","DISPATCHER",200,"ParcelStatusResponse","DISPATCHER through gateway. Internal direct S2 calls may use SERVICE; SERVICE is not admitted by the gateway. Repeating current status is 200 with changed=false.",[],"UpdateParcelStatusRequest",[],[400,401,403,404,409,422,503],[]),
+    ("patch","/api/v1/parcels/{parcelId}/status","updateParcelStatus","Update parcel status","DISPATCHER",200,"ParcelStatusResponse","DISPATCHER through gateway. SERVICE tokens are rejected by REST; internal delivery completion uses the authenticated S2 gRPC POD contract. Repeating current status is 200 with changed=false.",[],"UpdateParcelStatusRequest",[],[400,401,403,404,409,422,503],[]),
+    ("get","/api/v1/parcels/mine","listMyParcels","List the authenticated customer's parcel bookings","CUSTOMER",200,"CustomerParcelPage","Page is one-based; size must be between 1 and 50. Results are scoped to the bearer subject.",[("page","integer",False,1,None,1),("size","integer",False,1,50,10),("status","string",False,None,None,None),("q","string",False,None,100,None)],None,[],[400,401,403,503],[]),
+    ("get","/api/v1/parcels/mine/live","getMyLiveParcel","Read the customer's current active parcel","CUSTOMER",200,"NullableCustomerParcelView","Returns the first active parcel, or the most recent parcel when none is active; null when the customer has no parcels.",[],None,[],[401,403,503],[]),
+    ("get","/api/v1/parcels/mine/receipts","listMyReceipts","List the authenticated customer's receipts","CUSTOMER",200,"ReceiptResponseList","Returns receipt records scoped to the bearer subject.",[],None,[],[401,403,503],[]),
+    ("get","/api/v1/parcels/mine/summary","getMyParcelSummary","Read parcel counts and monthly fees","CUSTOMER",200,"CustomerParcelSummary","Summary counts and fee totals are scoped to the bearer subject and current Asia/Colombo month.",[],None,[],[401,403,503],[]),
+    ("get","/api/v1/parcels/mine/{reference}","getMyParcelByReference","Read one customer parcel by tracking reference","CUSTOMER",200,"CustomerParcelView","Returns a booking only when it belongs to the bearer subject.",[],None,[],[400,401,403,404,503],[]),
+    ("get","/api/v1/parcels/mine/{reference}/history","getMyParcelStatusHistory","Read a customer's parcel status history","CUSTOMER",200,"ParcelStatusHistoryList","Returns status changes for an owned parcel reference.",[],None,[],[400,401,403,404,503],[]),
+    ("get","/api/v1/parcels/tracking/{reference}","getParcelPublicTracking","Read limited public tracking information","PUBLIC",200,"PublicParcelTracking","Public response contains parcel status and city-level locations only; anonymous access is allowed.",[],None,[],[400,404,503],[]),
+    ("get","/api/v1/parcels/{id}/receipt","getParcelReceipt","Read an authorized parcel receipt","CUSTOMER, MERCHANT, DISPATCHER, SERVICE",200,"ReceiptResponse","Customer and merchant access is owner-scoped; dispatcher and authorized service callers may access operationally.",[],None,[],[400,401,403,404,503],[]),
+    ("get","/api/v1/parcels/{id}/receipt/pdf","getParcelReceiptPdf","Download an authorized parcel receipt PDF","CUSTOMER, MERCHANT, DISPATCHER, SERVICE",200,"BinaryPdf","Customer and merchant access is owner-scoped; dispatcher and authorized service callers may access operationally.",[],None,[],[400,401,403,404,503],[]),
     ("get","/api/v1/zones","listDeliveryZones","List active delivery zones","CUSTOMER, MERCHANT, COURIER, DISPATCHER",200,"DeliveryZoneList","Authenticated human roles only.",[],None,[],[401,403,503],[]),
     ("get","/api/v1/zones/{code}","getDeliveryZoneByCode","Get delivery zone by code","CUSTOMER, MERCHANT, COURIER, DISPATCHER",200,"DeliveryZone","Returns delivery zone details for the given zone code.",[],None,[],[400,401,403,404,503],[]),
     ("get","/api/v1/admin/pricing-rules","getPricingRule","Read the active pricing rule","DISPATCHER",200,"PricingRule","Dispatcher-only pricing administration.",[],None,[],[401,403,503],[]),
@@ -254,12 +327,17 @@ OPS = {
     ("get","/api/v1/dispatch/eligible-couriers","listEligibleCouriers","List eligible couriers for a parcel","DISPATCHER",200,"CourierList","Requires parcelId; S3 verifies parcel eligibility through its configured parcel-source integration.",[("parcelId","string",True,None,None,None)],None,[],[400,401,403,404,409,503],[]),
     ("get","/api/v1/dispatch/workload","getCourierWorkload","Read courier workload","DISPATCHER",200,"Workload","Optional name search and availability filter.",[("search","string",False,0,200,""),("availability","string",False,None,None,"")],None,[],[400,401,403,503],[]),
     ("post","/api/v1/dispatch/assignments","assignCourier","Assign a parcel to a courier","DISPATCHER",201,"Assignment","Actor is read from the JWT subject. An existing parcel assignment conflicts.",[],"AssignRequest",[],[400,401,403,404,409,422,503],[]),
+    ("get","/api/v1/dispatch/assignments","listAssignments","List dispatch assignments","DISPATCHER",200,"AssignmentList","Requires dispatcher view permission.",[],None,[],[401,403,503],[]),
+    ("get","/api/v1/dispatch/assignments/{parcelId}","getAssignmentSummary","Read an assignment summary","DISPATCHER, SERVICE, CUSTOMER",200,"PublicAssignmentSummary","Returns a limited assignment summary; courier contact details are included only after acceptance.",[],None,[],[400,401,403,404,503],[]),
     ("post","/api/v1/dispatch/assignments/{parcelId}/reassign","reassignCourier","Reassign an assigned parcel to an eligible courier","DISPATCHER",200,"Assignment","Actor is read from the JWT subject. The prior and new courier IDs are recorded in S3 audit and outbox records.",[],"ReassignRequest",[],[400,401,403,404,409,503],[]),
     ("delete","/api/v1/dispatch/assignments/{parcelId}","cancelAssignment","Cancel an active parcel assignment","DISPATCHER",204,None,"Actor is read from the JWT subject. Cancellation writes an audit and outbox record atomically.",[] ,None,[],[401,403,404,503],[]),
     ("get","/api/v1/courier/deliveries","listCourierDeliveries","List the authenticated courier's assignments","COURIER",200,"DeliverySummaryList","Only assignments belonging to the token courier are returned.",[],None,[],[401,403,503],[]),
     ("get","/api/v1/courier/deliveries/{parcelId}","getCourierDelivery","Read an assigned delivery","COURIER",200,"DeliverySummary","Both courier profile id and user id must match the authenticated courier.",[],None,[],[400,401,403,404,503],[]),
     ("get","/api/v1/courier/deliveries/{parcelId}/proof","getDeliveryProof","Read proof of delivery","COURIER",200,"ProofResponse","Only the courier assigned to the parcel can read proof. Cache-Control is no-store.",[],None,[],[400,401,403,404,503],["Cache-Control"]),
     ("post","/api/v1/courier/deliveries/{parcelId}/proof","submitDeliveryProof","Submit proof of delivery","COURIER",201,"ProofResponse","New proof returns 201; same evidence replay returns 200; conflicting evidence returns 409. Cache-Control is no-store.",[],"SubmitProofRequest",[],[400,401,403,404,409,503],["Cache-Control"]),
+    ("post","/api/v1/courier/deliveries/{parcelId}/accept","acceptCourierAssignment","Accept an assigned delivery","COURIER",200,"Assignment","The authenticated courier must own the pending assignment.",[],None,[],[400,401,403,404,409,503],["Cache-Control"]),
+    ("post","/api/v1/courier/deliveries/{parcelId}/reject","rejectCourierAssignment","Reject an assigned delivery","COURIER",200,"Assignment","The authenticated courier must own the pending assignment. An optional rejection reason may be supplied.",[],"RejectAssignmentRequest",[],[400,401,403,404,409,503],["Cache-Control"]),
+    ("patch","/api/v1/courier/deliveries/{parcelId}/status","updateCourierParcelStatus","Update a parcel delivery status","COURIER",200,"CourierParcelStatusResponse","The assigned courier must have accepted the assignment. Status is sent to S2 through gRPC.",[],"CourierStatusRequest",[],[400,401,403,404,409,503],["Cache-Control"]),
 ],
 "tracking": [
     ("get","/api/v1/reports/deliveries/daily","getDailyDeliveryReport","Read daily delivery metrics","DISPATCHER",200,"DailyDeliveryReport","Required inclusive Asia/Colombo dates, from <= to, at most 92 days, to no later than today. Uses business event occurred_at via tracking.reporting_day(). Every requested day is returned in ascending order. Existing view values, including active on intervening days, are preserved; absent view days have zero counts and null successRate. Invalid dates/ranges return 400 with fieldErrors naming from or to. Date filters only; CSV export deferred.",[("from","string",True,None,None,None),("to","string",True,None,None,None)],None,[],[400,401,403],[]),
@@ -278,6 +356,12 @@ OPS = {
     ("delete","/api/v1/merchant/webhooks","disableMerchantWebhook","Disable the merchant webhook","MERCHANT",204,None,"Disables the token subject's webhook subscription.",[],None,[],[401,403,404,503],[]),
     ("post","/api/v1/merchant/webhooks/secret","rotateMerchantWebhookSecret","Rotate the webhook signing secret","MERCHANT",200,"WebhookSecretResponse","New signing secret is shown once; response is Cache-Control: no-store.",[],None,[],[401,403,404,503],["Cache-Control"]),
     ("get","/api/v1/merchant/webhooks/deliveries","listMerchantWebhookDeliveries","List the merchant's webhook deliveries","MERCHANT",200,"WebhookDeliveryPage","Results are scoped to the merchant subject; payload is not returned.",[("page","integer",False,0,None,0),("size","integer",False,1,100,20)],None,[],[400,401,403,503],[]),
+    ("post","/api/v1/assistant/chat","chatWithAssistant","Send a message to the customer assistant","CUSTOMER",200,"AssistantChatResponse","Conversation ownership is derived from the bearer subject. Legacy history is validated but is not trusted as stored context.",[],"AssistantChatRequest",[],[400,401,403,404,429,503],[]),
+    ("post","/api/v1/assistant/conversations","createAssistantConversation","Create an assistant conversation","CUSTOMER",201,"AssistantConversation","Conversation is owned by the bearer subject.",[],None,[],[401,403,503],[]),
+    ("get","/api/v1/assistant/conversations","listAssistantConversations","List assistant conversations","CUSTOMER",200,"AssistantConversationList","Returns conversations owned by the bearer subject.",[],None,[],[401,403,503],[]),
+    ("get","/api/v1/assistant/conversations/{id}","getAssistantConversationHistory","Read assistant conversation history","CUSTOMER",200,"AssistantHistory","Only the conversation owner may read its history.",[],None,[],[400,401,403,404,503],[]),
+    ("post","/api/v1/support/tickets","createSupportTicket","Create a customer support ticket","CUSTOMER",201,"SupportTicketResponse","Ticket owner is the bearer subject; optional tracking reference associates the ticket with a parcel.",[],"SupportTicketRequest",[],[400,401,403,404,422,503],[]),
+    ("get","/api/v1/support/tickets/{id}","getSupportTicket","Read a support ticket","CUSTOMER",200,"SupportTicketResponse","Only the ticket owner may read the ticket.",[],None,[],[400,401,403,404,503],[]),
 ],
 }
 
@@ -340,6 +424,8 @@ def make_operation(service, row):
         elif path.endswith("/events") and service == "tracking":
             resp["content"] = {"application/json": {"schema": schema_ref("TrackingEventList")},
                                "text/event-stream": {"schema": schema_ref("TrackingEventStream")}}
+        elif response_schema == "BinaryPdf":
+            resp["content"] = {"application/pdf": {"schema": schema_ref(response_schema)}}
         else:
             resp["content"] = {"application/json": {"schema": schema_ref(response_schema)}}
     if success in (200, 201):
@@ -364,7 +450,8 @@ def make_operation(service, row):
           "tags": [SERVICE_INFO[service][1]], "responses": responses}
     if params: op["parameters"] = params
     if body:
-        op["requestBody"] = {"required": True, "content": {"application/json": {"schema": schema_ref(body)}}}
+        op["requestBody"] = {"required": path != "/api/v1/courier/deliveries/{parcelId}/reject",
+                              "content": {"application/json": {"schema": schema_ref(body)}}}
     op["security"] = [] if roles == "PUBLIC" else [{"bearerAuth": []}]
     return op
 
@@ -378,6 +465,8 @@ def build(service):
         "UserProfileList": "UserProfile", "MerchantApplicationList": "MerchantApplication", "CourierProfileList": "CourierProfile", "DeliveryZoneList": "DeliveryZone",
         "MerchantOrderList": "MerchantOrderResponse", "CourierList": "Courier", "DeliverySummaryList": "DeliverySummary",
         "TrackingEventList": "TrackingEvent",
+        "ReceiptResponseList": "ReceiptResponse", "ParcelStatusHistoryList": "ParcelStatusHistoryRow",
+        "AssignmentList": "Assignment", "AssistantConversationList": "AssistantConversation",
     }.items():
         if item in schemas: schemas[name] = arr(schema_ref(item))
     paths = {}
@@ -444,9 +533,11 @@ def gateway_inventory():
     ids = re.findall(r"^\s*- id: (\w+)\s*$", source, re.M)
     path_lines = re.findall(r"^\s*- Path=([^\n]+)", source, re.M)
     owner = {"identity": "identity", "parcel": "parcel", "dispatch": "dispatch",
-             "tracking": "tracking", "notification": "notifications"}
-    routes = {owner[route]: [part.strip() for part in line.split(",")]
-              for route, line in zip(ids, path_lines) if route in owner}
+             "tracking": "tracking", "notification": "notifications", "assistant": "notifications"}
+    routes = {}
+    for route, line in zip(ids, path_lines):
+        if route in owner:
+            routes.setdefault(owner[route], []).extend(part.strip() for part in line.split(","))
     return routes
 
 
@@ -454,10 +545,31 @@ def gateway_matches(path, pattern):
     return fnmatch.fnmatchcase(path, pattern) or (pattern.endswith("/**") and path == pattern[:-3])
 
 
+# Service-internal REST mappings that are deliberately absent from the public gateway contract.
+# Keep exactly in sync with INTERNAL in backend/api-gateway/.../routes/GatewayInventoryTests.java:
+# an "/internal" prefix alone is not approval, and every entry must stay unreachable via the gateway.
+INTERNAL = {
+    "identity": {("get", "/internal/courier-dashboard/identity")},
+    "parcel": {("get", "/internal/assignment-claims/candidates"), ("get", "/internal/assignment-claims/candidates/{parcel}"),
+               ("get", "/internal/assignment-claims/{operation}"), ("post", "/internal/assignment-claims/{operation}/acquire"),
+               ("post", "/internal/assignment-claims/{operation}/confirm"), ("post", "/internal/assignment-claims/{operation}/release")},
+    "dispatch": {("get", "/internal/courier-dashboard/assignments"), ("get", "/internal/dispatch/assignment-operations"),
+                 ("get", "/internal/dispatch/assignment-operations/{id}"), ("post", "/internal/dispatch/assignment-operations/{id}/reconcile")},
+}
+
+
 def validate():
     expected = controller_inventory()
     routes = gateway_inventory()
+    all_patterns = [p for patterns in routes.values() for p in patterns]
     errors = []
+    for service, internal in INTERNAL.items():
+        for method, path in sorted(internal - expected[service]):
+            errors.append(f"{service}: approved internal mapping {method.upper()} {path} no longer exists in a controller; update INTERNAL")
+        for method, path in sorted(internal):
+            if any(gateway_matches(path, pattern) for pattern in all_patterns):
+                errors.append(f"{service}: internal mapping {method.upper()} {path} is reachable through a public gateway route")
+        expected[service] -= internal
     for service in OPS:
         spec_path = OUT / f"{service}.openapi.json"
         spec = json.loads(spec_path.read_text(encoding="utf-8"))

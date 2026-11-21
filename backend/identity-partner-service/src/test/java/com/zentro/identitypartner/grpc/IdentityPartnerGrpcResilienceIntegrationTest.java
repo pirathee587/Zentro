@@ -166,7 +166,7 @@ class IdentityPartnerGrpcResilienceIntegrationTest {
     when(courierProfileService.getCourierProfileForGrpc(courierId))
         .thenThrow(new IllegalStateException("courier store unavailable"));
 
-    StatusRuntimeException error = catchThrowableOfType(() -> stub(channel)
+    StatusRuntimeException error = catchThrowableOfType(() -> stub(channel, "dispatch-courier-service")
         .withDeadlineAfter(5, TimeUnit.SECONDS)
         .getCourierProfile(courier(courierId)), StatusRuntimeException.class);
 
@@ -201,9 +201,13 @@ class IdentityPartnerGrpcResilienceIntegrationTest {
   }
 
   private static IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub(ManagedChannel channel) {
+    return stub(channel, "parcel-pricing-service");
+  }
+
+  private static IdentityPartnerServiceGrpc.IdentityPartnerServiceBlockingStub stub(ManagedChannel channel, String service) {
     Metadata headers = new Metadata();
     headers.put(GrpcSecurityInterceptor.INTERNAL_TOKEN_METADATA_KEY, INTERNAL_SECRET);
-    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, "resilience-test");
+    headers.put(GrpcSecurityInterceptor.INTERNAL_SERVICE_METADATA_KEY, service);
     return IdentityPartnerServiceGrpc.newBlockingStub(channel)
         .withInterceptors(MetadataUtils.newAttachHeadersInterceptor(headers));
   }

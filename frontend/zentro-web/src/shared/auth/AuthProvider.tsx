@@ -80,18 +80,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     clearLegacyStoredTokens();
 
     async function restoreSession(): Promise<User | null> {
-      const path = window.location.pathname;
-      if (path === '/silent-callback') {
-        await oidcManager.signinSilentCallback();
-        return null;
-      }
-      if (path === '/callback') return completeAuthorizationCallback();
-
-      const existing = await oidcManager.getUser();
-      if (existing && !existing.expired) return existing;
-
       try {
-        return await oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } }) ?? null;
+        const path = window.location.pathname;
+        if (path === '/silent-callback') {
+          await oidcManager.signinSilentCallback();
+          return null;
+        }
+        if (path === '/callback') return completeAuthorizationCallback();
+
+        const existing = await oidcManager.getUser();
+        if (existing && !existing.expired) return existing;
+
+        try {
+          return await oidcManager.signinSilent({ extraQueryParams: { prompt: 'none' } }) ?? null;
+        } catch {
+          return null;
+        }
       } catch {
         return null;
       }
@@ -146,6 +150,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
           signal,
         })).data;
       } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          // The user was deleted by admin or does not exist in DB: evict dead session immediately.
+          try {
+            await oidcManager.removeUser();
+          } catch {
+            // ignore
+          }
+          setAccessToken(undefined);
+          setOidcUser(null);
+          throw error;
+        }
         // Access tokens can expire while the Keycloak session is still active.
         // Renew once and retry the profile request before treating the user as signed out.
         if (!axios.isAxiosError(error) || error.response?.status !== 401) throw error;
@@ -240,6 +255,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   ) => {
     setAuthError('');
     try {
+      document.cookie = `zentro_app_origin=${encodeURIComponent(window.location.origin)}; Max-Age=900; Path=/; SameSite=Lax`;
       savePendingAuthFlow({ returnTo, entryPoint });
       await oidcManager.signinRedirect({
         state: { returnTo, entryPoint },
@@ -251,7 +267,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     } catch {
       window.sessionStorage.removeItem(AUTH_FLOW_STORAGE_KEY);
-      setAuthError('Cannot reach the sign-in service. Check Keycloak and try again.');
+      setAuthError('Sign-in is temporarily unavailable. Please refresh the page and try again.');
     }
   }, []);
 
@@ -260,6 +276,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       // Keycloak is on another localhost port, but localhost cookies are shared
       // across ports. The login theme uses this short-lived hint for its return link.
+      document.cookie = `zentro_app_origin=${encodeURIComponent(window.location.origin)}; Max-Age=900; Path=/; SameSite=Lax`;
       document.cookie = `zentro_entry_point=${encodeURIComponent(entryPoint)}; Max-Age=900; Path=/; SameSite=Lax`;
       savePendingAuthFlow({ returnTo, entryPoint });
       await oidcManager.signinRedirect({
@@ -268,7 +285,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
     } catch {
       window.sessionStorage.removeItem(AUTH_FLOW_STORAGE_KEY);
-      setAuthError('Cannot reach the registration service. Check Keycloak and try again.');
+      setAuthError('Registration is temporarily unavailable. Please refresh the page and try again.');
     }
   }, []);
 

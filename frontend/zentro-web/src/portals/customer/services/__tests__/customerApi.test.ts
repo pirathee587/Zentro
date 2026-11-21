@@ -1,306 +1,119 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/shared/testing/mocks/server';
 import { apiClient, setAccessToken } from '@/shared/api/apiClient';
-import {
-  getDashboard,
-  estimateFee,
-  createDelivery,
-  listParcels,
-  getParcel,
-  subscribeToParcel,
-  listReceipts,
-  askAssistant,
-  sendSupportMessage,
-  normalizeListParcelsResponse,
-  setCustomerApiConfig,
-  BookingError,
-  toBookingError,
-} from '../customerApi';
+import { estimateFee, createDelivery, listParcels, getParcel, subscribeToParcel, listReceipts,
+  askAssistant, sendSupportMessage, normalizeParcelRecord, normalizeListParcelsResponse,
+  setCustomerApiConfig, BookingError, toBookingError } from '../customerApi';
 
-describe('SwiftDrop customerApi service and mock adapter', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
+const booking = {
+  id: 'synthetic-id', trackingRef: 'ZT-SYNTHETIC01', status: 'CREATED', fee: 827.5, currency: 'LKR', estimatedDays: 3,
+  createdAt: '2026-11-16T00:00:00Z',
+  sender: { name: 'Test sender', phone: '0771234567', address: 'Synthetic pickup address' },
+  recipient: { name: 'Test recipient', phone: '0711234567', address: 'Synthetic delivery address' },
+  parcel: { weightKg: 2, category: 'Documents', size: 'MEDIUM' as const },
+};
+const payload = { sender: booking.sender, recipient: booking.recipient, parcel: booking.parcel };
+describe('customer API gateway integration without production mock fallbacks', () => {
+  beforeEach(() => { setAccessToken('synthetic-jwt'); setCustomerApiConfig({ parcelsPath: '/api/v1/parcels' }); });
+  afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); setAccessToken(undefined); });
+  it('gets the authoritative fee and forwards the customer JWT', async () => {
+    server.use(http.post('*/api/v1/parcels/estimate', async ({request}) => {
+      expect(request.headers.get('authorization')).toBe('Bearer synthetic-jwt');
+      expect(await request.json()).toEqual({weightKg: 2});
+      return HttpResponse.json({fee:827.5,currency:'LKR',estimatedDays:3,breakdown:{baseFee:500,weightFee:327.5}});
+    }));
+    expect((await estimateFee({weightKg:2})).fee).toBe(827.5);
+  });
+  it('does not manufacture a fee when pricing fails', async () => {
+    server.use(http.post('*/api/v1/parcels/estimate',()=>new HttpResponse(null,{status:503})));
+    await expect(estimateFee({weightKg:2})).rejects.toBeDefined();
+  });
+  it('posts booking with stable idempotency key, JWT and only allowed input fields', async () => {
+    server.use(http.post('*/api/v1/parcels',async ({request})=>{
+      expect(request.headers.get('authorization')).toBe('Bearer synthetic-jwt');
+      expect(request.headers.get('idempotency-key')).toBe('stable-attempt');
+      expect(await request.json()).toEqual(payload);
+      return HttpResponse.json(booking,{status:201});
+    }));
+    const input={...payload,fee:1,customerSubject:'another-customer',status:'DELIVERED'};
+    expect((await createDelivery(input,{idempotencyKey:'stable-attempt'})).trackingRef).toBe(booking.trackingRef);
+  });
+  it('surfaces server idempotency conflicts without local fake bookings', async () => {
+    server.use(http.post('*/api/v1/parcels',()=>new HttpResponse(null,{status:409})));
+    await expect(createDelivery(payload,{idempotencyKey:'stable-attempt'})).rejects.toMatchObject({kind:'conflict'});
+  });
+  it('reads the customer-owned S2 page and maps status/search pagination', async () => {
+    server.use(http.get('*/api/v1/parcels/mine',({request})=>{
+      const url=new URL(request.url);
+      expect(url.searchParams.get('status')).toBe('IN_PROGRESS'); expect(url.searchParams.get('q')).toBe('Kandy');
+      expect(url.searchParams.get('size')).toBe('10');
+      return HttpResponse.json({content:[booking],totalElements:21});
+    }));
+    const result=await listParcels({status:'In progress',q:'Kandy',page:2,limit:10});
+    expect(result.total).toBe(21); expect(result.parcels[0].fee).toBe(827.5);
+  });
+  it('does not fall back to fixtures on an authorization failure', async () => {
+    server.use(http.get('*/api/v1/parcels/mine',()=>new HttpResponse(null,{status:403})));
+    await expect(listParcels()).rejects.toBeDefined();
+  });
+  it('reads private parcel through S4 GraphQL backed by S2 owner authorization', async () => {
+    const delivery={...booking,rawStatus:'CREATED',size:'MEDIUM',description:'',weightKg:2,
+      deliveredAt:null,estimatedDeliveryDate:null,failureReason:null,events:[]};
+    server.use(http.post('*/graphql',async({request})=>{
+      const body=await request.json() as {query:string;variables:{trackingRef:string}};
+      expect(body.query).toContain('customerDelivery');expect(body.variables.trackingRef).toBe(booking.trackingRef);
+      return HttpResponse.json({data:{customerDelivery:delivery}});
+    }));
+    expect((await getParcel(booking.trackingRef))?.sender.name).toBe('Test sender');
+  });
+  it('uses sanitized GraphQL tracking for an anonymous visitor', async () => {
     setAccessToken(undefined);
-    setCustomerApiConfig({
-      mode: 'mock',
-      useMocks: true,
-      baseUrl: '/api/v1/customer',
-      parcelsPath: '/api/v1/parcels',
-      deliveriesEndpoint: undefined,
-    });
+    server.use(http.post('*/graphql',async ({request})=>{
+      const body=await request.json() as {query:string;variables:unknown};
+      expect(body.query).not.toMatch(/sender|recipient|fee|phone/);
+      return HttpResponse.json({data:{publicTracking:{trackingRef:booking.trackingRef,status:'CREATED',createdAt:booking.createdAt,events:[]}}});
+    }));
+    const record=await getParcel(booking.trackingRef);
+    expect(record?.sender.phone).toBe(''); expect(record?.parcel.weightKg).toBeUndefined();
+    expect(record?.fee).toBeUndefined(); expect(record?.sender.city).toBe('');
   });
-
-  it('getDashboard returns metrics and recent parcels', async () => {
-    const data = await getDashboard();
-    expect(data).toBeDefined();
-    expect(typeof data.activeCount).toBe('number');
-    expect(data.formattedTotalSpent).toContain('LKR');
-    expect(Array.isArray(data.recentParcels)).toBe(true);
+  it('does not bypass a private GraphQL service outage through public tracking', async () => {
+    server.use(http.post('*/graphql',()=>HttpResponse.error()));
+    await expect(getParcel(booking.trackingRef)).rejects.toBeDefined();
   });
-
-  it('estimateFee calculates fee without UI computation', async () => {
-    const res = await estimateFee({
-      pickupCity: 'Colombo 04',
-      deliveryCity: 'Kandy',
-      weightKg: 2.5,
-      isExpress: true,
-    });
-    expect(res.fee).toBeGreaterThan(550);
-    expect(res.formattedFee).toBe(`LKR ${res.fee.toLocaleString('en-US')}`);
-    expect(res.estimatedDays).toBe(1);
-    expect(res.breakdown.distanceSurcharge).toBeUndefined();
-    expect(res.breakdown.expressFee).toBe(300);
+  it('polls authenticated GraphQL tracking and stops after unsubscribe', async () => {
+    vi.useFakeTimers();
+    const delivery={...booking,rawStatus:'CREATED',size:'MEDIUM',description:'',weightKg:2,
+      deliveredAt:null,estimatedDeliveryDate:null,failureReason:null,events:[]};
+    const spy=vi.spyOn(apiClient,'post').mockResolvedValue({data:{data:{customerDelivery:delivery}}});
+    const callback=vi.fn();const unsubscribe=subscribeToParcel(booking.trackingRef,callback);
+    await vi.advanceTimersByTimeAsync(30000);expect(callback).toHaveBeenCalledOnce();unsubscribe();
+    await vi.advanceTimersByTimeAsync(60000);expect(spy).toHaveBeenCalledOnce();
   });
-
-  it('estimateFee calls POST /api/v1/parcels/estimate with Bearer token in real mode and keeps other customer endpoints on mock', async () => {
-    setCustomerApiConfig({ mode: 'real' });
-    setAccessToken('jwt-customer-token-16');
-
-    let capturedUrl = '';
-    let capturedAuth: string | null = null;
-    let capturedBody: unknown = null;
-
-    server.use(
-      http.post('*/api/v1/parcels/estimate', async ({ request }) => {
-        capturedUrl = request.url;
-        capturedAuth = request.headers.get('authorization');
-        capturedBody = await request.json();
-        return HttpResponse.json({
-          fee: 1072,
-          formattedFee: 'LKR 1,072',
-          currency: 'LKR',
-          estimatedDays: 3,
-          breakdown: {
-            baseFee: 550,
-            weightFee: 120,
-            distanceSurcharge: 402,
-          },
-        });
-      })
-    );
-
-    const res = await estimateFee({
-      weightKg: 2,
-      destinationType: 'OTHER_DISTRICT',
-      parcelSize: 'MEDIUM',
-    });
-
-    expect(capturedUrl).toBe('http://localhost:8080/api/v1/parcels/estimate');
-    expect(capturedAuth).toBe('Bearer jwt-customer-token-16');
-    expect(capturedBody).toEqual({
-      weightKg: 2,
-      destinationType: 'OTHER_DISTRICT',
-      parcelSize: 'MEDIUM',
-    });
-    expect(res.fee).toBe(1072);
-    expect(res.formattedFee).toBe('LKR 1,072');
-    expect(res.breakdown).toEqual({
-      baseFee: 550,
-      weightFee: 120,
-      distanceSurcharge: 402,
-    });
-
-    // Unapproved customer endpoints remain on the mock adapter in real mode
-    const dash = await getDashboard();
-    expect(dash.recentParcels.length).toBeGreaterThan(0);
-    const history = await listParcels();
-    expect(history.parcels.length).toBeGreaterThan(0);
-    const tracked = await getParcel('SD-20418');
-    expect(tracked?.trackingRef).toBe('SD-20418');
-    const receipts = await listReceipts();
-    expect(receipts.length).toBeGreaterThan(0);
-    const reply = await askAssistant('Where is my parcel?');
-    expect(reply.reply).toBeDefined();
+  it('reads actual authorized receipts without injecting payment details', async () => {
+    server.use(http.get('*/api/v1/parcels/mine/receipts',()=>HttpResponse.json([{receiptNumber:'REC-SYNTHETIC',amount:827.5,paymentStatus:'Unknown',paymentMethod:'Not recorded'}])));
+    expect((await listReceipts())[0]).toMatchObject({amount:827.5,paymentStatus:'Unknown',paymentMethod:'Not recorded'});
   });
-
-  it('createDelivery in mock mode returns contract-aligned ParcelBookingResponse and supports idempotent replay and 409 conflict', async () => {
-    const requestPayload = {
-      sender: {
-        name: 'Amara',
-        phone: '+94 77 123 4567',
-        address: '42 Galle Road, Colombo 03',
-        city: 'Colombo',
-      },
-      recipient: {
-        name: 'Kamal',
-        phone: '+94 71 456 7890',
-        address: '10 Main Street, Galle',
-        city: 'Galle',
-      },
-      parcel: {
-        description: 'Books',
-        weightKg: 1.0,
-        category: 'Documents',
-        size: 'SMALL' as const,
-      },
-      destinationType: 'OTHER_DISTRICT' as const,
-    };
-
-    const parcel = await createDelivery(requestPayload, { idempotencyKey: 'idem-mock-key-1' });
-
-    expect(parcel.trackingRef).toMatch(/^ZT-[0-9A-HJ-KM-NP-TV-Z]{10}$/);
-    expect(parcel.status).toBe('CREATED');
-    expect(parcel.currency).toBe('LKR');
-    expect(typeof parcel.fee).toBe('number');
-    expect('formattedFee' in parcel).toBe(false);
-    expect('timeline' in parcel).toBe(false);
-
-    // Same key + same body replays the original booking
-    const replayed = await createDelivery(requestPayload, { idempotencyKey: 'idem-mock-key-1' });
-    expect(replayed.trackingRef).toBe(parcel.trackingRef);
-
-    // Same key + different body throws 409 conflict
-    await expect(
-      createDelivery(
-        {
-          ...requestPayload,
-          parcel: { ...requestPayload.parcel, weightKg: 3.5 },
-        },
-        { idempotencyKey: 'idem-mock-key-1' }
-      )
-    ).rejects.toMatchObject({
-      kind: 'conflict',
-      status: 409,
-      message: 'This booking conflicts with an earlier attempt. Review your details and try again',
-    });
-
-    // Verify demo history/tracking still has it in mock mode
-    const fetched = await getParcel(parcel.trackingRef);
-    expect(fetched?.trackingRef).toBe(parcel.trackingRef);
+  it('calls existing S5 assistant with conversation context', async () => {
+    server.use(http.post('*/api/v1/assistant/chat',async({request})=>{
+      expect(await request.json()).toMatchObject({message:'Where is my parcel?',conversationId:'existing-conversation'});
+      return HttpResponse.json({reply:'A verified response',conversationId:'existing-conversation'});
+    }));
+    expect((await askAssistant('Where is my parcel?',[],'existing-conversation')).reply).toBe('A verified response');
   });
-
-  it('createDelivery in real mode posts to /api/v1/parcels with Bearer and Idempotency-Key, strips forbidden fields, and does not mutate mock stores', async () => {
-    setCustomerApiConfig({ mode: 'real' });
-    setAccessToken('jwt-customer-token-56');
-
-    const beforeHistory = await listParcels();
-    const beforeReceipts = await listReceipts();
-
-    let capturedUrl = '';
-    let capturedMethod = '';
-    let capturedAuth: string | null = null;
-    let capturedIdempotencyKey: string | null = null;
-    let capturedBody: Record<string, unknown> | null = null;
-
-    server.use(
-      http.post('*/api/v1/parcels', async ({ request }) => {
-        capturedUrl = request.url;
-        capturedMethod = request.method;
-        capturedAuth = request.headers.get('authorization');
-        capturedIdempotencyKey = request.headers.get('idempotency-key');
-        capturedBody = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(
-          {
-            trackingRef: 'ZT-7K3QX9M2PA',
-            status: 'CREATED',
-            fee: 1132,
-            currency: 'LKR',
-            estimatedDays: 3,
-            createdAt: '2026-04-12T10:15:30Z',
-            sender: capturedBody.sender,
-            recipient: capturedBody.recipient,
-            parcel: capturedBody.parcel,
-            formattedFee: 'SHOULD_BE_STRIPPED',
-            timeline: ['SHOULD_BE_STRIPPED'],
-          },
-          {
-            status: 201,
-            headers: { Location: '/api/v1/parcels/ZT-7K3QX9M2PA' },
-          }
-        );
-      })
-    );
-
-    const dirtyInput = {
-      sender: {
-        name: 'Sender Contact',
-        phone: '077 123 4567',
-        address: '123 Galle Road, Colombo 03',
-      },
-      recipient: {
-        name: 'Nimal Perera',
-        phone: '+94 71 987 6543',
-        address: '45 Kandy Road, Peradeniya',
-      },
-      parcel: {
-        category: 'Medium Box',
-        weightKg: 2.5,
-        size: 'MEDIUM' as const,
-      },
-      destinationType: 'OTHER_DISTRICT' as const,
-      fee: 10,
-      status: 'DELIVERED',
-      trackingRef: 'ZT-FAKE000000',
-      customer: 'injected-user',
-    };
-
-    const result = await createDelivery(dirtyInput as never, {
-      idempotencyKey: '550e8400-e29b-41d4-a716-446655440000',
-    });
-
-    expect(capturedUrl).toBe('http://localhost:8080/api/v1/parcels');
-    expect(capturedMethod).toBe('POST');
-    expect(capturedAuth).toBe('Bearer jwt-customer-token-56');
-    expect(capturedIdempotencyKey).toBe('550e8400-e29b-41d4-a716-446655440000');
-    expect(capturedBody).toEqual({
-      sender: {
-        name: 'Sender Contact',
-        phone: '077 123 4567',
-        address: '123 Galle Road, Colombo 03',
-      },
-      recipient: {
-        name: 'Nimal Perera',
-        phone: '+94 71 987 6543',
-        address: '45 Kandy Road, Peradeniya',
-      },
-      parcel: {
-        category: 'Medium Box',
-        weightKg: 2.5,
-        size: 'MEDIUM',
-      },
-      destinationType: 'OTHER_DISTRICT',
-    });
-    expect(capturedBody).not.toHaveProperty('fee');
-    expect(capturedBody).not.toHaveProperty('status');
-    expect(capturedBody).not.toHaveProperty('trackingRef');
-    expect(capturedBody).not.toHaveProperty('customer');
-
-    expect(result).toEqual({
-      trackingRef: 'ZT-7K3QX9M2PA',
-      status: 'CREATED',
-      fee: 1132,
-      currency: 'LKR',
-      estimatedDays: 3,
-      createdAt: '2026-04-12T10:15:30Z',
-      sender: {
-        name: 'Sender Contact',
-        phone: '077 123 4567',
-        address: '123 Galle Road, Colombo 03',
-      },
-      recipient: {
-        name: 'Nimal Perera',
-        phone: '+94 71 987 6543',
-        address: '45 Kandy Road, Peradeniya',
-      },
-      parcel: {
-        category: 'Medium Box',
-        weightKg: 2.5,
-        size: 'MEDIUM',
-      },
-    });
-    expect('formattedFee' in result).toBe(false);
-    expect('timeline' in result).toBe(false);
-
-    // Real booking must NOT fake entries in History, Receipts, or Tracking mock stores
-    const afterHistory = await listParcels();
-    const afterReceipts = await listReceipts();
-    const trackedReal = await getParcel('ZT-7K3QX9M2PA');
-    expect(afterHistory.total).toBe(beforeHistory.total);
-    expect(afterReceipts.length).toBe(beforeReceipts.length);
-    expect(trackedReal).toBeNull();
+  it('submits support to S5 and displays only returned ticket data', async () => {
+    const input={subject:'Delivery issue',category:'delivery' as const,message:'Please check my booking'};
+    server.use(http.post('*/api/v1/support/tickets',async({request})=>{
+      expect(await request.json()).toEqual(input);return HttpResponse.json({...input,id:'stored-id',ticketNumber:'SUP-stored-id',status:'Open'});
+    }));
+    expect((await sendSupportMessage(input)).ticketNumber).toBe('SUP-stored-id');
   });
-
+  it('normalization does not invent weights, IDs or booking timestamps',()=>{
+    const value=normalizeParcelRecord({trackingRef:'ZT-SYNTHETIC01',status:'CREATED'});
+    expect(value.parcel.weightKg).toBeUndefined(); expect(value.createdAt).toBe('');
+    expect(normalizeListParcelsResponse({content:[booking],totalElements:7}).total).toBe(7);
+  });
   it('toBookingError maps 400, 401, 403, 409, 422, 503, timeout, network, and unexpected errors distinctly', () => {
     const err422 = toBookingError({
       response: {
@@ -355,128 +168,4 @@ describe('SwiftDrop customerApi service and mock adapter', () => {
     expect(errUnknown.message).toBe('Something went wrong while booking. Please try again.');
   });
 
-  it('listParcels returns list and count using mock adapter', async () => {
-    const res = await listParcels();
-    expect(res.parcels.length).toBeGreaterThan(0);
-    expect(res.total).toBe(res.parcels.length);
-  });
-
-  it('listParcels queries real apiClient and normalizes Spring Data Page when useMocks is false', async () => {
-    setCustomerApiConfig({ useMocks: false, baseUrl: '/api/v1/customer' });
-
-    const springPageResponse = {
-      content: [
-        {
-          id: 'pcl-srv-1',
-          trackingRef: 'ZTR-REAL001',
-          status: 'IN_PROGRESS',
-          fee: 1200,
-          createdAt: '2026-10-25T10:00:00Z',
-          sender: { name: 'Sita', city: 'Colombo' },
-          recipient: { name: 'Ravi', city: 'Jaffna' },
-        },
-      ],
-      totalElements: 1,
-      totalPages: 1,
-    };
-
-    const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({ data: springPageResponse } as never);
-
-    const res = await listParcels({ page: 1, limit: 10, status: 'In progress' });
-
-    expect(getSpy).toHaveBeenCalledWith('/api/v1/customer/parcels', {
-      params: { page: 1, limit: 10, status: 'In progress' },
-    });
-    expect(res.total).toBe(1);
-    expect(res.parcels.length).toBe(1);
-    expect(res.parcels[0].trackingRef).toBe('ZTR-REAL001');
-    expect(res.parcels[0].status).toBe('In progress');
-    expect(res.parcels[0].formattedFee).toBe('LKR 1,200');
-  });
-
-  it('listParcels respects custom deliveriesEndpoint when configured', async () => {
-    setCustomerApiConfig({
-      useMocks: false,
-      baseUrl: '/api/v1/customer',
-      deliveriesEndpoint: '/api/v1/tracking/mine',
-    });
-
-    const getSpy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
-      data: { parcels: [], total: 0 },
-    } as never);
-
-    await listParcels({ page: 1 });
-
-    expect(getSpy).toHaveBeenCalledWith('/api/v1/tracking/mine', {
-      params: { page: 1 },
-    });
-  });
-
-  it('normalizeListParcelsResponse handles plain array and computes totalSpent', () => {
-    const rawArray = [
-      { id: '1', trackingRef: 'ZTR-1', status: 'DELIVERED', fee: 500 },
-      { id: '2', trackingRef: 'ZTR-2', status: 'FAILED', fee: 800 },
-    ];
-
-    const normalized = normalizeListParcelsResponse(rawArray);
-    expect(normalized.total).toBe(2);
-    expect(normalized.parcels.length).toBe(2);
-    expect(normalized.parcels[0].status).toBe('Delivered');
-    expect(normalized.parcels[1].status).toBe('Failed');
-    expect(normalized.totalSpent).toBe(1300);
-    expect(normalized.formattedTotalSpent).toBe('LKR 1,300');
-  });
-
-  it('normalizeListParcelsResponse handles deliveries or data wrapped responses', () => {
-    const wrapped = {
-      deliveries: [
-        { id: 'd-1', trackingRef: 'ZTR-D1', status: 'In progress', fee: 400 },
-      ],
-      total: 1,
-    };
-    const normalized = normalizeListParcelsResponse(wrapped);
-    expect(normalized.total).toBe(1);
-    expect(normalized.parcels.length).toBe(1);
-    expect(normalized.parcels[0].trackingRef).toBe('ZTR-D1');
-    expect(normalized.parcels[0].status).toBe('In progress');
-  });
-
-  it('subscribeToParcel notifies subscriber and returns unsubscribe function', async () => {
-    let notified = false;
-    const unsubscribe = subscribeToParcel('ZTR-SD8941K2M7', (p) => {
-      if (p.trackingRef === 'ZTR-SD8941K2M7') {
-        notified = true;
-      }
-    });
-
-    await new Promise((r) => setTimeout(r, 50));
-    expect(notified).toBe(true);
-    expect(typeof unsubscribe).toBe('function');
-    unsubscribe();
-  });
-
-  it('listReceipts returns official receipts formatted in LKR', async () => {
-    const receipts = await listReceipts();
-    expect(receipts.length).toBeGreaterThan(0);
-    expect(receipts[0].formattedAmount).toContain('LKR');
-  });
-
-  it('askAssistant replies with suggested actions', async () => {
-    const reply = await askAssistant('How do I track my parcel?');
-    expect(reply.reply).toBeDefined();
-    expect(reply.suggestedActions?.length).toBeGreaterThan(0);
-  });
-
-  it('sendSupportMessage submits support ticket with reference', async () => {
-    const ticket = await sendSupportMessage({
-      subject: 'Delay question',
-      category: 'delivery',
-      trackingRef: 'ZTR-SD8941K2M7',
-      message: 'When is the parcel arriving in Kandy?',
-    });
-
-    expect(ticket.id).toBeDefined();
-    expect(ticket.ticketNumber).toContain('TICK-');
-    expect(ticket.status).toBe('Open');
-  });
-});
+ });

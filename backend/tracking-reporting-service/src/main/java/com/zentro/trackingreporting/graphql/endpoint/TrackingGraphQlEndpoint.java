@@ -41,6 +41,7 @@ public class TrackingGraphQlEndpoint {
   private static final int DEFAULT_PAGE_SIZE = 10;
   private static final int MAX_PAGE_SIZE = 50;
 
+  private final com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   private final TrackingParcelRepository parcelRepository;
   private final TrackingEventRepository eventRepository;
   private final DeliveryAuthorizationService authService;
@@ -48,7 +49,9 @@ public class TrackingGraphQlEndpoint {
   public TrackingGraphQlEndpoint(
       TrackingParcelRepository parcelRepository,
       TrackingEventRepository eventRepository,
-      DeliveryAuthorizationService authService) {
+      DeliveryAuthorizationService authService,
+      com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings) {
+    this.bookings = bookings;
     this.parcelRepository = parcelRepository;
     this.eventRepository = eventRepository;
     this.authService = authService;
@@ -60,6 +63,8 @@ public class TrackingGraphQlEndpoint {
   @QueryMapping
   public PublicTrackingParcelDto publicTracking(@Argument("trackingRef") String trackingRef) {
     validateTrackingRef(trackingRef);
+    var authoritative = bookings.publicTracking(trackingRef);
+    if (authoritative != null) return authoritative;
     TrackingParcel parcel = parcelRepository.findByTrackingRef(trackingRef)
         .orElseThrow(() -> new TrackingNotFoundException("Parcel not found for tracking reference: " + trackingRef));
     return toPublicTrackingParcelDto(parcel);
@@ -88,6 +93,7 @@ public class TrackingGraphQlEndpoint {
    */
   @QueryMapping
   public DeliveryConnectionDto myDeliveries(
+      @Argument("customerOnly") Boolean customerOnly,
       @Argument("page") Integer page,
       @Argument("size") Integer size,
       @Argument("status") TrackingStatus status,
@@ -101,7 +107,12 @@ public class TrackingGraphQlEndpoint {
     String sanitizedQuery = (query != null && !query.isBlank()) ? query.trim() : null;
 
     Page<TrackingParcel> pageResult;
-    if (roles.contains(DeliveryAuthorizationService.ROLE_DISPATCHER)) {
+    if (Boolean.TRUE.equals(customerOnly)) {
+      if (!roles.contains(DeliveryAuthorizationService.ROLE_CUSTOMER)) throw new AccessDeniedException("Customer authentication required");
+      if (!(authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt))
+        throw new AccessDeniedException("Customer authentication required");
+      pageResult = bookings.page(jwt, pageable, status, sanitizedQuery);
+    } else if (roles.contains(DeliveryAuthorizationService.ROLE_DISPATCHER)) {
       pageResult = findForDispatcher(status, sanitizedQuery, pageable);
     } else if (roles.contains(DeliveryAuthorizationService.ROLE_CUSTOMER)) {
       pageResult = findForCustomer(subject, status, sanitizedQuery, pageable);
@@ -142,7 +153,8 @@ public class TrackingGraphQlEndpoint {
    * Batch resolver for DeliveryDetails events, preventing N+1 queries.
    */
   @BatchMapping(typeName = "DeliveryDetails", field = "events")
-  public Map<DeliveryDetailsDto, List<TrackingEventDto>> events(List<DeliveryDetailsDto> deliveries) {
+  public Map<DeliveryDetailsDto, List<TrackingEventDto>> events(List<DeliveryDetailsDto> deliveries,
+      Authentication authentication) {
     if (deliveries == null || deliveries.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -157,9 +169,16 @@ public class TrackingGraphQlEndpoint {
         .map(this::toEventDto)
         .collect(Collectors.groupingBy(TrackingEventDto::trackingRef));
 
+    org.springframework.security.oauth2.jwt.Jwt jwt = authentication != null
+        && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt j ? j : null;
+
     Map<DeliveryDetailsDto, List<TrackingEventDto>> result = new LinkedHashMap<>();
     for (DeliveryDetailsDto delivery : deliveries) {
-      result.put(delivery, grouped.getOrDefault(delivery.trackingRef(), List.of()));
+      List<TrackingEventDto> list = grouped.getOrDefault(delivery.trackingRef(), List.of());
+      if (list.isEmpty() && jwt != null && delivery.trackingRef() != null) {
+        list = bookings.customerHistory(jwt, delivery.trackingRef());
+      }
+      result.put(delivery, list);
     }
     return result;
   }
@@ -304,45 +323,7 @@ public class TrackingGraphQlEndpoint {
   }
 
   private DeliveryDetailsDto toDeliveryDetailsDto(TrackingParcel parcel) {
-    PartyDto sender = new PartyDto(
-        parcel.getSenderName(),
-        parcel.getSenderPhone(),
-        parcel.getSenderAddress(),
-        parcel.getSenderCity()
-    );
-    PartyDto recipient = new PartyDto(
-        parcel.getRecipientName(),
-        parcel.getRecipientPhone(),
-        parcel.getRecipientAddress(),
-        parcel.getRecipientCity()
-    );
-
-    String formattedFee = null;
-    if (parcel.getFee() != null && parcel.getCurrency() != null) {
-      formattedFee = parcel.getCurrency() + " " + parcel.getFee().toPlainString();
-    }
-
-    return new DeliveryDetailsDto(
-        parcel.getId(),
-        parcel.getTrackingRef(),
-        parcel.getStatus(),
-        parcel.getStatus() != null ? parcel.getStatus().name() : "",
-        parcel.getCategory(),
-        parcel.getSize(),
-        parcel.getDescription(),
-        parcel.getDestinationType(),
-        parcel.isExpress(),
-        sender,
-        recipient,
-        parcel.getFee(),
-        parcel.getCurrency(),
-        formattedFee,
-        parcel.getEstimatedDays(),
-        parcel.getCreatedAt() != null ? parcel.getCreatedAt().toString() : null,
-        parcel.getDeliveredAt() != null ? parcel.getDeliveredAt().toString() : null,
-        parcel.getFailureReason(),
-        Collections.emptyList()
-    );
+    return DeliveryDetailsDto.from(parcel);
   }
 
   private DeliveryConnectionDto toDeliveryConnectionDto(Page<TrackingParcel> page, int requestedPage, int requestedSize) {

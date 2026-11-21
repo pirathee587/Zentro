@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -24,12 +26,27 @@ import org.springframework.web.util.pattern.PathPatternParser;
 class GatewayInventoryTests {
   private static final List<String> SERVICES = List.of("identity-partner-service", "parcel-pricing-service",
       "dispatch-courier-service", "tracking-reporting-service", "notification-integration-service");
-  private static final List<String> IDS = List.of("identity", "parcel", "dispatch", "tracking", "notification");
+  private static final List<String> IDS = List.of("identity", "parcel", "dispatch", "tracking",
+      "notification", "assistant");
   private static final Map<String, String> RESERVED = Map.of(
       "/api/v1/admin/zones/**", "Reserved S2 zone management; no controller",
       "/api/v1/reports/**", "Reserved S4 reports; no controller",
       "/api/v1/admin/audit-logs/**", "Reserved S5 audit logs; no controller",
       "/graphql", "Reserved S4 GraphQL read-only tracking endpoint; handled by TrackingGraphQlEndpoint");
+
+  // Exact service/controller/method/path identities; internal prefixes alone are not approval.
+  private static final Set<String> INTERNAL = Set.of(
+      "identity-partner-service/CourierIdentityReadController.java GET /internal/courier-dashboard/identity",
+      "dispatch-courier-service/CourierAssignmentSnapshotController.java GET /internal/courier-dashboard/assignments",
+      "dispatch-courier-service/AssignmentOperationController.java GET /internal/dispatch/assignment-operations",
+      "dispatch-courier-service/AssignmentOperationController.java GET /internal/dispatch/assignment-operations/{id}",
+      "dispatch-courier-service/AssignmentOperationController.java POST /internal/dispatch/assignment-operations/{id}/reconcile",
+      "parcel-pricing-service/ParcelClaimController.java GET /internal/assignment-claims/candidates",
+      "parcel-pricing-service/ParcelClaimController.java GET /internal/assignment-claims/candidates/{parcel}",
+      "parcel-pricing-service/ParcelClaimController.java POST /internal/assignment-claims/{operation}/acquire",
+      "parcel-pricing-service/ParcelClaimController.java POST /internal/assignment-claims/{operation}/confirm",
+      "parcel-pricing-service/ParcelClaimController.java POST /internal/assignment-claims/{operation}/release",
+      "parcel-pricing-service/ParcelClaimController.java GET /internal/assignment-claims/{operation}");
 
   static StandardEnvironment configuration() throws Exception {
     StandardEnvironment environment = new StandardEnvironment();
@@ -60,6 +77,7 @@ class GatewayInventoryTests {
         "|---|---|---|---|---|"));
     var parser = new PathPatternParser();
     List<String> usedPatterns = new ArrayList<>();
+    Set<String> seenInternal = new HashSet<>();
     for (int serviceIndex = 0; serviceIndex < SERVICES.size(); serviceIndex++) {
       String service = SERVICES.get(serviceIndex);
       try (var sources = Files.walk(Path.of("..", service, "src/main/java"))) {
@@ -67,8 +85,7 @@ class GatewayInventoryTests {
           String java = Files.readString(source);
           assertThat(java).as("explicit controller stereotype: %s", source).contains("@RestController");
           var base = Pattern.compile("@RequestMapping\\(([^)]*)\\)").matcher(java);
-          assertThat(base.find()).as("class mapping: %s", source).isTrue();
-          List<String> bases = quotedPaths(base.group(1));
+          List<String> bases = base.find() ? quotedPaths(base.group(1)) : List.of("");
           assertThat(bases).isNotEmpty();
           var methods = Pattern.compile("@(Get|Post|Put|Patch|Delete)Mapping(?:\\s*\\(([^)]*)\\))?").matcher(java);
           int count = 0;
@@ -78,10 +95,20 @@ class GatewayInventoryTests {
             if (suffixes.isEmpty()) suffixes = List.of("");
             for (String prefix : bases) for (String suffix : suffixes) {
               String path = prefix + suffix;
+              assertThat(path).as("absolute mapping in %s", source).startsWith("/");
               var matching = routes.stream().filter(r -> paths(r).stream().anyMatch(p -> parser.parse(p)
                   .matches(PathContainer.parsePath(path)))).toList();
+              if (path.startsWith("/internal/")) {
+                String endpoint = service + "/" + source.getFileName() + " " + methods.group(1).toUpperCase() + " " + path;
+                assertThat(INTERNAL).as("approved internal mapping: %s", endpoint).contains(endpoint);
+                assertThat(matching).as("internal endpoint must not be gateway-routed: %s", endpoint).isEmpty();
+                assertThat(seenInternal.add(endpoint)).as("unique internal mapping: %s", endpoint).isTrue();
+                inventory.add("| " + service + " | " + methods.group(1).toUpperCase() + " | `" + path
+                    + "` | Internal only (no gateway route) | " + source.getFileName() + " | ");
+                continue;
+              }
               assertThat(matching).as("route for %s", path).isNotEmpty();
-              assertThat(matching.getFirst().getId()).as("effective owner for %s", path).isEqualTo(IDS.get(serviceIndex));
+              assertThat(matching.getFirst().getId()).as("effective owner for %s", path).isEqualTo(path.startsWith("/api/v1/assistant/") ? "assistant" : IDS.get(serviceIndex));
               // The sole intentional overlap: ordered S1 profile prefix before general S3 courier prefix.
               if (matching.size() > 1) {
                 assertThat(path).startsWith("/api/v1/courier/profile");
@@ -97,6 +124,7 @@ class GatewayInventoryTests {
         }
       }
     }
+    assertThat(seenInternal).as("complete approved internal inventory").containsExactlyInAnyOrderElementsOf(INTERNAL);
     for (var route : routes) {
       assertThat(route.getFilters()).isEmpty();
       for (String path : paths(route)) assertThat(usedPatterns.contains(path) || RESERVED.containsKey(path))

@@ -135,7 +135,7 @@ function renderPage(auth: Auth['user'] = DISPATCHER_AUTH) {
     <QueryClientProvider client={qc}>
       <AuthContext.Provider value={value}>
         <MemoryRouter>
-          <MerchantApprovalsPage />
+          <MerchantApprovalsPage showPartnerTabs />
         </MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>,

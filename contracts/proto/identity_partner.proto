@@ -5,8 +5,56 @@ option java_package = "com.zentro.contracts.identity.v1";
 service IdentityPartnerService {
   rpc GetMerchantStatus(GetMerchantStatusRequest) returns (MerchantStatusResponse);
   rpc GetCourierProfile(GetCourierProfileRequest) returns (CourierProfileResponse);
+  rpc ListCouriers(ListCouriersRequest) returns (ListCouriersResponse);
+  rpc GetCourierById(GetCourierByIdRequest) returns (CourierDetails);
+  rpc GetCourierByUserSubject(GetCourierByUserSubjectRequest) returns (CourierDetails);
+  rpc VerifyMerchantAccount(VerifyMerchantAccountRequest) returns (MerchantVerificationResponse);
 }
 message GetMerchantStatusRequest { string merchant_id = 1; }
 message MerchantStatusResponse { string merchant_id = 1; string status = 2; }
 message GetCourierProfileRequest { string courier_id = 1; }
 message CourierProfileResponse { string courier_id = 1; bool active = 2; }
+
+message CourierDetails {
+  string id = 1;
+  string user_id = 2;
+  string email = 3;
+  string name = 4;
+  string phone = 5;
+  bool active = 6;
+  string account_status = 7;
+  string assigned_zone = 8;
+  string vehicle_type = 9;
+}
+
+message ListCouriersRequest {
+  bool filter_active = 1;
+  bool active_only = 2;
+  string status = 3;
+  string zone = 4;
+  string search = 5;
+}
+
+message ListCouriersResponse {
+  repeated CourierDetails couriers = 1;
+}
+
+message GetCourierByIdRequest {
+  string courier_id = 1;
+}
+
+message GetCourierByUserSubjectRequest {
+  string keycloak_subject = 1;
+}
+
+message VerifyMerchantAccountRequest {
+  string keycloak_subject = 1;
+}
+
+message MerchantVerificationResponse {
+  string keycloak_subject = 1;
+  string user_id = 2;
+  string account_status = 3;
+  string merchant_status = 4;
+  bool approved = 5;
+}

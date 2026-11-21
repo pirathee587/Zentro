@@ -42,22 +42,15 @@ removed from outbound requests. Trace IDs and correlation IDs are separate.
 Boot's default sampling applies (0.1 unless overridden through standard Boot
 configuration). No exporter or collector endpoint is enabled by this change.
 
-## Internal REST boundaries
+## Internal service boundaries
 
-The starter customizes the existing injected `RestClient.Builder`. The
-`zentro.correlation.internal-base-urls` allowlist is empty by default and is
-bound to the same configured service URLs as the existing clients:
-
-| Caller | Approved destinations | Existing clients |
-|---|---|---|
-| S2 | S1 identity base URL | `integration/IdentityMerchantClient` |
-| S3 | S1 identity and S2 parcel base URLs | `IdentityCourierClient`, `ParcelStatusClient` |
-| S5 | S1 identity base URL | `webhook/client/IdentityMerchantClient` |
-
-Matching includes scheme, hostname, effective port and base-path boundary.
-The interceptor copies only the accepted correlation ID from the active scope;
-Boot supplies W3C trace headers. For other destinations it removes correlation,
-traceparent, tracestate and baggage. Existing authentication headers and bodies
+Synchronous backend calls now use gRPC with W3C trace propagation in the gRPC
+client/server interceptors. The former `zentro.correlation.internal-base-urls`
+service URL allowlist and internal REST clients were removed. The remaining
+`RestClient` callers are the Keycloak OAuth2 token endpoints and the external
+DeepSeek API. Their requests use bounded timeouts and do not forward internal
+correlation or authentication data. Frontend REST/GraphQL requests continue
+through the API Gateway.
 remain the client's responsibility and are never copied from another request.
 In particular, S3's Keycloak token client retains its own client-credentials
 authentication but receives no propagated diagnostic headers. S5's separate JDK

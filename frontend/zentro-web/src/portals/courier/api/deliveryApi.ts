@@ -2,9 +2,11 @@ import axios from 'axios';
 import { apiClient, friendlyApiError, withBearerToken } from '@/shared/api/apiClient';
 
 export type CompletionState = 'PENDING' | 'COMPLETED' | 'REJECTED' | 'BLOCKED';
+export type AssignmentStatus = 'PENDING_ACCEPTANCE' | 'ACCEPTED' | 'REJECTED';
 export interface DeliverySummary {
   parcelId: string; courierId: string; assignedAt: string;
   proofId: string | null; completionState: CompletionState | null;
+  assignmentStatus?: AssignmentStatus; respondedAt?: string | null; rejectionReason?: string | null;
 }
 export interface SubmitProofRequest { recipientName: string; notes: string | null; proofReference: string }
 export interface ProofResponse extends SubmitProofRequest {
@@ -30,6 +32,15 @@ export async function getProof(id: string, token: string, signal?: AbortSignal):
 export async function submitProof(id: string, body: SubmitProofRequest, token: string): Promise<ProofResponse> {
   return (await apiClient.post<ProofResponse>(`${path(id)}/proof`, body, auth(token))).data;
 }
+export async function acceptDelivery(id: string, token: string): Promise<unknown> {
+  return (await apiClient.post(`${path(id)}/accept`, {}, auth(token))).data;
+}
+export async function rejectDelivery(id: string, reason: string, token: string): Promise<unknown> {
+  return (await apiClient.post(`${path(id)}/reject`, { reason }, auth(token))).data;
+}
+export async function updateDeliveryStatus(id: string, status: string, token: string, reason?: string, note?: string): Promise<unknown> {
+  return (await apiClient.patch(`${path(id)}/status`, { status, reason, note }, auth(token))).data;
+}
 export function deliveryAccessDenied(error: unknown): boolean {
   return axios.isAxiosError(error) && [403, 404].includes(error.response?.status ?? 0);
 }
@@ -42,7 +53,12 @@ export function deliveryError(error: unknown): string {
     if (error.response?.status === 409) return 'Proof is already recorded with different evidence. Refresh to view the saved proof.';
     if (error.response?.status === 404) return 'This delivery is no longer available to your account.';
     if (error.response?.status === 400) return 'Check the required fields and character limits.';
-    if (error.response?.status === 503) return 'Delivery services are unavailable. Your entries are preserved; refresh before retrying.';
+    if (error.response?.status === 503) {
+      const code = error.response.data?.code;
+      if (code === 'COURIER_VERIFICATION_FAILED') return 'We could not verify your courier access right now. Please try again later.';
+      if (code === 'PROOF_STORAGE_UNAVAILABLE') return 'Delivery data is temporarily unavailable. Please try again later.';
+      return 'Delivery services are temporarily unavailable. Please try again later.';
+    }
   }
   return friendlyApiError(error, 'Could not load or save delivery information. Please try again.');
 }

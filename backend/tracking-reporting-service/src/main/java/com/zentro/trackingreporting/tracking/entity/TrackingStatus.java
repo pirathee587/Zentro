@@ -1,21 +1,19 @@
 package com.zentro.trackingreporting.tracking.entity;
 
 public enum TrackingStatus {
-  CREATED("Created", "Parcel Booked", "Delivery order created and registered in system"),
-  PICKED_UP("In progress", "Picked Up", "Courier collected parcel from sender"),
-  IN_TRANSIT("In progress", "In Transit", "Processed through sorting facility"),
-  OUT_FOR_DELIVERY("In progress", "Out for Delivery", "Parcel is with courier for final delivery"),
-  DELIVERED("Delivered", "Delivered", "Parcel successfully delivered to recipient"),
-  FAILED("Failed", "Delivery Failed", "Delivery could not be completed");
+  CREATED("Created", "Parcel Booked"),
+  PICKED_UP("In progress", "Picked Up"),
+  IN_TRANSIT("In progress", "In Transit"),
+  OUT_FOR_DELIVERY("In progress", "Out for Delivery"),
+  DELIVERED("Delivered", "Delivered"),
+  FAILED("Failed", "Delivery Failed");
 
   private final String portalStatus;
   private final String defaultTitle;
-  private final String defaultDescription;
 
-  TrackingStatus(String portalStatus, String defaultTitle, String defaultDescription) {
+  TrackingStatus(String portalStatus, String defaultTitle) {
     this.portalStatus = portalStatus;
     this.defaultTitle = defaultTitle;
-    this.defaultDescription = defaultDescription;
   }
 
   public String portalStatus() {
@@ -24,10 +22,6 @@ public enum TrackingStatus {
 
   public String defaultTitle() {
     return defaultTitle;
-  }
-
-  public String defaultDescription() {
-    return defaultDescription;
   }
 
   public static TrackingStatus fromString(String value) {

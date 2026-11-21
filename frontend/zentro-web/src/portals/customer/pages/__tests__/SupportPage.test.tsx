@@ -24,6 +24,20 @@ describe('SupportPage Component', () => {
     vi.restoreAllMocks();
   });
 
+  it('reuses the backend conversation for follow-up messages', async () => {
+    const ask = vi.spyOn(customerApi, 'askAssistant').mockResolvedValue({
+      reply: 'Please share your tracking reference.', conversationId: 'conversation-123',
+    });
+    render(<MemoryRouter><ToastProvider><SupportPage /></ToastProvider></MemoryRouter>);
+    const input = screen.getByLabelText('Message to delivery assistant');
+    fireEvent.change(input, { target: { value: 'Where is my parcel?' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    await waitFor(() => expect(screen.getByText('Please share your tracking reference.')).toBeInTheDocument());
+    fireEvent.change(input, { target: { value: 'ZTR-123456' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Send$/ }));
+    await waitFor(() => expect(ask).toHaveBeenLastCalledWith('ZTR-123456', undefined, 'conversation-123'));
+  });
+
   it('renders Row 1: Delivery assistant card (span 7, dark panel) and Common questions card (span 5)', async () => {
     const { container } = render(
       <MemoryRouter>

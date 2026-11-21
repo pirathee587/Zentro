@@ -213,6 +213,49 @@ public class UserProfileService {
         request.accountStatus(), request.reason());
   }
 
+  @Transactional
+  public void adminDelete(UUID targetUserId, Jwt actor) {
+    requireDispatcher(actor);
+    UserProfile actorUser = current(actor);
+    if (actorUser.id().equals(targetUserId)) {
+      throw new InvalidUserInputException("userId", "SELF_DELETION", "Dispatchers cannot delete their own account.");
+    }
+    if (!"ACTIVE".equalsIgnoreCase(actorUser.accountStatus())) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + actorUser.accountStatus() + ".");
+    }
+
+    List<Map<String, Object>> rows = jdbc.queryForList(
+        "SELECT id, keycloak_subject, email, account_status FROM identity.app_user WHERE id = ?",
+        targetUserId);
+    if (rows.isEmpty()) {
+      throw new UserNotFoundException();
+    }
+    String subject = (String) rows.getFirst().get("keycloak_subject");
+    String email = (String) rows.getFirst().get("email");
+    String oldStatus = (String) rows.getFirst().get("account_status");
+
+    // 1. Delete user from Keycloak
+    if (keycloakAdmin != null && subject != null) {
+      keycloakAdmin.deleteUser(subject);
+    }
+
+    // 2. Delete user from identity.app_user (cascades to courier_profile, merchant_application, etc.)
+    jdbc.update("DELETE FROM identity.app_user WHERE id = ?", targetUserId);
+
+    // 3. Record audit
+    audit.insert(new UserAdminAuditRecord(
+        actorUser.id(),
+        actor.getSubject(),
+        targetUserId,
+        Action.PROFILE_UPDATED,
+        List.of("deleted"),
+        null,
+        null,
+        "User account deleted by dispatcher: " + email));
+
+    log.info("User deleted by dispatcher: actorUserId={} targetUserId={} email={}", actorUser.id(), targetUserId, email);
+  }
+
   private UserProfile applyDispatcherChange(UserProfile actorUser, String actorSubject, UUID targetUserId,
       String requestedName, String requestedPhone, String rawStatus, String rawReason) {
     UserProfile before = lockById(targetUserId);
@@ -301,6 +344,9 @@ public class UserProfileService {
 
   private UserProfile mapRow(ResultSet rs, List<String> roles) throws SQLException {
     String merchantStatus = rs.getString("merchant_status");
+    if (roles != null && roles.contains("MERCHANT")) {
+      merchantStatus = "APPROVED";
+    }
     String status = rs.getString("account_status");
     if (status == null || status.isBlank()) status = "ACTIVE";
     boolean enabled = "ACTIVE".equalsIgnoreCase(status);

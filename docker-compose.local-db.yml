@@ -1,0 +1,73 @@
+# DEVELOPMENT ONLY — Isolated local PostgreSQL override.
+# Keeps existing .env files untouched and avoids writing to unverified remote Supabase databases.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local-db.yml up -d
+
+services:
+  local-postgres:
+    image: postgres:16-alpine
+    container_name: zentro-local-postgres
+    environment:
+      POSTGRES_USER: zentro_dev
+      POSTGRES_PASSWORD: zentro_dev_local_only
+      POSTGRES_DB: postgres
+    volumes:
+      - zentro-local-pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-local-dbs.sql:/docker-entrypoint-initdb.d/init-local-dbs.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U zentro_dev -d postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ zentro ]
+    restart: unless-stopped
+
+  identity-partner-service:
+    environment:
+      DB_URL: jdbc:postgresql://local-postgres:5432/identity_db
+      DB_USER: zentro_dev
+      DB_PASSWORD: zentro_dev_local_only
+    depends_on:
+      local-postgres:
+        condition: service_healthy
+
+  parcel-pricing-service:
+    environment:
+      DB_URL: jdbc:postgresql://local-postgres:5432/parcel_pricing_db
+      DB_USER: zentro_dev
+      DB_PASSWORD: zentro_dev_local_only
+    depends_on:
+      local-postgres:
+        condition: service_healthy
+
+  dispatch-courier-service:
+    environment:
+      DB_URL: jdbc:postgresql://local-postgres:5432/dispatch_courier_db
+      DB_USER: zentro_dev
+      DB_PASSWORD: zentro_dev_local_only
+      # Isolated local database only: allow S3 to build its schema from db/migration.
+      SPRING_FLYWAY_ENABLED: "true"
+    depends_on:
+      local-postgres:
+        condition: service_healthy
+
+  tracking-reporting-service:
+    environment:
+      DB_URL: jdbc:postgresql://local-postgres:5432/tracking_reporting_db
+      DB_USER: zentro_dev
+      DB_PASSWORD: zentro_dev_local_only
+    depends_on:
+      local-postgres:
+        condition: service_healthy
+
+  notification-integration-service:
+    environment:
+      DB_URL: jdbc:postgresql://local-postgres:5432/notification_integration_db
+      DB_USER: zentro_dev
+      DB_PASSWORD: zentro_dev_local_only
+    depends_on:
+      local-postgres:
+        condition: service_healthy
+
+volumes:
+  zentro-local-pgdata:
+

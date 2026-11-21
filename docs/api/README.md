@@ -9,7 +9,11 @@ The checked-in OpenAPI 3.1 JSON files are the REST contract for paths as clients
 | S3 Dispatch & Courier | `/api/v1/dispatch/**`, `/api/v1/courier/deliveries/**` | [`dispatch.openapi.json`](openapi/dispatch.openapi.json) |
 | S4 Tracking & Reporting | `/api/v1/tracking/**`; the gateway also reserves `/api/v1/reports/**`, with no active report controller | [`tracking.openapi.json`](openapi/tracking.openapi.json) |
 | S4 Tracking & Reporting (GraphQL) | `/graphql` read-only tracking and delivery status history query endpoint | [`graphql.md`](graphql.md) |
-| S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
+| S5 Notification & Integration | `/api/v1/merchant/webhooks/**`, `/api/v1/admin/notification-attempts/**`, `/api/v1/admin/webhook-deliveries/**`, `/api/v1/assistant/**`, `/api/v1/support/tickets/**` | [`notifications.openapi.json`](openapi/notifications.openapi.json) |
+
+The four S5 assistant operations (chat, conversation create/list/history) and customer support ticket operations are included in `notifications.openapi.json`. The gateway forwards `/api/v1/assistant/**` and `/api/v1/support/tickets/**`; internal gRPC methods have no gateway route.
+
+The dispatcher route `/api/v1/dispatch/assignments` uses S1 courier verification and S2's private gRPC `GetParcel` status check. The gRPC method is internal and is not exposed through the gateway. S3's live unassigned queue remains incomplete until S2 provides an enumeration contract.
 
 S3's [workload metric definitions](dispatcher-workload.md) explain lifetime assignment counts, courier totals, timezone/reassignment limitations and #134 verification evidence.
 
@@ -25,6 +29,8 @@ mvn --batch-mode -pl parcel-pricing-service -Dtest=OpenApiArtifactValidationTest
 
 There is no springdoc dependency or generated `/v3/api-docs` or Swagger UI in the current build. The files above are reviewed and checked in directly. `--check` uses only Python's standard library and checks JSON/OpenAPI structure, required operation metadata and responses, references, path parameters, and equality with mapped `@RestController` endpoints. The S2 test scope includes Swagger Parser and validates all five artifacts during Maven tests.
 
+Service-to-service REST mappings under `/internal/*` are not part of the public gateway contract. `build_openapi.py` keeps an exact `INTERNAL` allowlist that mirrors `INTERNAL` in `backend/api-gateway/src/test/java/com/zentro/gateway/routes/GatewayInventoryTests.java`; update both together. `--check` fails if an allowlisted mapping becomes reachable through a public gateway route or no longer exists in a controller. An `/internal` prefix alone is not approval.
+
 ## Authentication and authorization
 
 Protected operations use `bearerAuth` (Keycloak JWT). Operation descriptions state the service-level role rule; the gateway applies its own role rule before forwarding.
@@ -36,7 +42,7 @@ Protected operations use `bearerAuth` (Keycloak JWT). Operation descriptions sta
 | S1 `/admin/**` | DISPATCHER only. |
 | S1 courier self-profile aliases | COURIER only. |
 | S2 parcel booking; fee estimate | CUSTOMER only for booking; CUSTOMER or DISPATCHER for estimates. |
-| S2 status update | DISPATCHER through the gateway. Direct internal S2 use also accepts SERVICE for the established S3 completion flow; SERVICE-only traffic is not admitted by the gateway. |
+| S2 status update | DISPATCHER through the gateway. SERVICE completion is restricted to authenticated gRPC POD methods; S2 REST rejects SERVICE tokens. |
 | S2 zones; admin pricing | CUSTOMER, MERCHANT, COURIER, DISPATCHER for zones; DISPATCHER only for pricing administration. |
 | S2 merchant orders | MERCHANT with approved and active account; order resources are subject-scoped. |
 | S3 dispatch queue, courier eligibility, workload and assignment | DISPATCHER only. |

@@ -266,7 +266,9 @@ class AssignmentPostgresIntegrationTest {
     assertThat(jdbc.queryForList("SELECT * FROM dispatch.delivery_assignment")).isEqualTo(before);
     assertThat(jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery")).isEqualTo(proofBefore);
     assertIndependentCounts();
-    verifyNoInteractions(identity, source);
+    verify(source).reconcileParcel(parcel, "token");
+    verifyNoMoreInteractions(source);
+    verifyNoInteractions(identity);
   }
 
   @Test void timezoneAndMidnightDoNotCreateAnUndocumentedWorkloadWindow() throws Exception {

@@ -1,46 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Calendar } from 'lucide-react';
+import { useAuth } from '@/shared/auth/useAuth';
+import { getDeliverySummary, getDailyDeliveries } from '../api/reportApi';
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function getDefaultDates(daysBack: number) {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(to.getDate() - daysBack);
+  return { from: toIsoDate(from), to: toIsoDate(to) };
+}
 
 export function ReportsPage() {
+  const { user } = useAuth();
+  const initialDates = useMemo(() => getDefaultDates(30), []);
+
   const [rangeType, setRangeType] = useState<'7' | '30'>('30');
-  const [fromDate, setFromDate] = useState('2026-09-28');
-  const [toDate, setToDate] = useState('2026-10-27');
+  const [fromDate, setFromDate] = useState(initialDates.from);
+  const [toDate, setToDate] = useState(initialDates.to);
+  const [appliedFrom, setAppliedFrom] = useState(initialDates.from);
+  const [appliedTo, setAppliedTo] = useState(initialDates.to);
   const [viewAsTable, setViewAsTable] = useState(false);
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
+    setAppliedFrom(fromDate);
+    setAppliedTo(toDate);
   };
 
-  const deliveryBars = [
-    { label: '28 Sept', count: 210, isHighlight: false, heightPercent: 82 },
-    { label: '05 Oct', count: 215, isHighlight: false, heightPercent: 84 },
-    { label: '12 Oct', count: 220, isHighlight: false, heightPercent: 86 },
-    { label: '19 Oct', count: 212, isHighlight: false, heightPercent: 83 },
-    { label: '26 Oct', count: 37, isHighlight: true, heightPercent: 22 },
-  ];
+  const handleQuickRange = (days: '7' | '30') => {
+    setRangeType(days);
+    const d = getDefaultDates(days === '7' ? 7 : 30);
+    setFromDate(d.from);
+    setToDate(d.to);
+    setAppliedFrom(d.from);
+    setAppliedTo(d.to);
+  };
 
-  const failureReasons = [
-    { reason: 'No answer', count: 27, percent: 51 },
-    { reason: 'Wrong address', count: 16, percent: 30 },
-    { reason: 'Refused by recipient', count: 11, percent: 21 },
-  ];
+  const summaryQuery = useQuery({
+    queryKey: ['dispatcher', 'reports', 'summary', appliedFrom, appliedTo],
+    enabled: Boolean(user?.accessToken && appliedFrom && appliedTo),
+    queryFn: ({ signal }) => getDeliverySummary(appliedFrom, appliedTo, user?.accessToken, signal),
+  });
+
+  const dailyQuery = useQuery({
+    queryKey: ['dispatcher', 'reports', 'daily', appliedFrom, appliedTo],
+    enabled: Boolean(user?.accessToken && appliedFrom && appliedTo),
+    queryFn: ({ signal }) => getDailyDeliveries(appliedFrom, appliedTo, user?.accessToken, signal),
+  });
+
+  const summary = summaryQuery.data;
+  const isPending = summaryQuery.isPending || dailyQuery.isPending;
+
+  // Format daily bars from real API data
+  const deliveryBars = useMemo(() => {
+    const days = dailyQuery.data?.days ?? [];
+    if (!days.length) return [];
+
+    const maxCount = Math.max(...days.map((d) => d.delivered), 1);
+    return days.map((d, index) => {
+      const parts = d.day.split('-');
+      const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : d.day;
+      const heightPercent = Math.max(Math.round((d.delivered / maxCount) * 85), 6);
+      return {
+        label,
+        count: d.delivered,
+        isHighlight: index === days.length - 1,
+        heightPercent,
+      };
+    });
+  }, [dailyQuery.data?.days]);
+
+  const createdCount = summary?.created ?? 0;
+  const deliveredCount = summary?.delivered ?? 0;
+  const failedCount = summary?.failed ?? 0;
+  const successRate = summary?.successRate !== null && summary?.successRate !== undefined
+    ? `${Math.round(summary.successRate * 100)}%`
+    : '—';
 
   return (
-    <main className="sd-page-container">
+    <main className="sd-page-container sd-reports-page">
       {/* Title */}
       <section className="sd-page-header">
         <div className="sd-page-title-group">
           <h1 className="sd-page-title">Reports</h1>
           <p className="sd-page-subtitle">
-            Sample data · period 2026-09-28 to 2026-10-27 · as of 27 Oct 2026, 10:42
+            Operational analytics and delivery performance overview.
           </p>
         </div>
       </section>
-
-      {/* Notice Banner */}
-      <div className="sd-notice-box" role="status">
-        The reports service is not available yet. This page shows sample data so the layout can be reviewed.
-      </div>
 
       {/* Date Filter Card */}
       <div className="sd-card sd-filter-card">
@@ -50,14 +102,14 @@ export function ReportsPage() {
               <button
                 type="button"
                 className={`sd-filter-pill ${rangeType === '7' ? 'is-active' : ''}`}
-                onClick={() => setRangeType('7')}
+                onClick={() => handleQuickRange('7')}
               >
                 Last 7 days
               </button>
               <button
                 type="button"
                 className={`sd-filter-pill ${rangeType === '30' ? 'is-active' : ''}`}
-                onClick={() => setRangeType('30')}
+                onClick={() => handleQuickRange('30')}
               >
                 Last 30 days
               </button>
@@ -102,22 +154,22 @@ export function ReportsPage() {
       <div className="sd-metrics-row">
         <div className="sd-metric-card">
           <span className="sd-metric-label">Created</span>
-          <strong className="sd-metric-val">992</strong>
+          <strong className="sd-metric-val">{isPending ? '…' : createdCount}</strong>
         </div>
 
         <div className="sd-metric-card">
           <span className="sd-metric-label">Delivered</span>
-          <strong className="sd-metric-val">894</strong>
+          <strong className="sd-metric-val">{isPending ? '…' : deliveredCount}</strong>
         </div>
 
         <div className="sd-metric-card">
           <span className="sd-metric-label">Failed</span>
-          <strong className="sd-metric-val">53</strong>
+          <strong className="sd-metric-val">{isPending ? '…' : failedCount}</strong>
         </div>
 
         <div className="sd-metric-card">
           <span className="sd-metric-label">Success rate</span>
-          <strong className="sd-metric-val">94%</strong>
+          <strong className="sd-metric-val">{isPending ? '…' : successRate}</strong>
         </div>
       </div>
 
@@ -129,12 +181,16 @@ export function ReportsPage() {
             <h2 className="sd-card-title">Deliveries</h2>
           </div>
 
-          {viewAsTable ? (
+          {deliveryBars.length === 0 ? (
+            <div className="staff-panel staff-empty" style={{ margin: '24px 0', textAlign: 'center' }}>
+              {isPending ? 'Loading delivery trends…' : 'No recorded deliveries in this date range.'}
+            </div>
+          ) : viewAsTable ? (
             <div className="sd-table-wrap" style={{ marginTop: 16 }}>
               <table className="sd-parcels-table">
                 <thead>
                   <tr>
-                    <th>Week</th>
+                    <th>Day</th>
                     <th>Deliveries</th>
                   </tr>
                 </thead>
@@ -167,42 +223,45 @@ export function ReportsPage() {
             </div>
           )}
 
-          <div style={{ marginTop: 20 }}>
-            <button
-              type="button"
-              className="sd-text-link sd-toggle-table-btn"
-              onClick={() => setViewAsTable((v) => !v)}
-            >
-              ▶ {viewAsTable ? 'View as chart' : 'View as table'}
-            </button>
-          </div>
+          {deliveryBars.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <button
+                type="button"
+                className="sd-text-link sd-toggle-table-btn"
+                onClick={() => setViewAsTable((v) => !v)}
+              >
+                ▶ {viewAsTable ? 'View as chart' : 'View as table'}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Right: Failure Reasons */}
+        {/* Right: Operational Note & Rates */}
         <div className="sd-card">
           <div className="sd-card-header">
-            <h2 className="sd-card-title">Failure reasons</h2>
+            <h2 className="sd-card-title">Operational summary</h2>
           </div>
 
-          <div className="sd-failure-list">
-            {failureReasons.map((item) => (
-              <div key={item.reason} className="sd-failure-item">
-                <div className="sd-failure-meta">
-                  <span className="sd-failure-reason">{item.reason}</span>
-                  <span className="sd-failure-count">{item.count}</span>
-                </div>
-                <div className="sd-progress-track">
-                  <div
-                    className="sd-progress-fill"
-                    style={{ width: `${item.percent}%` }}
-                    aria-valuenow={item.count}
-                  />
-                </div>
-              </div>
-            ))}
+          <div style={{ padding: '16px 0', fontSize: '14px', lineHeight: '1.8' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+              <span>Period</span>
+              <strong>{appliedFrom} to {appliedTo}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+              <span>Total recorded</span>
+              <strong>{createdCount} parcels</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+              <span>Completed deliveries</span>
+              <strong>{deliveredCount} delivered</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+              <span>Failed deliveries</span>
+              <strong style={{ color: failedCount > 0 ? 'var(--err)' : 'inherit' }}>{failedCount}</strong>
+            </div>
           </div>
 
-          <p className="sd-card-footnote" style={{ marginTop: 32 }}>
+          <p className="sd-card-footnote" style={{ marginTop: 24 }}>
             Success rate = delivered / (delivered + failed). Shown as a dash when there are no completed deliveries.
           </p>
         </div>
@@ -210,4 +269,3 @@ export function ReportsPage() {
     </main>
   );
 }
-

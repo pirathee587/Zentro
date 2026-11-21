@@ -22,7 +22,7 @@ export function ZonesPricingPage() {
   };
 
   return (
-    <main className="sd-page-container">
+    <main className="sd-page-container sd-zones-pricing-page">
       {/* Title */}
       <section className="sd-page-header">
         <div className="sd-page-title-group">
@@ -90,6 +90,7 @@ export function ZonesPricingPage() {
                   <span className="sd-field-label">Code</span>
                   <input
                     type="text"
+                    required
                     value={newZoneCode}
                     onChange={(e) => setNewZoneCode(e.target.value)}
                     placeholder="e.g. COL"
@@ -101,6 +102,7 @@ export function ZonesPricingPage() {
                   <span className="sd-field-label">Name</span>
                   <input
                     type="text"
+                    required
                     value={newZoneName}
                     onChange={(e) => setNewZoneName(e.target.value)}
                     placeholder="e.g. Colombo"

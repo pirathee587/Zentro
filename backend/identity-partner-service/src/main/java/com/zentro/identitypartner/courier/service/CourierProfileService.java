@@ -40,12 +40,27 @@ public class CourierProfileService {
         INNER JOIN identity.courier_profile cp ON cp.app_user_id = u.id
       """;
 
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CourierProfileService.class);
+
   private final JdbcTemplate jdbc;
   private final UserProfileService profiles;
+  private final com.zentro.identitypartner.user.service.KeycloakAdminService keycloakAdmin;
+  private final com.zentro.identitypartner.email.EmailSenderService emailSender;
 
   public CourierProfileService(JdbcTemplate jdbc, UserProfileService profiles) {
+    this(jdbc, profiles, null, null);
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public CourierProfileService(
+      JdbcTemplate jdbc,
+      UserProfileService profiles,
+      com.zentro.identitypartner.user.service.KeycloakAdminService keycloakAdmin,
+      com.zentro.identitypartner.email.EmailSenderService emailSender) {
     this.jdbc = jdbc;
     this.profiles = profiles;
+    this.keycloakAdmin = keycloakAdmin;
+    this.emailSender = emailSender;
   }
 
   /**
@@ -268,6 +283,60 @@ public class CourierProfileService {
         vehicleType,
         createdAt,
         updatedAt);
+  }
+
+  @Transactional
+  public CourierProfile createCourierByAdmin(com.zentro.identitypartner.courier.dto.CreateCourierAdminRequest request, Jwt actor) {
+    if (actor == null || !UserProfileService.roles(actor).contains("DISPATCHER")) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only dispatchers can create couriers.");
+    }
+    String email = request.email().trim().toLowerCase();
+    String name = request.name().trim();
+    String phone = request.phone() == null ? null : request.phone().trim();
+
+    List<UUID> existingIds = jdbc.queryForList(
+        "SELECT id FROM identity.app_user WHERE LOWER(email) = ?",
+        UUID.class,
+        email);
+    if (!existingIds.isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with email " + email + " already exists.");
+    }
+
+    if (keycloakAdmin.userExistsByEmail(email)) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with email " + email + " already exists in Keycloak.");
+    }
+
+    String tempPassword = generateTempPassword();
+    String keycloakSubject = keycloakAdmin.createCourierUser(email, name, phone, tempPassword);
+
+    UUID appUserId = jdbc.queryForObject("""
+        INSERT INTO identity.app_user (keycloak_subject, email, display_name, phone, account_status)
+        VALUES (?, ?, ?, ?, 'ACTIVE')
+        RETURNING id
+        """, UUID.class, keycloakSubject, email, name, phone);
+
+    jdbc.update("""
+        INSERT INTO identity.courier_profile (app_user_id, is_active, assigned_zone, vehicle_type)
+        VALUES (?, true, ?, ?)
+        """, appUserId, clean(request.assignedZone()), clean(request.vehicleType()));
+
+    try {
+      emailSender.sendCourierInvite(email, name, tempPassword);
+    } catch (Exception ex) {
+      log.warn("Failed to send courier invite email to {}: {}", email, ex.getMessage());
+    }
+
+    return getByCourierId(appUserId);
+  }
+
+  private static String generateTempPassword() {
+    String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    java.security.SecureRandom random = new java.security.SecureRandom();
+    StringBuilder sb = new StringBuilder("Zentro@");
+    for (int i = 0; i < 6; i++) {
+      sb.append(chars.charAt(random.nextInt(chars.length())));
+    }
+    return sb.toString();
   }
 
   private static String clean(String value) {

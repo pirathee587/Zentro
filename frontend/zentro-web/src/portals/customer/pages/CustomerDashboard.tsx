@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { AuthContext } from '@/shared/auth/authContext';
+import type { DashboardTrackingResult } from '../services/dashboardGraphql';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { Select as BaseSelect, Input as BaseInput } from '@/shared/ui';
@@ -19,9 +21,9 @@ import {
 } from '../components/icons';
 import {
   getDashboard,
-  getParcel,
-  estimateFee,
-  subscribeToParcel,
+  getDashboardTracking,
+  estimateDashboardFee,
+  getDashboardLiveParcel,
   type DashboardData,
   type Parcel,
   type Notification,
@@ -37,7 +39,9 @@ const STEPPER_STEPS = [
 ] as const;
 
 function getStepperIndex(parcel: Parcel | null): number {
-  if (!parcel) return 2;
+  if (!parcel) return 0;
+  const rawSteps: Record<string, number> = { CREATED: 0, PICKED_UP: 1, IN_TRANSIT: 2, OUT_FOR_DELIVERY: 3, DELIVERED: 4 };
+  if (parcel.rawStatus && parcel.rawStatus in rawSteps) return rawSteps[parcel.rawStatus];
   const status = parcel.status?.toLowerCase() || '';
   if (status === 'delivered') return 4;
   if (status === 'created') return 0;
@@ -52,7 +56,7 @@ function getStepperIndex(parcel: Parcel | null): number {
     if (title.includes('picked up') || title.includes('collected')) return 1;
     if (title.includes('confirmed') || title.includes('booking') || title.includes('created')) return 0;
   }
-  return 2;
+  return 0;
 }
 
 function renderNotifIcon(icon: Notification['icon']) {
@@ -72,6 +76,7 @@ function renderNotifIcon(icon: Notification['icon']) {
 
 export const CustomerDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const auth = useContext(AuthContext);
 
   // Primary dashboard state
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -88,101 +93,96 @@ export const CustomerDashboard: React.FC = () => {
   const [estimateCategory, setEstimateCategory] = useState('Medium (1–5 kg)');
   const [estimateWeight, setEstimateWeight] = useState('2');
   const [estimateDest, setEstimateDest] = useState('Another district');
-  const [feeEstimate, setFeeEstimate] = useState<FeeEstimateResponse | null>({
-    fee: 1072,
-    formattedFee: 'LKR 1,072',
-    currency: 'LKR',
-    estimatedDays: 2,
-    breakdown: { baseFee: 550, weightFee: 120, distanceSurcharge: 402 },
-  });
+  const [feeEstimate, setFeeEstimate] = useState<FeeEstimateResponse | null>(null);
   const [estimating, setEstimating] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
 
   // Track any parcel state
   const [trackRefInput, setTrackRefInput] = useState('');
   const [trackingLoading, setTrackingLoading] = useState(false);
-  const [trackedParcelResult, setTrackedParcelResult] = useState<Parcel | null | 'NOT_FOUND'>(null);
+  const [trackedParcelResult, setTrackedParcelResult] = useState<DashboardTrackingResult | null | 'NOT_FOUND'>(null);
   const [trackErrorMsg, setTrackErrorMsg] = useState<string | null>(null);
 
   // Load dashboard data
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getDashboard();
+      const data = await getDashboard(signal);
+      if (signal?.aborted) return;
       setDashboard(data);
       setNotifications(data.notifications || []);
       // Choose first active parcel or latest parcel
-      const active = data.recentParcels?.find((p) => p.status === 'In progress') || data.recentParcels?.[0] || null;
+      const active = data.liveParcel !== undefined ? data.liveParcel
+        : data.recentParcels?.find((p) => p.status === 'In progress') || data.recentParcels?.[0] || null;
       setLiveParcel(active);
     } catch (err: unknown) {
+      if (signal?.aborted) return;
       const msg = err instanceof Error ? err.message : 'Failed to connect to SwiftDrop services.';
       setError(msg);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadDashboardData();
-  }, [loadDashboardData]);
+    const controller = new AbortController();
+    void loadDashboardData(controller.signal);
+    return () => controller.abort();
+  }, [loadDashboardData, auth?.user?.id]);
 
-  // Real-time subscription to the live parcel
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const refreshLiveParcel = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const parcel = await getDashboardLiveParcel(signal);
+      if (!signal?.aborted) { setLiveParcel(parcel); setLiveError(null); }
+    } catch {
+      if (!signal?.aborted) { setLiveParcel(null); setLiveError('Unable to refresh tracking. Please retry.'); }
+    }
+  }, []);
+
+  // Poll the same authorized GraphQL selection; no simulated updates or fabricated notifications.
   useEffect(() => {
-    if (!liveParcel?.trackingRef) return;
-    const unsub = subscribeToParcel(liveParcel.trackingRef, (updated) => {
-      setLiveParcel(updated);
-      setNotifications((prev) => [
-        {
-          id: `live-notif-${Date.now()}`,
-          icon: updated.status === 'Delivered' ? 'check' : 'truck',
-          title: `Parcel ${updated.trackingRef}`,
-          body: `Live status: ${updated.status} • ${updated.sender.city} to ${updated.recipient.city}`,
-          time: 'Just now',
-          isNew: true,
-        },
-        ...prev.map((n) => ({ ...n, isNew: false })),
-      ]);
-    });
-    return () => unsub();
-  }, [liveParcel?.trackingRef]);
+    const controller = new AbortController();
+    const timer = window.setInterval(() => { void refreshLiveParcel(controller.signal); }, 30000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [refreshLiveParcel, auth?.user?.id]);
 
   // Quick fee estimate calculator
-  const calculateEstimate = useCallback(async () => {
+  const calculateEstimate = useCallback(async (signal?: AbortSignal) => {
     const weightNum = parseFloat(estimateWeight);
     if (isNaN(weightNum) || weightNum <= 0) {
       setEstimateError('Please enter a valid weight in kg');
+      setFeeEstimate(null);
+      setEstimating(false);
       return;
     }
 
     setEstimating(true);
     setEstimateError(null);
     try {
-      const result = await estimateFee({
-        pickupCity: 'Colombo 07',
-        deliveryCity: estimateDest === 'Another district' ? 'Kandy' : 'Colombo',
+      const result = await estimateDashboardFee({
         destinationType: estimateDest === 'Another district' ? 'OTHER_DISTRICT' : 'SAME_CITY',
         weightKg: weightNum,
         parcelCategory: estimateCategory,
-      });
+      }, signal);
+      if (signal?.aborted) return;
       setFeeEstimate(result);
     } catch {
+      if (signal?.aborted) return;
+      setFeeEstimate(null);
       setEstimateError('Could not calculate rate. Tap retry.');
     } finally {
-      setEstimating(false);
+      if (!signal?.aborted) setEstimating(false);
     }
   }, [estimateCategory, estimateWeight, estimateDest]);
 
   // Auto-calculate quick estimate
   useEffect(() => {
-    void calculateEstimate();
-  }, [calculateEstimate]);
-  const handleSimulateNextUpdate = () => {
-    if (!liveParcel) return;
-    const nextStatus = liveParcel.status === 'In progress' ? 'Delivered' : 'In progress';
-    setLiveParcel((prev) => (prev ? { ...prev, status: nextStatus } : null));
-  };
-
+    const controller = new AbortController();
+    void calculateEstimate(controller.signal);
+    return () => controller.abort();
+  }, [calculateEstimate, auth?.user?.id]);
   // Handler for track parcel search
   const handleTrackSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -197,14 +197,14 @@ export const CustomerDashboard: React.FC = () => {
     setTrackedParcelResult(null);
 
     try {
-      const found = await getParcel(query);
+      const found = await getDashboardTracking(query);
       if (found) {
         setTrackedParcelResult(found);
       } else {
         setTrackedParcelResult('NOT_FOUND');
       }
-    } catch {
-      setTrackErrorMsg('Network error while looking up parcel.');
+    } catch (error) {
+      setTrackErrorMsg(error instanceof Error ? error.message : 'Unable to look up parcel.');
     } finally {
       setTrackingLoading(false);
     }
@@ -309,7 +309,7 @@ export const CustomerDashboard: React.FC = () => {
   // 3. Empty State (when customer has no parcels)
   const hasNoParcels = dashboard.totalParcels === 0;
   if (hasNoParcels) {
-    const firstName = dashboard.userName ? dashboard.userName.split(' ')[0] : 'there';
+    const firstName = (dashboard.userName || auth?.user?.name)?.split(' ')[0] || 'there';
     return (
       <div className="sd-grid-12">
         <div className="sd-col-span-12 sd-dash-hero">
@@ -338,7 +338,10 @@ export const CustomerDashboard: React.FC = () => {
   }
 
   // Computed Values for Top Row
-  const firstName = dashboard.userName ? dashboard.userName.split(' ')[0] : 'there';
+  const percent = (count: number) => dashboard.totalParcels > 0 ? Math.round(count * 100 / dashboard.totalParcels) : 0;
+  const shares = { delivered: percent(dashboard.deliveredCount), transit: percent(dashboard.inTransitCount),
+    awaiting: percent(dashboard.awaitingPickupCount), failed: percent(dashboard.failedCount) };
+  const firstName = (dashboard.userName || auth?.user?.name)?.split(' ')[0] || 'there';
 
   // Stepper calculations for live parcel
   const currentStepIndex = getStepperIndex(liveParcel);
@@ -355,19 +358,19 @@ export const CustomerDashboard: React.FC = () => {
           {/* Left: Segmented Bar + Spend */}
           <div className="sd-dash-hero-left">
             <div className="sd-capsule-labels-row">
-              <span style={{ flex: '62' }}>
+              <span style={{ flex: shares.delivered }}>
                 Delivered
                 <span className="dash-seg-label sr-only">Delivered</span>
               </span>
-              <span style={{ flex: '23' }}>
+              <span style={{ flex: shares.transit }}>
                 In transit
                 <span className="dash-seg-label sr-only">In transit</span>
               </span>
-              <span style={{ flex: '10' }}>
+              <span style={{ flex: shares.awaiting }}>
                 Awaiting
                 <span className="dash-seg-label sr-only">Awaiting</span>
               </span>
-              <span style={{ flex: '5' }}>
+              <span style={{ flex: shares.failed }}>
                 Failed
                 <span className="dash-seg-label sr-only">Failed</span>
               </span>
@@ -376,26 +379,26 @@ export const CustomerDashboard: React.FC = () => {
             <div
               className="sd-capsules-bar"
               role="img"
-              aria-label="Parcel share: Delivered 62%, In transit 23%, Awaiting 10%, Failed 5%"
+              aria-label={`Parcel share: Delivered ${shares.delivered}%, In transit ${shares.transit}%, Awaiting ${shares.awaiting}%, Failed ${shares.failed}%`}
             >
-              <div className="sd-capsule-seg sd-capsule-delivered" style={{ flex: '62' }}>
-                62%
+              <div className="sd-capsule-seg sd-capsule-delivered" style={{ flex: shares.delivered }}>
+                {shares.delivered}%
               </div>
-              <div className="sd-capsule-seg sd-capsule-transit" style={{ flex: '23' }}>
-                23%
+              <div className="sd-capsule-seg sd-capsule-transit" style={{ flex: shares.transit }}>
+                {shares.transit}%
               </div>
-              <div className="sd-capsule-seg sd-capsule-awaiting" style={{ flex: '10' }}>
-                10%
+              <div className="sd-capsule-seg sd-capsule-awaiting" style={{ flex: shares.awaiting }}>
+                {shares.awaiting}%
               </div>
-              <div className="sd-capsule-seg sd-capsule-failed" style={{ flex: '5' }}>
-                5%
+              <div className="sd-capsule-seg sd-capsule-failed" style={{ flex: shares.failed }}>
+                {shares.failed}%
               </div>
             </div>
 
             <div className="sd-hero-spend-block">
               <div className="sd-hero-spend-label">This month's spend</div>
               <div className="sd-hero-spend-amount">
-                {dashboard.formattedMonthlySpent || 'LKR 14,200'}
+                {dashboard.formattedMonthlySpent || 'No spending recorded'}
               </div>
             </div>
           </div>
@@ -403,15 +406,15 @@ export const CustomerDashboard: React.FC = () => {
           {/* Right: Three Large Stats */}
           <div className="sd-dash-hero-stats">
             <div className="sd-dash-hero-stat-item">
-              <div className="sd-dash-hero-stat-val dash-big-stat-value">{dashboard.activeCount ?? 3}</div>
+              <div className="sd-dash-hero-stat-val dash-big-stat-value">{dashboard.activeCount}</div>
               <div className="sd-dash-hero-stat-lbl">Active parcels</div>
             </div>
             <div className="sd-dash-hero-stat-item">
-              <div className="sd-dash-hero-stat-val dash-big-stat-value">{dashboard.deliveredCount ?? 41}</div>
+              <div className="sd-dash-hero-stat-val dash-big-stat-value">{dashboard.deliveredCount}</div>
               <div className="sd-dash-hero-stat-lbl">Delivered</div>
             </div>
             <div className="sd-dash-hero-stat-item">
-              <div className="sd-dash-hero-stat-val dash-big-stat-value">{dashboard.awaitingPickupCount ?? 2}</div>
+              <div className="sd-dash-hero-stat-val dash-big-stat-value">{dashboard.awaitingPickupCount}</div>
               <div className="sd-dash-hero-stat-lbl">Awaiting pickup</div>
             </div>
           </div>
@@ -423,18 +426,20 @@ export const CustomerDashboard: React.FC = () => {
           ===================================================================== */}
       <div className="sd-col-span-3 sd-card-courier-brown">
         <div className="sd-courier-avatar-yellow" aria-hidden="true">
-          {dashboard.courier?.initials || 'SP'}
+          {dashboard.courier?.initials || '—'}
         </div>
 
         <div style={{ marginTop: 'auto', paddingTop: '28px' }}>
           <h3 className="sd-courier-brown-name">
-            {dashboard.courier?.name || 'Saman Perera'}
+            {dashboard.courier?.name || 'Courier unavailable'}
           </h3>
           <p className="sd-courier-brown-meta">
-            {dashboard.courier?.role || 'Courier'} • {dashboard.courier?.zone || 'Colombo zone'}
+            {dashboard.courier?.role || 'Details unavailable'} • {dashboard.courier?.zone || 'Not provided'}
           </p>
           <a
-            href={`tel:${dashboard.courier?.phone || '+94771234567'}`}
+            href={dashboard.courier?.phone ? `tel:${dashboard.courier.phone}` : undefined}
+            aria-disabled={!dashboard.courier?.phone}
+            tabIndex={dashboard.courier?.phone ? 0 : -1}
             className="sd-courier-brown-btn"
             role="button"
             aria-label="Call courier"
@@ -449,13 +454,14 @@ export const CustomerDashboard: React.FC = () => {
           3. Live Tracking Card (span 6)
           ===================================================================== */}
       <Card span={6}>
+        {liveError && <p role="alert">{liveError}</p>}
         {liveParcel ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: '18px', fontWeight: 600 }}>Live tracking</div>
               <div className="sd-live-badge-green">
                 <span className="sd-live-dot-green" aria-hidden="true" />
-                <span>Live</span>
+                <span>{liveParcel.rawStatus?.replaceAll('_', ' ') || liveParcel.status}</span>
               </div>
             </div>
 
@@ -464,7 +470,7 @@ export const CustomerDashboard: React.FC = () => {
                 {liveParcel.trackingRef}
               </h3>
               <p style={{ color: 'var(--mute)', fontSize: '14px', margin: '4px 0 0' }}>
-                {liveParcel.sender.city} → {liveParcel.recipient.city} • 2 kg • Medium
+                {liveParcel.sender.city || 'Unavailable'} → {liveParcel.recipient.city || 'Unavailable'} • {liveParcel.parcel.weightKg == null ? 'Weight unavailable' : `${liveParcel.parcel.weightKg} kg`} • {liveParcel.parcel.size || 'Size unavailable'}
               </p>
             </div>
 
@@ -505,15 +511,15 @@ export const CustomerDashboard: React.FC = () => {
             {/* Live Footer */}
             <div className="sd-live-card-footer">
               <div className="sd-live-eta-text">
-                Estimated arrival today,<br />
-                4:30 PM
+                Estimated arrival<br />
+                {liveParcel.formattedEstimatedDeliveryDate || 'Not available'}
               </div>
 
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <Button
                   variant="outline"
                   size="small"
-                  onClick={handleSimulateNextUpdate}
+                  onClick={() => { void refreshLiveParcel(); }}
                 >
                   Simulate next update
                 </Button>
@@ -527,9 +533,10 @@ export const CustomerDashboard: React.FC = () => {
           </>
         ) : (
           <EmptyState
-            title="No active live tracking"
-            description="All scheduled parcels have been delivered or await pickup."
+            title={liveError ? 'Tracking unavailable' : 'No active live tracking'}
+            description="No tracking details are available right now."
             icon={<TruckIcon size={32} />}
+            action={liveError ? <Button variant="outline" size="small" onClick={() => { void refreshLiveParcel(); }}>Refresh tracking</Button> : undefined}
           />
         )}
       </Card>
@@ -555,7 +562,6 @@ export const CustomerDashboard: React.FC = () => {
               value={estimateCategory}
               onChange={(e) => {
                 setEstimateCategory(e.target.value);
-                void calculateEstimate();
               }}
             >
               <option value="Medium (1–5 kg)">Medium (1–5 kg)</option>
@@ -578,7 +584,6 @@ export const CustomerDashboard: React.FC = () => {
               value={estimateWeight}
               onChange={(e) => {
                 setEstimateWeight(e.target.value);
-                void calculateEstimate();
               }}
             />
           </div>
@@ -594,7 +599,6 @@ export const CustomerDashboard: React.FC = () => {
               value={estimateDest}
               onChange={(e) => {
                 setEstimateDest(e.target.value);
-                void calculateEstimate();
               }}
             >
               <option value="Another district">Another district</option>
@@ -604,7 +608,7 @@ export const CustomerDashboard: React.FC = () => {
 
           <div>
             <div className="sd-quick-fee-amount">
-              {estimating ? 'Calculating...' : feeEstimate?.formattedFee || 'LKR 1,072'}
+              {estimating ? 'Calculating...' : feeEstimate?.formattedFee || 'Rate unavailable'}
             </div>
             {estimateError ? (
               <div className="sd-quick-fee-sub" style={{ color: 'var(--err)' }}>
@@ -664,6 +668,7 @@ export const CustomerDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
+              {dashboard.recentParcels.length === 0 && <tr><td colSpan={4}>No deliveries yet.</td></tr>}
               {dashboard.recentParcels?.slice(0, 4).map((p) => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--line)' }}>
                   <td style={{ padding: '12px 4px', fontWeight: 500 }}>
@@ -778,6 +783,7 @@ export const CustomerDashboard: React.FC = () => {
         <h3 className="sd-notif-dark-title">Notifications</h3>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {dashboard.unavailable?.notifications && <p role="status">{dashboard.unavailable.notifications}</p>}
           {(notifications.length > 0 ? notifications : dashboard.notifications || []).map((n) => (
             <div key={n.id} className="sd-notif-item-row">
               <div

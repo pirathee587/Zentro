@@ -82,7 +82,7 @@ class ReceiptGenerationTest {
     assertThat(receipt.trackingRef()).isEqualTo(trackingRef);
     assertThat(receipt.fee()).isEqualByComparingTo(persistedFee);
     assertThat(receipt.currency()).isEqualTo(persistedCurrency);
-    assertThat(receipt.paymentStatus()).isEqualTo("Paid");
+    assertThat(receipt.paymentStatus()).isEqualTo("Unknown");
     assertThat(receipt.sender().name()).isEqualTo("John Sender");
     assertThat(receipt.recipient().name()).isEqualTo("Jane Recipient");
 

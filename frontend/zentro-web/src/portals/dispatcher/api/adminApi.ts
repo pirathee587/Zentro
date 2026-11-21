@@ -59,6 +59,34 @@ export async function updateUser(
   return (await apiClient.patch<AdminUserProfile>(`/api/v1/admin/users/${userId}`, request)).data;
 }
 
+export async function deleteUser(userId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/admin/users/${userId}`);
+}
+
+export type CreateCourierRequest = {
+  name: string;
+  email: string;
+  phone?: string;
+  assignedZone?: string;
+  vehicleType?: string;
+};
+
+export type CourierProfile = {
+  id: string;
+  userId: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  active: boolean;
+  accountStatus: string;
+  assignedZone: string | null;
+  vehicleType: string | null;
+};
+
+export async function createCourier(request: CreateCourierRequest): Promise<CourierProfile> {
+  return (await apiClient.post<CourierProfile>('/api/v1/admin/couriers', request)).data;
+}
+
 // ─── Merchant management ───────────────────────────────────────────────────────
 
 export type MerchantApplication = {

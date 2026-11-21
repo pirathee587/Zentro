@@ -31,13 +31,13 @@ Related: #58 event publishing, #60 role-specific restrictions, #59 proof of deli
 | `PICKED_UP` | `FAILED` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Pickup failure (requires non-empty `reason`). |
 | `IN_TRANSIT` | `OUT_FOR_DELIVERY` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Local hub dispatch for delivery. |
 | `IN_TRANSIT` | `FAILED` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Transit loss/damage (requires non-empty `reason`). |
-| `OUT_FOR_DELIVERY` | `DELIVERED` | ✅ Allowed | ✅ Allowed | ❌ Denied (403) | Successful delivery. SERVICE is used by S3 POD completion worker. |
+| `OUT_FOR_DELIVERY` | `DELIVERED` | ✅ Allowed | ✅ Via authenticated `CompleteParcelDelivery` gRPC | ❌ Denied (403) | Successful delivery. S3 POD completion is the only service path. |
 | `OUT_FOR_DELIVERY` | `FAILED` | ✅ Allowed | ❌ Denied (409) | ❌ Denied (403) | Delivery attempt failure (requires non-empty `reason`). |
-| Any Status | *Same Status* | ✅ Allowed (`changed: false`) | ✅ `DELIVERED` only | ❌ Denied (403) | Idempotent repeat. SERVICE may repeat `DELIVERED` only. |
+| Any Status | *Same Status* | ✅ Allowed (`changed: false`) | ✅ `DELIVERED` only over gRPC | ❌ Denied (403) | Idempotent repeat. SERVICE may repeat `DELIVERED` only. |
 | `DELIVERED` / `FAILED` | *Any Status* | ❌ Terminal (409) | ❌ Terminal (409) | ❌ Denied (403) | Terminal states reject any further change. |
 
 - **DISPATCHER**: Authorized for all valid transitions in the parcel lifecycle.
-- **SERVICE**: Strictly narrowed to `OUT_FOR_DELIVERY -> DELIVERED` (and idempotent repeat on `DELIVERED`). Intermediate transitions (`PICKED_UP`, `IN_TRANSIT`, `OUT_FOR_DELIVERY`, `FAILED`) are rejected with `409 INVALID_TRANSITION` (empty `allowedNext`).
+- **SERVICE**: REST status updates are forbidden. S2's authenticated gRPC methods enforce `pod:update` and allow only the delivery-completion path to transition to `DELIVERED` (idempotent repeat supported).
 - **COURIER**: Forbidden from calling S2 `PATCH /api/v1/parcels/{parcelId}/status` directly (403 Forbidden). Couriers submit Proof of Delivery to S3 (`POST /api/v1/courier/deliveries/{parcelId}/proof`), which validates assignment isolation and calls S2 using a confidential `SERVICE` token.
 
 ## Endpoint
@@ -46,14 +46,13 @@ Related: #58 event publishing, #60 role-specific restrictions, #59 proof of deli
 
 | Item | Value |
 |---|---|
-| Roles | `DISPATCHER` or `SERVICE` (`@PreAuthorize("hasAnyRole('DISPATCHER','SERVICE')")`) |
+| Roles | `DISPATCHER` (`@PreAuthorize("hasRole('DISPATCHER')")`) |
 | Forbidden | `CUSTOMER`, `MERCHANT`, `COURIER` (403) |
 | Auth | `Authorization: Bearer <Keycloak access token>` |
 | Content type | `application/json` |
 | Actor | The token `sub` and role. The body cannot set the actor. A token with both roles is recorded as `DISPATCHER`. |
 
-Dispatchers call it through the gateway (`PATCH /api/v1/parcels/{parcelId}/status` allows `ROLE_DISPATCHER`). SERVICE calls S2 directly with its client-credentials token.
-The gateway only accepts tokens that have a human role, so internal services call S2 directly on port 8082 with a `SERVICE` token (see "S3 integration").
+Dispatchers call it through the gateway (`PATCH /api/v1/parcels/{parcelId}/status` allows `ROLE_DISPATCHER`). Internal service status changes use S2's gRPC listener on port 9082 with a signed `SERVICE` token and method-specific POD permission. The REST endpoint rejects service tokens.
 
 ### Request
 
@@ -178,14 +177,6 @@ The payload never contains these fields:
 
 **Schema.** The payload is defined in `contracts/events/parcel-status-updated.schema.json` (#58) and checked by the producer contract test. See [parcel-events.md](parcel-events.md) for the publishing rules.
 
-## S3 integration (open item)
+## S3 POD integration
 
-S3 keeps courier assignments, proof of delivery and the courier `PATCH` endpoint (#59). The proposed flow when a courier reports a status:
-
-1. S3 checks that the courier is assigned to the parcel.
-2. S3 calls `PATCH http://<S2 host>:8082/api/v1/parcels/{parcelId}/status` with a Keycloak `SERVICE` client-credentials token. Optionally, it forwards the courier-entered reason and note.
-3. S3 treats `200` (`changed` true or false) as success, shows `409` and `422` to the courier, and retries `503` with backoff.
-
-The history then records `actor_role = SERVICE` with the S3 client's subject. If the courier's identity must also be recorded, that needs an agreed field or header in a follow-up.
-
-Owners: @pavi3alnx / @Nilakshana23 (S3), @14Jannan (S2). Next action: confirm the Option A comment on #28 and add the S3 -> S2 call.
+S3 verifies the courier owns an accepted assignment, records the proof, and submits completion to S2's `CompleteParcelDelivery` gRPC method on port 9082. It uses a cached Keycloak `SERVICE` JWT scoped with `pod:update`; S2 validates signature, issuer, audience, role and RPC permission. S2 makes the idempotent `DELIVERED` transition and writes the Kafka outbox event transactionally. A courier or generic service token cannot invoke the REST status endpoint to bypass S3.

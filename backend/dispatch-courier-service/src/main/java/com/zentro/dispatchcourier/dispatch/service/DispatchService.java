@@ -80,7 +80,7 @@ public class DispatchService {
 
   public List<IdentityCourierClient.Courier> couriers(UUID parcelId, String token) {
     if (assignments.exists(parcelId)) throw DispatchException.assigned();
-    return parcels.withEligibleParcel(parcelId, token, parcel -> {
+    return parcels.inspectEligibleParcel(parcelId, token, parcel -> {
       if (parcel == null || !parcelId.equals(parcel.parcelId())) throw invalidSource();
       var counts = assignments.assignmentCounts();
       return identity.listEligible(token).stream()
@@ -151,6 +151,7 @@ public class DispatchService {
 
   public AssignmentRepository.Assignment assign(UUID parcelId, UUID courierId, String subject, String token) {
     validateSubject(subject);
+    parcels.reconcileParcel(parcelId, token);
     if (assignments.exists(parcelId)) throw DispatchException.assigned();
     return parcels.withEligibleParcel(parcelId, token, parcel -> {
       if (parcel == null || !parcelId.equals(parcel.parcelId())) throw invalidSource();
@@ -183,6 +184,7 @@ public class DispatchService {
 
   public AssignmentRepository.Assignment reassign(UUID parcelId, UUID courierId, String subject, String token) {
     validateSubject(subject);
+    parcels.reconcileParcel(parcelId, token);
     if (!assignments.exists(parcelId)) {
       throw new DispatchException(HttpStatus.NOT_FOUND, "DELIVERY_NOT_ASSIGNED",
           "The delivery has no active assignment.");
@@ -210,6 +212,7 @@ public class DispatchService {
 
   public void cancel(UUID parcelId, String subject, String token) {
     validateSubject(subject);
+    parcels.reconcileParcel(parcelId, token);
     parcels.withAssignedParcel(parcelId, token, parcel -> {
       assignments.cancel(parcelId, subject);
       return null;

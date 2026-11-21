@@ -32,14 +32,18 @@ public class ZentroSecurityAutoConfiguration {
   }
   @Bean
   @ConditionalOnMissingBean(SecurityFilterChain.class)
-  SecurityFilterChain zentroSecurityFilterChain(HttpSecurity http, JwtDecoder decoder, ObjectMapper mapper) throws Exception {
+  SecurityFilterChain zentroSecurityFilterChain(HttpSecurity http, JwtDecoder decoder, ObjectMapper mapper, ZentroSecurityProperties properties) throws Exception {
     JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
     converter.setJwtGrantedAuthoritiesConverter(new KeycloakRealmRoleConverter());
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(registry -> registry
-            .requestMatchers("/actuator/health", "/actuator/health/**", "/v3/api-docs/**").permitAll()
-            .anyRequest().authenticated())
+        .authorizeHttpRequests(registry -> { registry
+            .requestMatchers("/actuator/health", "/actuator/health/**", "/v3/api-docs/**").permitAll();
+          if (properties.publicGetPaths()!=null && !properties.publicGetPaths().isEmpty()) {
+            registry.requestMatchers(org.springframework.http.HttpMethod.GET,properties.publicGetPaths().toArray(String[]::new)).permitAll();
+          }
+          registry.anyRequest().authenticated();
+        })
         .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(converter))
             .authenticationEntryPoint(ProblemDetailsSecurityHandlers.authenticationEntryPoint(mapper)))
         .exceptionHandling(errors -> errors.accessDeniedHandler(ProblemDetailsSecurityHandlers.accessDeniedHandler(mapper))).build();

@@ -714,7 +714,7 @@
       "patch": {
         "operationId": "updateParcelStatus",
         "summary": "Update parcel status",
-        "description": "DISPATCHER through gateway. Internal direct S2 calls may use SERVICE; SERVICE is not admitted by the gateway. Repeating current status is 200 with changed=false. Allowed roles: DISPATCHER.",
+        "description": "DISPATCHER through gateway. SERVICE tokens are rejected by REST; internal delivery completion uses the authenticated S2 gRPC POD contract. Repeating current status is 200 with changed=false. Allowed roles: DISPATCHER.",
         "tags": [
           "S2"
         ],
@@ -924,6 +924,1332 @@
             }
           }
         },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/mine": {
+      "get": {
+        "operationId": "listMyParcels",
+        "summary": "List the authenticated customer's parcel bookings",
+        "description": "Page is one-based; size must be between 1 and 50. Results are scoped to the bearer subject. Allowed roles: CUSTOMER.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerParcelPage"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "page filter or pagination parameter.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "size filter or pagination parameter.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "status filter or pagination parameter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "q filter or pagination parameter.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/mine/live": {
+      "get": {
+        "operationId": "getMyLiveParcel",
+        "summary": "Read the customer's current active parcel",
+        "description": "Returns the first active parcel, or the most recent parcel when none is active; null when the customer has no parcels. Allowed roles: CUSTOMER.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NullableCustomerParcelView"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/mine/receipts": {
+      "get": {
+        "operationId": "listMyReceipts",
+        "summary": "List the authenticated customer's receipts",
+        "description": "Returns receipt records scoped to the bearer subject. Allowed roles: CUSTOMER.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptResponseList"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/mine/summary": {
+      "get": {
+        "operationId": "getMyParcelSummary",
+        "summary": "Read parcel counts and monthly fees",
+        "description": "Summary counts and fee totals are scoped to the bearer subject and current Asia/Colombo month. Allowed roles: CUSTOMER.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerParcelSummary"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/mine/{reference}": {
+      "get": {
+        "operationId": "getMyParcelByReference",
+        "summary": "Read one customer parcel by tracking reference",
+        "description": "Returns a booking only when it belongs to the bearer subject. Allowed roles: CUSTOMER.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerParcelView"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "description": "reference identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "string"
+            },
+            "example": "ZT-ABCDEFGH12"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/mine/{reference}/history": {
+      "get": {
+        "operationId": "getMyParcelStatusHistory",
+        "summary": "Read a customer's parcel status history",
+        "description": "Returns status changes for an owned parcel reference. Allowed roles: CUSTOMER.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParcelStatusHistoryList"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "description": "reference identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "string"
+            },
+            "example": "ZT-ABCDEFGH12"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/tracking/{reference}": {
+      "get": {
+        "operationId": "getParcelPublicTracking",
+        "summary": "Read limited public tracking information",
+        "description": "Public response contains parcel status and city-level locations only; anonymous access is allowed. Public: anonymous and human access; SERVICE-only tokens are denied.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicParcelTracking"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "description": "reference identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "string"
+            },
+            "example": "ZT-ABCDEFGH12"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/parcels/{id}/receipt": {
+      "get": {
+        "operationId": "getParcelReceipt",
+        "summary": "Read an authorized parcel receipt",
+        "description": "Customer and merchant access is owner-scoped; dispatcher and authorized service callers may access operationally. Allowed roles: CUSTOMER, MERCHANT, DISPATCHER, SERVICE.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptResponse"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "id identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/parcels/{id}/receipt/pdf": {
+      "get": {
+        "operationId": "getParcelReceiptPdf",
+        "summary": "Download an authorized parcel receipt PDF",
+        "description": "Customer and merchant access is owner-scoped; dispatcher and authorized service callers may access operationally. Allowed roles: CUSTOMER, MERCHANT, DISPATCHER, SERVICE.",
+        "tags": [
+          "S2"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "$ref": "#/components/schemas/BinaryPdf"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid parameter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid bearer token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated caller lacks an allowed role or resource permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service or required dependency is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Accepted correlation identifier.",
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "id identifier or tracking reference.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional correlation identifier: 1-128 ASCII letters, digits, dots, underscores or hyphens, starting with a letter or digit. Missing, duplicate or invalid values are replaced with a UUID; the accepted ID is returned in the response header.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "example": "request-123"
+          }
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -2100,6 +3426,10 @@
           "type": "string"
         }
       },
+      "BinaryPdf": {
+        "type": "string",
+        "format": "binary"
+      },
       "CreateParcelBookingRequest": {
         "type": "object",
         "properties": {
@@ -2960,6 +4290,387 @@
           }
         }
       },
+      "CustomerParcelView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trackingRef": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "fee": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "estimatedDays": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "destinationType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isExpress": {
+            "type": "boolean"
+          },
+          "sender": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "phone": {
+                "type": "string",
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
+              },
+              "address": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
+              },
+              "city": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "name",
+              "phone",
+              "address"
+            ]
+          },
+          "recipient": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "phone": {
+                "type": "string",
+                "description": "Remove ASCII whitespace and dashes, then require +94 or 0 followed by nine ASCII digits."
+              },
+              "address": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 255,
+                "description": "Unicode code points after existing trimming; control, format and unpaired surrogate characters are rejected."
+              },
+              "city": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "name",
+              "phone",
+              "address"
+            ]
+          },
+          "parcel": {
+            "type": "object",
+            "properties": {
+              "weightKg": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 20,
+                "multipleOf": 0.0001
+              },
+              "category": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "size": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "SMALL",
+                  "MEDIUM",
+                  "LARGE",
+                  null
+                ]
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 255
+              }
+            },
+            "required": [
+              "weightKg",
+              "category"
+            ]
+          }
+        }
+      },
+      "NullableCustomerParcelView": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/CustomerParcelView"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "CustomerParcelPage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerParcelView"
+            }
+          },
+          "totalElements": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "hasNext": {
+            "type": "boolean"
+          },
+          "totalFees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CustomerParcelSummary": {
+        "type": "object",
+        "properties": {
+          "activeCount": {
+            "type": "integer"
+          },
+          "awaitingPickupCount": {
+            "type": "integer"
+          },
+          "inTransitCount": {
+            "type": "integer"
+          },
+          "deliveredCount": {
+            "type": "integer"
+          },
+          "failedCount": {
+            "type": "integer"
+          },
+          "totalParcels": {
+            "type": "integer"
+          },
+          "month": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "totalFees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "monthlyFees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ParcelStatusHistoryRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fromStatus": {
+            "type": "string"
+          },
+          "toStatus": {
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actorRole": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReceiptResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "receiptNumber": {
+            "type": "string"
+          },
+          "parcelId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trackingRef": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "formattedAmount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "paymentStatus": {
+            "type": "string"
+          },
+          "paymentMethod": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "formattedDate": {
+            "type": "string"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "recipientName": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicParcelTracking": {
+        "type": "object",
+        "properties": {
+          "trackingRef": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "originCity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "destinationCity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estimatedDays": {
+            "type": "integer"
+          }
+        }
+      },
       "DeliveryZoneList": {
         "type": "array",
         "items": {
@@ -2970,6 +4681,18 @@
         "type": "array",
         "items": {
           "$ref": "#/components/schemas/MerchantOrderResponse"
+        }
+      },
+      "ReceiptResponseList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ReceiptResponse"
+        }
+      },
+      "ParcelStatusHistoryList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ParcelStatusHistoryRow"
         }
       }
     }

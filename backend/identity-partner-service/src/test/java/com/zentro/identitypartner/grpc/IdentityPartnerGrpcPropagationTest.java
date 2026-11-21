@@ -51,6 +51,7 @@ class IdentityPartnerGrpcPropagationTest {
   private Metadata headers(String correlation, String trace) {
     var headers = new Metadata();
     headers.put(Metadata.Key.of("x-internal-token", Metadata.ASCII_STRING_MARSHALLER), "test-secret");
+    headers.put(Metadata.Key.of("x-internal-service", Metadata.ASCII_STRING_MARSHALLER), "dispatch-courier-service");
     headers.put(Metadata.Key.of("x-correlation-id", Metadata.ASCII_STRING_MARSHALLER), correlation);
     headers.put(Metadata.Key.of("traceparent", Metadata.ASCII_STRING_MARSHALLER), trace);
     return headers;

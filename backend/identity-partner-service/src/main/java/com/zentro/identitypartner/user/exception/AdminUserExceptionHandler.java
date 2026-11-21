@@ -6,6 +6,8 @@ import com.zentro.identitypartner.merchant.controller.AdminMerchantApplicationCo
 import com.zentro.identitypartner.merchant.controller.MerchantApiKeyController;
 import com.zentro.identitypartner.merchant.controller.MerchantApplicationController;
 import com.zentro.identitypartner.user.controller.AdminUserController;
+import com.zentro.identitypartner.user.controller.ForgotPasswordController;
+import com.zentro.identitypartner.user.controller.RegistrationOtpController;
 import com.zentro.identitypartner.user.controller.UserProfileController;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -37,7 +39,9 @@ import org.springframework.web.server.ResponseStatusException;
     AdminMerchantApplicationController.class,
     MerchantApiKeyController.class,
     AdminCourierController.class,
-    CourierSelfProfileController.class
+    CourierSelfProfileController.class,
+    RegistrationOtpController.class,
+    ForgotPasswordController.class
 })
 public class AdminUserExceptionHandler {
   private static final Logger log = LoggerFactory.getLogger(AdminUserExceptionHandler.class);

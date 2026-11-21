@@ -70,9 +70,13 @@ export function useRotateMerchantWebhookSecretMutation() {
 export function useMerchantApplicationQuery(enabled = true) {
   const { user, refreshAccessToken } = useAuth();
 
-  return useQuery({
+  return useQuery<MerchantApplication>({
     queryKey: merchantQueryKeys.application(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
+    refetchInterval: (query) => {
+      const data = query.state.data as MerchantApplication | undefined;
+      return data?.status === 'PENDING' ? 3000 : false;
+    },
     queryFn: ({ signal }) => getMerchantApplication({
       accessToken: user?.accessToken,
       refreshAccessToken,

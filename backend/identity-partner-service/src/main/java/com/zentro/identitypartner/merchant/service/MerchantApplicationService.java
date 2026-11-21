@@ -39,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @Service
 public class MerchantApplicationService {
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MerchantApplicationService.class);
   private static final RowMapper<MerchantApplication> ROW_MAPPER = MerchantApplicationService::mapApplication;
 
   /** Status values that block approved-merchant operations. */

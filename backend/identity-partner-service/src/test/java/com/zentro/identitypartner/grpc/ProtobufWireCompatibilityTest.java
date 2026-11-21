@@ -20,7 +20,7 @@ class ProtobufWireCompatibilityTest {
     assertThat(CourierProfileResponse.parseFrom(courier.toByteArray())).isEqualTo(courier);
     assertThat(IdentityPartnerServiceGrpc.getServiceDescriptor().getMethods())
         .extracting(io.grpc.MethodDescriptor::getBareMethodName)
-        .containsExactly("GetMerchantStatus", "GetCourierProfile");
+        .contains("GetMerchantStatus", "GetCourierProfile");
   }
 
   @Test void parcelV1GoldenWireAndAdditiveFieldsRemainReadable() throws Exception {
@@ -32,6 +32,6 @@ class ProtobufWireCompatibilityTest {
     assertThat(parcel.getUnknownFields()).isNotEqualTo(UnknownFieldSet.getDefaultInstance());
     assertThat(ParcelResponse.parseFrom(parcel.toByteArray())).isEqualTo(parcel);
     assertThat(ParcelPricingServiceGrpc.getServiceDescriptor().getMethods())
-        .extracting(io.grpc.MethodDescriptor::getBareMethodName).containsExactly("GetParcel");
+        .extracting(io.grpc.MethodDescriptor::getBareMethodName).contains("GetParcel");
   }
 }

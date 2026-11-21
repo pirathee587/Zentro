@@ -88,29 +88,19 @@ class ParcelStatusControllerTest {
   }
 
   @Test
-  @DisplayName("Internal service token changes the status to DELIVERED with role SERVICE")
-  void serviceCanChangeStatus() throws Exception {
-    when(statusService.updateStatus(any(), any(), any(), any(), any(), any()))
-        .thenReturn(changed(ParcelStatus.OUT_FOR_DELIVERY, ParcelStatus.DELIVERED));
-
-    send(as("service-account-s3", "SERVICE"), URL, "{\"status\":\"DELIVERED\"}").andExpect(status().isOk());
-
-    verify(statusService).updateStatus(PARCEL_ID, ParcelStatus.DELIVERED, null, null, "service-account-s3", "SERVICE");
+  @DisplayName("Internal SERVICE token cannot bypass S3's gRPC POD authorization through REST")
+  void serviceCannotChangeStatusThroughRest() throws Exception {
+    send(as("service-account-s3", "SERVICE"), URL, "{\"status\":\"DELIVERED\"}")
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(statusService);
   }
 
   @Test
-  @DisplayName("Internal service token attempting intermediate status change returns 409 INVALID_TRANSITION")
-  void serviceDisallowedIntermediateTransitionReturns409() throws Exception {
-    when(statusService.updateStatus(eq(PARCEL_ID), eq(ParcelStatus.IN_TRANSIT), any(), any(), eq("service-account-s3"), eq("SERVICE")))
-        .thenThrow(InvalidTransitionException.notAllowed(ParcelStatus.PICKED_UP, ParcelStatus.IN_TRANSIT, "SERVICE"));
-
+  @DisplayName("Internal SERVICE token cannot submit any parcel status through REST")
+  void serviceCannotSubmitIntermediateStatusThroughRest() throws Exception {
     send(as("service-account-s3", "SERVICE"), URL, "{\"status\":\"IN_TRANSIT\"}")
-        .andExpect(status().isConflict())
-        .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
-        .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"))
-        .andExpect(jsonPath("$.currentStatus").value("PICKED_UP"))
-        .andExpect(jsonPath("$.requestedStatus").value("IN_TRANSIT"))
-        .andExpect(jsonPath("$.allowedNext").isEmpty());
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(statusService);
   }
 
   @Test

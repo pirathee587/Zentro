@@ -43,7 +43,7 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | PATCH `/api/v1/admin/couriers/{courierId}` | S1 | D → D | courier ID; D management | D | D |
 | POST `/api/v1/parcels` | S2 | C → C | customer subject comes from JWT | C | C |
 | POST `/api/v1/parcels/estimate`, `/api/v1/parcels/estimate-fee` | S2 | C,D → C,D | Stateless quotation; no user resource | C,D | C,D |
-| PATCH `/api/v1/parcels/{parcelId}/status` | S2 | D → D; S allowed only on direct internal service call | parcel ID; actor comes from token; SERVICE lifecycle is restricted in S2 | D via gateway; D,S direct | D via gateway; D,S direct |
+| PATCH `/api/v1/parcels/{parcelId}/status` | S2 | D → D | parcel ID; dispatcher actor comes from token | D via gateway; D direct | D via gateway; D direct |
 | GET `/api/v1/zones` | S2 | any human → C,M,CO,D | Shared active zone list | C,M,CO,D; ADMIN now denied | C,M,CO,D |
 | GET `/api/v1/admin/pricing-rules` | S2 | D → D | Shared active pricing rule | D | D |
 | PUT `/api/v1/admin/pricing-rules` | S2 | D → D | Shared pricing configuration | D | D |
@@ -59,7 +59,7 @@ The role columns show **current behavior after this branch's fixes**. The expect
 | GET `/api/v1/courier/deliveries` | S3 | CO → CO | assigned deliveries only, looked up via authenticated courier profile | CO | CO |
 | GET `/api/v1/courier/deliveries/{parcelId}` | S3 | CO → CO | assignment courier ID and user ID must match caller | CO (own assignment) | same |
 | GET `/api/v1/courier/deliveries/{parcelId}/proof` | S3 | CO → CO | assignment checked before proof lookup | CO (own assignment) | same |
-| POST `/api/v1/courier/deliveries/{parcelId}/proof` | S3 | CO → CO | assignment checked before evidence write; S3 calls S2 as SERVICE | CO (own assignment) | same |
+| POST `/api/v1/courier/deliveries/{parcelId}/proof` | S3 | CO → CO | assignment ownership and acceptance checked; S3 calls S2 gRPC with SERVICE JWT and `pod:update` | CO (own assignment) | same |
 | GET `/api/v1/tracking/mine` | S4 | C,M → C,M | filter uses JWT subject; customer/merchant cannot supply another owner | C,M (own records) | C,M (own records) |
 | GET `/api/v1/tracking/{trackingRef}` | S4 | public except S-only → public except S-only | Public tracking reference; response omits names, contact details, full addresses, fees | anon,C,M,CO,D,roleless | same; S-only denied |
 | GET `/api/v1/tracking/{trackingRef}/events` | S4 | public except S-only → public except S-only (JSON); C,M,CO,D (SSE) | Public tracking milestones for JSON; if SSE (text/event-stream), requires JWT and ownership/assigned check | anon,C,M,CO,D,roleless (JSON) / C,M,CO,D (SSE) | same; S-only denied |
@@ -184,10 +184,10 @@ Focused regression cases:
 ## Notes on Inter-Service Calls & Future Routes
 
 1. **Internal Service-to-Service Calls (Gateway Bypass):**
-   `PATCH /api/v1/parcels/{id}/status` permits `ROLE_DISPATCHER` through the API Gateway, and allows both `DISPATCHER` and `SERVICE` at S2 directly. The gateway intentionally rejects `SERVICE`-only tokens on public routes; internal microservices (specifically S3 completing deliveries) invoke S2 directly on internal port 8082 using client-credentials `SERVICE` tokens as per architecture specification.
+   `PATCH /api/v1/parcels/{id}/status` permits only `ROLE_DISPATCHER` at S2 and through the API Gateway. S3 completion uses S2's gRPC `CompleteParcelDelivery` method on port 9082 with a `SERVICE` JWT and `pod:update`; the REST endpoint does not accept service tokens.
 2. **Future Endpoints:**
    `docs/api/parcel-booking.md` references a future `Location: /api/v1/parcels/{id}` endpoint. When implemented in its respective task, an explicit gateway rule must be added under `/api/v1/parcels/{id}`.
 
 ## Not audited
 
-Live Keycloak runtime instances, secret store material, database credentials, frontend route components, and GraphQL/gRPC surfaces outside the protected REST endpoints. Internal service-to-service direct calls that bypass the gateway (such as S3 calling S2 status update with SERVICE token) were verified in code but not routed via perimeter gateway.
+Live Keycloak runtime instances, secret store material, database credentials, frontend route components, and GraphQL/gRPC surfaces outside the protected REST endpoints.

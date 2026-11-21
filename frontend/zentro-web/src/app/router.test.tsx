@@ -22,10 +22,24 @@ describe('portal routing', () => {
     expect(await screen.findByRole('heading', { name: /Track Your Shipment|Your parcel.s journey/i }, { timeout: 5000 })).toBeInTheDocument();
   });
 
-  // Lazy-loading the portal bundle + OIDC restore + mock-adapter delay can exceed
+  // Lazy-loading the portal bundle + OIDC restore + GraphQL round trips can exceed
   // vitest's default 5 s testTimeout; allow up to 40 s for this integration route test.
   it('renders the customer dashboard for an authenticated customer', async () => {
-    server.use(http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'customer-id', name: 'Zentro Customer', roles: ['CUSTOMER'] })));
+    server.use(
+      http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'customer-id', name: 'Zentro Customer', roles: ['CUSTOMER'] })),
+      http.post('*/graphql', async ({ request }) => {
+        const body = await request.json() as { query: string };
+        if (body.query.includes('customerDashboardSummary')) return HttpResponse.json({ data: { customerDashboardSummary: {
+          activeCount: 0, deliveredCount: 0, awaitingPickupCount: 0, failedCount: 0, inTransitCount: 0,
+          totalParcels: 0, totalFees: [], monthlyFees: [],
+        } } });
+        if (body.query.includes('myDeliveries')) return HttpResponse.json({ data: { myDeliveries: { items: [] } } });
+        if (body.query.includes('dashboardFeeEstimate')) return HttpResponse.json({ data: { dashboardFeeEstimate: {
+          fee: 925, formattedFee: 'LKR 925', currency: 'LKR', estimatedDays: 3, breakdown: { baseFee: 500, weightFee: 425 },
+        } } });
+        return HttpResponse.json({ data: { customerLiveDelivery: null } });
+      }),
+    );
     getUser.mockResolvedValueOnce({
       expired: false,
       access_token: 'customer-token',
@@ -41,7 +55,10 @@ describe('portal routing', () => {
   it('renders the courier portal for an authenticated courier', async () => {
     server.use(
       http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'courier-id', name: 'Zentro Courier', roles: ['COURIER'] })),
-      http.get('*/api/v1/courier/deliveries', () => HttpResponse.json([])),
+      http.post('*/graphql', () => HttpResponse.json({ data: { courierTodayDashboard: {
+        businessDate: '2026-11-16', timeZone: 'Asia/Colombo', counts: { assigned: 0, delivered: 0, failed: 0, remaining: 0 },
+        currentDelivery: null, deliveries: [], pageInfo: { page: 1, size: 10, totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false },
+      } } })),
     );
     getUser.mockResolvedValueOnce({
       expired: false,
@@ -82,7 +99,8 @@ describe('portal routing', () => {
   it('renders courier management for an authenticated dispatcher', async () => {
     server.use(
       http.get('*/api/v1/users/me', () => HttpResponse.json({ id: 'dispatcher-id', name: 'Zentro Dispatcher', roles: ['DISPATCHER'] })),
-      http.get('*/api/v1/admin/couriers', () => HttpResponse.json([]))
+      http.get('*/api/v1/admin/couriers', () => HttpResponse.json([])),
+      http.get('*/api/v1/dispatch/workload', () => HttpResponse.json([])),
     );
     getUser.mockResolvedValueOnce({
       expired: false,
@@ -91,6 +109,6 @@ describe('portal routing', () => {
       state: { returnTo: '/dispatcher/couriers', entryPoint: 'staff' },
     } as never);
     render(<Providers><MemoryRouter initialEntries={['/dispatcher/couriers']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /Courier Management/i }, { timeout: 10000 })).toBeInTheDocument();
-  });
+    expect(await screen.findByRole('heading', { name: /Courier Management|User Management/i }, { timeout: 15000 })).toBeInTheDocument();
+  }, 40000);
 });

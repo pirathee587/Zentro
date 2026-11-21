@@ -3,12 +3,40 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/shared/testing/mocks/server';
-import { getDelivery, getProof, listDeliveries, submitProof } from './deliveryApi';
+import { deliveryAccessDenied, deliveryError, deliverySessionExpired, getDelivery, getProof, listDeliveries, submitProof } from './deliveryApi';
 import { getCourierProfile, provisionCourierProfile, updateCourierPersonalInfo } from './courierApi';
 
 const parcel = '11111111-1111-4111-8111-111111111111';
 const root = '/api/v1/courier/deliveries';
 const evidence = { recipientName: 'Synthetic Recipient', notes: null, proofReference: 'SYNTHETIC-1' };
+
+describe('courier delivery error messages', () => {
+  it.each([
+    ['COURIER_VERIFICATION_FAILED', 'We could not verify your courier access right now. Please try again later.'],
+    ['PROOF_STORAGE_UNAVAILABLE', 'Delivery data is temporarily unavailable. Please try again later.'],
+    ['UNKNOWN_CODE', 'Delivery services are temporarily unavailable. Please try again later.'],
+    [undefined, 'Delivery services are temporarily unavailable. Please try again later.'],
+  ])('handles HTTP 503 with code %s', async (code, message) => {
+    server.use(http.get(`*${root}`, () => HttpResponse.json({
+      type: 'about:blank', title: 'Service Unavailable', status: 503, code,
+    }, { status: 503 })));
+    const error = await listDeliveries('synthetic-token').catch((failure: unknown) => failure);
+    expect(deliveryError(error)).toBe(message);
+    expect(deliveryAccessDenied(error)).toBe(false);
+    expect(deliverySessionExpired(error)).toBe(false);
+  });
+
+  it.each([
+    [401, 'Your session has expired. Please sign in again.', false, true],
+    [403, "You don't have access", true, false],
+  ])('preserves HTTP %s authentication handling', async (status, message, accessDenied, sessionExpired) => {
+    server.use(http.get(`*${root}`, () => HttpResponse.json({ code: 'COURIER_VERIFICATION_FAILED' }, { status })));
+    const error = await listDeliveries('synthetic-token').catch((failure: unknown) => failure);
+    expect(deliveryError(error)).toBe(message);
+    expect(deliveryAccessDenied(error)).toBe(accessDenied);
+    expect(deliverySessionExpired(error)).toBe(sessionExpired);
+  });
+});
 
 describe('courier gateway API boundary', () => {
   it('sends real requests with the explicit bearer token only to configured gateway routes', async () => {

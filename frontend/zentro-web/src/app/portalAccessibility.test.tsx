@@ -19,6 +19,7 @@ import { SupportPage } from '@/portals/customer/pages/SupportPage';
 import { DashboardPage } from '@/portals/merchant/pages/DashboardPage';
 import { ApiCredentialsPage } from '@/portals/merchant/pages/ApiCredentialsPage';
 import { TodayDeliveriesPage } from '@/portals/courier/pages/TodayDeliveriesPage';
+import { dashboardEnvelope } from '@/portals/courier/pages/__tests__/dashboardFixtures';
 import { DeliveryDetailPage } from '@/portals/courier/pages/DeliveryDetailPage';
 import { DispatchQueuePage } from '@/portals/dispatcher/pages/DispatchQueuePage';
 import { TrackingSearchPage, TrackingPage } from '@/portals/public/pages/TrackingPages';
@@ -78,6 +79,11 @@ for (const theme of ['light', 'dark']) describe(`axe DOM checks: ${theme}`, () =
       return { data } as never;
     });
     vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { secret: 'SYNTHETIC-TEST-ONLY', active: true } });
+    if (entry.page === 'courier-list') vi.mocked(apiClient.post).mockImplementation(async () => {
+      if (state === 'loading') return pending();
+      if (state === 'error') return fail();
+      return { data: dashboardEnvelope(state === 'empty' ? [] : undefined) } as never;
+    });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     const Layout = entry.layout, Page = entry.component;
     const view = render(<QueryClientProvider client={client}><AuthContext.Provider value={{ user: { id: 'synthetic-user', name: 'Synthetic', roles: ['CUSTOMER', 'MERCHANT', 'COURIER', 'DISPATCHER'], accessToken: 'synthetic-token' }, loading: false, logout: vi.fn(), login: vi.fn() } as never}>

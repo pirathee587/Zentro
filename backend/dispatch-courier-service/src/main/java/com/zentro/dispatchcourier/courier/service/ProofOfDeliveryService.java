@@ -15,10 +15,22 @@ public class ProofOfDeliveryService {
   private final IdentityCourierClient identity;
   private final AssignmentRepository assignments;
   private final ProofRepository proofs;
+  private final ParcelStatusClient parcelStatusClient;
+
   public ProofOfDeliveryService(IdentityCourierClient identity, AssignmentRepository assignments, ProofRepository proofs) {
     this.identity = identity;
     this.assignments = assignments;
     this.proofs = proofs;
+    this.parcelStatusClient = null;
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public ProofOfDeliveryService(IdentityCourierClient identity, AssignmentRepository assignments,
+      ProofRepository proofs, org.springframework.beans.factory.ObjectProvider<ParcelStatusClient> parcelStatusClient) {
+    this.identity = identity;
+    this.assignments = assignments;
+    this.proofs = proofs;
+    this.parcelStatusClient = parcelStatusClient.getIfAvailable();
   }
   private IdentityCourierClient.Courier courier(Jwt jwt) {
     if (jwt == null || jwt.getSubject() == null || jwt.getSubject().isBlank() || jwt.getSubject().length() > 255)
@@ -40,7 +52,8 @@ public class ProofOfDeliveryService {
     var assignment = owned(parcelId, courier(jwt));
     var proof = proofs.find(parcelId).orElse(null);
     return new ProofRepository.DeliverySummary(parcelId, assignment.courierId(), assignment.assignedAt(),
-        proof == null ? null : proof.id(), proof == null ? null : proof.completionState());
+        proof == null ? null : proof.id(), proof == null ? null : proof.completionState(),
+        assignment.assignmentStatus(), assignment.respondedAt(), assignment.rejectionReason());
   }
   public ProofResponse proof(UUID parcelId, Jwt jwt) {
     owned(parcelId, courier(jwt));
@@ -49,8 +62,33 @@ public class ProofOfDeliveryService {
   }
   public ProofRepository.Submission submit(UUID parcelId, Jwt jwt, SubmitProofRequest request) {
     var courier = courier(jwt);
-    owned(parcelId, courier);
+    var assignment = owned(parcelId, courier);
+    if ("REJECTED".equals(assignment.assignmentStatus()))
+      throw new ProofException(409, "ASSIGNMENT_REJECTED", "Cannot submit proof for a rejected assignment.");
     if (request == null) throw new ProofException(400, "INVALID_PROOF", "Proof fields are required.");
     return proofs.saveOwned(parcelId, courier.id(), courier.userId(), jwt.getSubject(), request.normalized());
+  }
+
+  public AssignmentRepository.Assignment accept(UUID parcelId, Jwt jwt) {
+    var courier = courier(jwt);
+    return assignments.accept(parcelId, courier.id(), courier.userId(), jwt.getSubject());
+  }
+
+  public AssignmentRepository.Assignment reject(UUID parcelId, Jwt jwt, String reason) {
+    var courier = courier(jwt);
+    return assignments.reject(parcelId, courier.id(), courier.userId(), reason, jwt.getSubject());
+  }
+
+  public java.util.Map<?, ?> updateStatus(UUID parcelId, Jwt jwt, String status, String reason, String note) {
+    var courier = courier(jwt);
+    var assignment = owned(parcelId, courier);
+    if (!"ACCEPTED".equals(assignment.assignmentStatus())) {
+      throw new ProofException(409, "ASSIGNMENT_NOT_ACCEPTED",
+          "Accept the delivery assignment before updating parcel status.");
+    }
+    if (parcelStatusClient == null) {
+      throw new ProofException(503, "PARCEL_STATUS_UNAVAILABLE", "Parcel status client is not configured.");
+    }
+    return parcelStatusClient.updateCourierStatus(parcelId, status, reason, note, jwt.getSubject());
   }
 }

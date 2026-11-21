@@ -6,6 +6,12 @@ spring:
   config:
     import: optional:file:./.env[.properties]
   flyway:
+    # Application-side migrations are OFF by default. Shared S3 Supabase uses a
+    # historical V5 lineage that differs from db/migration; migrations there run
+    # only through a separately authorized runbook. See docs/development/s3-flyway-safety.md.
+    # Isolated local databases and tests enable Flyway explicitly.
+    enabled: false
+    validate-on-migrate: true
     schemas: dispatch
     default-schema: dispatch
     create-schemas: true
@@ -16,20 +22,18 @@ spring:
 zentro:
   dispatch:
     max-courier-workload: ${MAX_COURIER_WORKLOAD:10}
-  correlation:
-    internal-base-urls:
-      - ${zentro.identity.base-url}
-      - ${zentro.pod.parcel-base-url}
+  identity:
+    grpc-host: ${IDENTITY_GRPC_HOST:zentro-identity-partner-service}
+    grpc-port: ${IDENTITY_GRPC_PORT:9081}
   pod:
-    parcel-base-url: ${PARCEL_BASE_URL:http://localhost:8082}
+    parcel-grpc-host: ${PARCEL_GRPC_HOST:zentro-parcel-pricing-service}
+    parcel-grpc-port: ${PARCEL_GRPC_PORT:9082}
     token-uri: ${POD_TOKEN_URI:}
     client-id: ${POD_CLIENT_ID:}
     client-secret: ${POD_CLIENT_SECRET:}
     worker-enabled: ${POD_WORKER_ENABLED:true}
     poll-interval-ms: ${POD_POLL_INTERVAL_MS:2000}
     max-attempts: ${POD_MAX_ATTEMPTS:8}
-  identity:
-    base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
