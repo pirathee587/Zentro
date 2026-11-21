@@ -46,10 +46,20 @@ public class MerchantApplicationService {
 
   private final JdbcTemplate jdbc;
   private final UserProfileService profiles;
+  private final KeycloakMerchantRoleSyncer roleSyncer;
 
   public MerchantApplicationService(JdbcTemplate jdbc, UserProfileService profiles) {
+    this(jdbc, profiles, null);
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public MerchantApplicationService(
+      JdbcTemplate jdbc,
+      UserProfileService profiles,
+      KeycloakMerchantRoleSyncer roleSyncer) {
     this.jdbc = jdbc;
     this.profiles = profiles;
+    this.roleSyncer = roleSyncer;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -205,7 +215,13 @@ public class MerchantApplicationService {
         reviewer.getSubject(),
         applicationId);
 
-    if (!updated.isEmpty()) return updated.getFirst();
+    if (!updated.isEmpty()) {
+      MerchantApplication result = updated.getFirst();
+      if (roleSyncer != null) {
+        roleSyncer.syncByAppUserId(result.appUserId(), "APPROVED".equals(result.status()));
+      }
+      return result;
+    }
 
     return handleMissingOrNonPending(applicationId,
         "Only pending applications can be reviewed.");
@@ -243,7 +259,13 @@ public class MerchantApplicationService {
                   rejection_reason, suspension_reason, created_at, reviewed_at
         """, ROW_MAPPER, reason, reviewer.getSubject(), applicationId);
 
-    if (!updated.isEmpty()) return updated.getFirst();
+    if (!updated.isEmpty()) {
+      MerchantApplication result = updated.getFirst();
+      if (roleSyncer != null) {
+        roleSyncer.syncByAppUserId(result.appUserId(), false);
+      }
+      return result;
+    }
 
     return handleMissingOrNonPending(applicationId,
         "Only approved merchants can be suspended.");
@@ -275,7 +297,13 @@ public class MerchantApplicationService {
                   rejection_reason, suspension_reason, created_at, reviewed_at
         """, ROW_MAPPER, reviewer.getSubject(), applicationId);
 
-    if (!updated.isEmpty()) return updated.getFirst();
+    if (!updated.isEmpty()) {
+      MerchantApplication result = updated.getFirst();
+      if (roleSyncer != null) {
+        roleSyncer.syncByAppUserId(result.appUserId(), true);
+      }
+      return result;
+    }
 
     return handleMissingOrNonPending(applicationId,
         "Only suspended merchants can be reinstated.");
