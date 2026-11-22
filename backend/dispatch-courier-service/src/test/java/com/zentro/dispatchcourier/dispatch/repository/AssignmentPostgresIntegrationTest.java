@@ -45,7 +45,7 @@ class AssignmentPostgresIntegrationTest {
   }
 
   @BeforeEach void reset() {
-    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
+    jdbc.execute("TRUNCATE dispatch.proof_completion_attempt, dispatch.proof_review_audit, dispatch.proof_review, dispatch.proof_revision, dispatch.proof_upload_stage, dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
   }
 
   @Test void competingServicesCommitExactlyOneAssignmentAndExcludeItFromQueue() throws Exception {
