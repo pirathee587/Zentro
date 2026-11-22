@@ -55,7 +55,15 @@ public class CustomerBookingClient {
   }
 
   public TrackingParcel reference(Jwt jwt, String reference) {
-    return toParcel(parcelGrpc.getParcelByReference(jwt.getSubject(), reference));
+    return referenceForCustomer(jwt.getSubject(), reference);
+  }
+
+  /** Authoritative ownership lookup for long-lived streams, using S4's SERVICE token. */
+  public TrackingParcel referenceForCustomer(String subject, String reference) {
+    TrackingParcel parcel = toParcel(parcelGrpc.getParcelByReference(subject, reference));
+    // S2 checks this subject before returning the parcel. Keep identity out of Kafka.
+    parcel.setCustomerSubject(subject);
+    return parcel;
   }
 
   public TrackingParcel live(Jwt jwt) {

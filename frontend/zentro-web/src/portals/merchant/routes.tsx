@@ -1,3 +1,4 @@
+import { NotificationHistory } from '@/shared/domain/notifications/NotificationBell';
 import type { RouteObject } from 'react-router-dom';
 import { MerchantLayout } from './layout/MerchantLayout';
 import {
@@ -14,6 +15,7 @@ export const portalRoutes: RouteObject[] = [
   {
     element: <MerchantLayout />,
     children: [
+      { path: 'notifications', element: <NotificationHistory portal="MERCHANT" /> },
       { path: 'register', element: <RegisterPage /> },
       { index: true, element: <DashboardPage /> },
       { path: 'orders', element: <OrdersPage /> },

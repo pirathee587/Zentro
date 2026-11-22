@@ -31,6 +31,38 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 class TrackingStreamServiceTest {
+  @Test
+  void customerCanConnectBeforeKafkaHasAContactProjectionAndIsRevalidated() {
+    var repository = mock(TrackingParcelRepository.class);
+    var bookings = mock(com.zentro.trackingreporting.graphql.service.CustomerBookingClient.class);
+    var streams = new TrackingStreamService(new DeliveryAuthorizationService(), repository);
+    streams.setBookings(bookings);
+    var owned = new TrackingParcel();
+    owned.setTrackingRef("ZT-STREAM1234"); owned.setCustomerSubject("cust-alice");
+    when(repository.findByTrackingRef("ZT-STREAM1234")).thenReturn(Optional.empty());
+    when(bookings.referenceForCustomer("cust-alice", "ZT-STREAM1234")).thenReturn(owned);
+    streams.subscribe("ZT-STREAM1234", createJwtToken("cust-alice", "CUSTOMER", Instant.now().plusSeconds(60)));
+    assertThat(streams.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+    var event = new TrackingEvent(); event.setTrackingRef("ZT-STREAM1234"); event.setStatus(TrackingStatus.DELIVERED);
+    streams.notifySubscribers(event);
+    assertThat(streams.getActiveSubscriberCount("ZT-STREAM1234")).isEqualTo(1);
+    when(bookings.referenceForCustomer("cust-alice", "ZT-STREAM1234"))
+        .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+    streams.notifySubscribers(event);
+    assertThat(streams.getActiveSubscriberCount("ZT-STREAM1234")).isZero();
+  }
+
+  @Test
+  void customerStreamFailsClosedWhenS2RejectsOwnership() {
+    var bookings = mock(com.zentro.trackingreporting.graphql.service.CustomerBookingClient.class);
+    streamService.setBookings(bookings);
+    when(bookings.referenceForCustomer("other-customer", "ZT-STREAM1234"))
+        .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
+    assertThatThrownBy(() -> streamService.subscribe("ZT-STREAM1234",
+        createJwtToken("other-customer", "CUSTOMER", Instant.now().plusSeconds(60))))
+        .isInstanceOf(ResponseStatusException.class);
+    assertThat(streamService.getActiveSubscriberCount("ZT-STREAM1234")).isZero();
+  }
 
   private DeliveryAuthorizationService authorizationService;
   private TrackingParcelRepository parcelRepository;

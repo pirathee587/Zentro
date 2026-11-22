@@ -78,7 +78,9 @@ class OutboxKafkaIntegrationTest {
         .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
     UUID parcelId = UUID.fromString(objectMapper.readTree(body).get("id").asText());
     var record = awaitRecords(parcelId, 1).getFirst();
-    var stored = jdbc.queryForMap("SELECT correlation_id, traceparent FROM parcel.outbox_event WHERE aggregate_id = ?", parcelId);
+    var stored = jdbc.queryForMap(
+        "SELECT correlation_id, traceparent FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type = 'parcel.created'",
+        parcelId);
     assertThat(stored.get("correlation_id")).isEqualTo("outbox-request-143");
     assertThat((String) stored.get("traceparent")).startsWith("00-" + trace + "-");
     assertThat(header(record, "X-Correlation-Id")).isEqualTo("outbox-request-143");

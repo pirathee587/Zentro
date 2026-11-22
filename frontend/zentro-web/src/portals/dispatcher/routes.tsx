@@ -1,3 +1,4 @@
+import { NotificationHistory } from '@/shared/domain/notifications/NotificationBell';
 import type { RouteObject } from 'react-router-dom';
 import { DispatcherLayout } from './layout/DispatcherLayout';
 import { DispatchQueuePage } from './pages/DispatchQueuePage';
@@ -18,6 +19,7 @@ export const portalRoutes: RouteObject[] = [
   {
     element: <DispatcherLayout />,
     children: [
+      { path: 'notifications', element: <NotificationHistory portal="DISPATCHER" /> },
       { index: true, element: <DispatchControlPage /> },
       { path: 'dashboard', element: <DispatchControlPage /> },
       { path: 'parcels', element: <ParcelsPage /> },

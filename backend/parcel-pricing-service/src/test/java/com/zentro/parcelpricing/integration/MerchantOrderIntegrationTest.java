@@ -232,8 +232,11 @@ class MerchantOrderIntegrationTest {
     String id = createOrder("merchant-events");
 
     List<Map<String, Object>> events = jdbc.queryForList(
-        "SELECT event_type, payload::text AS payload FROM parcel.outbox_event WHERE aggregate_id = ?::uuid", id);
+        "SELECT event_type, payload::text AS payload FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'parcel.created'", id);
     assertThat(events).hasSize(1);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'notification.parcel'",
+        Integer.class, id)).isEqualTo(1);
     assertThat(events.get(0).get("event_type")).isEqualTo("parcel.created");
     JsonNode payload = objectMapper.readTree((String) events.get(0).get("payload")).get("payload");
     assertThat(payload.get("source").asText()).isEqualTo("MERCHANT_ORDER");
@@ -254,8 +257,8 @@ class MerchantOrderIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("Test Customer", "Someone Else")))
         .andExpect(status().isConflict());
 
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid",
-        Integer.class, id)).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT event_type FROM parcel.outbox_event WHERE aggregate_id = ?::uuid",
+        String.class, id)).containsExactlyInAnyOrder("parcel.created", "notification.parcel");
   }
 
   @Test

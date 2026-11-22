@@ -103,4 +103,22 @@ class GrpcSecurityInterceptorTest {
     verify(next, never()).startCall(any(), any());
     verify(call).close(argThat(status -> status.getCode() == Status.Code.PERMISSION_DENIED), any());
   }
+
+  @Test void notificationDirectoryRequiresS5ServiceIdentityAndServiceRole() {
+    for(String client:List.of("zentro-notification-service","zentro-tracking-service")) {
+      for(String role:List.of("SERVICE","DISPATCHER","CUSTOMER")) {
+        var call=call(); var next=next(); var headers=new Metadata();
+        var original=call.getMethodDescriptor();
+        when(call.getMethodDescriptor()).thenReturn(original.toBuilder()
+            .setFullMethodName("zentro.identity.v1.IdentityPartnerService/ResolveNotificationRecipients").build());
+        headers.put(GrpcSecurityInterceptor.AUTHORIZATION_METADATA_KEY,"Bearer synthetic");
+        JwtDecoder decoder=mock(JwtDecoder.class);
+        when(decoder.decode("synthetic")).thenReturn(Jwt.withTokenValue("synthetic").header("alg","none")
+            .subject("synthetic").claim("azp",client).claim("realm_access",Map.of("roles",List.of(role))).build());
+        new GrpcSecurityInterceptor("",decoder).interceptCall(call,headers,next);
+        if(client.equals("zentro-notification-service") && role.equals("SERVICE")) verify(next).startCall(any(),any());
+        else verify(call).close(argThat(status->status.getCode()==Status.Code.PERMISSION_DENIED),any());
+      }
+    }
+  }
 }

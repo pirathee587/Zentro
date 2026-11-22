@@ -186,9 +186,12 @@ class BookingPersistenceIntegrationTest {
 
     List<Map<String, Object>> events = jdbc.queryForList("""
         SELECT event_id, event_type, payload::text AS payload, occurred_at, published_at, attempts
-          FROM parcel.outbox_event WHERE aggregate_id = ?::uuid
+          FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'parcel.created'
         """, parcelId);
     assertThat(events).hasSize(1);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'notification.parcel'",
+        Integer.class, parcelId)).isEqualTo(1);
     Map<String, Object> event = events.get(0);
     assertThat(event.get("event_type")).isEqualTo("parcel.created");
     assertThat(event.get("published_at")).isNull();

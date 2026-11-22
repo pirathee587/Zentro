@@ -98,10 +98,13 @@ CREATED ──► PICKED_UP ──► IN_TRANSIT ──► OUT_FOR_DELIVERY ─�
 
 ## Event flow (example: courier update)
 
-1. Courier marks a parcel `IN_TRANSIT` in S3. S3 saves the change and an outbox row in one transaction.
-2. The relay publishes `parcel.status.updated` to Kafka.
-3. S2 updates the parcel status, S4 stores history and pushes an SSE update, S5 sends notifications and merchant webhooks.
-4. The customer's open tracking page shows "In transit" without a refresh.
+1. The courier calls S3's authenticated delivery-status API. S3 verifies assignment ownership and acceptance, then calls S2 over SERVICE-authenticated gRPC.
+2. S2 locks the authoritative parcel and commits its status, immutable history, and one `parcel.status.updated` outbox event in the same PostgreSQL transaction.
+3. S2's existing relay publishes committed events to Kafka, keyed by parcel ID, and marks them published only after acknowledgement.
+4. Independent S4 tracking, S5 notification, and S5 merchant-webhook consumer groups process the same event. S4 pushes the existing authenticated SSE stream after commit; S5 retries notification/webhook side effects separately.
+5. The customer stream re-fetches authoritative tracking without a manual refresh. Customer-only bookings do not create merchant webhook deliveries.
+
+See [parcel status workflow](docs/events/parcel-status-workflow.md) for the contract, opt-in isolated demo, configuration, recovery, and verification limits.
 
 ## Project structure
 

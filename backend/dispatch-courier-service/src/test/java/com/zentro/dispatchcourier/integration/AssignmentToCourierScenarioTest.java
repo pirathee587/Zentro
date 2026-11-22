@@ -274,7 +274,8 @@ class AssignmentToCourierScenarioTest {
     else assertThat(envelope.path("payload").path("newCourierId").asText()).isEqualTo(newCourier.toString());
     assertThat(envelope.path("payload").path("actorSubject").asText()).isEqualTo("subject-" + ROLE_ONLY);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Long.class)).isEqualTo(2);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Long.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type NOT LIKE 'notification.%'", Long.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type = 'notification.assignment'", Long.class)).isEqualTo(2);
   }
 
   private void assertProblem(ResponseEntity<String> response, int status, String code) throws Exception {

@@ -1,9 +1,13 @@
-import { render, screen, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render as testingRender, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthContext, type Auth } from '@/shared/auth/authContext';
 import type { Role } from '@/shared/config/roles';
 import { MerchantLayout } from './MerchantLayout';
+
+const render = (ui: ReactElement) => testingRender(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>);
 
 const auth = (roles: Role[]): Auth => ({
   user: { id: 'merchant', name: 'Manual Store', roles, accessToken: '', merchantStatus: 'APPROVED', profileLoaded: true },

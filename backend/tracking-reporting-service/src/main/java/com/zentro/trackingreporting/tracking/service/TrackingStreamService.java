@@ -1,6 +1,7 @@
 package com.zentro.trackingreporting.tracking.service;
 
 import com.zentro.trackingreporting.security.DeliveryAuthorizationService;
+import com.zentro.trackingreporting.graphql.service.CustomerBookingClient;
 import com.zentro.trackingreporting.tracking.entity.TrackingEvent;
 import com.zentro.trackingreporting.tracking.entity.TrackingParcel;
 import com.zentro.trackingreporting.tracking.repository.TrackingParcelRepository;
@@ -17,6 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
@@ -72,6 +74,27 @@ public class TrackingStreamService {
   private final Map<String, List<StreamSubscriber>> subscribers = new ConcurrentHashMap<>();
   private final DeliveryAuthorizationService authorizationService;
   private final TrackingParcelRepository parcelRepository;
+  private CustomerBookingClient bookings;
+
+  @Autowired(required = false)
+  public void setBookings(CustomerBookingClient bookings) {
+    this.bookings = bookings;
+  }
+
+  /** Kafka deliberately carries no owner identity. Resolve customer ownership from S2. */
+  public SseEmitter subscribe(String trackingRef, Authentication authentication) {
+    if (authentication == null || !authentication.isAuthenticated()) {
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+    }
+    String reference = trackingRef.trim().toUpperCase(java.util.Locale.ROOT);
+    boolean customer = authentication.getAuthorities().stream()
+        .anyMatch(a -> DeliveryAuthorizationService.ROLE_CUSTOMER.equals(a.getAuthority()));
+    TrackingParcel parcel = customer && bookings != null
+        ? bookings.referenceForCustomer(authorizationService.extractSubject(authentication), reference)
+        : parcelRepository.findByTrackingRef(reference)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery not found"));
+    return subscribe(reference, authentication, parcel);
+  }
 
   public TrackingStreamService(
       DeliveryAuthorizationService authorizationService,
@@ -163,8 +186,17 @@ public class TrackingStreamService {
       }
 
       // 2. Revalidate parcel ownership / authorization
-      if (currentParcel.isPresent()) {
-        if (!authorizationService.isAuthorized(subscriber.getUserSubject(), subscriber.getRoles(), currentParcel.get())) {
+      Optional<TrackingParcel> authorizedParcel = currentParcel;
+      if (bookings != null && subscriber.getRoles().contains(DeliveryAuthorizationService.ROLE_CUSTOMER)) {
+        try {
+          authorizedParcel = Optional.ofNullable(bookings.referenceForCustomer(subscriber.getUserSubject(), key));
+        } catch (RuntimeException unavailable) {
+          // Fail closed; the existing client reconnects and reauthorizes after recovery.
+          authorizedParcel = Optional.empty();
+        }
+      }
+      if (bookings != null || authorizedParcel.isPresent()) {
+        if (authorizedParcel.isEmpty() || !authorizationService.isAuthorized(subscriber.getUserSubject(), subscriber.getRoles(), authorizedParcel.get())) {
           log.warn("Revoking SSE subscription for subject {} on {} due to authorization change",
               subscriber.getUserSubject(), key);
           try {

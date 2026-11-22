@@ -75,6 +75,16 @@ class DispatchGrpcSecurityInterceptorTest {
     assertStatus(stub("invalid-token"), Status.Code.UNAUTHENTICATED);
   }
 
+  @Test void notificationRecipientRpcIsRestrictedToS5() {
+    when(decoder.decode("notification-token")).thenReturn(jwt("zentro-notification-service"));
+    var request=GetParcelAssignmentSummaryRequest.newBuilder().setParcelId(UUID.randomUUID().toString()).build();
+    assertThat(stub("notification-token").resolveNotificationCourier(request).getCourierProfileId()).isEmpty();
+    when(decoder.decode("tracking-token")).thenReturn(jwt("zentro-tracking-service"));
+    assertThatThrownBy(()->stub("tracking-token").resolveNotificationCourier(request))
+        .isInstanceOfSatisfying(StatusRuntimeException.class,e->assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.PERMISSION_DENIED));
+    assertStatus(stub("notification-token"),Status.Code.PERMISSION_DENIED);
+  }
+
   private DispatchCourierServiceGrpc.DispatchCourierServiceBlockingStub stub(String token) {
     Metadata headers = new Metadata();
     headers.put(DispatchGrpcSecurityInterceptor.AUTHORIZATION_METADATA_KEY, "Bearer " + token);

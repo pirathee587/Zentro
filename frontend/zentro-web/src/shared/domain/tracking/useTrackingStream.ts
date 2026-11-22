@@ -5,6 +5,7 @@ import { getAccessToken } from '@/shared/api/apiClient';
 /** Opens an authenticated fetch stream and quietly reconnects if the gateway closes it. */
 export function useTrackingStream(trackingNumber: string, onUpdate: () => void) {
   useEffect(() => {
+    if (!trackingNumber) return;
     const controller = new AbortController();
     let reconnectTimer = 0;
     let stopped = false;

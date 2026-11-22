@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Input } from '@/shared/ui';
+import { useTrackingStream } from '@/shared/domain/tracking/useTrackingStream';
 import { Card, CardHeader, CardTitle, CardContent } from './Card';
 import { Button } from './Button';
 import { Field } from './Field';
@@ -281,7 +282,12 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isPublic]);
+
+  const refreshFromStream = useCallback(() => {
+    if (activeRef) void fetchTracking(activeRef);
+  }, [activeRef, fetchTracking]);
+  useTrackingStream(isPublic ? '' : activeRef, refreshFromStream);
 
   useEffect(() => {
     if (activeRef) {
@@ -305,7 +311,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
       }, isPublic);
       return unsubscribe;
     }
-  }, [activeRef, fetchTracking]);
+  }, [activeRef, fetchTracking, isPublic]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

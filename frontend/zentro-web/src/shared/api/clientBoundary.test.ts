@@ -6,6 +6,7 @@ const sourceRoot = join(process.cwd(), 'src');
 const allowedTransportFiles = new Set([
   join(sourceRoot, 'shared/api/apiClient.ts'),
   join(sourceRoot, 'shared/domain/tracking/useTrackingStream.ts'),
+  join(sourceRoot, 'shared/domain/notifications/useInboxStream.ts'),
 ]);
 
 function sourceFiles(directory: string): string[] {
