@@ -39,6 +39,7 @@ describe('dispatcher navigation', () => {
       ['User Management', '/dispatcher/couriers'],
       ['Zones & pricing', '/dispatcher/zones-pricing'],
       ['Reports', '/dispatcher/reports'],
+      ['Proof reviews', '/dispatcher/proof-reviews'],
     ]);
     // In-page links such as "Skip to main content" (#main-content) are not navigation.
     for (const link of screen.getAllByRole('link').filter((item) => item.getAttribute('href')?.startsWith('/'))) {

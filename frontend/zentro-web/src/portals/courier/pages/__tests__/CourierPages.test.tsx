@@ -1,3 +1,5 @@
+import { apiClient } from '@/shared/api/apiClient';
+import { dashboardDelivery, dashboardEnvelope } from './dashboardFixtures';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -49,50 +51,53 @@ function mount(page: ReactNode, user: unknown = account) {
   const result = render(tree(user));
   return { ...result, changeAccount: (value: unknown) => result.rerender(tree(value)) };
 }
+function routeResponse(rows: api.DeliverySummary[]) {
+  return { data: dashboardEnvelope(rows.map(r => dashboardDelivery({ parcelId: r.parcelId, assignedAt: r.assignedAt, proofId: r.proofId, completionState: r.completionState }))) };
+}
 beforeEach(() => {
   vi.restoreAllMocks();
   login.mockClear();
 });
-describe('Courier route REST integration', () => {
+describe('Courier route GraphQL integration', () => {
   it('loads authenticated assignments and canonical links without fake destinations', async () => {
-    const read = vi.spyOn(api, 'listDeliveries').mockResolvedValue([row]);
+    const read = vi.spyOn(apiClient, 'post').mockResolvedValue(routeResponse([row]));
     mount(<CourierRoutePage />);
     expect(await screen.findByRole('link', { name: 'View delivery' })).toHaveAttribute(
       'href',
       `/courier/deliveries/${id}`,
     );
-    expect(read).toHaveBeenCalledWith('synthetic-token', expect.any(AbortSignal));
+    expect(read).toHaveBeenCalledWith('/graphql', expect.objectContaining({ operationName: 'CourierTodayDashboard' }), expect.objectContaining({ signal: expect.any(AbortSignal), headers: { Authorization: 'Bearer synthetic-token' } }));
     expect(screen.getByText(/1 assignments/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /maps/i })).not.toBeInTheDocument();
   });
   it('shows loading then a real empty state', async () => {
-    let resolve!: (rows: api.DeliverySummary[]) => void;
-    vi.spyOn(api, 'listDeliveries').mockReturnValue(
+    let resolve!: (response: ReturnType<typeof routeResponse>) => void;
+    vi.spyOn(apiClient, 'post').mockReturnValue(
       new Promise((r) => {
         resolve = r;
       }),
     );
     mount(<CourierRoutePage />);
     expect(screen.getByRole('status')).toHaveTextContent('Loading');
-    resolve([]);
+    resolve(routeResponse([]));
     expect(await screen.findByText('No assigned deliveries')).toBeInTheDocument();
   });
   it('shows safe errors and a working refresh', async () => {
-    const read = vi.spyOn(api, 'listDeliveries').mockRejectedValue(new Error('private'));
+    const read = vi.spyOn(apiClient, 'post').mockRejectedValue(new Error('private'));
     mount(<CourierRoutePage />);
     expect(await screen.findByRole('alert')).not.toHaveTextContent('private');
-    read.mockResolvedValue([]);
+    read.mockResolvedValue(routeResponse([]));
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('No assigned deliveries')).toBeInTheDocument();
   });
   it('does not request deliveries without a session', () => {
-    const read = vi.spyOn(api, 'listDeliveries');
+    const read = vi.spyOn(apiClient, 'post');
     mount(<CourierRoutePage />, null);
     expect(screen.getByText('Sign in to view your route.')).toBeInTheDocument();
     expect(read).not.toHaveBeenCalled();
   });
   it('does not reuse another courier cache', async () => {
-    vi.spyOn(api, 'listDeliveries').mockResolvedValueOnce([row]).mockResolvedValue([]);
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce(routeResponse([row])).mockResolvedValue(routeResponse([]));
     const view = mount(<CourierRoutePage />);
     await screen.findByRole('link', { name: 'View delivery' });
     view.changeAccount({ ...account, id: 'other', accessToken: 'other-token' });
@@ -193,7 +198,7 @@ describe('Courier earnings without a financial API', () => {
 
 describe('Courier secondary page security and accessibility', () => {
   it('clears visible route records when refreshed ownership is denied', async () => {
-    const read = vi.spyOn(api, 'listDeliveries').mockResolvedValue([row]);
+    const read = vi.spyOn(apiClient, 'post').mockResolvedValue(routeResponse([row]));
     mount(<CourierRoutePage />);
     await screen.findByRole('link', { name: 'View delivery' });
     read.mockRejectedValue({ isAxiosError: true, response: { status: 403 } });
@@ -203,7 +208,7 @@ describe('Courier secondary page security and accessibility', () => {
   });
   it('offers sign-in instead of retrying an expired session', async () => {
     const read = vi
-      .spyOn(api, 'listDeliveries')
+      .spyOn(apiClient, 'post')
       .mockRejectedValue({ isAxiosError: true, response: { status: 401 } });
     mount(<CourierRoutePage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in again' }));
@@ -211,7 +216,7 @@ describe('Courier secondary page security and accessibility', () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
   it('rejects malformed assignment data rather than inventing a delivery', async () => {
-    vi.spyOn(api, 'listDeliveries').mockResolvedValue([{ ...row, assignedAt: 'invalid' }]);
+    vi.spyOn(apiClient, 'post').mockResolvedValue(routeResponse([{ ...row, assignedAt: 'invalid' }]));
     mount(<CourierRoutePage />);
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'View delivery' })).not.toBeInTheDocument();
@@ -223,6 +228,7 @@ describe('Courier secondary page security and accessibility', () => {
   ] as const) {
     it(`${name} has labeled controls and no detected DOM accessibility violations`, async () => {
       vi.spyOn(api, 'listDeliveries').mockResolvedValue([]);
+      vi.spyOn(apiClient, 'post').mockResolvedValue(routeResponse([]));
       const view = mount(<Page />);
       if (name === 'Route') await screen.findByText('No assigned deliveries');
       if (name === 'History') await screen.findByText('No proof records available');

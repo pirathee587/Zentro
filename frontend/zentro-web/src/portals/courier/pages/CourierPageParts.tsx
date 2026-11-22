@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
 import { deliveryError, deliverySessionExpired, type CompletionState } from '../api/deliveryApi';
 import { completionLabels } from './courierPageUtils';
+import { CourierDashboardError, dashboardErrorMessage } from '../api/courierDashboardApi';
 import './CourierSecondaryPages.css';
 
 export function CourierPage({
@@ -54,8 +55,8 @@ export function ReadState({
     <section className="cs-card cs-state" role="alert">
       <AlertCircle aria-hidden="true" />
       <h2>Delivery records unavailable</h2>
-      <p>{deliveryError(error)}</p>
-      {deliverySessionExpired(error) ? (
+      <p>{error instanceof CourierDashboardError ? dashboardErrorMessage(error) : deliveryError(error)}</p>
+      {deliverySessionExpired(error) || error instanceof CourierDashboardError && error.kind === 'unauthorized' ? (
         <Button onClick={() => void login(location.pathname + location.search, undefined, 'staff')}>
           Sign in again
         </Button>
