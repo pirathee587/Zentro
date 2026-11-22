@@ -58,6 +58,8 @@ class GatewayCourierOwnershipIntegrationTest {
   }
   @LocalServerPort int s3Port;
   @Autowired JdbcTemplate jdbc;
+  // Ownership scenarios isolate S2 enrichment; no live parcel-service connection.
+  @MockBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
   @MockBean IdentityCourierClient identity;
   static Process gateway;
   int gatewayPort;

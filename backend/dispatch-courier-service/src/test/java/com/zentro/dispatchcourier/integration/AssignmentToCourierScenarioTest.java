@@ -88,6 +88,8 @@ class AssignmentToCourierScenarioTest {
 
   @Autowired TestRestTemplate http;
   @Autowired JdbcTemplate jdbc;
+  // Ownership scenarios isolate S2 enrichment; no live parcel-service connection.
+  @MockBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
   @Autowired AssignmentRepository assignments;
   @Autowired ObjectMapper json;
   @MockBean JwtDecoder decoder;
