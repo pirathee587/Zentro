@@ -107,9 +107,12 @@ class BookingLifecycleStartIntegrationTest {
     });
 
     List<String> events = jdbc.queryForList(
-        "SELECT event_type FROM parcel.outbox_event WHERE aggregate_id = ?::uuid ORDER BY occurred_at",
+        "SELECT event_type FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type <> 'notification.parcel' ORDER BY occurred_at",
         String.class, parcelId);
     assertThat(events).containsExactly("parcel.created", "parcel.status.updated");
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'notification.parcel'",
+        Integer.class, parcelId)).isEqualTo(2);
   }
 
   @Test
