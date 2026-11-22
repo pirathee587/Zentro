@@ -1,0 +1,22 @@
+# PROPOSAL ONLY. Applying this file requires approval: it recreates S3 and enables
+# its proof worker, and enables S2 outbox publishing. Never use it for test fixtures.
+services:
+  parcel-pricing-service:
+    environment:
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      OUTBOX_PUBLISHER_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: ${APPROVED_KAFKA_BOOTSTRAP_SERVERS:?Supply an approved reachable Kafka broker}
+  tracking-reporting-service:
+    environment:
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      KAFKA_CONSUMER_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: ${APPROVED_KAFKA_BOOTSTRAP_SERVERS:?Supply an approved reachable Kafka broker}
+  dispatch-courier-service:
+    environment:
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      POD_WORKER_ENABLED: "true"
+      OUTBOX_ENABLED: "false"
+    restart: "no"
