@@ -92,6 +92,11 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
   }
 
   private boolean isAuthorizedInternalRole(Jwt jwt, String method) {
+    if ("ResolveNotificationRecipients".equals(method)) {
+      Object access = jwt.getClaim("realm_access");
+      return access instanceof Map<?, ?> claims && claims.get("roles") instanceof Collection<?> roles
+          && roles.contains("SERVICE") && "zentro-notification-service".equals(jwt.getClaimAsString("azp"));
+    }
     Object realmAccess = jwt.getClaim("realm_access");
     if (realmAccess instanceof Map<?, ?> map && map.get("roles") instanceof Collection<?> roles) {
       for (Object r : roles) {
@@ -128,7 +133,7 @@ public class GrpcSecurityInterceptor implements ServerInterceptor {
         default -> false;
       };
       case "zentro-notification-service", "notification-integration-service" ->
-          "VerifyMerchantAccount".equals(method);
+          "VerifyMerchantAccount".equals(method) || "ResolveNotificationRecipients".equals(method);
       default -> false;
     };
   }

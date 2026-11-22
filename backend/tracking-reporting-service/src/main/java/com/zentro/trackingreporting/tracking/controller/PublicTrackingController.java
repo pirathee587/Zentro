@@ -2,7 +2,6 @@ package com.zentro.trackingreporting.tracking.controller;
 
 import com.zentro.trackingreporting.tracking.dto.PublicTrackingResponse;
 import com.zentro.trackingreporting.tracking.dto.TrackingEventDto;
-import com.zentro.trackingreporting.tracking.entity.TrackingParcel;
 import com.zentro.trackingreporting.tracking.service.TrackingService;
 import com.zentro.trackingreporting.tracking.service.TrackingStreamService;
 import jakarta.validation.constraints.Pattern;
@@ -82,8 +81,8 @@ public class PublicTrackingController {
       if (authentication == null || !authentication.isAuthenticated()) {
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required to subscribe to live tracking stream");
       }
-      TrackingParcel parcel = trackingService.getParcel(trackingRef);
-      return streamService.subscribe(trackingRef, authentication, parcel);
+      if (bookings != null) return streamService.subscribe(trackingRef, authentication);
+      return streamService.subscribe(trackingRef, authentication, trackingService.getParcel(trackingRef));
     }
 
     List<TrackingEventDto> events = bookings == null ? trackingService.getTrackingEvents(trackingRef)
@@ -108,8 +107,8 @@ public class PublicTrackingController {
     if (authentication == null || !authentication.isAuthenticated()) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required to stream tracking updates");
     }
-    TrackingParcel parcel = trackingService.getParcel(trackingRef);
-    return streamService.subscribe(trackingRef, authentication, parcel);
+    if (bookings != null) return streamService.subscribe(trackingRef, authentication);
+    return streamService.subscribe(trackingRef, authentication, trackingService.getParcel(trackingRef));
   }
 }
 

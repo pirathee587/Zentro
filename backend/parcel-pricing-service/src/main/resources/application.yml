@@ -61,6 +61,7 @@ zentro:
     topic-replicas: ${OUTBOX_TOPIC_REPLICAS:1}
     # Outbox event_type -> Kafka topic.
     topics:
+      "[notification.parcel]": notification.parcel
       "[parcel.status.updated]": parcel.status.updated
       "[parcel.created]": parcel.created
 management:

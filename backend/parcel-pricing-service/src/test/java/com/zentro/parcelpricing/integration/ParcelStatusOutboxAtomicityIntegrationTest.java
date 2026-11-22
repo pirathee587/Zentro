@@ -159,8 +159,10 @@ class ParcelStatusOutboxAtomicityIntegrationTest {
     assertUnchanged(parcelId, "FAILED", 2L, 2, 2);
     assertThat(jdbc.queryForObject("""
         SELECT payload->'payload'->>'failureReason' FROM parcel.outbox_event
-         WHERE aggregate_id = ? AND payload->'payload'->>'status' = 'FAILED'
+         WHERE aggregate_id = ? AND event_type = 'parcel.status.updated' AND payload->'payload'->>'status' = 'FAILED'
         """, String.class, parcelId)).isEqualTo("Recipient not available");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.outbox_event WHERE aggregate_id=? AND event_type='notification.parcel' AND payload->'payload'->>'status'='FAILED'",
+        Integer.class, parcelId)).isEqualTo(1);
   }
 
   @Test

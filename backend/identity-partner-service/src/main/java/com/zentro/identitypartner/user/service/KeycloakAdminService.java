@@ -64,6 +64,26 @@ public class KeycloakAdminService {
     return node.path("access_token").asText();
   }
 
+  /** Authoritative, paginated role membership; errors propagate so S5 can retry safely. */
+  public List<String> notificationDispatchers() throws Exception {
+    String token = fetchAdminToken();
+    java.util.ArrayList<String> subjects = new java.util.ArrayList<>();
+    for (int first = 0; ; first += 100) {
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(adminUrl + "/admin/realms/" + urlEncode(realm)
+              + "/roles/DISPATCHER/users?first=" + first + "&max=100"))
+          .timeout(Duration.ofSeconds(6)).header("Authorization", "Bearer " + token).GET().build();
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() != 200) throw new IllegalStateException("Role directory unavailable");
+      JsonNode users = objectMapper.readTree(response.body());
+      if (!users.isArray()) throw new IllegalStateException("Invalid role directory response");
+      for (JsonNode user : users) {
+        if (user.path("enabled").asBoolean() && !user.path("id").asText().isBlank()) subjects.add(user.path("id").asText());
+      }
+      if (users.size() < 100) return List.copyOf(subjects);
+    }
+  }
+
   public boolean userExistsByEmail(String email) {
     try {
       String token = fetchAdminToken();

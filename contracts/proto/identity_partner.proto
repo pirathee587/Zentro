@@ -3,6 +3,8 @@ package zentro.identity.v1;
 option java_multiple_files = true;
 option java_package = "com.zentro.contracts.identity.v1";
 service IdentityPartnerService {
+  // S5 SERVICE caller only. No public directory endpoint.
+  rpc ResolveNotificationRecipients(NotificationRecipientsRequest) returns (NotificationRecipientsResponse);
   rpc GetMerchantStatus(GetMerchantStatusRequest) returns (MerchantStatusResponse);
   rpc GetCourierProfile(GetCourierProfileRequest) returns (CourierProfileResponse);
   rpc ListCouriers(ListCouriersRequest) returns (ListCouriersResponse);
@@ -10,6 +12,8 @@ service IdentityPartnerService {
   rpc GetCourierByUserSubject(GetCourierByUserSubjectRequest) returns (CourierDetails);
   rpc VerifyMerchantAccount(VerifyMerchantAccountRequest) returns (MerchantVerificationResponse);
 }
+message NotificationRecipientsRequest { bool dispatchers = 1; string courier_profile_id = 2; }
+message NotificationRecipientsResponse { repeated string subjects = 1; }
 message GetMerchantStatusRequest { string merchant_id = 1; }
 message MerchantStatusResponse { string merchant_id = 1; string status = 2; }
 message GetCourierProfileRequest { string courier_id = 1; }

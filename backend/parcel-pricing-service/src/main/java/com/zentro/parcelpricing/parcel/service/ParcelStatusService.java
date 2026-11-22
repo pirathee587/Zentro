@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zentro.parcelpricing.parcel.entity.ParcelLifecycle;
 import com.zentro.parcelpricing.parcel.entity.ParcelStatus;
 import com.zentro.parcelpricing.parcel.entity.ParcelStatusChange;
+import com.zentro.parcelpricing.parcel.entity.ParcelStatusEvent;
 import com.zentro.parcelpricing.parcel.dto.ParcelStatusResponse;
 import com.zentro.parcelpricing.exception.InvalidTransitionException;
 import com.zentro.parcelpricing.exception.ParcelNotFoundException;
@@ -15,9 +16,6 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -174,27 +172,11 @@ public class ParcelStatusService {
    * @param merchantId the parcel's merchant account id, or null for customer bookings (then the field is absent)
    */
   String eventJson(UUID eventId, ParcelStatusChange change, String merchantId) {
-    Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("trackingRef", change.trackingRef());
-    payload.put("previousStatus", change.previousStatus().name());
-    payload.put("status", change.status().name());
-    payload.put("actorRole", change.actorRole());
-    // ISO_OFFSET_DATE_TIME always prints seconds; OffsetDateTime.toString() drops ":00", which is not RFC 3339.
     String occurredAt = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(change.occurredAt());
-    payload.put("occurredAt", occurredAt);
-    if (change.status() == ParcelStatus.FAILED) {
-      payload.put("failureReason", change.reason());
-    }
-    if (merchantId != null) {
-      payload.put("merchantId", merchantId);
-    }
-
-    Map<String, Object> envelope = new LinkedHashMap<>();
-    envelope.put("eventId", eventId.toString());
-    envelope.put("eventType", EVENT_TYPE);
-    envelope.put("occurredAt", occurredAt);
-    envelope.put("aggregateId", change.parcelId().toString());
-    envelope.put("payload", payload);
+    var payload = new ParcelStatusEvent.Payload(change.trackingRef(), change.previousStatus().name(),
+        change.status().name(), change.actorRole(), occurredAt,
+        change.status() == ParcelStatus.FAILED ? change.reason() : null, merchantId);
+    var envelope = new ParcelStatusEvent(eventId, EVENT_TYPE, occurredAt, change.parcelId(), payload);
     try {
       return objectMapper.writeValueAsString(envelope);
     } catch (JsonProcessingException ex) {
