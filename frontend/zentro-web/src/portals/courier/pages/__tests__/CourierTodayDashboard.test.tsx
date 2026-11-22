@@ -75,7 +75,7 @@ describe('Courier Today dashboard', () => {
     server.use(http.post('*/graphql', () => HttpResponse.json({ ...dashboardEnvelope([row]), errors: [{
       message: 'PRIVATE-EXCEPTION', path: ['courierTodayDashboard', 'deliveries', 0, 'recipient'],
     }] })));
-    setup(); expect(await screen.findByText('Tracking details pending')).toBeInTheDocument();
+    setup(); expect(await screen.findByText('Shipment details are not available yet.')).toBeInTheDocument();
     expect(screen.getByText('Status unavailable')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Some delivery details could not be loaded');
     expect(screen.queryByText('PRIVATE-EXCEPTION')).not.toBeInTheDocument();

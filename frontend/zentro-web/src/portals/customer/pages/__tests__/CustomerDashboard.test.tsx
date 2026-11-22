@@ -173,7 +173,7 @@ describe('CustomerDashboard Page', () => {
     vi.spyOn(customerApi, 'getDashboard').mockResolvedValue(mockDashboardData);
     vi.spyOn(customerApi, 'getDashboardLiveParcel').mockRejectedValue(new Error('Unavailable'));
     render(<MemoryRouter><CustomerDashboard /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole('button', { name: 'Simulate next update' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Refresh tracking' }));
     expect(await screen.findByText('Tracking unavailable')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh tracking' })).toBeInTheDocument();
     expect(screen.queryByText('All scheduled parcels have been delivered or await pickup.')).not.toBeInTheDocument();

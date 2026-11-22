@@ -74,7 +74,9 @@ public class TrackingKafkaConsumer {
 
       UUID eventId = node.has("eventId") && !node.get("eventId").isNull()
           ? UUID.fromString(node.get("eventId").asText())
-          : UUID.randomUUID();
+          : null;
+
+      if (eventId == null) throw new IllegalArgumentException("Missing assignment event id");
 
       if (headerEventId != null && !headerEventId.isBlank()) {
         try {
@@ -114,9 +116,11 @@ public class TrackingKafkaConsumer {
       if (processed != null) {
         processed.flush();
       }
-    } catch (Exception ex) {
-      log.warn("Assignment event discarded: error={}", ex.getMessage());
+    } catch (JsonProcessingException | IllegalArgumentException ex) {
+      log.warn("Assignment event discarded: category=invalid_contract");
     }
+    // Persistence failures propagate so both the idempotency claim and the assignment update
+    // roll back; the Kafka error handler can retry instead of acknowledging lost work.
   }
 
   @KafkaListener(topics = {"parcel.created", "parcel.status.updated"}, groupId = "${spring.kafka.consumer.group-id:tracking-reporting-service}")

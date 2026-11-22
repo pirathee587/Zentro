@@ -92,7 +92,9 @@ public class PodGrpcSecurityInterceptor implements ServerInterceptor {
   static String requiredPermission(String bareMethodName) {
     if (bareMethodName == null) return null;
     return switch (bareMethodName) {
-      case "GetParcel" -> "pod:read";
+      // The explicit service-client allowlist still protects this minimal
+      // reference/status read. Tracking must not need POD-worker authority.
+      case "GetParcel" -> null;
       case "CompleteParcelDelivery", "UpdateCourierParcelStatus" -> "pod:update";
       case "GetCustomerDashboardSummary", "ListCustomerParcels", "GetCustomerParcel",
            "GetCustomerParcelById", "GetCustomerLiveParcel", "GetCustomerParcelHistory",
@@ -105,7 +107,7 @@ public class PodGrpcSecurityInterceptor implements ServerInterceptor {
     if (clientId == null || method == null) return false;
     return switch (clientId) {
       case "zentro-dispatch-service" -> Set.of("GetParcel", "CompleteParcelDelivery", "UpdateCourierParcelStatus").contains(method);
-      case "zentro-tracking-service" -> Set.of("GetCustomerDashboardSummary", "ListCustomerParcels", "GetCustomerParcel",
+      case "zentro-tracking-service" -> Set.of("GetParcel", "GetCustomerDashboardSummary", "ListCustomerParcels", "GetCustomerParcel",
           "GetCustomerParcelById", "GetCustomerLiveParcel", "GetCustomerParcelHistory", "GetPublicTracking",
           "EstimateDeliveryFee").contains(method);
       case "zentro-notification-service" -> Set.of("ListCustomerParcels", "GetCustomerParcel", "GetCustomerParcelById",

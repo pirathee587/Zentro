@@ -13,6 +13,14 @@ public class ParcelStatusClient {
     this.grpcClient = grpcClient;
   }
 
+  public com.zentro.contracts.parcel.v1.ParcelResponse getParcel(UUID parcelId) {
+    var parcel = grpcClient.getParcel(parcelId);
+    if (!parcelId.toString().equals(parcel.getParcelId())) {
+      throw new IllegalStateException("Parcel service returned a different parcel");
+    }
+    return parcel;
+  }
+
   public void complete(UUID parcelId) {
     grpcClient.completeDelivery(parcelId);
   }

@@ -1,6 +1,9 @@
 package com.zentro.dispatchcourier.exception;
 
 import com.zentro.dispatchcourier.courier.controller.CourierDeliveryController;
+import com.zentro.dispatchcourier.pod.CourierProofPhotoController;
+import com.zentro.dispatchcourier.pod.DispatcherProofReviewController;
+import com.zentro.dispatchcourier.pod.ProofCompletionController;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +14,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
-@RestControllerAdvice(assignableTypes = CourierDeliveryController.class)
+@RestControllerAdvice(assignableTypes = {CourierDeliveryController.class, CourierProofPhotoController.class,
+    DispatcherProofReviewController.class, ProofCompletionController.class})
 public class ProofExceptionHandler {
   @ExceptionHandler(ProofException.class)
   public ResponseEntity<ProblemDetail> proof(ProofException error) {

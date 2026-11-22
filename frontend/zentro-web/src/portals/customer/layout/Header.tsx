@@ -149,6 +149,17 @@ export const Header: React.FC = () => {
                   className="sd-btn sd-btn-outline sd-btn-small"
                   onClick={() => {
                     setProfileOpen(false);
+                    void logout('/login?switch_account=1');
+                  }}
+                >
+                  Switch account
+                </BaseButton>
+
+                <BaseButton
+                  type="button"
+                  className="sd-btn sd-btn-outline sd-btn-small"
+                  onClick={() => {
+                    setProfileOpen(false);
                     void logout();
                   }}
                 >

@@ -28,8 +28,16 @@ public class PublicTrackingController {
 
   private final TrackingService trackingService;
   private final TrackingStreamService streamService;
+  private final com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
 
   public PublicTrackingController(TrackingService trackingService, TrackingStreamService streamService) {
+    this(trackingService, streamService, null);
+  }
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public PublicTrackingController(TrackingService trackingService, TrackingStreamService streamService,
+      @org.springframework.lang.Nullable com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings) {
+    this.bookings = bookings;
     this.trackingService = trackingService;
     this.streamService = streamService;
   }
@@ -42,7 +50,20 @@ public class PublicTrackingController {
       @PathVariable("trackingRef")
       @Pattern(regexp = "^[A-Za-z0-9_-]{6,32}$", message = "Invalid tracking reference format")
       String trackingRef) {
-    return ResponseEntity.ok(trackingService.getPublicTracking(trackingRef));
+    if (bookings == null) return ResponseEntity.ok(trackingService.getPublicTracking(trackingRef));
+    var p = bookings.publicTracking(trackingRef.trim().toUpperCase(java.util.Locale.ROOT));
+    var events = p.events();
+    var timeline = java.util.stream.IntStream.range(0, events.size()).mapToObj(i -> {
+      var e = events.get(i);
+      String state = "FAILED".equals(e.status()) ? "failed"
+          : i == events.size() - 1 && !"DELIVERED".equals(e.status()) ? "current" : "completed";
+      return new com.zentro.trackingreporting.tracking.dto.TrackingMilestoneDto(
+          e.id().toString(), e.title(), e.description(), e.occurredAt(), state, e.location(), e.failureReason());
+    }).toList();
+    return ResponseEntity.ok().header("Cache-Control", "no-store").body(new PublicTrackingResponse(
+        p.trackingRef(), p.status().portalStatus(), p.rawStatus(), p.category(), p.size(), p.description(),
+        p.originCity(), p.destinationCity(), p.estimatedDays(), instant(p.estimatedDeliveryDate()),
+        instant(p.createdAt()), instant(p.deliveredAt()), p.failureReason(), events, timeline));
   }
 
   /**
@@ -65,8 +86,13 @@ public class PublicTrackingController {
       return streamService.subscribe(trackingRef, authentication, parcel);
     }
 
-    List<TrackingEventDto> events = trackingService.getTrackingEvents(trackingRef);
+    List<TrackingEventDto> events = bookings == null ? trackingService.getTrackingEvents(trackingRef)
+        : bookings.publicTracking(trackingRef.trim().toUpperCase(java.util.Locale.ROOT)).events();
     return ResponseEntity.ok(events);
+  }
+
+  private static java.time.Instant instant(String value) {
+    return value == null || value.isBlank() ? null : java.time.OffsetDateTime.parse(value).toInstant();
   }
 
   /**

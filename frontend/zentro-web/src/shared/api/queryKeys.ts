@@ -29,6 +29,8 @@ export const queryKeys = {
   dispatcher: {
     queue: (params?: QueryParams, scope?: string) => params === undefined && scope === undefined ? ['dispatcher', 'queue'] as const : ['dispatcher', 'queue', stableParams({ ...params, ...(scope ? { scope } : {}) })] as const,
     workload: (params?: QueryParams, scope?: string) => params === undefined && scope === undefined ? ['dispatcher', 'workload'] as const : ['dispatcher', 'workload', stableParams({ ...params, ...(scope ? { scope } : {}) })] as const,
+    assignments: (scope?: string) => scope ? ['dispatcher', 'assignments', { scope }] as const : ['dispatcher', 'assignments'] as const,
+    parcel: (parcelId?: string, scope?: string) => parcelId ? ['dispatcher', 'parcel', stableParams({ parcelId, scope })] as const : ['dispatcher', 'parcel'] as const,
   },
   courier: {
     dashboard: (scope?: string, params?: QueryParams) => scope

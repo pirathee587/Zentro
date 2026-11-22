@@ -286,11 +286,20 @@ public class TrackingService {
     Optional<TrackingParcel> existing = parcelRepository.findByTrackingRef(cleanRef);
     if (existing.isPresent()) {
       TrackingParcel p = existing.get();
-      p.setStatus(status);
-      p.setFailureReason(failureReason);
+      if (p.getParcelId() != null && parcelId != null && !p.getParcelId().equals(parcelId)) {
+        throw new IllegalArgumentException("Tracking reference belongs to a different parcel");
+      }
+      // Different Kafka topics/partitions may arrive out of order. Project from persisted facts.
+      var history = new ArrayList<>(eventRepository.findByTrackingRefOrderByOccurredAtAsc(cleanRef));
+      if (history.stream().noneMatch(e -> e == savedEvent || eventId != null && eventId.equals(e.getEventId()))) {
+        history.add(savedEvent);
+      }
+      var current = currentEvent(history);
+      p.setStatus(current.getStatus());
+      p.setFailureReason(current.getFailureReason());
       p.setUpdatedAt(Instant.now());
-      if (status == TrackingStatus.DELIVERED) {
-        p.setDeliveredAt(eventTime);
+      if (current.getStatus() == TrackingStatus.DELIVERED) {
+        p.setDeliveredAt(current.getOccurredAt());
       }
       parcelRepository.save(p);
     }
@@ -501,6 +510,14 @@ public class TrackingService {
     }
 
     return saved;
+  }
+
+  private static TrackingEvent currentEvent(List<TrackingEvent> history) {
+    var order = java.util.Comparator.comparing(TrackingEvent::getOccurredAt)
+        .thenComparingInt(e -> e.getStatus().ordinal())
+        .thenComparing(e -> e.getEventId() == null ? "" : e.getEventId().toString());
+    return history.stream().filter(e -> e.getStatus() == TrackingStatus.DELIVERED || e.getStatus() == TrackingStatus.FAILED)
+        .min(order).orElseGet(() -> history.stream().max(order).orElseThrow());
   }
 
   private List<TrackingMilestoneDto> buildTimeline(TrackingParcel parcel, List<TrackingEvent> events) {

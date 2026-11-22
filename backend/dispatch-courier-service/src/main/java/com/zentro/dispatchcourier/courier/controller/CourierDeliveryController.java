@@ -36,6 +36,7 @@ public class CourierDeliveryController {
         .body(ProofResponse.from(result.proof()));
   }
 
+
   public record RejectAssignmentRequest(String reason) {}
   public record CourierStatusRequest(String status, String reason, String note) {}
 

@@ -18,10 +18,19 @@ export type AuthUser = {
   profileLoaded?: boolean;
 };
 
+export type LoginOptions = {
+  /**
+   * Force Keycloak to ask for credentials even when an SSO session exists (default true).
+   * Automatic redirects for protected routes pass false so a valid session is reused;
+   * explicit sign-in, sign-out and account switching keep forcing credentials.
+   */
+  reauthenticate?: boolean;
+};
+
 export type Auth = {
   user: AuthUser | null;
   setUser: (user: AuthUser | null) => void;
-  login: (returnTo?: string, emailHint?: string, entryPoint?: EntryPoint, identityProvider?: IdentityProvider) => Promise<void>;
+  login: (returnTo?: string, emailHint?: string, entryPoint?: EntryPoint, identityProvider?: IdentityProvider, options?: LoginOptions) => Promise<void>;
   register: (returnTo?: string, entryPoint?: EntryPoint) => Promise<void>;
   logout: (returnTo?: string) => Promise<void>;
   refreshAccessToken?: (force?: boolean) => Promise<string | undefined>;

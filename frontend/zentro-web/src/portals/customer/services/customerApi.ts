@@ -430,9 +430,13 @@ export async function listParcels(
   return normalizeListParcelsResponse(data);
 }
 
-export async function getParcel(idOrRef: string): Promise<Parcel | null> {
+/**
+ * Public tracking must never attempt the customer-owned lookup merely because
+ * a courier or merchant happens to have an access token in the browser.
+ */
+export async function getParcel(idOrRef: string, publicOnly = false): Promise<Parcel | null> {
   const reference = idOrRef.trim();
-  if (getAccessToken()) {
+  if (!publicOnly && getAccessToken()) {
     const owned = await getCustomerDelivery(reference);
     if (owned) return owned;
   }
@@ -447,10 +451,10 @@ export async function getParcel(idOrRef: string): Promise<Parcel | null> {
   return publicTracking ? normalizeParcelRecord(publicTracking) : null;
 }
 
-export function subscribeToParcel(idOrRef: string, callback: (parcel: Parcel) => void): () => void {
+export function subscribeToParcel(idOrRef: string, callback: (parcel: Parcel) => void, publicOnly = false): () => void {
   let active = true;
   const timer = setInterval(() => {
-    void getParcel(idOrRef).then(parcel => { if (active && parcel) callback(parcel); }).catch(() => {
+    void getParcel(idOrRef, publicOnly).then(parcel => { if (active && parcel) callback(parcel); }).catch(() => {
       // Preserve the last verified record; a later successful poll refreshes it.
     });
   }, 30000);

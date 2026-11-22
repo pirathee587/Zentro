@@ -51,9 +51,11 @@ public class ProofOfDeliveryService {
   public ProofRepository.DeliverySummary delivery(UUID parcelId, Jwt jwt) {
     var assignment = owned(parcelId, courier(jwt));
     var proof = proofs.find(parcelId).orElse(null);
+    var parcel = parcelStatusClient == null ? null : parcelStatusClient.getParcel(parcelId);
     return new ProofRepository.DeliverySummary(parcelId, assignment.courierId(), assignment.assignedAt(),
         proof == null ? null : proof.id(), proof == null ? null : proof.completionState(),
-        assignment.assignmentStatus(), assignment.respondedAt(), assignment.rejectionReason());
+        assignment.assignmentStatus(), assignment.respondedAt(), assignment.rejectionReason(),
+        parcel == null ? null : parcel.getTrackingNumber(), parcel == null ? null : parcel.getStatus());
   }
   public ProofResponse proof(UUID parcelId, Jwt jwt) {
     owned(parcelId, courier(jwt));
@@ -68,6 +70,7 @@ public class ProofOfDeliveryService {
     if (request == null) throw new ProofException(400, "INVALID_PROOF", "Proof fields are required.");
     return proofs.saveOwned(parcelId, courier.id(), courier.userId(), jwt.getSubject(), request.normalized());
   }
+  public void verifyOwnership(UUID parcelId, Jwt jwt) { owned(parcelId, courier(jwt)); }
 
   public AssignmentRepository.Assignment accept(UUID parcelId, Jwt jwt) {
     var courier = courier(jwt);

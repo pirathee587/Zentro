@@ -23,7 +23,12 @@ public class ProofRepository {
   public void setPropagation(PropagationContext propagation) { this.propagation = propagation; }
 
   public record DeliverySummary(UUID parcelId, UUID courierId, Instant assignedAt,
-      UUID proofId, String completionState, String assignmentStatus, Instant respondedAt, String rejectionReason) {
+      UUID proofId, String completionState, String assignmentStatus, Instant respondedAt, String rejectionReason,
+      String trackingRef, String parcelStatus) {
+    public DeliverySummary(UUID parcelId, UUID courierId, Instant assignedAt, UUID proofId, String completionState,
+        String assignmentStatus, Instant respondedAt, String rejectionReason) {
+      this(parcelId, courierId, assignedAt, proofId, completionState, assignmentStatus, respondedAt, rejectionReason, null, null);
+    }
     public DeliverySummary(UUID parcelId, UUID courierId, Instant assignedAt, UUID proofId, String completionState) {
       this(parcelId, courierId, assignedAt, proofId, completionState, "PENDING_ACCEPTANCE", null, null);
     }

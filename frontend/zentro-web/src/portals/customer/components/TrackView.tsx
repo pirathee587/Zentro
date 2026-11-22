@@ -65,7 +65,7 @@ function computeStages(parcel: Parcel): {
   const pickedUpEv = findEvent(/pick|collect/i);
   const inTransitEv = findEvent(/transit|dispatch|expressway|hub/i);
   const outForDeliveryEv = findEvent(/out for delivery|final mile/i);
-  const deliveredEv = findEvent(/deliver/i);
+  const deliveredEv = findEvent(/^delivered$|^delivered to|^delivery completed/i);
 
   const createdTime =
     createdEv?.formattedDate || createdEv?.timestamp || parcel.formattedCreatedAt || parcel.createdAt;
@@ -267,7 +267,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
     setSearchedRef(clean);
 
     try {
-      const data = await getParcel(clean);
+      const data = await getParcel(clean, isPublic);
       if (!data) {
         setNotFound(true);
         setParcel(null);
@@ -302,7 +302,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
           }
           return updated;
         });
-      });
+      }, isPublic);
       return unsubscribe;
     }
   }, [activeRef, fetchTracking]);
@@ -494,7 +494,9 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
                   <span>Live</span>
                 </span>
               </div>
-              <StatusChip status={parcel.status} />
+              <div><StatusChip status={parcel.status} />
+                  {parcel.rawStatus && <p className="sd-current-status">Current status: {parcel.rawStatus.toLowerCase().replaceAll('_', ' ')}</p>}
+                </div>
             </div>
 
             {/* Route subtitle: From to To • weight • size */}
@@ -615,7 +617,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
                 aria-label="Refresh the latest tracking update"
                 onClick={() => void fetchTracking(parcel.trackingRef)}
               >
-                Simulate next update
+                Refresh tracking
               </Button>
             </div>
           </Card>

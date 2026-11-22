@@ -57,17 +57,24 @@ public class ParcelPricingGrpcService extends ParcelPricingServiceGrpc.ParcelPri
   private final ParcelStatusService statusService;
   private final CustomerParcelReadService customerReadService;
   private final PricingService pricingService;
+  private final ParcelStatusRepository statusHistory;
 
   public ParcelPricingGrpcService(ParcelBookingRepository bookingRepository, ParcelStatusService statusService) {
     this(bookingRepository, statusService, null, null);
   }
 
-  @Autowired
   public ParcelPricingGrpcService(
       ParcelBookingRepository bookingRepository,
       ParcelStatusService statusService,
       CustomerParcelReadService customerReadService,
       PricingService pricingService) {
+    this(bookingRepository, statusService, customerReadService, pricingService, null);
+  }
+
+  @Autowired
+  public ParcelPricingGrpcService(ParcelBookingRepository bookingRepository, ParcelStatusService statusService,
+      CustomerParcelReadService customerReadService, PricingService pricingService, ParcelStatusRepository statusHistory) {
+    this.statusHistory = statusHistory;
     this.bookingRepository = bookingRepository;
     this.statusService = statusService;
     this.customerReadService = customerReadService;
@@ -293,6 +300,7 @@ public class ParcelPricingGrpcService extends ParcelPricingServiceGrpc.ParcelPri
       ParcelHistoryResponse.Builder builder = ParcelHistoryResponse.newBuilder();
       for (ParcelStatusRepository.StatusHistoryRow row : rows) {
         builder.addEntries(StatusHistoryEntryProto.newBuilder()
+            .setId(row.id().toString())
             .setStatus(row.toStatus() != null ? row.toStatus() : "")
             .setReason(nullToEmpty(row.reason()))
             .setNote(nullToEmpty(row.note()))
@@ -308,6 +316,7 @@ public class ParcelPricingGrpcService extends ParcelPricingServiceGrpc.ParcelPri
   }
 
   @Override
+  @org.springframework.transaction.annotation.Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
   public void getPublicTracking(
       PublicTrackingRequest request, StreamObserver<PublicTrackingResponse> responseObserver) {
     String reference = nullToEmpty(request.getReference()).trim();
@@ -320,7 +329,7 @@ public class ParcelPricingGrpcService extends ParcelPricingServiceGrpc.ParcelPri
       responseObserver.onError(Status.NOT_FOUND.withDescription("Parcel not found").asRuntimeException());
       return;
     }
-    responseObserver.onNext(PublicTrackingResponse.newBuilder()
+    var builder = PublicTrackingResponse.newBuilder()
         .setTrackingRef(nullToEmpty(p.trackingRef()))
         .setStatus(p.status() != null ? p.status().name() : "")
         .setCategory(nullToEmpty(p.category()))
@@ -329,8 +338,19 @@ public class ParcelPricingGrpcService extends ParcelPricingServiceGrpc.ParcelPri
         .setOriginCity(p.sender() != null ? nullToEmpty(p.sender().city()) : "")
         .setDestinationCity(p.recipient() != null ? nullToEmpty(p.recipient().city()) : "")
         .setCreatedAt(p.createdAt() != null ? p.createdAt().toString() : "")
-        .setEstimatedDays(p.estimatedDays())
-        .build());
+        .setEstimatedDays(p.estimatedDays());
+    if (statusHistory != null) {
+      for (var row : statusHistory.findHistoryByParcelId(p.id())) {
+        builder.addEvents(StatusHistoryEntryProto.newBuilder()
+            .setId(row.id().toString())
+            .setStatus(row.toStatus())
+            .setActorRole(nullToEmpty(row.actorRole()))
+            .setChangedAt(row.occurredAt().toString())
+            // Internal notes are never part of public tracking.
+            .setReason("FAILED".equals(row.toStatus()) ? nullToEmpty(row.reason()) : ""));
+      }
+    }
+    responseObserver.onNext(builder.build());
     responseObserver.onCompleted();
   }
 

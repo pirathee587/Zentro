@@ -35,7 +35,7 @@ services:
     env_file:
       - ./backend/api-gateway/.env
     ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:8080:8080"
+      - "${BIND_ADDRESS:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"
     depends_on:
       identity-partner-service:
         condition: service_healthy
@@ -63,6 +63,13 @@ services:
       SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
       SERVICE_CLIENT_ID: zentro-parcel-service
       SERVICE_CLIENT_SECRET: ${ZENTRO_PARCEL_SERVICE_CLIENT_SECRET:-}
+      # Customer-created orders enter the dispatcher queue in CREATED state.
+      # Explicitly opt into that assignment state; the service otherwise fails closed.
+      ZENTRO_ASSIGNMENT_ELIGIBLE_STATUSES: "CREATED"
+      DISPATCH_SERVICE_BASE_URL: http://dispatch-courier-service:8083
+      # Never run shared database migrations during a local service recreate.
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
       IDENTITY_GRPC_HOST: identity-partner-service
       IDENTITY_GRPC_PORT: "9081"
     ports:
@@ -80,6 +87,7 @@ services:
     restart: unless-stopped
 
   dispatch-courier-service:
+    image: ${S3_IMAGE_TAG:-zentro-dispatch-courier-service:pod-v8}
     build:
       context: .
       dockerfile: backend/dispatch-courier-service/Dockerfile
@@ -92,6 +100,14 @@ services:
       POD_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
       POD_CLIENT_ID: zentro-dispatch-service
       POD_CLIENT_SECRET: ${ZENTRO_DISPATCH_SERVICE_CLIENT_SECRET:-}
+      # Backend-only private Supabase Storage adapter. Leave blank until the separately
+      # approved bucket/credential activation; application endpoints then fail closed.
+      POD_STORAGE_URL: ${POD_STORAGE_URL:-}
+      POD_STORAGE_SERVICE_KEY: ${POD_STORAGE_SERVICE_KEY:-}
+      POD_STORAGE_BUCKET: ${POD_STORAGE_BUCKET:-swiftdrop-delivery-proofs}
+      PARCEL_BASE_URL: http://parcel-pricing-service:8082
+      # Courier dashboard identity check (S1 HTTP). The code default localhost:8081 is this container.
+      ZENTRO_IDENTITY_BASE_URL: http://identity-partner-service:8081
       IDENTITY_GRPC_HOST: identity-partner-service
       IDENTITY_GRPC_PORT: "9081"
       PARCEL_GRPC_HOST: parcel-pricing-service
@@ -117,7 +133,7 @@ services:
         condition: service_healthy
       parcel-pricing-service:
         condition: service_healthy
-    restart: unless-stopped
+    restart: "no"
 
   tracking-reporting-service:
     build:
@@ -132,10 +148,18 @@ services:
       SERVICE_TOKEN_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/token
       SERVICE_CLIENT_ID: zentro-tracking-service
       SERVICE_CLIENT_SECRET: ${ZENTRO_TRACKING_SERVICE_CLIENT_SECRET:-}
+      # This courier-tracking read-path deployment has no tracking-schema change.
+      # Keep shared database migrations disabled during controlled recreation.
+      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+      KAFKA_CONSUMER_ENABLED: "false"
       PARCEL_GRPC_HOST: parcel-pricing-service
       PARCEL_GRPC_PORT: "9082"
       DISPATCH_GRPC_HOST: dispatch-courier-service
       DISPATCH_GRPC_PORT: "9083"
+      # Courier Today dashboard reads the courier's assignment snapshot from S3 over HTTP.
+      # The code default (localhost:8083) is this container itself inside Compose.
+      ZENTRO_DASHBOARD_DISPATCH_BASE_URL: http://dispatch-courier-service:8083
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8084:8084"
     healthcheck:
@@ -187,9 +211,12 @@ services:
 
   # ── Frontend (Vite/React → Nginx) ──────────────────────
   zentro-web:
+    image: ${WEB_IMAGE_TAG:-zentro-web:pod-v7}
     build:
       context: ./frontend/zentro-web
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${GATEWAY_HOST_PORT:-8080}}
     container_name: zentro-web
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:80:8080"

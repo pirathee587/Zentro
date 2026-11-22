@@ -100,6 +100,9 @@ public class AdminUserExceptionHandler {
     if (ex instanceof UserNotFoundException) {
       return problem(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", UserNotFoundException.MESSAGE);
     }
+    if (ex instanceof AccountIdentityConflictException) {
+      return problem(HttpStatus.CONFLICT, AccountIdentityConflictException.CODE, AccountIdentityConflictException.MESSAGE);
+    }
     if (code.value() == HttpStatus.NOT_FOUND.value()) {
       String reason = ex.getReason();
       if (reason == null || "User not found".equalsIgnoreCase(reason.trim()) || "User does not exist".equalsIgnoreCase(reason.trim())) {

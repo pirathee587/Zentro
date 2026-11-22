@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
-import { acceptDelivery, deliveryAccessDenied, deliverySessionExpired, deliveryError, getDelivery, getProof, rejectDelivery, submitProof, updateDeliveryStatus, type DeliverySummary, type ProofResponse } from '../api/deliveryApi';
+import { acceptDelivery, deliveryAccessDenied, deliverySessionExpired, deliveryError, getDelivery, getProof, photoProofUploadUnavailable, rejectDelivery, submitProofPhoto, updateDeliveryStatus, type DeliverySummary, type ProofResponse } from '../api/deliveryApi';
 import { ProofOfDeliveryForm } from './ProofOfDeliveryForm';
 import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import { invalidateAfterCourierProof } from '@/shared/api/queryInvalidation';
+import { useCourierTodayDashboard } from '../hooks/useCourierTodayDashboard';
+import './DeliveryDetailPage.css';
 
 const stateMessage = {
-  PENDING: 'Proof recorded. Delivery completion is pending confirmation.',
+  PENDING: 'Proof submitted — pending dispatcher review. Delivery details remain available while it is reviewed.',
   COMPLETED: 'Delivery completed. Parcel service has confirmed delivery.',
   REJECTED: 'Proof recorded, but the parcel service rejected delivery completion. Contact dispatch; do not submit new proof.',
   BLOCKED: 'Proof recorded. Completion needs operational attention. Contact dispatch; do not submit new proof.',
@@ -26,6 +28,8 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
   const scope = principalCacheScope(user?.id);
   const deliveryKey = queryKeys.courier.delivery(deliveryId, scope);
   const proofKey = queryKeys.courier.proof(deliveryId, scope);
+  const dashboard = useCourierTodayDashboard(1, 50);
+  const dashboardDelivery = dashboard.data?.dashboard.deliveries.find(item => item.parcelId === deliveryId);
   const [submissionFailure, setSubmissionFailure] = useState<unknown>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState('');
@@ -63,27 +67,46 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
   function saved(value: ProofResponse) {
     if (!mounted.current) return;
     client.setQueryData(proofKey, value);
-    void invalidateAfterCourierProof(client, deliveryId, scope);
+    // Keep the successfully loaded assignment visible after a proof submission.
+    void Promise.all([
+      client.invalidateQueries({ queryKey: queryKeys.courier.dashboard(scope) }),
+      client.invalidateQueries({ queryKey: queryKeys.courier.deliveries(scope) }),
+    ]);
   }
   const failure = delivery.error || proof.error || submissionFailure;
   const unavailable = deliveryAccessDenied(failure);
   const expired = deliverySessionExpired(failure);
-  return <main className="courier-main">
+  const trackingRef = delivery.data?.trackingRef ?? dashboardDelivery?.trackingRef ?? null;
+  const parcelStatus = delivery.data?.parcelStatus ?? dashboardDelivery?.status ?? null;
+  const nextStatus = parcelStatus === 'CREATED' ? 'PICKED_UP'
+    : parcelStatus === 'PICKED_UP' ? 'IN_TRANSIT'
+      : parcelStatus === 'IN_TRANSIT' ? 'OUT_FOR_DELIVERY' : null;
+  const canSubmitProof = delivery.data?.assignmentStatus === 'ACCEPTED' && parcelStatus === 'OUT_FOR_DELIVERY';
+  return <main className="courier-main courier-delivery-detail">
     <Link className="staff-text-link" to="/courier">Back to my deliveries</Link>
-    <section className="staff-hero"><div><h1>Delivery details</h1>{!unavailable && <p className="courier-delivery-id">{deliveryId}</p>}</div></section>
+    <section className="staff-hero"><div><p className="courier-detail-eyebrow">Courier delivery</p><h1>{trackingRef || 'Delivery details'}</h1>
+      {!unavailable && <p className="courier-delivery-id">{trackingRef ? 'Tracking reference' : 'Tracking reference unavailable'}</p>}</div>
+      {trackingRef && <Link className="courier-track-link" to={`/track/${encodeURIComponent(trackingRef)}`}>Open customer tracking</Link>}</section>
     {failure ? <div className="courier-alert is-error" role="alert"><span>{unavailable ? 'Delivery not available' : deliveryError(failure)}</span>
       {expired ? <Button onClick={() => void login(`/courier/deliveries/${deliveryId}`, undefined, 'staff')}>Sign in again</Button>
         : !unavailable && <Button onClick={() => { void delivery.refetch().then(result => { if (result.isSuccess) void proof.refetch(); }); }}>Refresh</Button>}</div>
       : delivery.isPending || proof.isPending ? <p role="status">Loading delivery…</p>
-        : <section className="courier-section courier-card">
+        : <section className="courier-section courier-card courier-detail-card">
           <p>Assigned {new Date(delivery.data!.assignedAt).toLocaleString()} · Status: <strong>{delivery.data!.assignmentStatus || 'PENDING_ACCEPTANCE'}</strong></p>
+          <div className="courier-detail-summary">
+            <div><span>Assignment</span><strong>{delivery.data!.assignmentStatus || 'PENDING_ACCEPTANCE'}</strong></div>
+            <div><span>Shipment</span><strong>{parcelStatus?.replaceAll('_', ' ') || 'Status unavailable'}</strong></div>
+            <div><span>Assigned</span><strong>{new Date(delivery.data!.assignedAt).toLocaleString()}</strong></div>
+          </div>
+          {trackingRef ? <p className="courier-tracking-line">Tracking: <Link to={`/track/${encodeURIComponent(trackingRef)}`}>{trackingRef}</Link></p>
+            : <p className="courier-muted">Tracking information is not available for this assignment yet.</p>}
           {actionNotice && <p role="status" className="courier-notice">{actionNotice}</p>}
           {delivery.data!.assignmentStatus === 'PENDING_ACCEPTANCE' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="courier-assignment-controls">
+              <div className="courier-action-row">
                 <Button disabled={actionBusy} onClick={async () => {
                   setActionBusy(true); setActionNotice('');
-                  try { await acceptDelivery(deliveryId, token); await delivery.refetch(); setActionNotice('Assignment accepted.'); }
+                  try { await acceptDelivery(deliveryId, token); await invalidateAfterCourierProof(client, deliveryId, scope); await delivery.refetch(); setActionNotice('Assignment accepted.'); }
                   catch (e) { setActionNotice(deliveryError(e)); }
                   finally { setActionBusy(false); }
                 }}>Accept assignment</Button>
@@ -96,7 +119,7 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
                 />
                 <Button variant="secondary" disabled={actionBusy || !rejectReason.trim()} onClick={async () => {
                   setActionBusy(true); setActionNotice('');
-                  try { await rejectDelivery(deliveryId, rejectReason.trim(), token); await delivery.refetch(); setActionNotice('Assignment rejected.'); }
+                  try { await rejectDelivery(deliveryId, rejectReason.trim(), token); await invalidateAfterCourierProof(client, deliveryId, scope); await delivery.refetch(); setActionNotice('Assignment rejected.'); }
                   catch (e) { setActionNotice(deliveryError(e)); }
                   finally { setActionBusy(false); }
                 }}>Reject assignment</Button>
@@ -106,16 +129,14 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
           {delivery.data!.assignmentStatus === 'REJECTED' && (
             <p role="status">Assignment rejected{delivery.data!.rejectionReason ? `: ${delivery.data!.rejectionReason}` : '.'}</p>
           )}
-          {delivery.data!.assignmentStatus === 'ACCEPTED' && !proof.data && (
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-              {(['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] as const).map(nextStatus => (
-                <Button key={nextStatus} variant="secondary" disabled={actionBusy} onClick={async () => {
+          {delivery.data!.assignmentStatus === 'ACCEPTED' && !proof.data && nextStatus && (
+            <div className="courier-action-row courier-status-action">
+              <Button variant="secondary" disabled={actionBusy} onClick={async () => {
                   setActionBusy(true); setActionNotice('');
-                  try { await updateDeliveryStatus(deliveryId, nextStatus, token); setActionNotice(`Status updated to ${nextStatus}.`); }
+                  try { await updateDeliveryStatus(deliveryId, nextStatus, token); await invalidateAfterCourierProof(client, deliveryId, scope); await delivery.refetch(); setActionNotice(`Status updated to ${nextStatus}.`); }
                   catch (e) { setActionNotice(deliveryError(e)); }
                   finally { setActionBusy(false); }
                 }}>Mark {nextStatus.replaceAll('_', ' ')}</Button>
-              ))}
             </div>
           )}
           {proof.data ? <><h2>Saved proof</h2><p role="status">{stateMessage[proof.data.completionState]}</p>
@@ -125,15 +146,17 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
               <dt>Submitted</dt><dd>{new Date(proof.data.submittedAt).toLocaleString()}</dd>
               {proof.data.completedAt && <><dt>Completion confirmed</dt><dd>{new Date(proof.data.completedAt).toLocaleString()}</dd></>}
             </dl><Button onClick={() => void proof.refetch()}>Refresh completion state</Button>
-          </> : <ProofOfDeliveryForm key={`${scope}:${deliveryId}`} save={async request => {
-            try { return await submitProof(deliveryId, request, token); }
+          </> : canSubmitProof ? <ProofOfDeliveryForm key={`${scope}:${deliveryId}`} save={async (request, photo, idempotencyKey, progress) => {
+            try { return await submitProofPhoto(deliveryId, request, photo, token, idempotencyKey, progress); }
             catch (error) {
-              if (!mounted.current) throw error;
-              denyAccess(error);
+              // The currently running pre-POD S3 returns 404 for this new route. Do not
+              // clear the delivery cache or claim the courier lost assignment ownership.
+              if (!mounted.current || photoProofUploadUnavailable(error)) throw error;
               throw error;
             }
           }}
-            reconcile={() => protectedRead(() => getProof(deliveryId, token), true)} saved={saved} />}
+            reconcile={() => protectedRead(() => getProof(deliveryId, token), true)} saved={saved} />
+            : <p className="courier-proof-hint" role="status">Proof of delivery becomes available once this accepted shipment is out for delivery.</p>}
         </section>}
   </main>;
 }

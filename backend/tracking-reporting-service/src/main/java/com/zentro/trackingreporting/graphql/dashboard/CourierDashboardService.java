@@ -25,6 +25,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionException;
+import org.springframework.web.server.ResponseStatusException;
+import com.zentro.trackingreporting.graphql.service.ParcelPricingGrpcClient;
 
 @Service
 public class CourierDashboardService {
@@ -33,15 +35,21 @@ public class CourierDashboardService {
   private final TrackingParcelRepository parcels;
   private final TrackingEventRepository events;
   private final Clock clock;
+  private final ParcelPricingGrpcClient parcelPricing;
   private CourierEventProjectionRepository eventProjections;
   @Autowired public CourierDashboardService(CourierAssignmentSnapshotClient snapshots,
-      TrackingParcelRepository parcels, TrackingEventRepository events, CourierEventProjectionRepository eventProjections) {
-    this(snapshots, parcels, events, Clock.systemUTC());
+      TrackingParcelRepository parcels, TrackingEventRepository events, CourierEventProjectionRepository eventProjections,
+      ParcelPricingGrpcClient parcelPricing) {
+    this(snapshots, parcels, events, Clock.systemUTC(), parcelPricing);
     this.eventProjections=eventProjections;
   }
   public CourierDashboardService(CourierAssignmentSnapshotClient snapshots,
       TrackingParcelRepository parcels, TrackingEventRepository events, Clock clock) {
-    this.snapshots = snapshots; this.parcels = parcels; this.events = events; this.clock = clock;
+    this(snapshots, parcels, events, clock, null);
+  }
+  private CourierDashboardService(CourierAssignmentSnapshotClient snapshots,
+      TrackingParcelRepository parcels, TrackingEventRepository events, Clock clock, ParcelPricingGrpcClient parcelPricing) {
+    this.snapshots = snapshots; this.parcels = parcels; this.events = events; this.clock = clock; this.parcelPricing = parcelPricing;
   }
 
   // Deliberately no surrounding transaction: network calls must not hold DB connections/locks.
@@ -71,6 +79,21 @@ public class CourierDashboardService {
       var missing=ids.stream().filter(id->!projections.containsKey(id)).toList();
       if(eventProjections!=null&&!missing.isEmpty())
         eventProjections.find(missing).forEach(p->projections.put(p.getParcelId(),p));
+      // Kafka is optional. The courier's own assignment list resolves canonical S2 status
+      // directly, so a disabled projection can never hide a real tracking reference.
+      if (parcelPricing != null) for (UUID id : ids) {
+        try {
+          var source = parcelPricing.getParcel(id);
+          if (!id.toString().equals(source.getParcelId())) continue;
+          var parcel = projections.computeIfAbsent(id, ignored -> {
+            var created = new TrackingParcel(); created.setId(id); created.setParcelId(id); return created;
+          });
+          parcel.setTrackingRef(source.getTrackingNumber());
+          parcel.setStatus(TrackingStatus.fromString(source.getStatus()));
+        } catch (ResponseStatusException unavailable) {
+          // Preserve a genuinely available projection; the UI uses an explicit safe fallback otherwise.
+        }
+      }
       var terminalIds = projections.values().stream().filter(p -> terminal(p.getStatus()))
           .map(TrackingParcel::getParcelId).toList();
       terminalEvents = terminalIds.isEmpty() ? List.of()

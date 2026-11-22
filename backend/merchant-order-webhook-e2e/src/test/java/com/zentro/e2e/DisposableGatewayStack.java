@@ -104,6 +104,10 @@ abstract class DisposableGatewayStack {
 
   @BeforeAll
   static void startStack() throws Exception {
+    if (Boolean.getBoolean("zentro.e2e.statusSync")) {
+      CourierTrackingSyncIT.startIsolatedStack();
+      return;
+    }
     if (Boolean.getBoolean("zentro.e2e.courierDashboard")) {
       CourierDashboardFlowIT.startDashboardStack();
       return;

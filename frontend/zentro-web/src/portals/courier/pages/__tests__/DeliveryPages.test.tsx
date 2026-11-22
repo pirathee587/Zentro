@@ -17,7 +17,8 @@ import { dashboardDelivery, dashboardEnvelope, dashboardFixture } from './dashbo
 
 const parcelId = '11111111-1111-4111-8111-111111111111';
 const root = `*/api/v1/courier/deliveries`;
-const summary = { parcelId, courierId: 'canonical-profile', assignedAt: '2026-11-04T10:00:00Z', proofId: null, completionState: null };
+const summary = { parcelId, courierId: 'canonical-profile', assignedAt: '2026-11-04T10:00:00Z', proofId: null, completionState: null,
+  assignmentStatus: 'ACCEPTED', parcelStatus: 'OUT_FOR_DELIVERY', trackingRef: 'ZT-7K3QX9M2PA' };
 const savedProof: ProofResponse = { proofId: 'proof-1', parcelId, recipientName: 'Nimal', notes: null,
   proofReference: 'REF-1', submittedAt: '2026-11-04T11:00:00Z', completionState: 'PENDING', completedAt: null };
 const auth = { user: { id: 'app-user', name: 'Courier', roles: ['COURIER'], accessToken: 'courier-test-token' },
@@ -73,6 +74,40 @@ beforeEach(() => {
   );
 });
 describe('courier delivery pages', () => {
+  it('uses only the matching live dashboard parcel identity when S3 has no enrichment', async () => {
+    server.use(
+      http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope([dashboardDelivery({ parcelId, trackingRef: 'ZT-MATCHED-42', status: 'OUT_FOR_DELIVERY' })]))),
+      http.get(`${root}/${parcelId}`, () => HttpResponse.json({ ...summary, trackingRef: null, parcelStatus: null })),
+    );
+    renderPages();
+    expect(await screen.findByRole('link', { name: 'ZT-MATCHED-42' })).toHaveAttribute('href', '/track/ZT-MATCHED-42');
+    expect(screen.getByText('OUT FOR DELIVERY', { exact: true })).toBeInTheDocument();
+  });
+  it('does not offer proof until the accepted shipment is out for delivery', async () => {
+    server.use(http.get(`${root}/${parcelId}`, () => HttpResponse.json({ ...summary, parcelStatus: 'CREATED' })));
+    renderPages();
+    expect(await screen.findByText(/Proof of delivery becomes available/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit proof' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark PICKED UP' })).toBeInTheDocument();
+  });
+  it('shows the matching tracking reference and reloads persisted status after a courier action', async () => {
+    let parcelStatus = 'CREATED';
+    server.use(
+      http.get(`${root}/${parcelId}`, () => HttpResponse.json({ ...summary, assignmentStatus: 'ACCEPTED', trackingRef: 'ZT-7K3QX9M2PA', parcelStatus })),
+      http.patch(`${root}/${parcelId}/status`, async ({ request }) => {
+        parcelStatus = ((await request.json()) as { status: string }).status;
+        return HttpResponse.json({ parcelId, trackingRef: 'ZT-7K3QX9M2PA', status: parcelStatus, changed: true });
+      }),
+    );
+    const { client } = renderPages();
+    expect((await screen.findAllByRole('link', { name: 'ZT-7K3QX9M2PA' }))[0]).toHaveAttribute('href', '/track/ZT-7K3QX9M2PA');
+    const dashboardKey = queryKeys.courier.dashboard(principalCacheScope(auth.user.id));
+    client.setQueryData(dashboardKey, { marker: 'cached-before-action' });
+    fireEvent.click(screen.getByRole('button', { name: 'Mark PICKED UP' }));
+    expect(await screen.findByText('Status updated to PICKED_UP.')).toBeInTheDocument();
+    expect(screen.getByText('PICKED UP', { exact: true })).toBeInTheDocument();
+    await waitFor(() => expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(true));
+  });
   it('does not show courier A delayed list response after switching to courier B', async () => {
     let release!: () => void;
     let started!: () => void;
@@ -85,14 +120,14 @@ describe('courier delivery pages', () => {
       if (request.headers.get('Authorization') === 'Bearer courier-test-token') {
         started(); await gate; finished(); return HttpResponse.json(dashboardEnvelope());
       }
-      return HttpResponse.json(dashboardEnvelope([dashboardDelivery({ parcelId: otherId })]));
+      return HttpResponse.json(dashboardEnvelope([dashboardDelivery({ parcelId: otherId, trackingRef: 'ZT-OTHER-42' })]));
     }));
     const session = renderSession();
     await requested;
     session.change({ ...auth.user, id: 'courier-b', accessToken: 'token-b' } as Auth['user']);
-    expect(await screen.findByText(otherId)).toBeInTheDocument();
+    expect(await screen.findByText('ZT-OTHER-42')).toBeInTheDocument();
     await act(async () => { release(); await responded; });
-    expect(screen.queryByText(parcelId)).not.toBeInTheDocument();
+    expect(screen.queryByText('Tracking reference unavailable')).not.toBeInTheDocument();
     expect(session.client.getQueryData(queryKeys.courier.deliveries(principalCacheScope(auth.user.id)))).toBeUndefined();
   });
   it('unmounts saved evidence and requests sign-in on logout', async () => {
@@ -103,7 +138,7 @@ describe('courier delivery pages', () => {
     expect(await screen.findByText('Redirecting to sign in...')).toBeInTheDocument();
     expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
     expect(session.client.getQueriesData({ queryKey: ['courier'] })).toEqual([]);
-    expect(auth.login).toHaveBeenCalledWith(`/courier/deliveries/${parcelId}`, undefined, 'staff');
+    expect(auth.login).toHaveBeenCalledWith(`/courier/deliveries/${parcelId}`, undefined, 'staff', undefined, { reauthenticate: false });
   });
   it('clears unsaved evidence when the account changes on the same delivery route', async () => {
     const session = renderSession(`/courier/deliveries/${parcelId}`);
@@ -261,9 +296,9 @@ describe('assigned-delivery access and recovery', () => {
     server.use(http.post('*/graphql', () => HttpResponse.json({}, { status: 503 })));
     renderPages('/courier');
     await screen.findByRole('alert');
-    server.use(http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope())));
+    server.use(http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope([dashboardDelivery({ trackingRef: 'ZT-RETRY-42' })]))));
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText(parcelId)).toBeInTheDocument();
+    expect(await screen.findByText('ZT-RETRY-42')).toBeInTheDocument();
   });
   it.each([400, 422])('maps %s field errors without echoing server input', async status => {
     server.use(http.post(`${root}/${parcelId}/proof`, () => HttpResponse.json({ fieldErrors: {

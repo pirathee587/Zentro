@@ -47,6 +47,9 @@
 .courier-today .ct-primary:hover { filter: brightness(.96); }
 .courier-today .ct-link { color: var(--today-ink); white-space: nowrap; }
 .courier-today .ct-link:hover { text-decoration: underline; }
+.courier-today .ct-reference a, .courier-today .ct-list h3 a { color: inherit; text-decoration: none; }
+.courier-today .ct-reference a:hover, .courier-today .ct-list h3 a:hover { text-decoration: underline; }
+.courier-today .ct-list-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .courier-today :is(a, button):focus-visible { outline: 3px solid var(--today-ink); outline-offset: 4px; }
 .courier-today .ct-count { min-width: 36px; padding: 7px 10px; border-radius: 999px; background: var(--today-accent); color: var(--espresso); text-align: center; font-size: 13px; font-weight: 700; }
 .courier-today .ct-list { padding: 0; margin: 0; list-style: none; }
@@ -78,4 +81,5 @@ html[data-theme="dark"] .courier-today { --today-card: var(--dark-umber); --toda
   .courier-today .ct-stat strong { font-size: 30px; }
   .courier-today .ct-current, .courier-today .ct-queue { padding: 22px; }
   .courier-today .ct-list li, .courier-today .ct-alert, .courier-today .ct-warning { align-items: start; flex-direction: column; gap: 12px; }
+  .courier-today .ct-list-actions { align-items: flex-start; }
 }
