@@ -41,13 +41,15 @@ public class CustomerDashboardGraphQlEndpoint {
     Jwt jwt = customer(authentication);
     var parcel = dashboard.parcel(jwt, trackingRef);
     if (parcel == null) return null;
-    return DeliveryDetailsDto.from(parcel).withCourier(bookings == null ? null : bookings.assignedCourier(jwt, parcel.getId()));
+    return DeliveryDetailsDto.from(parcel).withCourier(bookings == null ? null : bookings.assignedCourier(jwt, parcel.getId()))
+        .withEvents(bookings == null ? null : bookings.customerHistory(jwt, parcel.getTrackingRef()));
   }
   @QueryMapping public DeliveryDetailsDto customerLiveDelivery(Authentication authentication) {
     Jwt jwt = customer(authentication);
     var parcel = dashboard.liveParcel(jwt);
     if (parcel == null) return null;
-    return DeliveryDetailsDto.from(parcel).withCourier(bookings == null ? null : bookings.assignedCourier(jwt, parcel.getId()));
+    return DeliveryDetailsDto.from(parcel).withCourier(bookings == null ? null : bookings.assignedCourier(jwt, parcel.getId()))
+        .withEvents(bookings == null ? null : bookings.customerHistory(jwt, parcel.getTrackingRef()));
   }
   @QueryMapping public DashboardFeeEstimate dashboardFeeEstimate(
       @Argument("pickupCity") String pickupCity,

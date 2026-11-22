@@ -37,6 +37,11 @@ describe('landing after sign in', () => {
     ['dispatcher, staff sign in', ['DISPATCHER'], 'staff', '/staff/login', '/dispatcher'],
     ['courier, staff sign in', ['COURIER'], 'staff', '/staff/login', '/courier'],
     ['dispatcher who is also a courier', ['COURIER', 'DISPATCHER'], 'staff', '/courier', '/dispatcher'],
+    ['dispatcher returning to a deep dispatcher page', ['DISPATCHER'], 'staff', '/dispatcher/parcels', '/dispatcher/parcels'],
+    ['courier returning to a deep courier page', ['COURIER'], 'staff', '/courier/profile', '/courier/profile'],
+    ['courier whose return path points at the dispatcher portal', ['COURIER'], 'staff', '/dispatcher/parcels', '/courier'],
+    ['dispatcher with a protocol-relative return path', ['DISPATCHER'], 'staff', '//dispatcher.example', '/dispatcher'],
+    ['approved merchant returning to a deep dashboard page', ['MERCHANT'], 'merchant', '/merchant/dashboard/webhooks', '/merchant/dashboard/webhooks'],
     ['merchant, staff sign in', ['MERCHANT'], 'staff', '/staff/login', NOT_STAFF],
     ['approved merchant, merchant sign in', ['MERCHANT'], 'merchant', '/merchant/dashboard', '/merchant/dashboard'],
     ['customer who is also a merchant, merchant sign in', ['CUSTOMER', 'MERCHANT'], 'merchant', '/merchant/dashboard', '/merchant/dashboard'],
@@ -59,7 +64,7 @@ describe('landing after sign in', () => {
     const auth: Auth = { user: { id: 'user', roles, accessToken: 'test-token', returnTo, entryPoint, merchantStatus: roles.includes('MERCHANT') ? 'APPROVED' : undefined }, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     renderWithClient(<MemoryRouter initialEntries={['/callback']}><AuthContext.Provider value={auth}><Routes>
       <Route path="*" element={<CallbackPage />} />
-      {['/dispatcher', '/courier', '/merchant/dashboard', '/customer', '/customer/history'].map((path) =>
+      {['/dispatcher', '/dispatcher/parcels', '/courier', '/courier/profile', '/merchant/dashboard', '/merchant/dashboard/webhooks', '/customer', '/customer/history'].map((path) =>
         <Route key={path} path={path} element={<h1>{`Landed on ${path}`}</h1>} />)}
     </Routes></AuthContext.Provider></MemoryRouter>);
 

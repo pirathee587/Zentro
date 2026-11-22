@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom';
 import { MapPin, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
-import { useCourierAssignments } from '../hooks/useCourierAssignments';
+import { useCourierTodayDashboard } from '../hooks/useCourierTodayDashboard';
 import { CourierPage, ReadState, ProofBadge } from './CourierPageParts';
 import { assignedDate } from './courierPageUtils';
 
 export function CourierRoutePage() {
   const { user } = useAuth();
-  const query = useCourierAssignments();
-  const stops = [...(query.data ?? [])].sort(
+  const query = useCourierTodayDashboard(1, 50);
+  const stops = [...(query.data?.dashboard.deliveries ?? [])].sort(
     (a, b) => a.assignedAt.localeCompare(b.assignedAt) || a.parcelId.localeCompare(b.parcelId),
   );
   const confirmed = stops.filter((s) => s.completionState === 'COMPLETED').length;
@@ -63,18 +63,14 @@ export function CourierRoutePage() {
                 {stops.map((stop, index) => (
                   <li key={stop.parcelId}>
                     <div>
-                      <h3>
-                        {index + 1}. Parcel {stop.parcelId}
-                      </h3>
+                      <h3>{index + 1}. {stop.trackingRef ? <Link to={`/track/${encodeURIComponent(stop.trackingRef)}`}>{stop.trackingRef}</Link> : 'Tracking reference unavailable'}</h3>
                       <p className="cs-muted">Assigned {assignedDate(stop.assignedAt)}</p>
                       <ProofBadge state={stop.completionState} />
-                      <p className="cs-muted">
-                        Tracking reference, destination and live status are not available here. Map
-                        directions need a destination. Open the delivery to review available
-                        details.
-                      </p>
+                      <p className="cs-muted">{stop.status ? `Shipment status: ${stop.status.replaceAll('_', ' ')}` : 'Shipment status is unavailable.'}</p>
+                      {stop.recipient && <p className="cs-muted">{[stop.recipient.address, stop.recipient.city].filter(Boolean).join(' · ')}</p>}
                     </div>
-                    <Link to={`/courier/deliveries/${stop.parcelId}`}>View delivery</Link>
+                    <div className="cs-actions"><Link to={`/courier/deliveries/${stop.parcelId}`}>View delivery</Link>
+                      {stop.trackingRef && <Link to={`/track/${encodeURIComponent(stop.trackingRef)}`}>Track parcel</Link>}</div>
                   </li>
                 ))}
               </ol>

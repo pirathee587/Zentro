@@ -87,6 +87,7 @@ export function DispatcherLayout() {
               >
                 Reports
               </NavLink>
+              <NavLink to="/dispatcher/proof-reviews" className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}>Proof reviews</NavLink>
             </nav>
           </div>
 
@@ -162,6 +163,17 @@ export function DispatcherLayout() {
                     Notification Logs
                   </Link>
                   <hr className="sd-dropdown-divider" />
+                  <Button
+                    type="button"
+                    className="sd-dropdown-logout-btn"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      void logout('/staff/login?switch_account=1');
+                    }}
+                  >
+                    Switch account
+                  </Button>
                   <Button
                     type="button"
                     className="sd-dropdown-logout-btn"

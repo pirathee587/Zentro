@@ -60,6 +60,12 @@ public record DeliveryDetailsDto(
         destinationType, isExpress, sender, recipient, fee, currency, formattedFee, estimatedDays,
         createdAt, deliveredAt, failureReason, events, weightKg, estimatedDeliveryDate, assignedCourier);
   }
+  public DeliveryDetailsDto withEvents(List<TrackingEventDto> history) {
+    return new DeliveryDetailsDto(id, trackingRef, status, rawStatus, category, size, description,
+        destinationType, isExpress, sender, recipient, fee, currency, formattedFee, estimatedDays,
+        createdAt, deliveredAt, failureReason, history, weightKg, estimatedDeliveryDate, courier);
+  }
+
   public static DeliveryDetailsDto from(TrackingParcel parcel) {
     PartyDto sender = new PartyDto(
         parcel.getSenderName(),
@@ -98,7 +104,8 @@ public record DeliveryDetailsDto(
         parcel.getCreatedAt() != null ? parcel.getCreatedAt().toString() : null,
         parcel.getDeliveredAt() != null ? parcel.getDeliveredAt().toString() : null,
         parcel.getFailureReason(),
-        Collections.emptyList(),
+        null, // unresolved projection history; authoritative customer reads supply withEvents
+
         parcel.getWeightKg(),
         parcel.getCreatedAt() != null && parcel.getEstimatedDays() > 0
             ? parcel.getCreatedAt().plus(parcel.getEstimatedDays(), ChronoUnit.DAYS).toString() : null

@@ -1,9 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
+import { server } from '@/shared/testing/mocks/server';
 import { AuthContext, type Auth } from '@/shared/auth/authContext';
 import { MerchantApprovalsPage } from '../MerchantApprovalsPage';
 import type { CourierProfile } from '../../api/courierAdminApi';
@@ -88,7 +88,8 @@ const MOCK_COURIERS: CourierProfile[] = [
 ];
 
 // ─── MSW Server ───────────────────────────────────────────────────────────────
-const server = setupServer(
+const handlers = [
+  http.get('*/api/v1/admin/users', () => HttpResponse.json([])),
   http.get('*/api/v1/admin/merchants', () => HttpResponse.json(MOCK_MERCHANTS)),
   http.patch('*/api/v1/admin/merchants/:id', async ({ params, request }) => {
     const body = (await request.clone().json()) as { decision: string; rejectionReason?: string };
@@ -110,11 +111,11 @@ const server = setupServer(
       updatedAt: new Date().toISOString(),
     });
   }),
-);
+];
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
-afterAll(() => server.close());
-afterEach(() => server.resetHandlers());
+// The shared setup owns the interceptor lifecycle. A second server can leave
+// competing interceptors and in-flight requests behind when this suite finishes.
+beforeEach(() => server.use(...handlers));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function makeQueryClient() {

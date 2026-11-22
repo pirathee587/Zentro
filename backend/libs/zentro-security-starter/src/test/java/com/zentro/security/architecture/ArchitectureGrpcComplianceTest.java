@@ -30,6 +30,8 @@ class ArchitectureGrpcComplianceTest {
       "backend/libs/zentro-security-starter/src/main/java/com/zentro/security/grpc/GrpcServiceTokenProvider.java",
       "backend/notification-integration-service/src/main/java/com/zentro/notificationintegration/assistant/service/DeepSeekAssistant.java",
       "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/courier/service/ServiceTokenProvider.java",
+      // External Supabase Storage HTTP API (private objects and signed URLs), not an internal service call.
+      "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/pod/SupabaseProofStorage.java",
       // Transitional courier coordination / dashboard HTTP clients merged from main (PR #393)
       "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/dashboard/CourierIdentityReadClient.java",
       "backend/dispatch-courier-service/src/main/java/com/zentro/dispatchcourier/dispatch/coordination/ParcelClaimClient.java",

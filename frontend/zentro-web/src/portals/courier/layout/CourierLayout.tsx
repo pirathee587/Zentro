@@ -174,6 +174,17 @@ export function CourierLayout() {
                     role="menuitem"
                     onClick={() => {
                       setProfileOpen(false);
+                      void logout('/staff/login?switch_account=1');
+                    }}
+                  >
+                    Switch account
+                  </Button>
+                  <Button
+                    type="button"
+                    className="sd-dropdown-logout-btn"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileOpen(false);
                       void logout();
                     }}
                   >

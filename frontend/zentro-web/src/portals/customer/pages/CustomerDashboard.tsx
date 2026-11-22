@@ -521,7 +521,7 @@ export const CustomerDashboard: React.FC = () => {
                   size="small"
                   onClick={() => { void refreshLiveParcel(); }}
                 >
-                  Simulate next update
+                  Refresh tracking
                 </Button>
                 <Link to="/customer/receipts" style={{ textDecoration: 'none' }}>
                   <Button variant="accent" size="small" icon={<DownloadIcon size={15} />}>

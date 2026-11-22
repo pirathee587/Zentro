@@ -36,6 +36,15 @@ foreach ($setting in @('registrationAllowed','registrationEmailAsUsername','logi
 if ($env:SMTP_HOST -or $env:SMTP_FROM -or $env:SMTP_USER -or $env:SMTP_PASSWORD) {
   $missingSmtp = @('SMTP_HOST','SMTP_PORT','SMTP_FROM','SMTP_USER','SMTP_PASSWORD') | Where-Object { -not (Get-Item "Env:$($_)").Value }
   if ($missingSmtp.Count -gt 0) { throw "SMTP configuration is incomplete. Missing: $($missingSmtp -join ', ')." }
+}
+# Never replace a working live SMTP sender with a stale or non-app password: Gmail accepts only a
+# 16-letter Google App Password for SMTP AUTH. The value itself is never printed.
+$smtpPasswordUsable = $true
+if ($env:SMTP_HOST -eq 'smtp.gmail.com' -and $env:SMTP_PASSWORD -and (($env:SMTP_PASSWORD -replace '\s', '') -cnotmatch '^[a-z]{16}$')) {
+  $smtpPasswordUsable = $false
+  Write-Warning 'SMTP_PASSWORD in infra/keycloak/.env is not a 16-letter Google App Password; the live realm SMTP settings were left unchanged.'
+}
+if ($smtpPasswordUsable -and ($env:SMTP_HOST -or $env:SMTP_FROM -or $env:SMTP_USER -or $env:SMTP_PASSWORD)) {
   $realm.smtpServer = @{
     host = $env:SMTP_HOST
     port = $env:SMTP_PORT
@@ -251,6 +260,6 @@ if (-not $verifiedPermissionsMapper -or $verifiedPermissionsMapper.config.'claim
 if ($verifiedGoogleProvider -and (-not $verifiedGoogleProvider.enabled -or $verifiedGoogleProvider.providerId -ne 'google')) { throw 'Live Google identity provider verification failed.' }
 if ($requiredAttributes.Count -ne 0 -or $verifiedClient.redirectUris -notcontains 'http://localhost/callback' -or $verifiedClient.webOrigins -notcontains 'http://localhost') { throw 'Live client redirect or optional registration profile verification failed.' }
 if ($verifiedClient.attributes.'post.logout.redirect.uris' -notmatch 'http://localhost/\*') { throw 'Live logout redirect verification failed.' }
-if ($env:SMTP_HOST -and $verifiedRealm.smtpServer.host -ne $env:SMTP_HOST) { throw 'Live SMTP configuration verification failed.' }
+if ($smtpPasswordUsable -and $env:SMTP_HOST -and $verifiedRealm.smtpServer.host -ne $env:SMTP_HOST) { throw 'Live SMTP configuration verification failed.' }
 Write-Output "Updated realm '$realmName' in place. Existing Keycloak user accounts were preserved."
 Write-Output 'Google first-login profile review is disabled; name and phone are optional.'

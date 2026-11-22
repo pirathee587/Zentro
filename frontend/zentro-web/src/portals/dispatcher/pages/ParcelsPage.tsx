@@ -1,89 +1,62 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import { friendlyApiError } from '@/shared/api/apiClient';
+import { useDispatcherParcels, type DispatcherParcel, type ParcelStatus } from '../api/parcelsApi';
+import { useAuth } from '@/shared/auth/useAuth';
+import { decideProofReview, listProofReviews, proofPhotoUrl, type ProofReview } from '../api/proofReviewsApi';
 import './ParcelsPage.css';
 
-export type ParcelStatus =
-  | 'Unassigned'
-  | 'Assigned'
-  | 'Picked up'
-  | 'In transit'
-  | 'Out for delivery'
-  | 'Delivered'
-  | 'Failed';
-
-export interface ParcelItem {
-  reference: string;
-  route: string;
-  status: ParcelStatus;
-  courier: string;
-  weightCategory?: string;
-  weightKg?: string;
-}
-
-/** Default courier options available in the preview assignment dropdown. */
-const COURIER_OPTIONS: string[] = [
-  'Saman Perera',
-  'Kumari Silva',
-  'Ruwan Jayasinghe',
-  'Dilani Fernando',
-  'Nuwan Perera',
-];
+export type { ParcelStatus } from '../api/parcelsApi';
 
 type FilterTab = 'All' | 'Unassigned' | 'Active' | 'Delivered' | 'Failed';
+const ACTIVE_STATUSES: ParcelStatus[] = ['Assigned', 'Picked up', 'In transit', 'Out for delivery'];
+const ASSIGNMENT_LABELS: Record<string, string> = {
+  PENDING_ACCEPTANCE: 'Awaiting courier acceptance',
+  ACCEPTED: 'Accepted by courier',
+};
 
-export interface ParcelsPageProps {
-  /** Seed parcel list — used only by unit tests to inject fixtures. Live UI shows no data. */
-  initialParcels?: ParcelItem[];
-}
-
-export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
-  const seed = initialParcels ?? [];
-  const [parcels, setParcels] = useState<ParcelItem[]>(seed);
+export function ParcelsPage() {
+  const { user } = useAuth();
+  const token = user?.accessToken || '';
+  const client = useQueryClient();
+  const data = useDispatcherParcels();
+  const { parcels } = data;
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedParcel, setSelectedParcel] = useState<ParcelItem | null>(seed[0] ?? null);
-  const [assignCourier, setAssignCourier] = useState(COURIER_OPTIONS[0] ?? '');
-  const [notice, setNotice] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [photo, setPhoto] = useState('');
+  const [proofNotice, setProofNotice] = useState('');
+  const reviews = useQuery({ queryKey: ['proof-reviews', 'PENDING_REVIEW'], enabled: Boolean(token), queryFn: () => listProofReviews('PENDING_REVIEW', token) });
+  const selectedParcel = parcels.find(parcel => parcel.parcelId === selectedId) ?? null;
+  const selectedReview = reviews.data?.find(review => review.parcelId === selectedId) ?? null;
+  const decide = async (review: ProofReview, choice: 'approve' | 'reject') => {
+    if (choice === 'reject' && !rejectionReason.trim()) { setProofNotice('A rejection reason is required.'); return; }
+    try { await decideProofReview(review, choice, token, rejectionReason.trim()); setProofNotice(`Proof ${choice}d.`); setRejectionReason(''); void client.invalidateQueries({ queryKey: ['proof-reviews'] }); void data.refresh(); }
+    catch { setProofNotice('The proof review could not be saved. Refresh and try again.'); }
+  };
+  const loaded = !data.isPending && !data.error;
 
   const filteredParcels = useMemo(() => {
     return parcels.filter((p) => {
-      // Tab filter
       if (activeTab === 'Unassigned' && p.status !== 'Unassigned') return false;
-      if (
-        activeTab === 'Active' &&
-        !['Assigned', 'Picked up', 'In transit', 'Out for delivery'].includes(p.status)
-      )
-        return false;
+      if (activeTab === 'Active' && !ACTIVE_STATUSES.includes(p.status)) return false;
       if (activeTab === 'Delivered' && p.status !== 'Delivered') return false;
       if (activeTab === 'Failed' && p.status !== 'Failed') return false;
 
-      // Search query
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.trim().toLowerCase();
         return (
           p.reference.toLowerCase().includes(q) ||
           p.route.toLowerCase().includes(q) ||
-          p.courier.toLowerCase().includes(q)
+          (p.courier ?? '').toLowerCase().includes(q)
         );
       }
       return true;
     });
   }, [parcels, activeTab, searchQuery]);
-
-  const handleAssign = () => {
-    if (!selectedParcel) return;
-    setParcels((prev) =>
-      prev.map((item) =>
-        item.reference === selectedParcel.reference
-          ? { ...item, status: 'Assigned', courier: assignCourier }
-          : item,
-      ),
-    );
-    setSelectedParcel((prev) =>
-      prev ? { ...prev, status: 'Assigned', courier: assignCourier } : prev,
-    );    setNotice(`Preview updated: ${selectedParcel.reference} → ${assignCourier}. No changes saved.`);
-    setTimeout(() => setNotice(null), 4000);
-  };
 
   const getStatusBadge = (status: ParcelStatus) => {
     switch (status) {
@@ -103,7 +76,6 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
     }
   };
 
-  // Timeline milestone active state calculator
   const isMilestoneReached = (milestone: string, status: ParcelStatus) => {
     const sequence = ['Created', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'];
     const currentIdx =
@@ -122,38 +94,55 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
     return targetIdx <= currentIdx;
   };
 
+  const subtitle = data.isPending
+    ? 'Loading parcels…'
+    : data.error
+      ? 'Parcel totals unavailable'
+      : `${parcels.length} parcels · ${parcels.filter((parcel) => parcel.status === 'Unassigned').length} unassigned${data.isFetching ? ' · Refreshing…' : ''}`;
+
   return (
     <main className="sd-page-container sd-parcels-page">
-      {/* Page Title & Counters */}
       <section className="sd-page-header">
         <div className="sd-page-title-group">
           <h1 className="sd-page-title">Parcels</h1>
-          <p className="sd-page-subtitle">
-            {parcels.length} parcels ·{' '}
-            {parcels.filter((parcel) => parcel.status === 'Unassigned').length} unassigned
-          </p>
+          <p className="sd-page-subtitle" role="status">{subtitle}</p>
         </div>
+        <button
+          type="button"
+          className="sd-filter-pill"
+          disabled={data.isFetching}
+          onClick={() => void data.refresh()}
+        >
+          {data.isFetching ? 'Refreshing…' : 'Refresh'}
+        </button>
       </section>
 
-      <aside className="sd-parcels-preview-note" aria-label="Preview notice">
-        <strong>Preview workspace</strong>
-        <p>
-          These are the existing sample parcels. Courier changes update this preview only and are
-          not saved to the backend.
-        </p>
-        <a href="/dispatcher/queue">Open the live Dispatch Queue for assignments →</a>
-      </aside>
-      {notice && (
-        <div className="sd-flash-notice" role="status">
-          <span>{notice}</span>
+      {data.error && (
+        <div className="sd-parcels-notice is-error" role="alert">
+          <strong>Parcels unavailable</strong>
+          <p>{friendlyApiError(data.error, 'We cannot load dispatcher parcels right now. Parcel totals are unavailable.')}</p>
+          <button type="button" className="sd-btn-yellow" onClick={() => void data.refresh()}>Retry</button>
         </div>
       )}
+      {loaded && data.failedDetails > 0 && (
+        <div className="sd-parcels-notice" role="alert">
+          <strong>Some parcel details are unavailable</strong>
+          <p>
+            Details could not be loaded for {data.failedDetails} parcel{data.failedDetails === 1 ? '' : 's'}. Their
+            status uses dispatch data only.
+          </p>
+          <button type="button" className="sd-btn-yellow" onClick={() => void data.refresh()}>Retry</button>
+        </div>
+      )}
+      {loaded && !data.queueComplete && (
+        <p className="sd-parcels-notice" role="note">
+          The dispatch queue snapshot is incomplete; some unassigned parcels may be missing.
+        </p>
+      )}
+      {proofNotice && <p className="sd-parcels-notice" role="status">{proofNotice}</p>}
 
-      {/* 2-Column Layout */}
       <div className="sd-parcels-layout">
-        {/* Left Column: Filter Pills + Search + Parcels Table */}
         <div className="sd-card sd-parcels-card">
-          {/* Filter Pills */}
           <div className="sd-filter-pills-row" role="tablist" aria-label="Parcel status filters">
             {(['All', 'Unassigned', 'Active', 'Delivered', 'Failed'] as FilterTab[]).map((tab) => (
               <button
@@ -169,7 +158,6 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
             ))}
           </div>
 
-          {/* Search Bar */}
           <div className="sd-search-box">
             <Search size={16} className="sd-search-icon" />
             <input
@@ -182,8 +170,7 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
             />
           </div>
 
-          {/* Parcels Table */}
-          <div className="sd-table-wrap" role="region" aria-label="Parcels table" tabIndex={0}>
+          <div className="sd-table-wrap" role="region" aria-label="Parcels table" aria-busy={data.isFetching} tabIndex={0}>
             <table className="sd-parcels-table">
               <caption className="sr-only">
                 Parcels matching the selected status and search. Select a reference to view details.
@@ -193,23 +180,30 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
                   <th scope="col">Reference</th>
                   <th scope="col">Route</th>
                   <th scope="col">Status</th>
-                  <th scope="col">Courier</th>
+                  <th scope="col">Courier</th><th scope="col">POD review</th>
                 </tr>
               </thead>
               <tbody>
-                {!filteredParcels.length && (
+                {!loaded && (
                   <tr>
-                    <td colSpan={4} className="sd-table-empty">
-                      No parcels match your filters and search.
+                    <td colSpan={5} className="sd-table-empty">
+                      {data.isPending ? 'Loading parcels…' : 'Parcels could not be loaded.'}
                     </td>
                   </tr>
                 )}
-                {filteredParcels.map((parcel) => {
-                  const isSelected = selectedParcel?.reference === parcel.reference;
+                {loaded && !filteredParcels.length && (
+                  <tr>
+                    <td colSpan={5} className="sd-table-empty">
+                      {parcels.length ? 'No parcels match your filters and search.' : 'There are no parcels yet.'}
+                    </td>
+                  </tr>
+                )}
+                {loaded && filteredParcels.map((parcel) => {
+                  const isSelected = selectedParcel?.parcelId === parcel.parcelId;
                   return (
                     <tr
-                      key={parcel.reference}
-                      onClick={() => setSelectedParcel(parcel)}
+                      key={parcel.parcelId}
+                      onClick={() => setSelectedId(parcel.parcelId)}
                       className={`sd-clickable-row ${isSelected ? 'is-selected' : ''}`}
                     >
                       <td className="sd-cell-ref">
@@ -220,7 +214,7 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
                           aria-controls="parcel-detail-panel"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedParcel(parcel);
+                            setSelectedId(parcel.parcelId);
                           }}
                         >
                           {parcel.reference}
@@ -228,7 +222,8 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
                       </td>
                       <td className="sd-cell-route">{parcel.route}</td>
                       <td className="sd-cell-status">{getStatusBadge(parcel.status)}</td>
-                      <td className="sd-cell-courier">{parcel.courier}</td>
+                      <td className="sd-cell-courier">{parcel.courier ?? '—'}</td>
+                      <td>{reviews.data?.some(review => review.parcelId === parcel.parcelId) ? <span className="sd-badge-yellow">Pending review</span> : '—'}</td>
                     </tr>
                   );
                 })}
@@ -237,7 +232,6 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
           </div>
         </div>
 
-        {/* Right Column: Parcel Detail Card */}
         <section
           className="sd-card sd-detail-card"
           id="parcel-detail-panel"
@@ -245,104 +239,7 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
           aria-label="Parcel detail"
         >
           {selectedParcel ? (
-            <>
-              <div className="sd-detail-header">
-                <h2 className="sd-detail-title" id="parcel-detail-title">
-                  Parcel detail
-                </h2>
-                <div className="sd-detail-ref">{selectedParcel.reference}</div>
-                <div className="sd-detail-tags">
-                  <span className="sd-tag-status">{selectedParcel.status}</span>
-                </div>
-              </div>
-
-              <dl className="sd-detail-facts">
-                <div className="sd-detail-route">
-                  <dt>Route</dt>
-                  <dd>{selectedParcel.route}</dd>
-                </div>
-                <div>
-                  <dt>Size</dt>
-                  <dd>{selectedParcel.weightCategory || 'Unavailable'}</dd>
-                </div>
-                <div>
-                  <dt>Weight</dt>
-                  <dd>{selectedParcel.weightKg || 'Unavailable'}</dd>
-                </div>
-              </dl>
-              {/* Courier row */}
-              <div className="sd-detail-courier-row">
-                <span className="sd-courier-label">Courier</span>
-                <span className="sd-courier-val">
-                  {selectedParcel.courier === 'None' ? 'Unassigned' : selectedParcel.courier}
-                </span>
-              </div>
-
-              {/* Stepper Timeline */}
-              <h3 className="sd-timeline-heading">Delivery progress</h3>
-              <div className="sd-timeline-stepper" role="list" aria-label="Delivery progress">
-                {['Created', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'].map(
-                  (step, i, arr) => {
-                    const reached = isMilestoneReached(step, selectedParcel.status);
-                    return (
-                      <div
-                        key={step}
-                        className="sd-stepper-node"
-                        role="listitem"
-                        aria-current={
-                          step === selectedParcel.status ||
-                          (step === 'Created' &&
-                            ['Unassigned', 'Assigned'].includes(selectedParcel.status))
-                            ? 'step'
-                            : undefined
-                        }
-                      >
-                        <div className="sd-node-bullet-col" aria-hidden="true">
-                          <div className={`sd-bullet ${reached ? 'is-reached' : ''}`} />
-                          {i < arr.length - 1 && (
-                            <div className={`sd-bullet-line ${reached ? 'is-reached' : ''}`} />
-                          )}
-                        </div>
-                        <div className="sd-node-text-col">
-                          <span className={`sd-step-name ${reached ? 'is-bold' : ''}`}>{step}</span>
-                          {step === selectedParcel.status && (
-                            <span className="sd-current-step">Current</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-
-              <p className="sd-timeline-note">
-                Progress reflects the selected status. Event timestamps are unavailable.
-              </p>
-              {/* Assign To Section */}
-              <div className="sd-detail-assign-section">
-                <label htmlFor="assign-courier-select" className="sd-assign-label">
-                  Preview courier
-                </label>
-                <div className="sd-assign-actions">
-                  <select
-                    id="assign-courier-select"
-                    className="sd-select"
-                    value={assignCourier}
-                    onChange={(e) => setAssignCourier(e.target.value)}
-                  >
-                    {COURIER_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button type="button" className="sd-btn-yellow" onClick={handleAssign}>
-                    Update preview
-                  </button>
-                </div>
-              </div>
-            </>
+            <ParcelDetailPanel parcel={selectedParcel} review={selectedReview} rejectionReason={rejectionReason} setRejectionReason={setRejectionReason} photo={photo} onPhoto={() => selectedReview && void proofPhotoUrl(selectedReview.id, token).then(setPhoto).catch(() => setProofNotice('Private photo is unavailable.'))} onDecide={decide} isMilestoneReached={isMilestoneReached} />
           ) : (
             <div className="sd-detail-empty">
               <h2 className="sd-detail-title" id="parcel-detail-title">
@@ -354,5 +251,115 @@ export function ParcelsPage({ initialParcels }: ParcelsPageProps = {}) {
         </section>
       </div>
     </main>
+  );
+}
+
+function ParcelDetailPanel({
+  parcel,
+  review,
+  rejectionReason,
+  setRejectionReason,
+  photo,
+  onPhoto,
+  onDecide,
+  isMilestoneReached,
+}: {
+  parcel: DispatcherParcel;
+  review: ProofReview | null;
+  rejectionReason: string;
+  setRejectionReason: (value: string) => void;
+  photo: string;
+  onPhoto: () => void;
+  onDecide: (review: ProofReview, choice: 'approve' | 'reject') => Promise<void>;
+  isMilestoneReached: (milestone: string, status: ParcelStatus) => boolean;
+}) {
+  return (
+    <>
+      <div className="sd-detail-header">
+        <h2 className="sd-detail-title" id="parcel-detail-title">
+          Parcel detail
+        </h2>
+        <div className="sd-detail-ref">{parcel.reference}</div>
+        <div className="sd-detail-tags">
+          <span className="sd-tag-status">{parcel.status}</span>
+        </div>
+      </div>
+
+      <dl className="sd-detail-facts">
+        <div className="sd-detail-route">
+          <dt>Route</dt>
+          <dd>{parcel.route}</dd>
+        </div>
+        <div>
+          <dt>Size</dt>
+          <dd>{parcel.weightCategory || 'Unavailable'}</dd>
+        </div>
+        <div>
+          <dt>Weight</dt>
+          <dd>{parcel.weightKg || 'Unavailable'}</dd>
+        </div>
+      </dl>
+      <div className="sd-detail-courier-row">
+        <span className="sd-courier-label">Courier</span>
+        <span className="sd-courier-val">{parcel.courier ?? 'Unassigned'}</span>
+      </div>
+      {parcel.assignmentStatus && (
+        <p className="sd-timeline-note">
+          {ASSIGNMENT_LABELS[parcel.assignmentStatus] ?? `Assignment ${parcel.assignmentStatus.toLowerCase().replace(/_/g, ' ')}`}
+        </p>
+      )}
+      {!parcel.detailAvailable && (
+        <p className="sd-timeline-note">Parcel details are unavailable; showing dispatch data only.</p>
+      )}
+      <section className="sd-proof-panel">
+        <h3>Proof review</h3>
+        {review ? <><p><span className="sd-badge-yellow">Pending review</span> Recipient: {review.recipientName}</p>
+          <p>Proof reference: {review.proofReference || 'Unavailable'}</p><p>Notes: {review.notes || 'None'}</p>
+          <button onClick={onPhoto}>View proof</button>{photo && <img className="proof-photo" src={photo} alt="Private delivery proof"/>}
+          <input value={rejectionReason} placeholder="Rejection reason" onChange={e => setRejectionReason(e.target.value)}/>
+          <div className="sd-proof-actions"><button className="sd-btn-yellow" onClick={() => void onDecide(review, 'approve')}>Approve</button><button onClick={() => void onDecide(review, 'reject')}>Reject</button></div>
+        </> : <p className="sd-timeline-note">No persisted pending proof review for this parcel.</p>}
+      </section>
+
+      <h3 className="sd-timeline-heading">Delivery progress</h3>
+      <div className="sd-timeline-stepper" role="list" aria-label="Delivery progress">
+        {['Created', 'Picked up', 'In transit', 'Out for delivery', 'Delivered'].map((step, i, arr) => {
+          const reached = isMilestoneReached(step, parcel.status);
+          return (
+            <div
+              key={step}
+              className="sd-stepper-node"
+              role="listitem"
+              aria-current={
+                step === parcel.status ||
+                (step === 'Created' && ['Unassigned', 'Assigned'].includes(parcel.status))
+                  ? 'step'
+                  : undefined
+              }
+            >
+              <div className="sd-node-bullet-col" aria-hidden="true">
+                <div className={`sd-bullet ${reached ? 'is-reached' : ''}`} />
+                {i < arr.length - 1 && <div className={`sd-bullet-line ${reached ? 'is-reached' : ''}`} />}
+              </div>
+              <div className="sd-node-text-col">
+                <span className={`sd-step-name ${reached ? 'is-bold' : ''}`}>{step}</span>
+                {step === parcel.status && <span className="sd-current-step">Current</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="sd-timeline-note">
+        Progress reflects the current parcel status. Event timestamps are unavailable.
+      </p>
+      {parcel.status === 'Unassigned' && (
+        <div className="sd-detail-assign-section">
+          <Link to="/dispatcher/queue" className="sd-btn-yellow">
+            Assign in Dispatch Queue
+          </Link>
+        </div>
+      )}
+    </>
   );
 }

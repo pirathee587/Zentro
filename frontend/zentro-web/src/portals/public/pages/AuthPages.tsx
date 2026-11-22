@@ -364,7 +364,7 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
     }
     setEmailError('');
     if (user && logout) {
-      await logout(`${location.pathname}?login_hint=${encodeURIComponent(value)}`);
+      await logout(`${location.pathname}?login_hint=${encodeURIComponent(value)}&switch_account=1`);
       return;
     }
     void login(from, value, kind);
@@ -392,7 +392,7 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
         <Button
           type="button"
           variant="secondary"
-          onClick={() => void logout?.(location.pathname)}
+          onClick={() => void logout?.(`${location.pathname}?switch_account=1`)}
           style={{
             width: '100%',
             fontSize: '12px',
@@ -401,7 +401,7 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
             borderColor: 'var(--line)',
           }}
         >
-          Sign out current account
+          Switch account
         </Button>
       </div>
     )}

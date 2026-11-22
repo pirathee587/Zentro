@@ -1,3 +1,4 @@
+import { resetSigninRedirectGuardForTests } from '@/shared/auth/AuthProvider';
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -111,6 +112,7 @@ async function expectOutcome(path: string, outcome: Outcome) {
 }
 
 beforeEach(() => {
+  resetSigninRedirectGuardForTests();
   signinSilent.mockRejectedValue(new Error('login_required'));
   signinRedirect.mockResolvedValue(undefined);
   // Pages load their own data; any API call other than the profile gets an empty answer.

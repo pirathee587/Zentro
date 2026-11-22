@@ -201,7 +201,7 @@ describe('TrackView and Tracking Pages', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7');
+      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7', false);
     });
   });
 
@@ -636,7 +636,7 @@ describe('TrackView and Tracking Pages', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7');
+      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7', false);
     });
   });
 

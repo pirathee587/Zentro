@@ -22,14 +22,18 @@ describe('mutation invalidation matrix', () => {
     client.clear();
   });
 
-  it('dispatcher assignment invalidates queue and workload only', async () => {
+  it('dispatcher assignment invalidates queue, workload and dispatcher parcel views only', async () => {
     const client = makeClient();
     client.setQueryData(queryKeys.dispatcher.queue({ sort: 'newest' }), []);
     client.setQueryData(queryKeys.dispatcher.workload({ search: 'courier' }), []);
+    client.setQueryData(queryKeys.dispatcher.assignments('account-x'), []);
+    client.setQueryData(queryKeys.dispatcher.parcel('parcel-1', 'account-x'), {});
     client.setQueryData(queryKeys.customer.dashboard(), {});
     await invalidateAfterDispatchAssignment(client);
     expect(client.getQueryState(queryKeys.dispatcher.queue({ sort: 'newest' }))?.isInvalidated).toBe(true);
     expect(client.getQueryState(queryKeys.dispatcher.workload({ search: 'courier' }))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(queryKeys.dispatcher.assignments('account-x'))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(queryKeys.dispatcher.parcel('parcel-1', 'account-x'))?.isInvalidated).toBe(true);
     expect(client.getQueryState(queryKeys.customer.dashboard())?.isInvalidated).toBe(false);
     client.clear();
   });

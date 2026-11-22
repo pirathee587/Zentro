@@ -5,6 +5,7 @@ import com.zentro.identitypartner.user.audit.UserAdminAuditRecord.Action;
 import com.zentro.identitypartner.user.dto.AdminUpdateUserRequest;
 import com.zentro.identitypartner.user.dto.UpdateUserProfileRequest;
 import com.zentro.identitypartner.user.dto.UserProfile;
+import com.zentro.identitypartner.user.exception.AccountIdentityConflictException;
 import com.zentro.identitypartner.user.exception.InvalidUserInputException;
 import com.zentro.identitypartner.user.exception.UserNotFoundException;
 import com.zentro.identitypartner.user.repository.UserAdminAuditRepository;
@@ -83,6 +84,7 @@ public class UserProfileService {
     if (subject == null || subject.isBlank()) {
       throw new IllegalArgumentException("The access token has no subject.");
     }
+    rejectSecondProfileForEmail(subject, jwt.getClaimAsString("email"));
     jdbc.update("""
         INSERT INTO identity.app_user (keycloak_subject, email, display_name, phone)
         VALUES (?, ?, ?, ?)
@@ -99,6 +101,28 @@ public class UserProfileService {
       roleSyncer.syncBySubject(subject, true);
     }
     return profile;
+  }
+
+  /**
+   * First sign-in of a Keycloak identity must not create a second business profile for an email that
+   * another identity already owns (for example a Google sign-in created by a different Keycloak instance).
+   * A transaction-scoped advisory lock per normalized email serializes concurrent first sign-ins without
+   * a schema change; existing profiles (including historical duplicates) are left untouched.
+   */
+  static final String EMAIL_LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))";
+  static final String HAS_PROFILE_SQL = "SELECT 1 FROM identity.app_user WHERE keycloak_subject = ? LIMIT 1";
+  static final String EMAIL_OWNED_ELSEWHERE_SQL =
+      "SELECT 1 FROM identity.app_user WHERE LOWER(email) = ? AND keycloak_subject <> ? LIMIT 1";
+
+  private void rejectSecondProfileForEmail(String subject, String rawEmail) {
+    if (rawEmail == null || rawEmail.isBlank()) return;
+    String email = rawEmail.trim().toLowerCase(java.util.Locale.ROOT);
+    jdbc.queryForList(EMAIL_LOCK_SQL, "identity.app_user.email:" + email);
+    if (!jdbc.queryForList(HAS_PROFILE_SQL, subject).isEmpty()) return;
+    if (!jdbc.queryForList(EMAIL_OWNED_ELSEWHERE_SQL, email, subject).isEmpty()) {
+      log.warn("Refused a second profile for an email already owned by another identity (subject {}).", subject);
+      throw new AccountIdentityConflictException();
+    }
   }
 
   @Transactional

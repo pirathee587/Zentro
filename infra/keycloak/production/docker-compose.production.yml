@@ -1,0 +1,91 @@
+# PREPARED, NOT DEPLOYED. Single always-on Keycloak 26.8.1 for every Zentro environment.
+# Runs on ONE small VM next to the shared Supabase Keycloak database (schema "keycloak").
+# Secrets come only from ./.env.production on the server (never committed). See README.md.
+#
+# Rules:
+#  - This must be the ONLY Keycloak process connected to the shared database. Stop every laptop
+#    Keycloak that still points at it before starting this one.
+#  - No --import-realm: the "zentro" realm already lives in the shared database.
+
+name: zentro-identity
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    container_name: zentro-keycloak-prod
+    command: ["start"]
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      # Database: Supabase session pooler (port 5432). Never the transaction pooler (6543).
+      KC_DB: postgres
+      KC_DB_SCHEMA: keycloak
+      KC_DB_POOL_MIN_SIZE: "2"
+      KC_DB_POOL_MAX_SIZE: "10"
+      # Public identity: the issuer every service and the frontend will trust.
+      KC_HOSTNAME: ${KC_PUBLIC_URL:?set KC_PUBLIC_URL in .env.production}
+      KC_HOSTNAME_STRICT: "true"
+      # TLS terminates at Caddy; Keycloak listens on plain HTTP inside the private Docker network only.
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      # Single node. Switch to the default "ispn" cache (JDBC_PING) only when adding a second node.
+      KC_CACHE: local
+      KC_LOG_LEVEL: info
+      KC_SPI_THEME_CACHE_THEMES: "true"
+      KC_SPI_THEME_CACHE_TEMPLATES: "true"
+      JAVA_OPTS_APPEND: "-XX:MaxRAMPercentage=70 -XX:ActiveProcessorCount=2"
+    volumes:
+      # Zentro login theme, deployed read-only from this repository's infra/keycloak/themes.
+      - ./themes:/opt/keycloak/themes:ro
+    expose:
+      - "8080"   # HTTP for Caddy only (not published to the host)
+      - "9000"   # management: health + metrics, never published
+    healthcheck:
+      # The Keycloak image has no curl; use bash /dev/tcp against the management port.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1400m
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+    networks: [identity]
+
+  caddy:
+    image: caddy:2.8.4
+    container_name: zentro-identity-proxy
+    restart: unless-stopped
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KC_PUBLIC_HOST: ${KC_PUBLIC_HOST:?set KC_PUBLIC_HOST in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.production}
+      ADMIN_ALLOW_CIDRS: ${ADMIN_ALLOW_CIDRS:?set ADMIN_ALLOW_CIDRS in .env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # Let's Encrypt certificates and account keys (persist across restarts)
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }
+    networks: [identity]
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  identity:
+    name: zentro-identity

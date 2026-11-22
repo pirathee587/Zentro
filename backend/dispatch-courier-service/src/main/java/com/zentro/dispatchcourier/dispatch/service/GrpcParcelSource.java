@@ -12,13 +12,11 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /** Reads the authoritative parcel state from S2 over its SERVICE-authenticated gRPC API. */
 @Component
-@Primary
 public class GrpcParcelSource implements ParcelSource {
   private static final Logger log = LoggerFactory.getLogger(GrpcParcelSource.class);
   private final ParcelPricingGrpcClient parcels;

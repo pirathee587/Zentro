@@ -30,6 +30,14 @@ class ParcelClaimPostgresTest {
  ParcelClaimService.Claim finish(UUID id,String mode,boolean commit){return tx.execute(s->service.finish(id,new ParcelClaimService.Request(parcel,mode),"dispatcher","synthetic-token",commit));}
  @Test void eligibleAcquisitionIsIdempotentAndMinimizesData(){var id=operation("ASSIGN","PREPARED");var first=acquire(id,"ASSIGN");var again=acquire(id,"ASSIGN");assertThat(again).isEqualTo(first);assertThat(first.parcel().parcelId()).isEqualTo(parcel);assertThat(jdbc.queryForObject("SELECT count(*) FROM parcel.assignment_claim",Integer.class)).isEqualTo(1);}
  @Test void unspecifiedPolicyFailsClosed(){service=new ParcelClaimService(jdbc,outcomes,"");assertThatThrownBy(service::candidates).isInstanceOf(ResponseStatusException.class);var id=operation("ASSIGN","PREPARED");assertThatThrownBy(()->acquire(id,"ASSIGN")).isInstanceOf(ResponseStatusException.class);}
+ @Test void explicitlyEligibleCreatedCustomerOrderIsReturnedAsDispatcherCandidate(){
+   jdbc.update("UPDATE parcel.parcel SET status='CREATED' WHERE id=?",parcel);
+   service=new ParcelClaimService(jdbc,outcomes,"CREATED");
+   var snapshot=service.candidates();
+   assertThat(snapshot.complete()).isTrue();
+   assertThat(snapshot.parcels()).extracting(ParcelClaimService.Candidate::parcelId).containsExactly(parcel);
+   assertThat(snapshot.parcels().getFirst().trackingReference()).isEqualTo("SYNTHETIC");
+ }
  @Test void createdAndTerminalParcelsAreNotImplicitCandidates(){for(String state:List.of("CREATED","DELIVERED","FAILED")){jdbc.update("UPDATE parcel.parcel SET status=? WHERE id=?",state,parcel);var id=operation("ASSIGN","PREPARED");assertThatThrownBy(()->acquire(id,"ASSIGN")).isInstanceOf(ResponseStatusException.class);}assertThat(service.candidates().parcels()).isEmpty();}
  @Test void missingParcelRejected(){jdbc.update("DELETE FROM parcel.parcel WHERE id=?",parcel);var id=operation("ASSIGN","PREPARED");assertThatThrownBy(()->acquire(id,"ASSIGN")).isInstanceOfSatisfying(ResponseStatusException.class,e->assertThat(e.getStatusCode().value()).isEqualTo(404));}
  @Test void concurrentClaimsAllowOnlyOneOwner() throws Exception {var a=operation("ASSIGN","PREPARED");var b=operation("ASSIGN","PREPARED");var start=new CountDownLatch(1);try(var pool=Executors.newFixedThreadPool(2)){var results=new ArrayList<Future<Boolean>>();for(var id:List.of(a,b))results.add(pool.submit(()->{start.await();try{acquire(id,"ASSIGN");return true;}catch(ResponseStatusException conflict){return false;}}));start.countDown();int wins=0;for(var f:results)if(f.get(10,TimeUnit.SECONDS))wins++;assertThat(wins).isEqualTo(1);}}

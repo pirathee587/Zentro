@@ -88,6 +88,8 @@ class AssignmentToCourierScenarioTest {
 
   @Autowired TestRestTemplate http;
   @Autowired JdbcTemplate jdbc;
+  // Ownership scenarios isolate S2 enrichment; no live parcel-service connection.
+  @MockBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
   @Autowired AssignmentRepository assignments;
   @Autowired ObjectMapper json;
   @MockBean JwtDecoder decoder;
@@ -97,7 +99,7 @@ class AssignmentToCourierScenarioTest {
   @BeforeEach void setup() throws Exception {
     when(serviceTokens.token()).thenReturn("test-service-token");
     http.getRestTemplate().setRequestFactory(new JdkClientHttpRequestFactory());
-    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
+    jdbc.execute("TRUNCATE dispatch.proof_completion_attempt, dispatch.proof_review_audit, dispatch.proof_review, dispatch.proof_revision, dispatch.proof_upload_stage, dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
     for (String role : List.of("CUSTOMER", "MERCHANT", "COURIER")) token(role.toLowerCase(), role, false);
     token(ROLE_ONLY, "DISPATCHER", false);
     token("dispatcher", "DISPATCHER", true);

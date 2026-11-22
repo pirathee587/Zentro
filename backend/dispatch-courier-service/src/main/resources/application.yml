@@ -26,6 +26,9 @@ zentro:
     grpc-host: ${IDENTITY_GRPC_HOST:zentro-identity-partner-service}
     grpc-port: ${IDENTITY_GRPC_PORT:9081}
   pod:
+    # S2 owns assignment candidate eligibility and claim state. In Compose this
+    # must resolve to the S2 service DNS name, never this container's localhost.
+    parcel-base-url: ${PARCEL_BASE_URL:http://localhost:8082}
     parcel-grpc-host: ${PARCEL_GRPC_HOST:zentro-parcel-pricing-service}
     parcel-grpc-port: ${PARCEL_GRPC_PORT:9082}
     token-uri: ${POD_TOKEN_URI:}

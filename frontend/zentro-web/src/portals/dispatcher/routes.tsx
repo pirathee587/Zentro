@@ -1,6 +1,7 @@
 import type { RouteObject } from 'react-router-dom';
 import { DispatcherLayout } from './layout/DispatcherLayout';
 import { DispatchQueuePage } from './pages/DispatchQueuePage';
+import { ProofReviewsPage } from './pages/ProofReviewsPage';
 import {
   DispatchControlPage,
   ParcelsPage,
@@ -29,6 +30,7 @@ export const portalRoutes: RouteObject[] = [
       { path: 'partner-approvals', element: <MerchantApprovalsPage /> },
       { path: 'zones-pricing', element: <ZonesPricingPage /> },
       { path: 'integration-attempts', element: <IntegrationAttemptsPage /> },
+      { path: 'proof-reviews', element: <ProofReviewsPage /> },
     ],
   },
 ];

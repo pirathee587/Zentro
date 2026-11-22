@@ -5,6 +5,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.zentro.dispatchcourier.courier.service.IdentityCourierClient;
+import com.zentro.dispatchcourier.dispatch.coordination.AssignmentOperationStore;
+import com.zentro.dispatchcourier.dispatch.coordination.CoordinatedParcelSource;
+import com.zentro.dispatchcourier.dispatch.coordination.ParcelClaimClient;
 import com.zentro.dispatchcourier.dispatch.repository.AssignmentRepository;
 import com.zentro.dispatchcourier.exception.DispatchException;
 import java.time.Instant;
@@ -89,6 +92,29 @@ class DispatchServiceTest {
     when(source.eligibleParcels("token")).thenReturn(new ParcelSource.Snapshot(List.of(parcel), false));
     var queue = service.queue("token", "", null, null, "newest");
     assertThat(queue.total()).isNull(); assertThat(queue.matchingTotal()).isNull();
+  }
+
+  @Test void newlyCreatedCustomerOrderFromS2AppearsInDispatcherQueue() {
+    UUID newParcelId = UUID.randomUUID();
+    String dispatcherToken = "synthetic-dispatcher-token";
+    var newOrder = new ParcelSource.Parcel(newParcelId, "ZT-NEW-ORDER", "Colombo", "Kandy",
+        Instant.parse("2026-11-20T10:00:00Z"));
+    var claims = mock(ParcelClaimClient.class);
+    when(claims.candidates(dispatcherToken)).thenReturn(new ParcelSource.Snapshot(List.of(newOrder), true));
+    var coordinatedSource = new CoordinatedParcelSource(
+        mock(AssignmentOperationStore.class), claims, mock(org.springframework.security.oauth2.jwt.JwtDecoder.class));
+    var dispatchAssignments = mock(AssignmentRepository.class);
+    when(dispatchAssignments.assignedIds(List.of(newParcelId))).thenReturn(Set.of());
+    var dispatchService = new DispatchService(coordinatedSource, dispatchAssignments, identity);
+
+    var queue = dispatchService.queue(dispatcherToken, "", null, null, "newest");
+
+    assertThat(queue.complete()).isTrue();
+    assertThat(queue.total()).isEqualTo(1);
+    assertThat(queue.items()).containsExactly(newOrder);
+    verify(claims).candidates(dispatcherToken);
+    assertThat(CoordinatedParcelSource.class.isAnnotationPresent(org.springframework.context.annotation.Primary.class))
+        .isTrue();
   }
 
   @Test void rejectsDuplicateSourceIdsInsteadOfInflatingTotals() {

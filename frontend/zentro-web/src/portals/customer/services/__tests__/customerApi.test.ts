@@ -78,6 +78,16 @@ describe('customer API gateway integration without production mock fallbacks', (
     expect(record?.sender.phone).toBe(''); expect(record?.parcel.weightKg).toBeUndefined();
     expect(record?.fee).toBeUndefined(); expect(record?.sender.city).toBe('');
   });
+  it('uses public tracking for a courier browser session instead of the customer-only lookup', async () => {
+    server.use(http.post('*/graphql', async ({request})=>{
+      const body=await request.json() as {query:string;variables:unknown};
+      expect(body.query).toContain('publicTracking');
+      expect(body.query).not.toContain('customerDelivery');
+      return HttpResponse.json({data:{publicTracking:{trackingRef:booking.trackingRef,status:'CREATED',createdAt:booking.createdAt,events:[]}}});
+    }));
+    const record=await getParcel(booking.trackingRef, true);
+    expect(record?.trackingRef).toBe(booking.trackingRef);
+  });
   it('does not bypass a private GraphQL service outage through public tracking', async () => {
     server.use(http.post('*/graphql',()=>HttpResponse.error()));
     await expect(getParcel(booking.trackingRef)).rejects.toBeDefined();

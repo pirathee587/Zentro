@@ -64,6 +64,15 @@ class TrackingKafkaConsumerTest {
         .isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
   }
 
+  @Test void assignmentDatabaseFailureIsRetriedInsteadOfAcknowledged() {
+    String message = "{\"eventId\":\"" + id + "\",\"aggregateId\":\"" + UUID.randomUUID()
+        + "\",\"payload\":{\"newCourierId\":\"courier\"}}";
+    when(processed.claim(anyString(), eq(id))).thenThrow(
+        new org.springframework.dao.DataAccessResourceFailureException("synthetic outage"));
+    assertThatThrownBy(() -> consumer.onAssignmentEvent(message, "delivery.assigned", null))
+        .isInstanceOf(org.springframework.dao.DataAccessResourceFailureException.class);
+  }
+
   @Test void unknownVersionTypeStatusWrongTypesAndOversizeAreSkipped() throws Exception {
     String v = valid();
     for (String value : new String[]{v + " {}", v.replace("\"eventId\":", "\"eventId\":\"duplicate-value\",\"eventId\":"),

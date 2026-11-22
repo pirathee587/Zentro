@@ -58,6 +58,8 @@ class GatewayCourierOwnershipIntegrationTest {
   }
   @LocalServerPort int s3Port;
   @Autowired JdbcTemplate jdbc;
+  // Ownership scenarios isolate S2 enrichment; no live parcel-service connection.
+  @MockBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
   @MockBean IdentityCourierClient identity;
   static Process gateway;
   int gatewayPort;
@@ -70,7 +72,7 @@ class GatewayCourierOwnershipIntegrationTest {
         .path("access_token").asText();
     for (String name : List.of("a", "b", "DISPATCHER", "CUSTOMER", "MERCHANT", "SERVICE"))
       tokens.put(name, createClient(admin, name, name.length() == 1 ? "COURIER" : name));
-    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.delivery_assignment");
+    jdbc.execute("TRUNCATE dispatch.proof_completion_attempt, dispatch.proof_review_audit, dispatch.proof_review, dispatch.proof_revision, dispatch.proof_upload_stage, dispatch.proof_of_delivery, dispatch.delivery_assignment");
     for (String name : List.of("a", "b")) {
       var courier = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "Synthetic Courier", true, "ACTIVE");
       when(identity.currentCourier(tokens.get(name))).thenReturn(courier);

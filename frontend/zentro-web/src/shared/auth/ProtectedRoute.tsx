@@ -9,7 +9,8 @@ export function ProtectedRoute() {
     if (!user) {
       const path = location.pathname;
       const entryPoint = /^\/(admin|courier|dispatcher|staff)(\/|$)/.test(path) ? 'staff' : path.startsWith('/merchant') ? 'merchant' : 'customer';
-      void login(path + location.search, undefined, entryPoint);
+      // Reuse a still-valid Keycloak session; login() keeps forcing credentials after an explicit sign-out.
+      void login(path + location.search, undefined, entryPoint, undefined, { reauthenticate: false });
     }
   }, [login, location.pathname, location.search, user]);
   return user ? <Outlet /> : <main className="screen-loading">Redirecting to sign in...</main>;

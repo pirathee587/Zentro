@@ -53,6 +53,22 @@ class TrackingPostgresIntegrationTest {
   @Autowired private TrackingService trackingService;
   @Autowired private JdbcTemplate jdbcTemplate;
   @MockBean private JwtDecoder jwtDecoder;
+  @MockBean private com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
+
+  @org.junit.jupiter.api.BeforeEach void isolateS2Boundary() {
+    // This suite verifies S4 PostgreSQL ordering/privacy. Supply its persisted facts at the
+    // external S2 boundary; production public reads remain authoritative S2 calls.
+    org.mockito.Mockito.when(bookings.publicTracking(org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
+      var p = trackingService.getPublicTracking(call.getArgument(0));
+      return new com.zentro.trackingreporting.graphql.dto.PublicTrackingParcelDto(
+          p.trackingRef(), TrackingStatus.fromString(p.rawStatus()), p.rawStatus(), p.category(), p.size(),
+          p.description(), p.originCity(), p.destinationCity(), p.estimatedDays(),
+          p.estimatedDeliveryDate() == null ? null : p.estimatedDeliveryDate().toString(),
+          p.createdAt() == null ? null : p.createdAt().toString(),
+          p.deliveredAt() == null ? null : p.deliveredAt().toString(), p.failureReason(), p.events());
+    });
+  }
+
 
   @Test
   @DisplayName("Full tracking lifecycle: creates parcel, records out-of-order events, queries in chronological order")
