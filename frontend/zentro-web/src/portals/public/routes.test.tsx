@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryRouter, useRoutes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { portalRoutes } from './routes';
+import { portalRoutes } from '@/app/publicRoutes';
 import { server } from '@/shared/testing/mocks/server';
 
 function PublicPortal() {

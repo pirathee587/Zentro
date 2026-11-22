@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, feature/merchant-portal-integration, test/full-ui-flow-check]
   pull_request:
     branches: [develop, main]
 

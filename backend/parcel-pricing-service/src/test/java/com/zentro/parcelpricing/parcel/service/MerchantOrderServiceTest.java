@@ -30,7 +30,10 @@ import com.zentro.parcelpricing.exception.PricingUnavailableException;
 import com.zentro.parcelpricing.parcel.service.MerchantOrderService.OrderResult;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -249,6 +252,53 @@ class MerchantOrderServiceTest {
 
     assertThat(service.findById(id, "merchant-abc")).isPresent();
     assertThat(service.findById(id, "merchant-other")).isEmpty();
+  }
+
+  @Test
+  @DisplayName("Order summary uses the authenticated merchant and current UTC month status counts")
+  void summaryUsesMerchantScopedUtcMonthCounts() {
+    when(repository.countStatusesByMerchantSince(eq("merchant-abc"), any()))
+        .thenReturn(Map.of("CREATED", 3L, "DELIVERED", 2L, "FAILED", 1L, "IN_TRANSIT", 4L));
+
+    var summary = service.summary("merchant-abc");
+
+    assertThat(summary.totalOrders()).isEqualTo(10);
+    assertThat(summary.deliveredOrders()).isEqualTo(2);
+    assertThat(summary.failedOrders()).isEqualTo(1);
+    assertThat(summary.statusCounts()).containsEntry("IN_TRANSIT", 4L);
+    ArgumentCaptor<OffsetDateTime> start = ArgumentCaptor.forClass(OffsetDateTime.class);
+    verify(repository).countStatusesByMerchantSince(eq("merchant-abc"), start.capture());
+    assertThat(start.getValue()).isEqualTo(YearMonth.now(ZoneOffset.UTC).atDay(1)
+        .atStartOfDay().atOffset(ZoneOffset.UTC));
+  }
+
+  @Test
+  @DisplayName("Billing reads only the selected merchant month and sums persisted quoted fees")
+  void billingUsesBoundedMerchantMonthAndPersistedFees() {
+    YearMonth month = YearMonth.of(2026, 3);
+    when(repository.listByMerchantBetween(eq("merchant-abc"), any(), any())).thenReturn(List.of(
+        billingOrder("ORD-BILL-1", new BigDecimal("125.50"), "LKR"),
+        billingOrder("ORD-BILL-2", new BigDecimal("80.00"), "LKR")));
+
+    var billing = service.billingSummary("merchant-abc", month);
+
+    assertThat(billing.month()).isEqualTo("2026-03");
+    assertThat(billing.orderCount()).isEqualTo(2);
+    assertThat(billing.quotedFeeTotal()).isEqualByComparingTo("205.50");
+    assertThat(billing.currency()).isEqualTo("LKR");
+    ArgumentCaptor<OffsetDateTime> start = ArgumentCaptor.forClass(OffsetDateTime.class);
+    ArgumentCaptor<OffsetDateTime> end = ArgumentCaptor.forClass(OffsetDateTime.class);
+    verify(repository).listByMerchantBetween(eq("merchant-abc"), start.capture(), end.capture());
+    assertThat(start.getValue()).isEqualTo(OffsetDateTime.parse("2026-03-01T00:00:00Z"));
+    assertThat(end.getValue()).isEqualTo(OffsetDateTime.parse("2026-04-01T00:00:00Z"));
+  }
+
+  private static MerchantOrder billingOrder(String externalRef, BigDecimal fee, String currency) {
+    var contact = new MerchantOrder.Contact("Merchant test", "0770000000", "Test address", "Colombo");
+    return new MerchantOrder(UUID.randomUUID(), "ZT-TEST123456", "merchant-abc", externalRef,
+        contact, contact, new BigDecimal("1.00"), ParcelSize.SMALL, "General", null,
+        DestinationType.SAME_CITY, false, null, fee, currency, 1, ParcelStatus.CREATED, "test-hash",
+        OffsetDateTime.parse("2026-03-15T10:00:00Z"), OffsetDateTime.parse("2026-03-15T10:00:00Z"));
   }
 
   private static CreateMerchantOrderRequest sampleRequest(String externalRef) {

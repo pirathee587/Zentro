@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -14,6 +14,15 @@ import type { ProofResponse } from '../../api/deliveryApi';
 import { CourierLayout } from '../../layout/CourierLayout';
 import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
 import { dashboardDelivery, dashboardEnvelope, dashboardFixture } from './dashboardFixtures';
+
+// MSW uses Node's Request parser; use matching native multipart constructors
+// instead of jsdom Blob/File objects, which Node cannot stream.
+beforeAll(async () => {
+  const form = await new Request('http://localhost', { method: 'POST', body: '', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }).formData();
+  vi.stubGlobal('FormData', form.constructor);
+  vi.stubGlobal('File', (await import('node:buffer')).File);
+});
+afterAll(() => vi.unstubAllGlobals());
 
 const parcelId = '11111111-1111-4111-8111-111111111111';
 const root = `*/api/v1/courier/deliveries`;
@@ -40,6 +49,7 @@ function renderPages(path = `/courier/deliveries/${parcelId}`) {
 function fillForm() {
   fireEvent.change(screen.getByLabelText(/Recipient Name/), { target: { value: ' Nimal ' } });
   fireEvent.change(screen.getByLabelText(/Proof Reference/), { target: { value: ' REF-1 ' } });
+  fireEvent.change(screen.getByLabelText(/Delivery photo/), { target: { files: [new File([new Uint8Array([255, 216, 255, 0])], 'delivery.jpg', { type: 'image/jpeg' })] } });
 }
 
 // Keep the same router and query cache while changing the authenticated account.
@@ -61,14 +71,21 @@ function renderSession(path = '/courier') {
 }
 beforeEach(() => {
   currentProof = null; requests = 0; submitted = undefined;
+  URL.createObjectURL = vi.fn(() => 'blob:delivery-preview');
+  URL.revokeObjectURL = vi.fn();
   server.use(
     http.post('*/graphql', () => HttpResponse.json(dashboardEnvelope())),
     http.get(root, () => HttpResponse.json([summary])),
     http.get(`${root}/${parcelId}`, () => HttpResponse.json(summary)),
     http.get(`${root}/${parcelId}/proof`, () => currentProof ? HttpResponse.json(currentProof)
       : HttpResponse.json({ code: 'PROOF_NOT_FOUND' }, { status: 404 })),
-    http.post(`${root}/${parcelId}/proof`, async ({ request }) => {
-      requests++; submitted = await request.json(); currentProof = savedProof;
+    http.post(`${root}/${parcelId}/proof-photo`, async ({ request }) => {
+      requests++;
+      const form = await request.formData();
+      submitted = { recipientName: form.get('recipientName'), notes: form.get('notes'), proofReference: form.get('proofReference') };
+      expect(form.get('photo')).toBeInstanceOf(File);
+      expect(request.headers.get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
+      currentProof = savedProof;
       return HttpResponse.json(savedProof, { status: 201 });
     }),
   );
@@ -150,7 +167,7 @@ describe('courier delivery pages', () => {
   it.each(['COMPLETED', 'REJECTED', 'BLOCKED'] as const)('polls PENDING proof to %s', async state => {
     currentProof = savedProof;
     renderPages();
-    await screen.findByText('Proof recorded. Delivery completion is pending confirmation.');
+    await screen.findByText(/pending dispatcher review/);
     currentProof = { ...savedProof, completionState: state, completedAt: state === 'COMPLETED' ? '2026-11-04T11:01:00Z' : null };
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(
       state === 'COMPLETED' ? 'Delivery completed' : 'Contact dispatch'), { timeout: 4500 });
@@ -168,7 +185,7 @@ describe('courier delivery pages', () => {
   it('lists authorized deliveries and navigates to details', async () => {
     renderPages('/courier');
     fireEvent.click(await screen.findByRole('link', { name: 'View delivery' }));
-    expect(await screen.findByRole('heading', { name: 'Delivery details' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'ZT-7K3QX9M2PA' })).toBeInTheDocument();
     expect(await screen.findByLabelText(/Recipient Name/)).toBeInTheDocument();
   });
   it('shows a meaningful empty assignment state', async () => {
@@ -192,12 +209,12 @@ describe('courier delivery pages', () => {
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
     expect(await screen.findByRole('heading', { name: 'Saved proof' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('pending confirmation');
+    expect(screen.getByRole('status')).toHaveTextContent('pending dispatcher review');
     expect(submitted).toEqual({ recipientName: 'Nimal', notes: null, proofReference: 'REF-1' });
     expect(screen.queryByRole('button', { name: 'Submit proof' })).not.toBeInTheDocument();
   });
   it('prevents duplicate clicks while the request is active', async () => {
-    server.use(http.post(`${root}/${parcelId}/proof`, async () => {
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, async () => {
       requests++; await delay(100); currentProof = savedProof; return HttpResponse.json(savedProof);
     }));
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
@@ -226,20 +243,20 @@ describe('courier delivery pages', () => {
     expect(screen.queryByText('Nimal')).not.toBeInTheDocument();
   });
   it('preserves entries and displays backend validation errors', async () => {
-    server.use(http.post(`${root}/${parcelId}/proof`, () => HttpResponse.json({ fieldErrors: { proofReference: 'Reference is invalid.' } }, { status: 400 })));
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, () => HttpResponse.json({ fieldErrors: { proofReference: 'Reference is invalid.' } }, { status: 400 })));
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
     expect(await screen.findByText('Check this field.')).toBeInTheDocument();
     expect(screen.getByLabelText(/Recipient Name/)).toHaveValue(' Nimal ');
   });
   it('reconciles a lost POST response and never resubmits saved evidence', async () => {
-    server.use(http.post(`${root}/${parcelId}/proof`, () => { requests++; currentProof = savedProof; return HttpResponse.error(); }));
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, () => { requests++; currentProof = savedProof; return HttpResponse.error(); }));
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
     expect(await screen.findByRole('heading', { name: 'Saved proof' })).toBeInTheDocument(); expect(requests).toBe(1);
   });
   it('shows conflict guidance without overwriting entries', async () => {
-    server.use(http.post(`${root}/${parcelId}/proof`, () => HttpResponse.json({ code: 'PROOF_CONFLICT' }, { status: 409 })));
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, () => HttpResponse.json({ code: 'PROOF_CONFLICT' }, { status: 409 })));
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit proof' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('different evidence');
@@ -301,7 +318,7 @@ describe('assigned-delivery access and recovery', () => {
     expect(await screen.findByText('ZT-RETRY-42')).toBeInTheDocument();
   });
   it.each([400, 422])('maps %s field errors without echoing server input', async status => {
-    server.use(http.post(`${root}/${parcelId}/proof`, () => HttpResponse.json({ fieldErrors: {
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, () => HttpResponse.json({ fieldErrors: {
       recipientName: 'Rejected PRIVATE-VALUE', notes: 'PRIVATE-NOTE', unrelated: 'PRIVATE-OTHER',
     } }, { status })));
     renderPages(); await screen.findByLabelText(/Recipient Name/); fillForm();
@@ -311,7 +328,7 @@ describe('assigned-delivery access and recovery', () => {
     expect(document.body.textContent).not.toContain('PRIVATE-');
   });
   it.each(['network', '503'])('never automatically repeats a POST after %s', async failure => {
-    server.use(http.post(`${root}/${parcelId}/proof`, () => {
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, () => {
       requests++;
       return failure === 'network' ? HttpResponse.error() : HttpResponse.json({}, { status: 503 });
     }));
@@ -371,7 +388,7 @@ describe('proof ownership changes during submission', () => {
     let started!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const sending = new Promise<void>(resolve => { started = resolve; });
-    server.use(http.post(`${root}/${parcelId}/proof`, async () => {
+    server.use(http.post(`${root}/${parcelId}/proof-photo`, async () => {
       started(); await gate; return HttpResponse.json(savedProof, { status: 201 });
     }));
     const session = renderSession(`/courier/deliveries/${parcelId}`);

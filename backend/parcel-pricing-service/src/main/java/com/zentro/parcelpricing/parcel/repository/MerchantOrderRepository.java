@@ -10,9 +10,12 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -96,6 +99,20 @@ public class MerchantOrderRepository {
     return jdbc.query(
         "SELECT " + COLUMNS + " FROM parcel.parcel WHERE merchant_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
         ROW_MAPPER, merchantId, limit);
+  }
+
+  public Map<String, Long> countStatusesByMerchantSince(String merchantId, OffsetDateTime since) {
+    Map<String, Long> counts = new LinkedHashMap<>();
+    RowCallbackHandler callback = rs -> counts.put(rs.getString("status"), rs.getLong("total"));
+    jdbc.query("SELECT status, COUNT(*) AS total FROM parcel.parcel WHERE merchant_id = ? AND created_at >= ? AND created_at < ? GROUP BY status",
+        callback, merchantId, since, since.plusMonths(1));
+    return counts;
+  }
+
+  public List<MerchantOrder> listByMerchantBetween(String merchantId, OffsetDateTime startInclusive,
+      OffsetDateTime endExclusive) {
+    return jdbc.query("SELECT " + COLUMNS + " FROM parcel.parcel WHERE merchant_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at DESC, id DESC",
+        ROW_MAPPER, merchantId, startInclusive, endExclusive);
   }
 
   public static boolean isTrackingRefCollision(DuplicateKeyException ex) {

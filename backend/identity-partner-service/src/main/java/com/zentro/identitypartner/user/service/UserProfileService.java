@@ -59,6 +59,13 @@ public class UserProfileService {
     this(jdbc, audit, null, null);
   }
 
+  public UserProfileService(
+      JdbcTemplate jdbc,
+      UserAdminAuditRepository audit,
+      com.zentro.identitypartner.merchant.service.KeycloakMerchantRoleSyncer roleSyncer) {
+    this(jdbc, audit, roleSyncer, null);
+  }
+
   @org.springframework.beans.factory.annotation.Autowired
   public UserProfileService(
       JdbcTemplate jdbc,

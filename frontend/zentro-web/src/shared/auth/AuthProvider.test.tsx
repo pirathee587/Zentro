@@ -125,6 +125,19 @@ describe('OIDC callback processing', () => {
     cancel.mockRestore();
   });
 
+  it('refreshes a pre-approval token once and requires the renewed MERCHANT role', async () => {
+    window.history.replaceState({}, '', '/merchant/dashboard');
+    getUser.mockResolvedValue({ expired: false, access_token: 'pre-approval-token', profile: { sub: 'merchant-id', realm_access: { roles: ['CUSTOMER'] } } });
+    vi.mocked(apiClient.get).mockResolvedValueOnce({ data: { id: 'merchant-id', name: 'Approved Merchant', merchantStatus: 'APPROVED', roles: ['CUSTOMER'] } } as never);
+    signinSilent.mockResolvedValueOnce({ expired: false, access_token: 'approved-merchant-token', profile: { sub: 'merchant-id', realm_access: { roles: ['CUSTOMER', 'MERCHANT'] } } });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><AuthProvider><AuthContext.Consumer>{(auth) => <p>{auth?.user?.roles.join(',') ?? 'Signed out'}</p>}</AuthContext.Consumer></AuthProvider></QueryClientProvider>);
+
+    await waitFor(() => expect(signinSilent).toHaveBeenCalledWith({ extraQueryParams: { prompt: 'none' } }));
+    expect(await screen.findByText('CUSTOMER,MERCHANT')).toBeInTheDocument();
+  });
+
   it('sends an email hint to Keycloak and never includes a password', async () => {
     window.history.replaceState({}, '', '/');
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

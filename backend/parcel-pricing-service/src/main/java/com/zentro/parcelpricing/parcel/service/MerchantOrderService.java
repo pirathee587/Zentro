@@ -23,6 +23,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -94,6 +95,34 @@ public class MerchantOrderService {
   }
 
   public record OrderResult(MerchantOrderResponse order, boolean created) {}
+
+  public record OrderSummary(long totalOrders, long deliveredOrders, long failedOrders, Map<String, Long> statusCounts) {}
+  public record BillingSummary(String month, long orderCount, java.math.BigDecimal quotedFeeTotal, String currency,
+      List<MerchantOrderResponse> orders) {}
+
+  public OrderSummary summary(String merchantId) {
+    OffsetDateTime monthStart = YearMonth.now(ZoneOffset.UTC).atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+    Map<String, Long> counts = repository.countStatusesByMerchantSince(merchantId, monthStart);
+    long total = counts.values().stream().mapToLong(Long::longValue).sum();
+    return new OrderSummary(total, counts.getOrDefault("DELIVERED", 0L),
+        counts.getOrDefault("FAILED", 0L), counts);
+  }
+
+  public List<MerchantOrderResponse> billingOrders(String merchantId, YearMonth month) {
+    OffsetDateTime start = month.atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+    OffsetDateTime end = month.plusMonths(1).atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+    return repository.listByMerchantBetween(merchantId, start, end).stream()
+        .map(MerchantOrderResponse::from).toList();
+  }
+
+  public BillingSummary billingSummary(String merchantId, YearMonth month) {
+    List<MerchantOrderResponse> orders = billingOrders(merchantId, month);
+    java.math.BigDecimal total = orders.stream().map(MerchantOrderResponse::fee)
+        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+    String currency = orders.stream().map(MerchantOrderResponse::currency).filter(java.util.Objects::nonNull)
+        .findFirst().orElse(null);
+    return new BillingSummary(month.toString(), orders.size(), total, currency, orders);
+  }
 
   public OrderResult createOrder(String merchantId, CreateMerchantOrderRequest rawRequest) {
     CreateMerchantOrderRequest request = normalize(rawRequest);

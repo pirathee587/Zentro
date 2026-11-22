@@ -25,13 +25,13 @@ export function ProofOfDeliveryForm({ save, reconcile, saved }: Props) {
     if (busy.current) return;
     const request = { recipientName: recipientName.trim(), notes: notes.trim() || null, proofReference: proofReference.trim() };
     const invalid: Record<string, string> = {};
-    if (!photo) invalid.photo = 'A delivery photo is required.';
-    else if (photo.size > 5 * 1024 * 1024 || !['image/jpeg','image/png','image/webp'].includes(photo.type)) invalid.photo = 'Use a JPEG, PNG, or WebP image under 5 MB.';
     for (const field of ['recipientName', 'notes', 'proofReference'] as const) {
       if (field !== 'notes' && !request[field]) invalid[field] = 'This field is required.';
       else if (request[field]?.includes('\0')) invalid[field] = 'The null character is not allowed.';
       else if (Array.from(request[field] || '').length > proofLimits[field]) invalid[field] = `Use at most ${proofLimits[field]} characters.`;
     }
+    if (!photo) invalid.photo = 'A delivery photo is required.';
+    else if (photo.size > 5 * 1024 * 1024 || !['image/jpeg','image/png','image/webp'].includes(photo.type)) invalid.photo = 'Use a JPEG, PNG, or WebP image under 5 MB.';
     setErrors(invalid); setError('');
     if (Object.keys(invalid).length) {
       form.current?.querySelector<HTMLElement>(`[name="${Object.keys(invalid)[0]}"]`)?.focus(); return;

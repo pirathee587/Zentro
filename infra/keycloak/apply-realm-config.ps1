@@ -140,8 +140,8 @@ $client = $clients[0]
 if (-not $client.id) { throw 'Keycloak client zentro-web was not found.' }
 $client | Add-Member -MemberType NoteProperty -Name redirectUris -Value @($client.redirectUris) -Force
 $client | Add-Member -MemberType NoteProperty -Name webOrigins -Value @($client.webOrigins) -Force
-$client.redirectUris = @($client.redirectUris + @('http://localhost/callback','http://localhost/silent-callback','http://localhost/*','http://localhost:5173/callback','http://localhost:5173/silent-callback','http://localhost:3000/callback','http://localhost:3000/silent-callback','http://localhost:5173/*','http://localhost:3000/*') | Select-Object -Unique)
-$client.webOrigins = @($client.webOrigins + @('http://localhost','http://localhost:5173','http://localhost:3000') | Select-Object -Unique)
+$client.redirectUris = @($client.redirectUris + @('http://localhost/callback','http://localhost/silent-callback','http://localhost/*','http://localhost:5173/callback','http://localhost:5173/silent-callback','http://localhost:3000/callback','http://localhost:3000/silent-callback','http://localhost:5173/*','http://localhost:3000/*','http://localhost:8088/callback','http://localhost:8088/silent-callback','http://localhost:8088/*') | Select-Object -Unique)
+$client.webOrigins = @($client.webOrigins + @('http://localhost','http://localhost:5173','http://localhost:3000','http://localhost:8088') | Select-Object -Unique)
 $client.publicClient = $true
 $client.standardFlowEnabled = $true
 $client.implicitFlowEnabled = $false
@@ -150,7 +150,7 @@ $client | Add-Member -MemberType NoteProperty -Name attributes -Value $client.at
 $clientAttributes = @{}
 if ($client.attributes) { foreach ($property in $client.attributes.PSObject.Properties) { $clientAttributes[$property.Name] = $property.Value } }
 $clientAttributes['pkce.code.challenge.method'] = 'S256'
-$clientAttributes['post.logout.redirect.uris'] = 'http://localhost/*##http://localhost:5173/*##http://localhost:3000/*##http://localhost:3001/*'
+$clientAttributes['post.logout.redirect.uris'] = 'http://localhost/*##http://localhost:5173/*##http://localhost:3000/*##http://localhost:3001/*##http://localhost:8088/*'
 $client.attributes = $clientAttributes
 Invoke-RestMethod -Method Put -Uri "$api/clients/$($client.id)" -Headers $headers -ContentType 'application/json' -Body ($client | ConvertTo-Json -Depth 80) | Out-Null
 
