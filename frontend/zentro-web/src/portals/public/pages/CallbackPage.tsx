@@ -35,51 +35,41 @@ export function CallbackPage() {
   const inPortal = (...bases: string[]) => !returnTo.startsWith('//') && bases.some((base) =>
     returnTo === base || returnTo.startsWith(`${base}/`) || returnTo.startsWith(`${base}?`));
 
-  if (entryPoint === 'staff') {
-    if (user.roles.includes('DISPATCHER')) return <Navigate to={inPortal('/dispatcher', '/admin') ? returnTo : '/dispatcher'} replace />;
-    if (user.roles.includes('COURIER')) return <Navigate to={inPortal('/courier') ? returnTo : '/courier'} replace />;
-
-    return (
-      <section className="auth-card">
-        <span className="eyebrow">STAFF ACCESS</span>
-        <h1>This account is not enabled for staff.</h1>
-        <p>Staff sign-in requires a Zentro-issued dispatcher or courier account. Contact your administrator if you need staff access.</p>
-        <Button onClick={() => void logout('/staff/login?switch_account=1')}>Switch account</Button>
-      </section>
-    );
+  // Priority 1: If user has a specific staff or business role, direct them to their primary portal
+  if (user.roles.includes('DISPATCHER')) {
+    return <Navigate to={inPortal('/dispatcher', '/admin') ? returnTo : '/dispatcher'} replace />;
   }
 
-  if (entryPoint === 'merchant') {
-    if (hasStaffRole) {
-      return (
-        <section className="auth-card">
-          <span className="eyebrow">BUSINESS ACCESS</span>
-          <h1>Use your staff sign-in.</h1>
-          <p>Staff accounts cannot use the merchant portal.</p>
-          <Button onClick={() => void logout('/merchant/login?switch_account=1')}>Switch account</Button>
-        </section>
-      );
-    }
-
-    if (user.roles.includes('MERCHANT')) return <Navigate to={inPortal('/merchant/dashboard') ? returnTo : '/merchant/dashboard'} replace />;
-    if (user.roles.includes('CUSTOMER')) {
-      if (user.merchantStatus === 'PENDING') return <Navigate to="/merchant/status" replace />;
-      return <Navigate to="/merchant/register-business" replace />;
-    }
+  if (user.roles.includes('COURIER')) {
+    return <Navigate to={inPortal('/courier') ? returnTo : '/courier'} replace />;
   }
 
-  if (entryPoint === 'customer' && !hasStaffRole && user.roles.includes('CUSTOMER')) {
-    const customerPath = returnTo === '/customer' || returnTo.startsWith('/customer/')
-      ? returnTo
-      : '/customer';
+  if (user.roles.includes('MERCHANT')) {
+    return <Navigate to={inPortal('/merchant/dashboard') ? returnTo : '/merchant/dashboard'} replace />;
+  }
+
+  // Priority 2: Merchant applicant workflow
+  if (entryPoint === 'merchant' || isMerchantApplicationPath) {
+    if (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED') {
+      return <Navigate to="/merchant/status" replace />;
+    }
+    return <Navigate to="/merchant/register-business" replace />;
+  }
+
+  // Priority 3: Customer role
+  if (user.roles.includes('CUSTOMER')) {
+    if (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED') {
+      return <Navigate to="/merchant/status" replace />;
+    }
+    const customerPath = inPortal('/customer') ? returnTo : '/customer';
     return <Navigate to={customerPath} replace />;
   }
 
   return (
     <section className="auth-card">
       <ErrorState message="This account does not have access to a Zentro portal." />
-      <Button onClick={() => void logout('/login?switch_account=1')}>Switch account</Button>
-      <Button variant="secondary" onClick={() => void logout('/staff/login?switch_account=1')}>Staff sign in</Button>
+      <Button onClick={() => void logout('/login')}>Sign in with another account</Button>
+      <Button variant="secondary" onClick={() => void logout('/staff/login')}>Staff sign in</Button>
     </section>
   );
 }

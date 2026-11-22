@@ -8,6 +8,7 @@ import {
   MoonIcon,
   BellIcon,
   UserIcon,
+  LogoPill,
 } from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './merchant.css';
@@ -39,14 +40,7 @@ export function MerchantLayout() {
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
           {/* Logo pill "SwiftDrop Merchant" */}
-          <Link
-            to="/merchant/dashboard"
-            className="sd-logo-pill sd-merchant-logo"
-            aria-label="SwiftDrop Merchant Home"
-          >
-            <span className="sd-brand-name">SwiftDrop</span>
-            <span className="sd-brand-role">Merchant</span>
-          </Link>
+          <LogoPill to="/merchant/dashboard" role="Merchant" ariaLabel="SwiftDrop Merchant Home" />
 
           {/* Center pill nav */}
           <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -148,18 +142,17 @@ export function MerchantLayout() {
                   >
                     Billing
                   </Link>
+                  {user?.roles?.includes('CUSTOMER') && (
+                    <Link
+                      to="/customer"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Customer Portal
+                    </Link>
+                  )}
                   <hr className="sd-dropdown-divider" />
-                  <Button
-                    type="button"
-                    className="sd-dropdown-logout-btn"
-                    role="menuitem"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      void logout('/merchant/login?switch_account=1');
-                    }}
-                  >
-                    Switch account
-                  </Button>
                   <Button
                     type="button"
                     className="sd-dropdown-logout-btn"

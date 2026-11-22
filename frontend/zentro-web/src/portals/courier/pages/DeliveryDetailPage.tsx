@@ -85,20 +85,27 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
   return <main className="courier-main courier-delivery-detail">
     <Link className="staff-text-link" to="/courier">Back to my deliveries</Link>
     <section className="staff-hero"><div><p className="courier-detail-eyebrow">Courier delivery</p><h1>{trackingRef || 'Delivery details'}</h1>
-      {!unavailable && <p className="courier-delivery-id">{trackingRef ? 'Tracking reference' : 'Tracking reference unavailable'}</p>}</div>
-      {trackingRef && <Link className="courier-track-link" to={`/track/${encodeURIComponent(trackingRef)}`}>Open customer tracking</Link>}</section>
+      {!unavailable && <p className="courier-delivery-id">{trackingRef ? 'Tracking reference' : 'Tracking reference unavailable'}</p>}</div></section>
     {failure ? <div className="courier-alert is-error" role="alert"><span>{unavailable ? 'Delivery not available' : deliveryError(failure)}</span>
       {expired ? <Button onClick={() => void login(`/courier/deliveries/${deliveryId}`, undefined, 'staff')}>Sign in again</Button>
         : !unavailable && <Button onClick={() => { void delivery.refetch().then(result => { if (result.isSuccess) void proof.refetch(); }); }}>Refresh</Button>}</div>
       : delivery.isPending || proof.isPending ? <p role="status">Loading delivery…</p>
         : <section className="courier-section courier-card courier-detail-card">
-          <p>Assigned {new Date(delivery.data!.assignedAt).toLocaleString()} · Status: <strong>{delivery.data!.assignmentStatus || 'PENDING_ACCEPTANCE'}</strong></p>
           <div className="courier-detail-summary">
-            <div><span>Assignment</span><strong>{delivery.data!.assignmentStatus || 'PENDING_ACCEPTANCE'}</strong></div>
-            <div><span>Shipment</span><strong>{parcelStatus?.replaceAll('_', ' ') || 'Status unavailable'}</strong></div>
-            <div><span>Assigned</span><strong>{new Date(delivery.data!.assignedAt).toLocaleString()}</strong></div>
+            <div className="courier-summary-item">
+              <span>Assignment</span>
+              <strong>{delivery.data!.assignmentStatus || 'PENDING_ACCEPTANCE'}</strong>
+            </div>
+            <div className="courier-summary-item">
+              <span>Shipment</span>
+              <strong>{parcelStatus?.replaceAll('_', ' ') || 'Status unavailable'}</strong>
+            </div>
+            <div className="courier-summary-item">
+              <span>Assigned At</span>
+              <strong>{new Date(delivery.data!.assignedAt).toLocaleString()}</strong>
+            </div>
           </div>
-          {trackingRef ? <p className="courier-tracking-line">Tracking: <Link to={`/track/${encodeURIComponent(trackingRef)}`}>{trackingRef}</Link></p>
+          {trackingRef ? <p className="courier-tracking-line">Tracking Reference: <strong className="courier-tracking-code">{trackingRef}</strong></p>
             : <p className="courier-muted">Tracking information is not available for this assignment yet.</p>}
           {actionNotice && <p role="status" className="courier-notice">{actionNotice}</p>}
           {delivery.data!.assignmentStatus === 'PENDING_ACCEPTANCE' && (
@@ -139,14 +146,39 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
                 }}>Mark {nextStatus.replaceAll('_', ' ')}</Button>
             </div>
           )}
-          {proof.data ? <><h2>Saved proof</h2><p role="status">{stateMessage[proof.data.completionState]}</p>
-            <dl className="courier-proof-fields">
-              <dt>Proof ID</dt><dd>{proof.data.proofId}</dd><dt>Recipient Name</dt><dd>{proof.data.recipientName}</dd>
-              <dt>Delivery Notes</dt><dd>{proof.data.notes || 'None'}</dd><dt>Proof Reference</dt><dd>{proof.data.proofReference}</dd>
-              <dt>Submitted</dt><dd>{new Date(proof.data.submittedAt).toLocaleString()}</dd>
-              {proof.data.completedAt && <><dt>Completion confirmed</dt><dd>{new Date(proof.data.completedAt).toLocaleString()}</dd></>}
-            </dl><Button onClick={() => void proof.refetch()}>Refresh completion state</Button>
-          </> : canSubmitProof ? <ProofOfDeliveryForm key={`${scope}:${deliveryId}`} save={async (request, photo, idempotencyKey, progress) => {
+          {proof.data ? (
+            <div className="courier-saved-proof-card">
+              <h2>Saved Proof of Delivery</h2>
+              <div className="courier-proof-status-banner" role="status">
+                {stateMessage[proof.data.completionState]}
+              </div>
+              <dl className="courier-proof-fields">
+                <dt>Proof ID</dt>
+                <dd>{proof.data.proofId}</dd>
+                <dt>Recipient Name</dt>
+                <dd>{proof.data.recipientName}</dd>
+                <dt>Delivery Notes</dt>
+                <dd>{proof.data.notes || 'None'}</dd>
+                <dt>Proof Reference</dt>
+                <dd>{proof.data.proofReference}</dd>
+                <dt>Submitted</dt>
+                <dd>{new Date(proof.data.submittedAt).toLocaleString()}</dd>
+                {proof.data.completedAt && (
+                  <>
+                    <dt>Completion Confirmed</dt>
+                    <dd>{new Date(proof.data.completedAt).toLocaleString()}</dd>
+                  </>
+                )}
+              </dl>
+              <Button
+                variant="secondary"
+                className="courier-refresh-btn"
+                onClick={() => void proof.refetch()}
+              >
+                Refresh completion state
+              </Button>
+            </div>
+          ) : canSubmitProof ? <ProofOfDeliveryForm key={`${scope}:${deliveryId}`} save={async (request, photo, idempotencyKey, progress) => {
             try { return await submitProofPhoto(deliveryId, request, photo, token, idempotencyKey, progress); }
             catch (error) {
               // The currently running pre-POD S3 returns 404 for this new route. Do not

@@ -8,6 +8,8 @@ export type AccountStatus = 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
 
 export type AuthUser = {
   id: string;
+  userId?: string;
+  email?: string;
   name?: string;
   roles: Role[];
   accessToken: string;

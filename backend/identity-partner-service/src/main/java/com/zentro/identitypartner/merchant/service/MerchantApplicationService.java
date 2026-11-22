@@ -96,6 +96,18 @@ public class MerchantApplicationService {
     if (user != null && !"ACTIVE".equalsIgnoreCase(user.accountStatus())) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + user.accountStatus() + ".");
     }
+    // Prevent duplicate applications across accounts for the same email address
+    if (user != null && user.email() != null && !user.email().isBlank()) {
+      List<String> existingStatus = jdbc.query(
+          "SELECT ma.status FROM identity.merchant_application ma JOIN identity.app_user u ON ma.app_user_id = u.id WHERE LOWER(u.email) = ? AND u.id <> ?",
+          (rs, rowNum) -> rs.getString("status"),
+          user.email().trim().toLowerCase(Locale.ROOT),
+          user.id()
+      );
+      if (!existingStatus.isEmpty()) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "A merchant application already exists for this email address.");
+      }
+    }
     try {
       List<MerchantApplication> saved = jdbc.query("""
           INSERT INTO identity.merchant_application

@@ -10,6 +10,7 @@ import {
   MoonIcon,
   BellIcon,
   UserIcon,
+  LogoPill,
 } from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './courier.css';
@@ -57,15 +58,8 @@ export function CourierLayout() {
       {/* Top Header */}
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
-          {/* Logo pill "Zentro Courier" */}
-          <Link
-            to="/courier"
-            className="sd-logo-pill sd-courier-logo"
-            aria-label="Zentro Courier Home"
-          >
-            <span className="sd-brand-name">Zentro</span>
-            <span className="sd-brand-role">Courier</span>
-          </Link>
+          {/* Logo pill "SwiftDrop Courier" */}
+          <LogoPill to="/courier" role="Courier" ariaLabel="SwiftDrop Courier Home" />
 
           {/* Center pill nav */}
           <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -167,18 +161,27 @@ export function CourierLayout() {
                   >
                     Earnings
                   </Link>
+                  {user?.roles?.includes('CUSTOMER') && (
+                    <Link
+                      to="/customer"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Customer Portal
+                    </Link>
+                  )}
+                  {user?.roles?.includes('DISPATCHER') && (
+                    <Link
+                      to="/dispatcher"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Dispatch Desk
+                    </Link>
+                  )}
                   <hr className="sd-dropdown-divider" />
-                  <Button
-                    type="button"
-                    className="sd-dropdown-logout-btn"
-                    role="menuitem"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      void logout('/staff/login?switch_account=1');
-                    }}
-                  >
-                    Switch account
-                  </Button>
                   <Button
                     type="button"
                     className="sd-dropdown-logout-btn"

@@ -102,9 +102,12 @@ services:
       POD_CLIENT_SECRET: ${ZENTRO_DISPATCH_SERVICE_CLIENT_SECRET:-}
       # Backend-only private Supabase Storage adapter. Leave blank until the separately
       # approved bucket/credential activation; application endpoints then fail closed.
-      POD_STORAGE_URL: ${POD_STORAGE_URL:-}
+      POD_STORAGE_URL: ${POD_STORAGE_URL:-https://jmcecnkrxpdbtrebshxx.supabase.co}
       POD_STORAGE_SERVICE_KEY: ${POD_STORAGE_SERVICE_KEY:-}
       POD_STORAGE_BUCKET: ${POD_STORAGE_BUCKET:-swiftdrop-delivery-proofs}
+      ZENTRO_POD_STORAGE_URL: ${POD_STORAGE_URL:-https://jmcecnkrxpdbtrebshxx.supabase.co}
+      ZENTRO_POD_STORAGE_SERVICE_KEY: ${POD_STORAGE_SERVICE_KEY:-}
+      ZENTRO_POD_STORAGE_BUCKET: ${POD_STORAGE_BUCKET:-swiftdrop-delivery-proofs}
       PARCEL_BASE_URL: http://parcel-pricing-service:8082
       # Courier dashboard identity check (S1 HTTP). The code default localhost:8081 is this container.
       ZENTRO_IDENTITY_BASE_URL: http://identity-partner-service:8081

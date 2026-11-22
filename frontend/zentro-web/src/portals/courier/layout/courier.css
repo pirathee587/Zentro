@@ -31,37 +31,47 @@
 }
 
 /* Logo Pill */
-.courier-portal .sd-logo-pill.sd-courier-logo {
+.courier-portal .sd-logo-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: var(--card, rgba(255, 255, 255, 0.7));
+  gap: 10px;
+  background: var(--card, rgba(255, 255, 255, 0.72));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
   border-radius: 9999px;
-  padding: 8px 20px;
+  padding: 8px 22px 8px 16px;
   text-decoration: none;
   font-size: 15px;
   letter-spacing: -0.2px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-  transition: transform 0.15s ease;
+  box-shadow: 0 2px 10px rgba(28, 28, 30, 0.04), inset 0 0 0 1px var(--edge, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.2;
 }
 
-.courier-portal .sd-logo-pill.sd-courier-logo:hover {
+.courier-portal .sd-logo-pill:hover {
   transform: translateY(-1px);
+}
+
+.sd-logo-box-svg {
+  display: block;
+  flex-shrink: 0;
+  width: 28px;
+  height: 24px;
 }
 
 .sd-brand-name {
   font-weight: 700;
   color: var(--ink, #1f1f1f);
+  letter-spacing: -0.3px;
 }
 
 .sd-brand-role {
   font-weight: 400;
   color: var(--mute, #686868);
   margin-left: 2px;
+  letter-spacing: -0.2px;
 }
 
 /* Center Pill Nav */

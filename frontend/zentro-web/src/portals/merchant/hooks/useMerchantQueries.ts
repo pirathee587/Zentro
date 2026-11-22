@@ -32,24 +32,24 @@ export const merchantQueryKeys = {
 
 export function useMerchantWebhookQuery(enabled = true) {
   const { user, refreshAccessToken } = useAuth();
-  return useQuery({ queryKey: merchantQueryKeys.webhook(user?.id), enabled: Boolean(user?.accessToken) && enabled, retry: false,
+  return useQuery({ queryKey: merchantQueryKeys.webhook(user?.id), enabled: Boolean(user?.accessToken) && enabled, retry: false, staleTime: 30_000,
     queryFn: ({ signal }) => getMerchantWebhook({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
 }
 
 export function useMerchantOrderSummaryQuery(enabled = true) {
   const { user, refreshAccessToken } = useAuth();
-  return useQuery({ queryKey: merchantQueryKeys.summary(user?.id), enabled: Boolean(user?.accessToken) && enabled,
+  return useQuery({ queryKey: merchantQueryKeys.summary(user?.id), enabled: Boolean(user?.accessToken) && enabled, staleTime: 30_000, retry: 2,
     queryFn: ({ signal }) => getMerchantOrderSummary({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
 }
 
 export function useMerchantBillingQuery(month: string, enabled = true) {
   const { user, refreshAccessToken } = useAuth();
-  return useQuery({ queryKey: merchantQueryKeys.billing(month, user?.id), enabled: Boolean(user?.accessToken) && enabled,
+  return useQuery({ queryKey: merchantQueryKeys.billing(month, user?.id), enabled: Boolean(user?.accessToken) && enabled, staleTime: 30_000, retry: 2,
     queryFn: ({ signal }) => getMerchantBillingOrders({ accessToken: user?.accessToken, refreshAccessToken, signal }, month) });
 }
 export function useMerchantWebhookDeliveriesQuery(enabled = true) {
   const { user, refreshAccessToken } = useAuth();
-  return useQuery({ queryKey: merchantQueryKeys.webhookDeliveries(user?.id), enabled: Boolean(user?.accessToken) && enabled,
+  return useQuery({ queryKey: merchantQueryKeys.webhookDeliveries(user?.id), enabled: Boolean(user?.accessToken) && enabled, staleTime: 30_000, retry: 2,
     queryFn: ({ signal }) => getMerchantWebhookDeliveries({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
 }
 export function useRegisterMerchantWebhookMutation() {
@@ -74,6 +74,8 @@ export function useMerchantApplicationQuery(enabled = true) {
   return useQuery<MerchantApplication>({
     queryKey: merchantQueryKeys.application(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
+    staleTime: 30_000,
+    retry: 2,
     refetchInterval: (query) => {
       const data = query.state.data as MerchantApplication | undefined;
       return data?.status === 'PENDING' ? 3000 : false;
@@ -92,6 +94,8 @@ export function useMerchantApiKeyQuery(enabled = true) {
   return useQuery({
     queryKey: merchantQueryKeys.apiKey(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
+    staleTime: 30_000,
+    retry: 2,
     queryFn: ({ signal }) => getMerchantApiKey({
       accessToken: user?.accessToken,
       refreshAccessToken,
@@ -106,6 +110,8 @@ export function useMerchantOrdersQuery(enabled = true) {
   return useQuery({
     queryKey: merchantQueryKeys.orders(user?.id),
     enabled: Boolean(user?.accessToken) && enabled,
+    staleTime: 30_000,
+    retry: 2,
     queryFn: ({ signal }) => getMerchantOrders({
       accessToken: user?.accessToken,
       refreshAccessToken,

@@ -3,6 +3,10 @@ server:
 spring:
   application:
     name: dispatch-courier-service
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
   config:
     import: optional:file:./.env[.properties]
   flyway:
@@ -37,6 +41,9 @@ zentro:
     worker-enabled: ${POD_WORKER_ENABLED:true}
     poll-interval-ms: ${POD_POLL_INTERVAL_MS:2000}
     max-attempts: ${POD_MAX_ATTEMPTS:8}
+    storage-url: ${POD_STORAGE_URL:}
+    storage-service-key: ${POD_STORAGE_SERVICE_KEY:}
+    storage-bucket: ${POD_STORAGE_BUCKET:swiftdrop-delivery-proofs}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
