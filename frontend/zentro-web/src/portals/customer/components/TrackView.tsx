@@ -281,7 +281,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isPublic]);
 
   useEffect(() => {
     if (activeRef) {
@@ -305,7 +305,7 @@ export const TrackView: React.FC<TrackViewProps> = ({ initialTrackingRef, isPubl
       }, isPublic);
       return unsubscribe;
     }
-  }, [activeRef, fetchTracking]);
+  }, [activeRef, fetchTracking, isPublic]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

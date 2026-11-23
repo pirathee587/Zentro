@@ -4,7 +4,7 @@ import { Button as BaseButton, LogoPill } from '@/shared/ui';
 import { useTheme } from '../layout/useTheme';
 import { TrackView } from '../components/TrackView';
 import { ToastProvider } from '../components/Toast';
-import { PackageIcon, SunIcon, MoonIcon, UserIcon } from '../components/icons';
+import { SunIcon, MoonIcon, UserIcon } from '../components/icons';
 import '../layout/customer.css';
 
 export const PublicTrackPage: React.FC = () => {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, Box, MapPin, Package, Phone, User } from 'lucide-react';
+import { ArrowRight, MapPin, Package, Phone, User } from 'lucide-react';
 import { Button, Input } from '@/shared/ui';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { useMerchantOrdersQuery } from '../hooks/useMerchantQueries';
@@ -34,7 +34,7 @@ export function OrdersPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState('');
 
-  const orders = query.data ?? [];
+  const orders = useMemo(() => query.data ?? [], [query.data]);
   const shown = useMemo(
     () =>
       orders.filter((o) => {
