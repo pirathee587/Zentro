@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/shared/domain/notifications/NotificationBell';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button as BaseButton, LogoPill } from '@/shared/ui';
@@ -6,7 +7,6 @@ import { useTheme } from './useTheme';
 import {
   SunIcon,
   MoonIcon,
-  BellIcon,
   UserIcon,
 } from '../components/icons';
 
@@ -88,14 +88,7 @@ export const Header: React.FC = () => {
           </BaseButton>
 
           {/* Notifications button */}
-          <BaseButton
-            type="button"
-            className="sd-icon-btn"
-            aria-label="View notifications"
-            title="Notifications"
-          >
-            <BellIcon size={19} strokeWidth={1.75} />
-          </BaseButton>
+          <NotificationBell portal="CUSTOMER" />
 
           {/* Profile button (circular, --card background) */}
           <div className="sd-profile-menu-wrap" ref={profileRef} onKeyDown={event => {

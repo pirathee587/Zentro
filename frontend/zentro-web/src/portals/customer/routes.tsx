@@ -1,3 +1,4 @@
+import { NotificationHistory } from '@/shared/domain/notifications/NotificationBell';
 import type { RouteObject } from 'react-router-dom';
 import { Navigate } from 'react-router-dom';
 import { CustomerLayout } from './layout/CustomerLayout';
@@ -14,6 +15,7 @@ export const portalRoutes: RouteObject[] = [
   {
     element: <CustomerLayout />,
     children: [
+      { path: 'notifications', element: <NotificationHistory portal="CUSTOMER" /> },
       { index: true, element: <CustomerHomePage /> },
       { path: 'send', element: <SendParcelPage /> },
       { path: 'track', element: <TrackParcelPage /> },

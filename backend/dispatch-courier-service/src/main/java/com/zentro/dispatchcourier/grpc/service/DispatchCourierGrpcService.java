@@ -17,6 +17,15 @@ public class DispatchCourierGrpcService extends DispatchCourierServiceGrpc.Dispa
     this.assignments = assignments;
   }
 
+  @Override public void resolveNotificationCourier(GetParcelAssignmentSummaryRequest request,
+      StreamObserver<com.zentro.contracts.dispatch.v1.NotificationCourierResponse> observer) {
+    try {
+      var result=com.zentro.contracts.dispatch.v1.NotificationCourierResponse.newBuilder();
+      assignments.find(UUID.fromString(request.getParcelId())).ifPresent(a->result.setCourierProfileId(a.courierId().toString()));
+      observer.onNext(result.build()); observer.onCompleted();
+    } catch(IllegalArgumentException error) { observer.onError(Status.INVALID_ARGUMENT.asRuntimeException()); }
+  }
+
   @Override
   public void getParcelAssignmentSummary(
       GetParcelAssignmentSummaryRequest request,

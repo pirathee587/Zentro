@@ -179,7 +179,9 @@ class OutboxRestartRecoveryIntegrationTest {
 
   private List<UUID> pendingEvents(UUID parcelId) {
     return jdbc.queryForList("""
-        SELECT event_id FROM parcel.outbox_event WHERE aggregate_id = ? AND published_at IS NULL ORDER BY occurred_at
+        SELECT event_id FROM parcel.outbox_event
+         WHERE aggregate_id = ? AND published_at IS NULL AND event_type <> 'notification.parcel'
+         ORDER BY occurred_at
         """, UUID.class, parcelId);
   }
 
@@ -222,7 +224,9 @@ class OutboxRestartRecoveryIntegrationTest {
 
     assertThat(pending).allSatisfy(id -> assertThat(copies(id)).as("copies of %s", id).isEqualTo(1));
     for (UUID parcelId : parcels) {
-      for (UUID id : jdbc.queryForList("SELECT event_id FROM parcel.outbox_event WHERE aggregate_id = ?", UUID.class, parcelId)) {
+      for (UUID id : jdbc.queryForList(
+          "SELECT event_id FROM parcel.outbox_event WHERE aggregate_id = ? AND event_type <> 'notification.parcel'",
+          UUID.class, parcelId)) {
         if (parcelId.equals(parcels.getLast())) {
           assertThat(correlations.get(id.toString())).isEqualTo(id.toString());
           assertThat(traces.get(id.toString())).doesNotContain(trace);

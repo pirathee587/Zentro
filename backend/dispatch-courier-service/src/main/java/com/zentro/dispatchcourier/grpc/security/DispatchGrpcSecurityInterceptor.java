@@ -64,8 +64,10 @@ public class DispatchGrpcSecurityInterceptor implements ServerInterceptor {
       call.close(Status.PERMISSION_DENIED.withDescription("Caller lacks SERVICE role"), new Metadata());
       return new ServerCall.Listener<>() {};
     }
-    if (!"zentro-tracking-service".equals(jwt.getClaimAsString("azp"))
-        || !"GetParcelAssignmentSummary".equals(call.getMethodDescriptor().getBareMethodName())) {
+    String method=call.getMethodDescriptor().getBareMethodName();
+    String client=jwt.getClaimAsString("azp");
+    if (!("zentro-tracking-service".equals(client) && "GetParcelAssignmentSummary".equals(method))
+        && !("zentro-notification-service".equals(client) && "ResolveNotificationCourier".equals(method))) {
       call.close(Status.PERMISSION_DENIED.withDescription("Service client is not authorized for this RPC"), new Metadata());
       return new ServerCall.Listener<>() {};
     }

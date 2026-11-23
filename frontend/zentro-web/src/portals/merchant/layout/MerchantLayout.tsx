@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/shared/domain/notifications/NotificationBell';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -6,7 +7,6 @@ import {
   Button,
   SunIcon,
   MoonIcon,
-  BellIcon,
   UserIcon,
   LogoPill,
 } from '@/shared/ui';
@@ -97,14 +97,7 @@ export function MerchantLayout() {
             </Button>
 
             {/* Notifications button */}
-            <Button
-              type="button"
-              className="sd-icon-btn"
-              aria-label="View notifications"
-              title="Notifications"
-            >
-              <BellIcon size={20} strokeWidth={2} />
-            </Button>
+            <NotificationBell portal="MERCHANT" />
 
             {/* User profile dropdown button */}
             <div className="sd-profile-menu-wrap" ref={profileRef}>

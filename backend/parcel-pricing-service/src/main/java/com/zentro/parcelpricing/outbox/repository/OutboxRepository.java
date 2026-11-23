@@ -46,9 +46,10 @@ public class OutboxRepository {
            AND (o.next_attempt_at IS NULL OR o.next_attempt_at <= now())
            AND NOT EXISTS (SELECT 1 FROM parcel.outbox_event p
                             WHERE p.aggregate_id = o.aggregate_id
+                              AND (p.event_type = 'notification.parcel') = (o.event_type = 'notification.parcel')
                               AND p.published_at IS NULL
                               AND p.occurred_at < o.occurred_at)
-         ORDER BY o.occurred_at
+         ORDER BY (o.event_type = 'notification.parcel'), o.occurred_at
          LIMIT ?
          FOR UPDATE OF o SKIP LOCKED
         """,

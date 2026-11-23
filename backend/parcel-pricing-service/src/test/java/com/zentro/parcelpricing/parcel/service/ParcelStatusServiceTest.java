@@ -39,6 +39,30 @@ import org.springframework.dao.QueryTimeoutException;
 
 @ExtendWith(MockitoExtension.class)
 class ParcelStatusServiceTest {
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.CsvSource({
+      "CREATED,PICKED_UP", "PICKED_UP,IN_TRANSIT", "IN_TRANSIT,OUT_FOR_DELIVERY",
+      "OUT_FOR_DELIVERY,DELIVERED", "OUT_FOR_DELIVERY,FAILED"
+  })
+  void verifiedCourierWritesOneTypedPrivateDataFreeStatusEvent(ParcelStatus from, ParcelStatus to) throws Exception {
+    parcelIs(from, 4);
+    var result = service.updateCourierVerifiedStatus(PARCEL_ID, to,
+        to == ParcelStatus.FAILED ? "Recipient unavailable" : null, "private delivery note", "courier-subject");
+    assertThat(result.changed()).isTrue();
+    verify(repository).updateStatus(PARCEL_ID, to, 4, NOW_MICROS);
+    var history = ArgumentCaptor.forClass(ParcelStatusChange.class);
+    verify(repository).insertHistory(history.capture());
+    assertThat(history.getValue().actorRole()).isEqualTo("COURIER");
+    var json = ArgumentCaptor.forClass(String.class);
+    verify(repository).insertOutboxEvent(any(UUID.class), eq(PARCEL_ID), eq("parcel.status.updated"), json.capture(), eq(NOW_MICROS));
+    var envelope = new ObjectMapper().readTree(json.getValue());
+    assertThat(envelope.path("aggregateId").asText()).isEqualTo(PARCEL_ID.toString());
+    assertThat(envelope.path("payload").path("previousStatus").asText()).isEqualTo(from.name());
+    assertThat(envelope.path("payload").path("status").asText()).isEqualTo(to.name());
+    assertThat(envelope.path("payload").has("failureReason")).isEqualTo(to == ParcelStatus.FAILED);
+    assertThat(envelope.path("payload").has("merchantId")).isFalse();
+    assertThat(json.getValue()).doesNotContain("private delivery note", "courier-subject", "phone", "address");
+  }
   private static final UUID PARCEL_ID = UUID.fromString("3f1c2b7e-8a4d-4c1e-9b2a-5d6e7f8a9b0c");
   private static final String TRACKING_REF = "ZT-ABCDEFGH12";
   private static final String ACTOR = "dispatcher-subject-123";

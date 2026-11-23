@@ -44,6 +44,28 @@ public class IdentityPartnerGrpcService extends IdentityPartnerServiceGrpc.Ident
 
   private final CourierProfileService courierProfileService;
   private final JdbcTemplate jdbc;
+  private com.zentro.identitypartner.user.service.KeycloakAdminService directory;
+  @org.springframework.beans.factory.annotation.Autowired
+  public void setDirectory(com.zentro.identitypartner.user.service.KeycloakAdminService directory) { this.directory = directory; }
+
+  @Override
+  public void resolveNotificationRecipients(com.zentro.contracts.identity.v1.NotificationRecipientsRequest request,
+      StreamObserver<com.zentro.contracts.identity.v1.NotificationRecipientsResponse> observer) {
+    try {
+      if (request.getDispatchers() == !request.getCourierProfileId().isBlank()) {
+        observer.onError(Status.INVALID_ARGUMENT.asRuntimeException()); return;
+      }
+      List<String> subjects = request.getDispatchers() ? directory.notificationDispatchers()
+          : jdbc.queryForList("""
+              SELECT u.keycloak_subject FROM identity.courier_profile c
+              JOIN identity.app_user u ON u.id=c.app_user_id
+              WHERE c.id=? AND u.account_status='ACTIVE'
+              """, String.class, UUID.fromString(request.getCourierProfileId()));
+      observer.onNext(com.zentro.contracts.identity.v1.NotificationRecipientsResponse.newBuilder().addAllSubjects(subjects).build());
+      observer.onCompleted();
+    } catch (IllegalArgumentException error) { observer.onError(Status.INVALID_ARGUMENT.asRuntimeException()); }
+    catch (Exception error) { observer.onError(Status.UNAVAILABLE.withDescription("Recipient directory unavailable").asRuntimeException()); }
+  }
 
   public IdentityPartnerGrpcService(CourierProfileService courierProfileService, JdbcTemplate jdbc) {
     this.courierProfileService = courierProfileService;

@@ -28,7 +28,9 @@ public class DispatcherProofReviewController {
     String path=jdbc.query("SELECT v.object_path FROM dispatch.proof_review r JOIN dispatch.proof_revision v ON v.id=r.revision_id WHERE r.id=?",(x,n)->x.getString(1),id).stream().findFirst().orElseThrow(()->new ProofException(404,"PROOF_REVIEW_NOT_FOUND","Proof review not found."));
     return java.util.Map.of("url",storage.signedUrl(path),"expiresInSeconds","300");
   }
+  @org.springframework.transaction.annotation.Transactional
   @PostMapping("/{id}/approve") public ResponseEntity<Review> approve(@PathVariable UUID id,@RequestBody Decision body,@AuthenticationPrincipal Jwt jwt){return ResponseEntity.ok(decide(id,"COMPLETION_PENDING",null,body,jwt));}
+  @org.springframework.transaction.annotation.Transactional
   @PostMapping("/{id}/reject") public ResponseEntity<Review> reject(@PathVariable UUID id,@RequestBody Decision body,@AuthenticationPrincipal Jwt jwt){
     if(body==null||body.reason()==null||body.reason().trim().isEmpty()) throw new ProofException(400,"REJECTION_REASON_REQUIRED","A rejection reason is required.");
     return ResponseEntity.ok(decide(id,"REJECTED",body.reason().trim(),body,jwt));
