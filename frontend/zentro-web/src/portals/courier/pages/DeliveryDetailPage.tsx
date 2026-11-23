@@ -105,7 +105,7 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
               <strong>{new Date(delivery.data!.assignedAt).toLocaleString()}</strong>
             </div>
           </div>
-          {trackingRef ? <p className="courier-tracking-line">Tracking Reference: <strong className="courier-tracking-code">{trackingRef}</strong></p>
+          {trackingRef ? <p className="courier-tracking-line">Tracking Reference: <Link to={`/track/${encodeURIComponent(trackingRef)}`}>{trackingRef}</Link></p>
             : <p className="courier-muted">Tracking information is not available for this assignment yet.</p>}
           {actionNotice && <p role="status" className="courier-notice">{actionNotice}</p>}
           {delivery.data!.assignmentStatus === 'PENDING_ACCEPTANCE' && (
@@ -148,7 +148,7 @@ function DeliveryDetail({ deliveryId }: { deliveryId: string }) {
           )}
           {proof.data ? (
             <div className="courier-saved-proof-card">
-              <h2>Saved Proof of Delivery</h2>
+              <h2>Saved proof</h2>
               <div className="courier-proof-status-banner" role="status">
                 {stateMessage[proof.data.completionState]}
               </div>

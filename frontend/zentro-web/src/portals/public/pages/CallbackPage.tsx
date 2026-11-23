@@ -35,33 +35,43 @@ export function CallbackPage() {
   const inPortal = (...bases: string[]) => !returnTo.startsWith('//') && bases.some((base) =>
     returnTo === base || returnTo.startsWith(`${base}/`) || returnTo.startsWith(`${base}?`));
 
-  // Priority 1: If user has a specific staff or business role, direct them to their primary portal
-  if (user.roles.includes('DISPATCHER')) {
-    return <Navigate to={inPortal('/dispatcher', '/admin') ? returnTo : '/dispatcher'} replace />;
+  if (entryPoint === 'staff') {
+    if (user.roles.includes('DISPATCHER')) return <Navigate to={inPortal('/dispatcher', '/admin') ? returnTo : '/dispatcher'} replace />;
+    if (user.roles.includes('COURIER')) return <Navigate to={inPortal('/courier') ? returnTo : '/courier'} replace />;
+
+    return (
+      <section className="auth-card">
+        <span className="eyebrow">STAFF ACCESS</span>
+        <h1>This account is not enabled for staff.</h1>
+        <p>Staff sign-in requires a Zentro-issued dispatcher or courier account. Contact your administrator if you need staff access.</p>
+        <Button onClick={() => void logout('/staff/login')}>Sign in with another account</Button>
+      </section>
+    );
   }
 
-  if (user.roles.includes('COURIER')) {
-    return <Navigate to={inPortal('/courier') ? returnTo : '/courier'} replace />;
-  }
-
-  if (user.roles.includes('MERCHANT')) {
-    return <Navigate to={inPortal('/merchant/dashboard') ? returnTo : '/merchant/dashboard'} replace />;
-  }
-
-  // Priority 2: Merchant applicant workflow
-  if (entryPoint === 'merchant' || isMerchantApplicationPath) {
-    if (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED') {
-      return <Navigate to="/merchant/status" replace />;
+  if (entryPoint === 'merchant') {
+    if (hasStaffRole) {
+      return (
+        <section className="auth-card">
+          <span className="eyebrow">BUSINESS ACCESS</span>
+          <h1>Use your staff sign-in.</h1>
+          <p>Staff accounts cannot use the merchant portal.</p>
+          <Button onClick={() => void logout('/merchant/login')}>Sign in with another account</Button>
+        </section>
+      );
     }
-    return <Navigate to="/merchant/register-business" replace />;
+
+    if (user.roles.includes('MERCHANT')) return <Navigate to={inPortal('/merchant/dashboard') ? returnTo : '/merchant/dashboard'} replace />;
+    if (user.roles.includes('CUSTOMER')) {
+      if (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED') return <Navigate to="/merchant/status" replace />;
+      return <Navigate to="/merchant/register-business" replace />;
+    }
   }
 
-  // Priority 3: Customer role
-  if (user.roles.includes('CUSTOMER')) {
-    if (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED') {
-      return <Navigate to="/merchant/status" replace />;
-    }
-    const customerPath = inPortal('/customer') ? returnTo : '/customer';
+  if (entryPoint === 'customer' && !hasStaffRole && user.roles.includes('CUSTOMER')) {
+    const customerPath = returnTo === '/customer' || returnTo.startsWith('/customer/')
+      ? returnTo
+      : '/customer';
     return <Navigate to={customerPath} replace />;
   }
 

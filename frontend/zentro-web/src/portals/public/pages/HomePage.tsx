@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useContext, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, ErrorState, Input } from '@/shared/ui';
-import { useAuth } from '@/shared/auth/useAuth';
+import { AuthContext } from '@/shared/auth/authContext';
 import { routeForRoles, type Role } from '@/shared/config/roles';
 import { ArrowIcon } from '../assets/ArrowIcon';
 import { LandingIcon } from '../assets/LandingIcon';
@@ -74,7 +74,8 @@ export function HomePage() {
   };
 
   const steps = audience === 'Customers' ? customerSteps : businessSteps;
-  const { user } = useAuth();
+  const auth = useContext(AuthContext);
+  const user = auth?.user;
   const dashboardRoute = user ? (routeForRoles(user.roles as Role[]) ?? '/customer') : null;
 
   return (
