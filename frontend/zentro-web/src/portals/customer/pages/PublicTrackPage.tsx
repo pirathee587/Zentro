@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Button as BaseButton } from '@/shared/ui';
+import { Button as BaseButton, LogoPill } from '@/shared/ui';
 import { useTheme } from '../layout/useTheme';
 import { TrackView } from '../components/TrackView';
 import { ToastProvider } from '../components/Toast';
-import { PackageIcon, SunIcon, MoonIcon, UserIcon } from '../components/icons';
+import { SunIcon, MoonIcon, UserIcon } from '../components/icons';
 import '../layout/customer.css';
 
 export const PublicTrackPage: React.FC = () => {
@@ -16,12 +16,7 @@ export const PublicTrackPage: React.FC = () => {
         {/* Mobile-friendly Public Header */}
         <header className="sd-header-wrap" role="banner">
           <div className="sd-header">
-            <Link to="/" className="sd-logo-pill" aria-label="SwiftDrop Home">
-              <span className="sd-logo-mark" aria-hidden="true">
-                <PackageIcon size={14} />
-              </span>
-              <span>SwiftDrop</span>
-            </Link>
+            <LogoPill to="/" ariaLabel="SwiftDrop Home" />
 
             <div className="sd-header-actions">
               <BaseButton

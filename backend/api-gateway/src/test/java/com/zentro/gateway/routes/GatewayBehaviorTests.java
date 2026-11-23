@@ -346,6 +346,18 @@ class GatewayBehaviorTests {
 
   private record RouteTarget(String path, String service, String token, boolean publicRoute) {}
 
+  @Test void inboxRoutesRequireHumanPortalRolesAndForwardToS5() {
+    for(String role:List.of("CUSTOMER","MERCHANT","COURIER","DISPATCHER")) {
+      client.get().uri("http://localhost:"+port+"/api/v1/notifications?portal="+role)
+          .header("Authorization","Bearer test.ROLE_"+role).exchange().expectStatus().isOk()
+          .expectBody(String.class).isEqualTo("S5");
+    }
+    client.get().uri("http://localhost:"+port+"/api/v1/notifications?portal=CUSTOMER")
+        .exchange().expectStatus().isUnauthorized();
+    client.get().uri("http://localhost:"+port+"/api/v1/notifications?portal=CUSTOMER")
+        .header("Authorization","Bearer test.ROLE_SERVICE").exchange().expectStatus().isForbidden();
+  }
+
   @TestConfiguration
   static class DecoderStub {
     @Bean @Primary ReactiveJwtDecoder testJwtDecoder() {

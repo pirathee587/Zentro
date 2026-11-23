@@ -4,8 +4,10 @@ option java_multiple_files = true;
 option java_package = "com.zentro.contracts.dispatch.v1";
 
 service DispatchCourierService {
+  rpc ResolveNotificationCourier(GetParcelAssignmentSummaryRequest) returns (NotificationCourierResponse);
   rpc GetParcelAssignmentSummary(GetParcelAssignmentSummaryRequest) returns (ParcelAssignmentSummaryResponse);
 }
+message NotificationCourierResponse { string courier_profile_id = 1; }
 
 message GetParcelAssignmentSummaryRequest {
   string parcel_id = 1;

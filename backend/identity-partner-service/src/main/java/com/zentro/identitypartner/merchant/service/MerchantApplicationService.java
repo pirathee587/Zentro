@@ -48,22 +48,19 @@ public class MerchantApplicationService {
   private final JdbcTemplate jdbc;
   private final UserProfileService profiles;
   private final KeycloakMerchantRoleSyncer roleSyncer;
-  private final com.zentro.identitypartner.email.EmailSenderService emailSender;
 
   public MerchantApplicationService(JdbcTemplate jdbc, UserProfileService profiles) {
-    this(jdbc, profiles, null, null);
+    this(jdbc, profiles, null);
   }
 
   @org.springframework.beans.factory.annotation.Autowired
   public MerchantApplicationService(
       JdbcTemplate jdbc,
       UserProfileService profiles,
-      KeycloakMerchantRoleSyncer roleSyncer,
-      com.zentro.identitypartner.email.EmailSenderService emailSender) {
+      KeycloakMerchantRoleSyncer roleSyncer) {
     this.jdbc = jdbc;
     this.profiles = profiles;
     this.roleSyncer = roleSyncer;
-    this.emailSender = emailSender;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -100,6 +97,19 @@ public class MerchantApplicationService {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is " + user.accountStatus() + ".");
     }
     try {
+      // Prevent duplicate applications across accounts for the same email address
+      if (user != null && user.email() != null && !user.email().isBlank()) {
+        List<String> existingStatus = jdbc.queryForList(
+            "SELECT ma.status FROM identity.merchant_application ma JOIN identity.app_user u ON ma.app_user_id = u.id WHERE LOWER(u.email) = ? AND u.id <> ?",
+            String.class,
+            user.email().trim().toLowerCase(Locale.ROOT),
+            user.id()
+        );
+        if (!existingStatus.isEmpty()) {
+          throw new ResponseStatusException(HttpStatus.CONFLICT, "A merchant application already exists for this email address.");
+        }
+      }
+
       List<MerchantApplication> saved = jdbc.query("""
           INSERT INTO identity.merchant_application
               (app_user_id, business_name, business_reg_no, contact_phone)
@@ -224,19 +234,6 @@ public class MerchantApplicationService {
       if (roleSyncer != null) {
         roleSyncer.syncByAppUserId(result.appUserId(), "APPROVED".equals(result.status()));
       }
-      if ("APPROVED".equals(status) && emailSender != null) {
-        try {
-          List<String> emails = jdbc.queryForList(
-              "SELECT email FROM identity.app_user WHERE id = ?",
-              String.class,
-              result.appUserId());
-          if (!emails.isEmpty() && emails.getFirst() != null) {
-            emailSender.sendMerchantApproved(emails.getFirst(), result.businessName(), null);
-          }
-        } catch (Exception ex) {
-          log.warn("Failed to send merchant approval email: {}", ex.getMessage());
-        }
-      }
       return result;
     }
 
@@ -318,19 +315,6 @@ public class MerchantApplicationService {
       MerchantApplication result = updated.getFirst();
       if (roleSyncer != null) {
         roleSyncer.syncByAppUserId(result.appUserId(), true);
-      }
-      if (emailSender != null) {
-        try {
-          List<String> emails = jdbc.queryForList(
-              "SELECT email FROM identity.app_user WHERE id = ?",
-              String.class,
-              result.appUserId());
-          if (!emails.isEmpty() && emails.getFirst() != null) {
-            emailSender.sendMerchantApproved(emails.getFirst(), result.businessName(), null);
-          }
-        } catch (Exception ex) {
-          log.warn("Failed to send merchant reinstatement email: {}", ex.getMessage());
-        }
       }
       return result;
     }

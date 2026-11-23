@@ -79,6 +79,12 @@ public class IdentityPartnerGrpcClient {
     }
   }
 
+  public java.util.List<String> notificationRecipients(boolean dispatchers, String courierProfileId) {
+    return stub.withDeadlineAfter(15, TimeUnit.SECONDS).resolveNotificationRecipients(
+        com.zentro.contracts.identity.v1.NotificationRecipientsRequest.newBuilder()
+            .setDispatchers(dispatchers).setCourierProfileId(courierProfileId == null ? "" : courierProfileId).build()).getSubjectsList();
+  }
+
   @PreDestroy
   public void shutdown() {
     if (channel != null && !channel.isShutdown()) {

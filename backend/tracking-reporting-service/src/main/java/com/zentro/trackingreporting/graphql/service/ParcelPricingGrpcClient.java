@@ -10,6 +10,7 @@ import com.zentro.contracts.parcel.v1.EstimateDeliveryFeeResponse;
 import com.zentro.contracts.parcel.v1.ListCustomerParcelsRequest;
 import com.zentro.contracts.parcel.v1.OptionalCustomerParcelViewResponse;
 import com.zentro.contracts.parcel.v1.ParcelHistoryResponse;
+import com.zentro.contracts.parcel.v1.ParcelResponse;
 import com.zentro.contracts.parcel.v1.ParcelPricingServiceGrpc;
 import com.zentro.contracts.parcel.v1.PublicTrackingRequest;
 import com.zentro.contracts.parcel.v1.PublicTrackingResponse;
@@ -21,6 +22,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -110,6 +112,17 @@ public class ParcelPricingGrpcClient {
     try {
       return stub.withDeadlineAfter(5, TimeUnit.SECONDS)
           .getPublicTracking(PublicTrackingRequest.newBuilder().setReference(reference).build());
+    } catch (StatusRuntimeException error) {
+      throw mapException(error);
+    }
+  }
+
+  /** Minimal authoritative courier view: reference and status only, never customer data. */
+  public ParcelResponse getParcel(UUID parcelId) {
+    try {
+      return stub.withDeadlineAfter(5, TimeUnit.SECONDS)
+          .getParcel(com.zentro.contracts.parcel.v1.GetParcelRequest.newBuilder()
+              .setParcelId(parcelId.toString()).build());
     } catch (StatusRuntimeException error) {
       throw mapException(error);
     }

@@ -169,4 +169,3 @@ public class KeycloakMerchantRoleSyncer {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 }
-

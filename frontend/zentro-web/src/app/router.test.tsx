@@ -19,7 +19,7 @@ import { AppRouter } from './router';
 describe('portal routing', () => {
   it('renders a lazy-loaded public tracking route', async () => {
     render(<Providers><MemoryRouter initialEntries={['/track/ZTR-ABCDEFG234']}><AppRouter /></MemoryRouter></Providers>);
-    expect(await screen.findByRole('heading', { name: /Track Your Shipment|Your parcel.s journey/i }, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Track a parcel/i }, { timeout: 5000 })).toBeInTheDocument();
   });
 
   // Lazy-loading the portal bundle + OIDC restore + GraphQL round trips can exceed

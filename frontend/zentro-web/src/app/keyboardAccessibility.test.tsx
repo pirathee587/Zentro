@@ -142,6 +142,8 @@ describe('keyboard and semantic accessibility', () => {
     await tabTo(user, screen.getByRole('button', { name: 'Submit proof' })); await user.keyboard('{Enter}');
     expect(screen.getByLabelText(/Recipient Name/)).toHaveFocus();
     await user.type(screen.getByLabelText(/Recipient Name/), 'Synthetic Recipient', { skipClick: true });
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:proof-preview'), revokeObjectURL: vi.fn() }));
+    await user.upload(screen.getByLabelText(/Delivery photo/), new File(['synthetic-image'], 'proof.jpg', { type: 'image/jpeg' }));
     const reference = screen.getByLabelText(/Proof Reference/); await tabTo(user, reference); await user.type(reference, 'SYNTHETIC-REF', { skipClick: true });
     await tabTo(user, screen.getByRole('button', { name: 'Submit proof' })); await user.keyboard('{Enter}');
     await waitFor(() => expect(save).toHaveBeenCalledOnce());

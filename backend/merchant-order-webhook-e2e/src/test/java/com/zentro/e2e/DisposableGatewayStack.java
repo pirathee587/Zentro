@@ -88,6 +88,24 @@ abstract class DisposableGatewayStack {
       .withCommand("start-dev", "--import-realm", "--http-enabled=true", "--hostname-strict=false")
       .waitingFor(Wait.forHttp("/realms/zentro/.well-known/openid-configuration").forStatusCode(200)
           .withStartupTimeout(Duration.ofMinutes(2)));
+  private static final boolean KAFKA_STATUS = Boolean.getBoolean("zentro.e2e.kafkaStatus");
+  private static final int HTTP_BASE = KAFKA_STATUS ? freePortBlock(30000, 6) : 18080;
+  private static final int GRPC_BASE = KAFKA_STATUS ? freePortBlock(45000, 3) : 9081;
+  protected static int fixturePort(int standard) { return HTTP_BASE + standard - 18080; }
+  protected static int fixtureGrpcPort(int standard) { return GRPC_BASE + standard - 9081; }
+  protected static String fixtureUrl(int standard) { return "http://127.0.0.1:" + fixturePort(standard); }
+  private static int freePortBlock(int start, int count) {
+    for (int first = start; first < start + 1000; first += count) {
+      var sockets = new java.util.ArrayList<java.net.ServerSocket>();
+      try {
+        for (int i = 0; i < count; i++) sockets.add(new java.net.ServerSocket(first + i, 1, java.net.InetAddress.getLoopbackAddress()));
+        return first;
+      } catch (java.io.IOException occupied) { /* Try another isolated block. */ }
+      finally { for (var socket : sockets) try { socket.close(); } catch (java.io.IOException ignored) { } }
+    }
+    throw new IllegalStateException("No free disposable fixture port block");
+  }
+
   protected static Process s1;
   protected static Process s2;
   protected static Process s5;
@@ -104,17 +122,21 @@ abstract class DisposableGatewayStack {
 
   @BeforeAll
   static void startStack() throws Exception {
+    if (Boolean.getBoolean("zentro.e2e.statusSync")) {
+      CourierTrackingSyncIT.startIsolatedStack();
+      return;
+    }
     if (Boolean.getBoolean("zentro.e2e.courierDashboard")) {
       CourierDashboardFlowIT.startDashboardStack();
       return;
     }
     // Fail before starting anything if another local stack occupies this fixture's ports.
-    try (var p0 = new java.net.ServerSocket(18080, 1, java.net.InetAddress.getLoopbackAddress());
-         var p1 = new java.net.ServerSocket(18081, 1, java.net.InetAddress.getLoopbackAddress());
-         var p2 = new java.net.ServerSocket(18082, 1, java.net.InetAddress.getLoopbackAddress());
-         var p3 = new java.net.ServerSocket(18083, 1, java.net.InetAddress.getLoopbackAddress());
-         var p4 = new java.net.ServerSocket(18084, 1, java.net.InetAddress.getLoopbackAddress());
-         var p5 = new java.net.ServerSocket(18085, 1, java.net.InetAddress.getLoopbackAddress())) { }
+    try (var p0 = new java.net.ServerSocket(fixturePort(18080), 1, java.net.InetAddress.getLoopbackAddress());
+         var p1 = new java.net.ServerSocket(fixturePort(18081), 1, java.net.InetAddress.getLoopbackAddress());
+         var p2 = new java.net.ServerSocket(fixturePort(18082), 1, java.net.InetAddress.getLoopbackAddress());
+         var p3 = new java.net.ServerSocket(fixturePort(18083), 1, java.net.InetAddress.getLoopbackAddress());
+         var p4 = new java.net.ServerSocket(fixturePort(18084), 1, java.net.InetAddress.getLoopbackAddress());
+         var p5 = new java.net.ServerSocket(fixturePort(18085), 1, java.net.InetAddress.getLoopbackAddress())) { }
     try { Startables.deepStart(Stream.of(POSTGRES, KAFKA)).join(); }
     catch (RuntimeException failure) {
       try { java.nio.file.Files.writeString(MODULE.resolve("target/fixture-kafka-startup.log"), KAFKA.getLogs()); }
@@ -126,7 +148,7 @@ abstract class DisposableGatewayStack {
     issuer = keycloak() + "/realms/" + REALM;
     createTestClient();
     provisionProductionServiceClients();
-    provisionProductionServiceClients(); // Reapply against existing client IDs to verify idempotent updates.
+    if (!KAFKA_STATUS) provisionProductionServiceClients(); // Existing fixtures retain their provisioning check.
     startJwksSnapshotServer();
     dispatcherToken = tokenForClient(DISPATCHER_CLIENT, DISPATCHER_SECRET);
     customerToken = tokenForClient(CUSTOMER_CLIENT, CUSTOMER_SECRET);
@@ -194,56 +216,58 @@ abstract class DisposableGatewayStack {
 
   protected static void startServices() throws Exception {
     String base = issuer;
-    s1 = launch("identity-partner-service", 18081, Map.of(
+    s1 = launch("identity-partner-service", fixturePort(18081), Map.of(
         "DB_URL", jdbcUrl("identity_db"), "DB_USER", "identity_user", "DB_PASSWORD", "identity-only",
         "JWT_ISSUER_URI", base, "JWT_JWKS_URI", jwksUri(), "JWT_AUDIENCE", "zentro-api",
-        "GRPC_SERVER_ENABLED", "true", "GRPC_SERVER_PORT", "9081", "MANAGEMENT_HEALTH_MAIL_ENABLED", "false"));
+        "GRPC_SERVER_ENABLED", "true", "GRPC_SERVER_PORT", Integer.toString(fixtureGrpcPort(9081)), "MANAGEMENT_HEALTH_MAIL_ENABLED", "false"));
     parcelConfiguration = Map.ofEntries(
         Map.entry("DB_URL", jdbcUrl("parcel_pricing_db")), Map.entry("DB_USER", "parcel_pricing_user"),
         Map.entry("DB_PASSWORD", "parcel-pricing-only"), Map.entry("JWT_ISSUER_URI", base),
         Map.entry("JWT_JWKS_URI", jwksUri()), Map.entry("JWT_AUDIENCE", "zentro-api"),
-        Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", "9081"),
+        Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", Integer.toString(fixtureGrpcPort(9081))),
         Map.entry("SERVICE_TOKEN_URI", issuer + "/protocol/openid-connect/token"),
         Map.entry("SERVICE_CLIENT_ID", "zentro-parcel-service"), Map.entry("SERVICE_CLIENT_SECRET", PARCEL_SERVICE_SECRET),
         Map.entry("KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers()),
-        Map.entry("OUTBOX_PUBLISHER_ENABLED", "true"));
-    s2 = launch("parcel-pricing-service", 18082, parcelConfiguration);
-    s5 = launch("notification-integration-service", 18085, Map.ofEntries(
+        Map.entry("OUTBOX_PUBLISHER_ENABLED", "true"),
+        Map.entry("GRPC_SERVER_PORT", Integer.toString(fixtureGrpcPort(9082))));
+    s2 = launch("parcel-pricing-service", fixturePort(18082), parcelConfiguration);
+    s5 = launch("notification-integration-service", fixturePort(18085), Map.ofEntries(
         Map.entry("DB_URL", jdbcUrl("notification_integration_db")), Map.entry("DB_USER", "notification_integration_user"), Map.entry("DB_PASSWORD", "notification-integration-only"),
         Map.entry("JWT_ISSUER_URI", base), Map.entry("JWT_JWKS_URI", jwksUri()), Map.entry("JWT_AUDIENCE", "zentro-api"),
-        Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", "9081"),
+        Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", Integer.toString(fixtureGrpcPort(9081))),
         Map.entry("SERVICE_TOKEN_URI", issuer + "/protocol/openid-connect/token"),
         Map.entry("SERVICE_CLIENT_ID", "zentro-notification-service"), Map.entry("SERVICE_CLIENT_SECRET", NOTIFICATION_SERVICE_SECRET),
-        Map.entry("PARCEL_GRPC_HOST", "127.0.0.1"), Map.entry("PARCEL_GRPC_PORT", "9082"),
+        Map.entry("PARCEL_GRPC_HOST", "127.0.0.1"), Map.entry("PARCEL_GRPC_PORT", Integer.toString(fixtureGrpcPort(9082))),
         Map.entry("KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers()),
         Map.entry("NOTIFICATIONS_CONSUMER_ENABLED", "true"), Map.entry("WEBHOOKS_ENABLED", "true"), Map.entry("WEBHOOKS_ALLOW_INSECURE_LOCAL", "true"),
         Map.entry("WEBHOOK_SECRET_KEY", Base64.getEncoder().encodeToString(new byte[32])), Map.entry("WEBHOOK_RETRY_POLL_MS", "100"),
         Map.entry("WEBHOOK_RETRY_BASE_DELAY_MS", "100"), Map.entry("WEBHOOK_RETRY_MAX_DELAY_MS", "500"), Map.entry("SERVER_PORT", "18085")));
     if (PERF) {
-      s3 = launch("dispatch-courier-service", 18083, Map.ofEntries(
+      s3 = launch("dispatch-courier-service", fixturePort(18083), Map.ofEntries(
           Map.entry("DB_URL", jdbcUrl("dispatch_courier_db")), Map.entry("DB_USER", "dispatch_user"), Map.entry("DB_PASSWORD", "dispatch-only"),
           Map.entry("JWT_ISSUER_URI", base), Map.entry("JWT_JWKS_URI", jwksUri()), Map.entry("JWT_AUDIENCE", "zentro-api"),
-          Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", "9081"),
+          Map.entry("IDENTITY_GRPC_HOST", "127.0.0.1"), Map.entry("IDENTITY_GRPC_PORT", Integer.toString(fixtureGrpcPort(9081))),
           Map.entry("POD_TOKEN_URI", issuer + "/protocol/openid-connect/token"), Map.entry("POD_CLIENT_ID", "zentro-dispatch-service"),
           Map.entry("POD_CLIENT_SECRET", DISPATCH_SERVICE_SECRET), Map.entry("POD_WORKER_ENABLED", "false")));
-      s4 = launch("tracking-reporting-service", 18084, Map.of(
+      s4 = launch("tracking-reporting-service", fixturePort(18084), Map.of(
           "DB_URL", jdbcUrl("tracking_reporting_db"), "DB_USER", "tracking_user", "DB_PASSWORD", "tracking-only",
           "JWT_ISSUER_URI", base, "JWT_JWKS_URI", jwksUri(), "JWT_AUDIENCE", "zentro-api",
           "KAFKA_BOOTSTRAP_SERVERS", KAFKA.getBootstrapServers(), "KAFKA_CONSUMER_ENABLED", "true"));
     }
-    gateway = launch("api-gateway", 18080, Map.of(
-        "GATEWAY_PORT", "18080", "S1_URI", "http://127.0.0.1:18081", "S2_URI", "http://127.0.0.1:18082",
-        "S5_URI", "http://127.0.0.1:18085", "JWT_ISSUER_URI", base,
+    gateway = launch("api-gateway", fixturePort(18080), Map.of(
+        "GATEWAY_PORT", Integer.toString(fixturePort(18080)), "S1_URI", fixtureUrl(18081), "S2_URI", fixtureUrl(18082),
+        "S5_URI", fixtureUrl(18085), "JWT_ISSUER_URI", base,
         "JWT_JWKS_URI", jwksUri(), "JWT_AUDIENCE", "zentro-api"));
   }
 
   protected static void restartParcel() throws Exception {
     stop(s2);
-    s2 = launch("parcel-pricing-service", 18082, parcelConfiguration);
+    s2 = launch("parcel-pricing-service", fixturePort(18082), parcelConfiguration);
   }
 
   protected static void provisionProductionServiceClients() throws Exception {
-    ProcessBuilder provisioner = new ProcessBuilder("python3", REPO.resolve("infra/keycloak/provision_service_clients.py").toString());
+    ProcessBuilder provisioner = new ProcessBuilder(System.getProperty("zentro.e2e.python", "python3"),
+        REPO.resolve("infra/keycloak/provision_service_clients.py").toString());
     provisioner.environment().put("KC_URL", keycloak());
     provisioner.environment().put("KC_REALM", REALM);
     provisioner.environment().put("KC_ADMIN_USERNAME", ADMIN_USER);
@@ -268,6 +292,16 @@ abstract class DisposableGatewayStack {
     ProcessBuilder builder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
         "-Xms96m", "-Xmx256m", "-Xlog:gc:file=" + MODULE.resolve("target/gc-" + module + ".log"), "-jar", jar.toString());
     builder.environment().putAll(properties);
+    if (KAFKA_STATUS) {
+      builder.environment().put("SPRING_CONFIG_IMPORT", "");
+      builder.environment().put("KEYCLOAK_ADMIN_URL", keycloak());
+      builder.environment().put("KC_BOOTSTRAP_ADMIN_USERNAME", ADMIN_USER);
+      builder.environment().put("KC_BOOTSTRAP_ADMIN_PASSWORD", ADMIN_PASSWORD);
+      builder.environment().put("SMTP_HOST", "127.0.0.1");
+      builder.environment().put("SMTP_PORT", "9");
+      builder.environment().put("SMTP_USER", "");
+      builder.environment().put("SMTP_PASSWORD", "");
+    }
     builder.environment().put("SERVER_ADDRESS", "127.0.0.1");
     if (module.equals("dispatch-courier-service")) {
       // S3 Flyway is off by default (shared Supabase safety). Enable it only for this disposable Testcontainers database.
@@ -278,8 +312,8 @@ abstract class DisposableGatewayStack {
       builder.environment().put("SPRING_FLYWAY_VALIDATE_ON_MIGRATE", "true");
     }
     if (PERF && module.equals("api-gateway")) {
-      builder.environment().put("S3_URI", "http://127.0.0.1:18083");
-      builder.environment().put("S4_URI", "http://127.0.0.1:18084");
+      builder.environment().put("S3_URI", fixtureUrl(18083));
+      builder.environment().put("S4_URI", fixtureUrl(18084));
       // Fixture-only rate-limit budget; committed production defaults remain untouched.
       builder.environment().put("RATE_LIMIT_TRACKING_PER_MINUTE", "100000");
       builder.environment().put("RATE_LIMIT_DEFAULT_PER_MINUTE", "100000");
@@ -346,7 +380,7 @@ abstract class DisposableGatewayStack {
   }
 
   protected static HttpResponse<String> call(String method, String path, String token, String body) throws Exception {
-    return sendRaw(method, "http://127.0.0.1:18080" + path, token, body);
+    return sendRaw(method, fixtureUrl(18080) + path, token, body);
   }
 
   protected static String orderBody() {

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, feature/merchant-portal-integration, test/full-ui-flow-check]
   pull_request:
     branches: [develop, main]
 
@@ -40,7 +40,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run frontend tests
-        run: npm test -- --reporter=default --reporter=junit --outputFile=reports/vitest.xml
+        # Bound concurrent jsdom processes on hosted runners; keep the complete suite and isolation.
+        run: npm test -- --maxWorkers=2 --minWorkers=1 --reporter=default --reporter=junit --outputFile=reports/vitest.xml
       - name: Run lint
         run: npm run lint
       - name: Type-check frontend

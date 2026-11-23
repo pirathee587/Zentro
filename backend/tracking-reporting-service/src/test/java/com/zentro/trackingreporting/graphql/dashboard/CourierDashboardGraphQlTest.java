@@ -26,6 +26,15 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 class CourierDashboardGraphQlTest {
   @Autowired GraphQlTester graph;
   @MockBean CourierAssignmentSnapshotClient snapshots;
+  @MockBean com.zentro.trackingreporting.graphql.service.ParcelPricingGrpcClient parcelPricing;
+  @org.junit.jupiter.api.BeforeEach void isolateAuthoritativeReads() {
+    when(parcelPricing.getParcel(any())).thenReturn(com.zentro.contracts.parcel.v1.ParcelResponse.getDefaultInstance());
+    when(bookings.publicTracking("ZT-SYNTHETIC1")).thenReturn(
+        new com.zentro.trackingreporting.graphql.dto.PublicTrackingParcelDto(
+            "ZT-SYNTHETIC1", TrackingStatus.IN_TRANSIT, "IN_TRANSIT", null, null, null,
+            null, null, 0, null, null, null, null, List.of()));
+  }
+
   @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   @MockBean TrackingParcelRepository parcels;
   @MockBean TrackingEventRepository events;

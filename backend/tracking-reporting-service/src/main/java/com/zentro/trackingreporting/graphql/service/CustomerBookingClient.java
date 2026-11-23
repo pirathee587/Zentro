@@ -55,7 +55,15 @@ public class CustomerBookingClient {
   }
 
   public TrackingParcel reference(Jwt jwt, String reference) {
-    return toParcel(parcelGrpc.getParcelByReference(jwt.getSubject(), reference));
+    return referenceForCustomer(jwt.getSubject(), reference);
+  }
+
+  /** Authoritative ownership lookup for long-lived streams, using S4's SERVICE token. */
+  public TrackingParcel referenceForCustomer(String subject, String reference) {
+    TrackingParcel parcel = toParcel(parcelGrpc.getParcelByReference(subject, reference));
+    // S2 checks this subject before returning the parcel. Keep identity out of Kafka.
+    parcel.setCustomerSubject(subject);
+    return parcel;
   }
 
   public TrackingParcel live(Jwt jwt) {
@@ -79,6 +87,12 @@ public class CustomerBookingClient {
   public PublicTrackingParcelDto publicTracking(String ref) {
     PublicTrackingResponse resp = parcelGrpc.getPublicTracking(ref);
     TrackingStatus mappedStatus = TrackingStatus.fromString(resp.getStatus());
+    List<TrackingEventDto> events = resp.getEventsList().stream()
+        .map(entry -> toEventDto(resp.getTrackingRef(), entry)).toList();
+    String deliveredAt = events.stream().filter(e -> "DELIVERED".equals(e.status()))
+        .map(e -> e.occurredAt().toString()).findFirst().orElse(null);
+    String failureReason = events.stream().filter(e -> "FAILED".equals(e.status()))
+        .map(TrackingEventDto::failureReason).filter(java.util.Objects::nonNull).findFirst().orElse(null);
     return new PublicTrackingParcelDto(
         resp.getTrackingRef(),
         mappedStatus,
@@ -91,9 +105,9 @@ public class CustomerBookingClient {
         resp.getEstimatedDays(),
         null,
         emptyToNull(resp.getCreatedAt()),
-        null,
-        null,
-        List.of());
+        deliveredAt,
+        failureReason,
+        events);
   }
 
   public List<TrackingEventDto> customerHistory(Jwt jwt, String ref) {
@@ -129,9 +143,9 @@ public class CustomerBookingClient {
       default -> status;
     };
     String desc = !entry.getNote().isBlank() ? entry.getNote() : entry.getReason();
-    Instant occurredAt = entry.getChangedAt().isBlank() ? Instant.now() : OffsetDateTime.parse(entry.getChangedAt()).toInstant();
+    Instant occurredAt = OffsetDateTime.parse(entry.getChangedAt()).toInstant();
     return new TrackingEventDto(
-        UUID.randomUUID(),
+        entry.getId().isBlank() ? UUID.nameUUIDFromBytes((ref + ":" + status + ":" + entry.getChangedAt()).getBytes(java.nio.charset.StandardCharsets.UTF_8)) : UUID.fromString(entry.getId()),
         ref,
         status,
         title,

@@ -141,7 +141,7 @@ class BookingOutboxAtomicityIntegrationTest {
   }
 
   @Test
-  @DisplayName("After a failed attempt the same Idempotency-Key books once, with exactly one event")
+  @DisplayName("After a failed attempt the same Idempotency-Key books once, with one event per stream")
   void retryAfterFailureBooksOnce() throws Exception {
     String subject = subject();
     String key = UUID.randomUUID().toString();
@@ -156,8 +156,8 @@ class BookingOutboxAtomicityIntegrationTest {
     assertThat(replay.getStatus()).isEqualTo(200);
     UUID parcelId = UUID.fromString(objectMapper.readTree(retry.getContentAsString()).get("id").asText());
     assertThat(parcels(subject)).isEqualTo(1);
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?",
-        Integer.class, parcelId)).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT event_type FROM parcel.outbox_event WHERE aggregate_id = ?",
+        String.class, parcelId)).containsExactlyInAnyOrder("parcel.created", "notification.parcel");
   }
 
   @Test

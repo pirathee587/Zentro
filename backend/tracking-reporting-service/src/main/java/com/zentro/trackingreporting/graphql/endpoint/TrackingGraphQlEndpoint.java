@@ -124,7 +124,12 @@ public class TrackingGraphQlEndpoint {
       throw new AccessDeniedException("Access denied: caller does not have an authorized delivery role");
     }
 
-    return toDeliveryConnectionDto(pageResult, pageable.getPageNumber() + 1, pageable.getPageSize());
+    var connection = toDeliveryConnectionDto(pageResult, pageable.getPageNumber() + 1, pageable.getPageSize());
+    if (Boolean.TRUE.equals(customerOnly) && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+      return new DeliveryConnectionDto(connection.items().stream()
+          .map(item -> item.withEvents(bookings.customerHistory(jwt, item.trackingRef()))).toList(), connection.pageInfo());
+    }
+    return connection;
   }
 
   /**
@@ -169,15 +174,10 @@ public class TrackingGraphQlEndpoint {
         .map(this::toEventDto)
         .collect(Collectors.groupingBy(TrackingEventDto::trackingRef));
 
-    org.springframework.security.oauth2.jwt.Jwt jwt = authentication != null
-        && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt j ? j : null;
-
     Map<DeliveryDetailsDto, List<TrackingEventDto>> result = new LinkedHashMap<>();
     for (DeliveryDetailsDto delivery : deliveries) {
       List<TrackingEventDto> list = grouped.getOrDefault(delivery.trackingRef(), List.of());
-      if (list.isEmpty() && jwt != null && delivery.trackingRef() != null) {
-        list = bookings.customerHistory(jwt, delivery.trackingRef());
-      }
+      if (delivery.events() != null) list = delivery.events();
       result.put(delivery, list);
     }
     return result;
@@ -204,7 +204,8 @@ public class TrackingGraphQlEndpoint {
 
     Map<PublicTrackingParcelDto, List<TrackingEventDto>> result = new LinkedHashMap<>();
     for (PublicTrackingParcelDto parcel : parcels) {
-      result.put(parcel, grouped.getOrDefault(parcel.trackingRef(), List.of()));
+      result.put(parcel, parcel.events() != null && !parcel.events().isEmpty()
+          ? parcel.events() : grouped.getOrDefault(parcel.trackingRef(), List.of()));
     }
     return result;
   }

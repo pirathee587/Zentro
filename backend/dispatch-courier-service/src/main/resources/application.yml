@@ -3,6 +3,10 @@ server:
 spring:
   application:
     name: dispatch-courier-service
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
   config:
     import: optional:file:./.env[.properties]
   flyway:
@@ -26,6 +30,9 @@ zentro:
     grpc-host: ${IDENTITY_GRPC_HOST:zentro-identity-partner-service}
     grpc-port: ${IDENTITY_GRPC_PORT:9081}
   pod:
+    # S2 owns assignment candidate eligibility and claim state. In Compose this
+    # must resolve to the S2 service DNS name, never this container's localhost.
+    parcel-base-url: ${PARCEL_BASE_URL:http://localhost:8082}
     parcel-grpc-host: ${PARCEL_GRPC_HOST:zentro-parcel-pricing-service}
     parcel-grpc-port: ${PARCEL_GRPC_PORT:9082}
     token-uri: ${POD_TOKEN_URI:}
@@ -34,6 +41,9 @@ zentro:
     worker-enabled: ${POD_WORKER_ENABLED:true}
     poll-interval-ms: ${POD_POLL_INTERVAL_MS:2000}
     max-attempts: ${POD_MAX_ATTEMPTS:8}
+    storage-url: ${POD_STORAGE_URL:}
+    storage-service-key: ${POD_STORAGE_SERVICE_KEY:}
+    storage-bucket: ${POD_STORAGE_BUCKET:swiftdrop-delivery-proofs}
   security:
     issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/zentro}
     audience: ${JWT_AUDIENCE:zentro-api}
@@ -41,6 +51,10 @@ zentro:
   outbox:
     enabled: ${OUTBOX_ENABLED:false}
     topics:
+      "[notification.assignment]": notification.assignment
+      "[notification.proof]": notification.proof
+      "[delivery.accepted]": delivery.accepted
+      "[delivery.rejected]": delivery.rejected
       delivery.assigned: ${DELIVERY_ASSIGNED_TOPIC:delivery.assigned}
       delivery.reassigned: ${DELIVERY_REASSIGNED_TOPIC:delivery.reassigned}
       delivery.cancelled: ${DELIVERY_CANCELLED_TOPIC:delivery.cancelled}

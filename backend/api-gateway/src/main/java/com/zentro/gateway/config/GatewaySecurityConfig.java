@@ -46,6 +46,9 @@ public class GatewaySecurityConfig {
         .logout(ServerHttpSecurity.LogoutSpec::disable)
         .exceptionHandling(spec -> spec.authenticationEntryPoint(entry).accessDeniedHandler(denied))
         .authorizeExchange(exchanges -> exchanges
+            .pathMatchers("/api/v1/notifications/**")
+                .access(RoleAuthorizationManager.hasAny(GatewayConstants.ROLE_CUSTOMER, GatewayConstants.ROLE_MERCHANT,
+                    GatewayConstants.ROLE_COURIER, GatewayConstants.ROLE_DISPATCHER))
             .pathMatchers("/api/v1/tracking/mine")
                 .access(RoleAuthorizationManager.hasAny(GatewayConstants.ROLE_CUSTOMER, GatewayConstants.ROLE_MERCHANT))
             .pathMatchers(HttpMethod.GET,

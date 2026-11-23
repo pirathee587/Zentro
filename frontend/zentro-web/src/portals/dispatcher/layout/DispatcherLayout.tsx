@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/shared/domain/notifications/NotificationBell';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -6,8 +7,8 @@ import {
   Button,
   SunIcon,
   MoonIcon,
-  BellIcon,
   UserIcon,
+  LogoPill,
 } from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './dispatcher.css';
@@ -40,14 +41,7 @@ export function DispatcherLayout() {
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
           {/* Logo pill "SwiftDrop Dispatcher" */}
-          <Link
-            to="/dispatcher"
-            className="sd-logo-pill sd-dispatcher-logo"
-            aria-label="SwiftDrop Dispatcher Home"
-          >
-            <span className="sd-brand-name">SwiftDrop</span>
-            <span className="sd-brand-role">Dispatcher</span>
-          </Link>
+          <LogoPill to="/dispatcher" role="Dispatcher" ariaLabel="SwiftDrop Dispatcher Home" />
 
           {/* Center pill nav */}
           <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -87,6 +81,7 @@ export function DispatcherLayout() {
               >
                 Reports
               </NavLink>
+              <NavLink to="/dispatcher/proof-reviews" className={({ isActive }) => `sd-nav-link ${isActive ? 'active is-active' : ''}`}>Proof reviews</NavLink>
             </nav>
           </div>
 
@@ -108,14 +103,7 @@ export function DispatcherLayout() {
             </Button>
 
             {/* Notifications button */}
-            <Button
-              type="button"
-              className="sd-icon-btn"
-              aria-label="View notifications"
-              title="Notifications"
-            >
-              <BellIcon size={20} strokeWidth={2} />
-            </Button>
+            <NotificationBell portal="DISPATCHER" />
 
             {/* User profile dropdown button */}
             <div className="sd-profile-menu-wrap" ref={profileRef}>
@@ -161,6 +149,26 @@ export function DispatcherLayout() {
                   >
                     Notification Logs
                   </Link>
+                  {user?.roles?.includes('COURIER') && (
+                    <Link
+                      to="/courier"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Courier Portal
+                    </Link>
+                  )}
+                  {user?.roles?.includes('CUSTOMER') && (
+                    <Link
+                      to="/customer"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Customer Portal
+                    </Link>
+                  )}
                   <hr className="sd-dropdown-divider" />
                   <Button
                     type="button"

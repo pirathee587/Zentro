@@ -1,0 +1,359 @@
+/* ==========================================================================
+   Courier Delivery Detail Page Styles
+   ========================================================================== */
+
+.courier-delivery-detail {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+.courier-delivery-detail .staff-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted, #686868);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  margin-bottom: 16px;
+}
+
+.courier-delivery-detail .staff-text-link:hover {
+  color: var(--ink, #1f1f1f);
+  text-decoration: underline;
+}
+
+.courier-delivery-detail .staff-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 24px;
+}
+
+.courier-detail-eyebrow {
+  margin: 0 0 6px;
+  color: var(--muted, #686868);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.courier-delivery-detail h1 {
+  margin: 0;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--ink, #1f1f1f);
+}
+
+.courier-delivery-id {
+  color: var(--muted, #686868);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.courier-detail-card {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.courier-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+}
+
+.courier-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: var(--paper, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.06));
+  border-radius: 14px;
+}
+
+.courier-summary-item span {
+  color: var(--muted, #686868);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.courier-summary-item strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink, #1f1f1f);
+  overflow-wrap: anywhere;
+}
+
+.courier-tracking-line {
+  margin: 20px 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.courier-tracking-code {
+  font-size: 15px;
+  font-weight: 700;
+  background: rgba(250, 204, 21, 0.2);
+  padding: 3px 10px;
+  border-radius: 6px;
+  color: var(--ink, #1f1f1f);
+  letter-spacing: 0.5px;
+}
+
+.courier-action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.courier-assignment-controls {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--paper, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  border-radius: 14px;
+}
+
+.courier-assignment-controls input {
+  min-width: min(100%, 280px);
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.12));
+  border-radius: 9999px;
+  font-size: 13px;
+  outline: none;
+}
+
+.courier-status-action {
+  border-top: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  padding-top: 24px;
+  margin-top: 24px;
+}
+
+.courier-notice {
+  padding: 12px 16px;
+  background: rgba(250, 204, 21, 0.15);
+  border: 1px solid #facc15;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 16px 0;
+}
+
+.courier-proof-hint {
+  background: var(--paper, rgba(0, 0, 0, 0.02));
+  border-left: 4px solid #facc15;
+  border-radius: 0 10px 10px 0;
+  padding: 16px 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink, #1f1f1f);
+  margin-top: 24px;
+}
+
+/* ==========================================================================
+   Proof of Delivery Form Styles
+   ========================================================================== */
+
+.courier-form {
+  margin-top: 28px;
+  padding: 28px;
+  background: var(--paper, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  border-radius: 18px;
+}
+
+.courier-form h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--ink, #1f1f1f);
+}
+
+.courier-form p {
+  color: var(--muted, #686868);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+.courier-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.courier-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #1f1f1f);
+}
+
+.courier-form-group input:not([type="file"]),
+.courier-form-group textarea {
+  width: 100%;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  background: var(--card, #ffffff);
+  color: var(--ink, #1f1f1f);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.courier-form-group input:focus,
+.courier-form-group textarea:focus {
+  outline: none;
+  border-color: #facc15;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2);
+}
+
+.courier-form-group input[type="file"] {
+  padding: 8px 12px;
+  background: var(--card, #ffffff);
+  border: 1px dashed var(--line, rgba(0, 0, 0, 0.2));
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.courier-form-group span {
+  font-size: 12px;
+  color: var(--muted, #686868);
+}
+
+.courier-form-group span.is-error {
+  color: var(--err, #dc2626);
+  font-weight: 500;
+}
+
+.courier-form-submit-btn {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 9999px;
+  background: #facc15 !important;
+  color: #171717 !important;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.courier-form-submit-btn:hover:not(:disabled) {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+
+.courier-form-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ==========================================================================
+   Saved Proof Display Card
+   ========================================================================== */
+
+.courier-saved-proof-card {
+  margin-top: 28px;
+  padding: 24px;
+  background: var(--paper, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  border-radius: 18px;
+}
+
+.courier-saved-proof-card h2 {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--ink, #1f1f1f);
+}
+
+.courier-proof-status-banner {
+  padding: 10px 14px;
+  background: rgba(250, 204, 21, 0.15);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #1f1f1f);
+  margin: 12px 0 16px;
+}
+
+.courier-proof-fields {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px 16px;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin: 16px 0 20px;
+  font-size: 13px;
+}
+
+.courier-proof-fields dt {
+  color: var(--muted, #686868);
+  font-weight: 500;
+}
+
+.courier-proof-fields dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink, #1f1f1f);
+  overflow-wrap: anywhere;
+}
+
+.courier-refresh-btn {
+  min-height: 40px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0 20px;
+}
+
+@media (max-width: 680px) {
+  .courier-delivery-detail { padding: 16px 12px 36px; }
+  .courier-delivery-detail .staff-hero { align-items: flex-start; flex-direction: column; }
+  .courier-detail-summary { grid-template-columns: 1fr; }
+  .courier-detail-card { padding: 20px 16px; }
+  .courier-proof-fields { grid-template-columns: 1fr; gap: 4px; }
+}
+
+html[data-theme="dark"] .courier-detail-card,
+html[data-theme="dark"] .courier-form-group input,
+html[data-theme="dark"] .courier-form-group textarea,
+html[data-theme="dark"] .courier-proof-fields {
+  background: #232528;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f5f5f5;
+}
+
+html[data-theme="dark"] .courier-summary-item,
+html[data-theme="dark"] .courier-form,
+html[data-theme="dark"] .courier-saved-proof-card {
+  background: #1b1c1e;
+  border-color: rgba(255, 255, 255, 0.08);
+}

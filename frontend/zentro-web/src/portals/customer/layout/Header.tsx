@@ -1,12 +1,12 @@
+import { NotificationBell } from '@/shared/domain/notifications/NotificationBell';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button as BaseButton } from '@/shared/ui';
+import { Button as BaseButton, LogoPill } from '@/shared/ui';
 import { useAuth } from '@/shared/auth/useAuth';
 import { useTheme } from './useTheme';
 import {
   SunIcon,
   MoonIcon,
-  BellIcon,
   UserIcon,
 } from '../components/icons';
 
@@ -49,31 +49,8 @@ export const Header: React.FC = () => {
   return (
     <header className="sd-header-wrap" role="banner">
       <div className="sd-header">
-        {/* Logo pill "SwiftDrop" */}
-        <Link to="/customer" className="sd-logo-pill" aria-label="SwiftDrop Customer Home">
-          <svg
-            className="sd-logo-box-svg"
-            width="28"
-            height="24"
-            viewBox="0 0 36 28"
-            fill="none"
-            aria-hidden="true"
-          >
-            {/* Speed lines */}
-            <rect x="1" y="9" width="7" height="2" rx="1" fill="var(--gold)" />
-            <rect x="0" y="13.5" width="9" height="2" rx="1" fill="var(--gold)" />
-            <rect x="2" y="18" width="6.5" height="2" rx="1" fill="var(--gold)" />
-            {/* Isometric box top */}
-            <path d="M21 3L32 8.5L21 14L10 8.5L21 3Z" fill="var(--gold-light)" />
-            {/* Isometric box left face */}
-            <path d="M10 8.5L21 14V25.5L10 20V8.5Z" fill="var(--ochre)" />
-            {/* Isometric box right face */}
-            <path d="M32 8.5L21 14V25.5L32 20V8.5Z" fill="var(--espresso)" />
-            {/* Tape detail */}
-            <path d="M25.5 5.75L14.5 11.25L17.5 12.75L28.5 7.25L25.5 5.75Z" fill="var(--warm-pale)" opacity="0.7" />
-          </svg>
-          <span>SwiftDrop</span>
-        </Link>
+        {/* Logo pill "SwiftDrop" (Customer portal: box logo + SwiftDrop) */}
+        <LogoPill to="/customer" ariaLabel="SwiftDrop Customer Home" />
 
         {/* Center pill nav (scrolls horizontally on small screens) */}
         <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -111,14 +88,7 @@ export const Header: React.FC = () => {
           </BaseButton>
 
           {/* Notifications button */}
-          <BaseButton
-            type="button"
-            className="sd-icon-btn"
-            aria-label="View notifications"
-            title="Notifications"
-          >
-            <BellIcon size={19} strokeWidth={1.75} />
-          </BaseButton>
+          <NotificationBell portal="CUSTOMER" />
 
           {/* Profile button (circular, --card background) */}
           <div className="sd-profile-menu-wrap" ref={profileRef} onKeyDown={event => {
@@ -154,6 +124,37 @@ export const Header: React.FC = () => {
                 >
                   Sign out
                 </BaseButton>
+
+                {user?.roles?.includes('COURIER') && (
+                  <Link
+                    to="/courier"
+                    className="sd-btn sd-btn-outline sd-btn-small"
+                    onClick={() => setProfileOpen(false)}
+                    style={{ textAlign: 'center', textDecoration: 'none' }}
+                  >
+                    Courier Portal
+                  </Link>
+                )}
+                {user?.roles?.includes('DISPATCHER') && (
+                  <Link
+                    to="/dispatcher"
+                    className="sd-btn sd-btn-outline sd-btn-small"
+                    onClick={() => setProfileOpen(false)}
+                    style={{ textAlign: 'center', textDecoration: 'none' }}
+                  >
+                    Dispatch Desk
+                  </Link>
+                )}
+                {user?.roles?.includes('MERCHANT') && (
+                  <Link
+                    to="/merchant/dashboard"
+                    className="sd-btn sd-btn-outline sd-btn-small"
+                    onClick={() => setProfileOpen(false)}
+                    style={{ textAlign: 'center', textDecoration: 'none' }}
+                  >
+                    Merchant Portal
+                  </Link>
+                )}
               </div>
             )}
           </div>

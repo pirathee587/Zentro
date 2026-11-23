@@ -1,0 +1,67 @@
+APPROVAL REQUIRED - COURIER / CUSTOMER TRACKING DEPLOYMENT
+
+No shared service was restarted, recreated, migrated or repaired during this work.
+The root Compose file keeps S3 Flyway disabled, validation enabled, proof/outbox
+workers disabled, and restart=no. The separate approval-required override is NOT
+loaded by a normal docker compose command.
+
+Verified screenshot relationship (read-only shared database queries):
+  Courier parcel 3906594a-68a0-4a5c-922b-83b91046505d -> ZT-5GRNG5X5CS
+  Its persisted S2 history: CREATED -> PICKED_UP -> IN_TRANSIT -> OUT_FOR_DELIVERY.
+  Customer screenshot ZT-TSS9BHJ6AX -> c075379c-685c-40c0-a9e6-b155ab958acb,
+  still CREATED. These are different shipments; no row was changed to match them.
+  S2 outbox: six parcel.created and three parcel.status.updated records unpublished.
+  S3 outbox: six delivery.assigned and one delivery.accepted records unpublished.
+  S4 has no tracking parcel/events for either screenshot shipment.
+
+Application read flow after deploying code:
+  Courier JWT -> gateway REST -> S3 canonical assignment ownership/ACCEPTED check
+  -> authenticated S2 gRPC -> S2 parcel + immutable status history + outbox commit.
+  S4 GraphQL and REST public tracking read the same real S2 parcel/history by
+  reference. Owner-only GraphQL first verifies ownership via S2 and resolves the
+  assigned courier via S3 gRPC for that exact parcel ID. Public APIs omit names,
+  phones, private notes, actor subjects and full addresses.
+  No status is inferred from another shipment or invented as an event.
+  Accepted assignment changes assignment state; it does not imply PICKED_UP.
+
+Event and completion flow (requires separately approved worker configuration):
+  S2 publisher -> Kafka parcel.created / parcel.status.updated -> S4 transactional
+  processed_event claim + tracking history/projection -> after-commit SSE.
+  S3 proof submission saves immutable evidence as PENDING; the proof worker calls
+  S2 CompleteParcelDelivery via service-authenticated gRPC and confirms COMPLETED.
+  Same-state status retries produce no new history/outbox entry. Proof retries
+  preserve identical evidence. Kafka consumers deduplicate original event IDs.
+  S3 outbox remains OFF in the proposed deployment: owner courier details use
+  its authoritative read API and do not require publishing assignment events.
+
+Proposed deployment (NOT EXECUTED):
+  1. Review the existing S3 PENDING proof backlog read-only before permitting its
+     worker to process it. The worker can process all eligible pending proofs,
+     not only a newly submitted one. Do not approve without reviewing this scope.
+  2. Supply an approved broker address reachable from the application containers:
+       $env:APPROVED_KAFKA_BOOTSTRAP_SERVERS = '<approved-broker:9092>'
+     This work did not provision or alter any shared Kafka broker.
+  3. After explicit approval, build code without starting any containers:
+       docker compose build parcel-pricing-service tracking-reporting-service zentro-web
+     Build S3 separately only after its deployment is approved:
+       docker compose build dispatch-courier-service
+  4. After explicit approval, apply the proposed override and deploy S2 first,
+     then S4/frontend, then S3 (S3 recreation and proof-worker activation require
+     specific approval):
+       docker compose -f docker-compose.yml -f infra/compose/courier-tracking.approval-required.yml up -d --no-deps parcel-pricing-service
+       docker compose -f docker-compose.yml -f infra/compose/courier-tracking.approval-required.yml up -d --no-deps tracking-reporting-service zentro-web
+       docker compose -f docker-compose.yml -f infra/compose/courier-tracking.approval-required.yml up -d --no-deps dispatch-courier-service
+     All Flyway migrations are disabled in that override. S3 restart stays no,
+     validation stays true, and its assignment outbox stays false.
+     Deployment order matters: S2 adds backward-compatible public history fields
+     consumed by S4. Never deploy only the new S4 client against an old S2 and
+     treat an empty public history as proof that the shipment has not moved.
+  5. Verify real tracking IDs by read-only lookup, gateway health and S4 history.
+     Existing unpublished S2 outbox rows should be published with their original
+     event IDs, not replaced with fabricated history or direct database updates.
+
+No live data-repair SQL is proposed. The source S2 history already exists and
+is sufficient for read aggregation; approved publication can populate S4 later.
+Old S3 assignment-event projection concerns are not a reason to enable its outbox:
+those events carry profile IDs, while tracking authorization expects subjects.
+Keep that outbox disabled as specified; courier details are read from S3 gRPC.

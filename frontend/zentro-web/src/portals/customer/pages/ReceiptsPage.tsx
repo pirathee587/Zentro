@@ -179,7 +179,7 @@ export const ReceiptsPage: React.FC = () => {
 
   const receiptNum = useMemo(() => {
     return getReceiptNumber(matchingReceipt);
-  }, [matchingReceipt, selectedParcel]);
+  }, [matchingReceipt]);
 
   const handlePrint = () => {
     if (typeof window !== 'undefined') {

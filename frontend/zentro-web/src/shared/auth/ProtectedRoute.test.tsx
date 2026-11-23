@@ -10,7 +10,7 @@ describe('ProtectedRoute', () => {
     const auth: Auth = { user: null, setUser: vi.fn(), login, register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     render(<MemoryRouter initialEntries={['/secure']}><AuthContext.Provider value={auth}><Routes><Route element={<ProtectedRoute />}><Route path="/secure" element={<p>Private content</p>} /></Route></Routes></AuthContext.Provider></MemoryRouter>);
     expect(screen.getByText(/redirecting to sign in/i)).toBeInTheDocument();
-    await waitFor(() => expect(login).toHaveBeenCalledWith('/secure', undefined, 'customer'));
+    await waitFor(() => expect(login).toHaveBeenCalledWith('/secure', undefined, 'customer', undefined, { reauthenticate: false }));
     expect(screen.queryByText('Private content')).not.toBeInTheDocument();
   });
   it.each([
@@ -30,7 +30,7 @@ describe('ProtectedRoute', () => {
     const login = vi.fn(async () => undefined);
     const auth: Auth = { user: null, setUser: vi.fn(), login, register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     render(<MemoryRouter initialEntries={[path]}><AuthContext.Provider value={auth}><Routes><Route element={<ProtectedRoute />}><Route path="*" element={<p>Private content</p>} /></Route></Routes></AuthContext.Provider></MemoryRouter>);
-    await waitFor(() => expect(login).toHaveBeenCalledWith(path, undefined, entryPoint));
+    await waitFor(() => expect(login).toHaveBeenCalledWith(path, undefined, entryPoint, undefined, { reauthenticate: false }));
     expect(screen.queryByText('Private content')).not.toBeInTheDocument();
   });
   it('renders private content for an authenticated user', () => {

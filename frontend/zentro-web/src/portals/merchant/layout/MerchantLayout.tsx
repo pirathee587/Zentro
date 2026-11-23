@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/shared/domain/notifications/NotificationBell';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
@@ -6,8 +7,8 @@ import {
   Button,
   SunIcon,
   MoonIcon,
-  BellIcon,
   UserIcon,
+  LogoPill,
 } from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './merchant.css';
@@ -39,14 +40,7 @@ export function MerchantLayout() {
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
           {/* Logo pill "SwiftDrop Merchant" */}
-          <Link
-            to="/merchant/dashboard"
-            className="sd-logo-pill sd-merchant-logo"
-            aria-label="SwiftDrop Merchant Home"
-          >
-            <span className="sd-brand-name">SwiftDrop</span>
-            <span className="sd-brand-role">Merchant</span>
-          </Link>
+          <LogoPill to="/merchant/dashboard" role="Merchant" ariaLabel="SwiftDrop Merchant Home" />
 
           {/* Center pill nav */}
           <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -103,14 +97,7 @@ export function MerchantLayout() {
             </Button>
 
             {/* Notifications button */}
-            <Button
-              type="button"
-              className="sd-icon-btn"
-              aria-label="View notifications"
-              title="Notifications"
-            >
-              <BellIcon size={20} strokeWidth={2} />
-            </Button>
+            <NotificationBell portal="MERCHANT" />
 
             {/* User profile dropdown button */}
             <div className="sd-profile-menu-wrap" ref={profileRef}>
@@ -148,6 +135,16 @@ export function MerchantLayout() {
                   >
                     Billing
                   </Link>
+                  {user?.roles?.includes('CUSTOMER') && (
+                    <Link
+                      to="/customer"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Customer Portal
+                    </Link>
+                  )}
                   <hr className="sd-dropdown-divider" />
                   <Button
                     type="button"

@@ -45,7 +45,7 @@ class AssignmentPostgresIntegrationTest {
   }
 
   @BeforeEach void reset() {
-    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
+    jdbc.execute("TRUNCATE dispatch.proof_completion_attempt, dispatch.proof_review_audit, dispatch.proof_review, dispatch.proof_revision, dispatch.proof_upload_stage, dispatch.proof_of_delivery, dispatch.assignment_audit, dispatch.outbox_event, dispatch.delivery_assignment");
   }
 
   @Test void competingServicesCommitExactlyOneAssignmentAndExcludeItFromQueue() throws Exception {
@@ -90,7 +90,8 @@ class AssignmentPostgresIntegrationTest {
     assertThat(saved.assignedAt()).isNotNull();
     assertThat(jdbc.queryForObject("SELECT assigned_by_subject FROM dispatch.delivery_assignment", String.class)).isEqualTo("winner");
     assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isEqualTo(1);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT event_type FROM dispatch.outbox_event", String.class))
+        .containsExactlyInAnyOrder("delivery.assigned", "notification.assignment");
   }
 
   @Test void differentParcelsCanExceedConfiguredCourierLimitAcrossIndependentServices() throws Exception {
@@ -124,7 +125,8 @@ class AssignmentPostgresIntegrationTest {
     }
     assertThat(repository.getAssignmentCount(courier.id())).isEqualTo(2);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isEqualTo(2);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type = 'delivery.assigned'", Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type = 'notification.assignment'", Integer.class)).isEqualTo(2);
   }
 
   @Test void reassignmentAndCancellationWriteAuditedEventsAtomically() {
@@ -137,7 +139,8 @@ class AssignmentPostgresIntegrationTest {
     assertThat(jdbc.queryForList("SELECT action, old_courier_profile_id, new_courier_profile_id FROM dispatch.assignment_audit"))
         .extracting(row -> row.get("action"))
         .containsExactly("ASSIGNED", "REASSIGNED", "CANCELLED");
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(3);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type NOT LIKE 'notification.%'", Integer.class)).isEqualTo(3);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type = 'notification.assignment'", Integer.class)).isEqualTo(3);
   }
 
   @Test void cancellationOfMissingAssignmentFailsWithoutAuditOrEvent() {
@@ -174,7 +177,8 @@ class AssignmentPostgresIntegrationTest {
     repository.reassign(parcelId, syntheticCourier(2, true), "replacement-dispatcher");
     assertThat(jdbc.queryForList("SELECT * FROM dispatch.proof_of_delivery")).isEqualTo(evidenceBefore);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.assignment_audit", Integer.class)).isEqualTo(2);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type NOT LIKE 'notification.%'", Integer.class)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event WHERE event_type = 'notification.assignment'", Integer.class)).isEqualTo(2);
   }
 
   @Test void failedTransactionRollsBackAndNextRequestCanAssign() {
@@ -189,22 +193,25 @@ class AssignmentPostgresIntegrationTest {
     var tx = new org.springframework.transaction.support.TransactionTemplate(
         new DataSourceTransactionManager(jdbc.getDataSource()));
     var outbox = new com.zentro.dispatchcourier.event.OutboxRepository(jdbc);
-    var original = tx.execute(status -> outbox.fetchBatch(10, 50).getFirst());
-    tx.executeWithoutResult(status -> outbox.markFailed(original.eventId(), "offline",
-        java.time.OffsetDateTime.now().plusHours(1)));
+    var batch = tx.execute(status -> outbox.fetchBatch(10, 50));
+    assertThat(batch).hasSize(2);
+    var original = batch.stream().filter(e -> e.eventType().equals("delivery.assigned")).findFirst().orElseThrow();
+    tx.executeWithoutResult(status -> batch.forEach(e -> outbox.markFailed(e.eventId(), "offline",
+        java.time.OffsetDateTime.now().plusHours(1))));
     var restarted = new com.zentro.dispatchcourier.event.OutboxRepository(jdbc);
     var waiting = tx.execute(status -> restarted.fetchBatch(10, 50));
     assertThat(waiting).isEmpty();
     jdbc.update("UPDATE dispatch.outbox_event SET next_attempt_at = now() - interval '1 second'");
-    var recovered = tx.execute(status -> restarted.fetchBatch(10, 50).getFirst());
+    var recoveredBatch = tx.execute(status -> restarted.fetchBatch(10, 50));
+    var recovered = recoveredBatch.stream().filter(e -> e.eventId().equals(original.eventId())).findFirst().orElseThrow();
     assertThat(recovered.eventId()).isEqualTo(original.eventId());
     assertThat(recovered.aggregateId()).isEqualTo(original.aggregateId());
     assertThat(recovered.payload()).isEqualTo(original.payload());
     assertThat(recovered.attempts()).isEqualTo(1);
-    tx.executeWithoutResult(status -> restarted.markPublished(recovered.eventId()));
+    tx.executeWithoutResult(status -> recoveredBatch.forEach(e -> restarted.markPublished(e.eventId())));
     var published = tx.execute(status -> restarted.fetchBatch(10, 50));
     assertThat(published).isEmpty();
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.outbox_event", Integer.class)).isEqualTo(2);
   }
 
   @Test void lifetimeWorkloadMatchesIndependentRecountAcrossProofStatesAndInactiveCouriers() {

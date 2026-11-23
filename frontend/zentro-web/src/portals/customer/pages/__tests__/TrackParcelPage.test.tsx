@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { useTrackingStream } from '@/shared/domain/tracking/useTrackingStream';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { TrackView } from '../../components/TrackView';
 import { PublicTrackPage } from '../PublicTrackPage';
@@ -8,6 +9,8 @@ import { TrackParcelPage } from '../index';
 import { ToastProvider } from '../../components/Toast';
 import * as customerApi from '../../services/customerApi';
 import type { Parcel } from '../../services/customerApi';
+
+vi.mock('@/shared/domain/tracking/useTrackingStream', () => ({ useTrackingStream: vi.fn() }));
 
 const mockInProgressParcel: Parcel = {
   id: 'pcl-001',
@@ -176,9 +179,28 @@ const mockFailedParcel: Parcel = {
 describe('TrackView and Tracking Pages', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(useTrackingStream).mockClear();
     vi.spyOn(customerApi, 'subscribeToParcel').mockImplementation(() => {
       return () => {};
     });
+  });
+
+  it('refreshes the customer tracking view immediately when the existing SSE hook signals an update', async () => {
+    const read = vi.spyOn(customerApi, 'getParcel').mockResolvedValueOnce(mockInProgressParcel)
+      .mockResolvedValue(mockDeliveredParcel);
+    render(<MemoryRouter><ToastProvider><TrackView initialTrackingRef="ZT-7K3QX9M2PA" /></ToastProvider></MemoryRouter>);
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+    expect(useTrackingStream).toHaveBeenCalledWith('ZT-7K3QX9M2PA', expect.any(Function));
+    await act(async () => { vi.mocked(useTrackingStream).mock.calls.at(-1)![1](); });
+    expect(await screen.findByText(/Delivered on Oct 25, 2026/i)).toBeInTheDocument();
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not open a private SSE stream for public tracking', async () => {
+    vi.spyOn(customerApi, 'getParcel').mockResolvedValue(mockInProgressParcel);
+    render(<MemoryRouter><ToastProvider><TrackView initialTrackingRef="ZT-7K3QX9M2PA" isPublic /></ToastProvider></MemoryRouter>);
+    await waitFor(() => expect(customerApi.getParcel).toHaveBeenCalled());
+    expect(useTrackingStream).toHaveBeenCalledWith('', expect.any(Function));
   });
 
   it('renders search card with input, track button, and submits on Enter key', async () => {
@@ -201,7 +223,7 @@ describe('TrackView and Tracking Pages', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7');
+      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7', false);
     });
   });
 
@@ -636,7 +658,7 @@ describe('TrackView and Tracking Pages', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => {
-      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7');
+      expect(getParcelSpy).toHaveBeenCalledWith('ZTR-SD8941K2M7', false);
     });
   });
 

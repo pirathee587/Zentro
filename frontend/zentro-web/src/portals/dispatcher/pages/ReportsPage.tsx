@@ -78,8 +78,8 @@ export function ReportsPage() {
   const createdCount = summary?.created ?? 0;
   const deliveredCount = summary?.delivered ?? 0;
   const failedCount = summary?.failed ?? 0;
-  const successRate = summary?.rate !== null && summary?.rate !== undefined
-    ? `${Math.round(summary.rate * 100)}%`
+  const successRate = summary?.successRate !== null && summary?.successRate !== undefined
+    ? `${Math.round(summary.successRate * 100)}%`
     : '—';
 
   return (

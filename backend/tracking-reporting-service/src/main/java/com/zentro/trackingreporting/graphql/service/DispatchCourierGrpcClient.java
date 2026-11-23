@@ -61,6 +61,9 @@ public class DispatchCourierGrpcClient {
           .getParcelAssignmentSummary(GetParcelAssignmentSummaryRequest.newBuilder()
               .setParcelId(parcelId.toString())
               .build());
+      if (!parcelId.toString().equals(resp.getParcelId())) {
+        throw new IllegalStateException("Assignment service returned a different parcel");
+      }
       return resp.getFound() ? Optional.of(resp) : Optional.empty();
     } catch (StatusRuntimeException error) {
       if (error.getStatus().getCode() == Status.Code.UNAUTHENTICATED && tokens != null) {

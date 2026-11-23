@@ -1,0 +1,16 @@
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 4eecfec..01b22ec 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -16,6 +16,11 @@ services:
+     environment:
+       JWT_ISSUER_URI: http://localhost:8180/realms/zentro
+       JWT_JWKS_URI: http://keycloak:8080/realms/zentro/protocol/openid-connect/certs
++      # Shared S1 Supabase must not be migrated by application startup. Migrations (for example the
++      # unique-email V10) run only through docs/operations/identity-migration/v10-controlled-procedure.md.
++      # These override any env_file value. Testcontainers tests still enable Flyway themselves.
++      SPRING_FLYWAY_ENABLED: "false"
++      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "true"
+     ports:
+       - "${BIND_ADDRESS:-127.0.0.1}:8081:8081"
+     healthcheck:

@@ -64,7 +64,7 @@ A mutation check (reintroducing each unsafe setting) made the guard fail in ever
 
 - Do not combine `SPRING_FLYWAY_ENABLED=true` with `SPRING_FLYWAY_VALIDATE_ON_MIGRATE=false`
   against shared S3. That bypasses the V5 checksum check and applies any pending
-  canonical migration (for example a future additive V7) automatically. A
+  canonical migration (for example a future additive V8) automatically. A
   disposable-database control test reproduced exactly this.
 - Do not run `flyway repair` or edit `dispatch.flyway_schema_history`.
 - Do not swap V5 files between the canonical and historical lineages.

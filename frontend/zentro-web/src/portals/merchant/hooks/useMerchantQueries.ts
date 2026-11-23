@@ -6,18 +6,67 @@ import {
   getMerchantApplication,
   getMerchantOrder,
   getMerchantOrders,
+  getMerchantOrderSummary,
+  getMerchantBillingOrders,
   isMerchantOrderId,
   issueMerchantApiKey,
   revokeMerchantApiKey,
-  type MerchantApplication,
+  getMerchantWebhook,
+  getMerchantWebhookDeliveries,
+  registerMerchantWebhook,
+  disableMerchantWebhook,
+  rotateMerchantWebhookSecret,
 } from '../api/merchantApi';
+import type { MerchantApplication } from '../api/merchantApi';
 
 export const merchantQueryKeys = {
   application: (userId?: string) => queryKeys.merchant.application(principalCacheScope(userId)),
   apiKey: (userId?: string) => queryKeys.merchant.apiKey(principalCacheScope(userId)),
   orders: (userId?: string) => queryKeys.merchant.orders(undefined, principalCacheScope(userId)),
   order: (orderId: string, userId?: string) => queryKeys.merchant.order(orderId, principalCacheScope(userId)),
+  webhook: (userId?: string) => ['merchant', principalCacheScope(userId), 'webhook'],
+  webhookDeliveries: (userId?: string) => ['merchant', principalCacheScope(userId), 'webhook-deliveries'],
+  summary: (userId?: string) => ['merchant', principalCacheScope(userId), 'summary'],
+  billing: (month: string, userId?: string) => ['merchant', principalCacheScope(userId), 'billing', month],
 };
+
+export function useMerchantWebhookQuery(enabled = true) {
+  const { user, refreshAccessToken } = useAuth();
+  return useQuery({ queryKey: merchantQueryKeys.webhook(user?.id), enabled: Boolean(user?.accessToken) && enabled, retry: false, staleTime: 30_000,
+    queryFn: ({ signal }) => getMerchantWebhook({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
+}
+
+export function useMerchantOrderSummaryQuery(enabled = true) {
+  const { user, refreshAccessToken } = useAuth();
+  return useQuery({ queryKey: merchantQueryKeys.summary(user?.id), enabled: Boolean(user?.accessToken) && enabled,
+    queryFn: ({ signal }) => getMerchantOrderSummary({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
+}
+
+export function useMerchantBillingQuery(month: string, enabled = true) {
+  const { user, refreshAccessToken } = useAuth();
+  return useQuery({ queryKey: merchantQueryKeys.billing(month, user?.id), enabled: Boolean(user?.accessToken) && enabled,
+    queryFn: ({ signal }) => getMerchantBillingOrders({ accessToken: user?.accessToken, refreshAccessToken, signal }, month) });
+}
+export function useMerchantWebhookDeliveriesQuery(enabled = true) {
+  const { user, refreshAccessToken } = useAuth();
+  return useQuery({ queryKey: merchantQueryKeys.webhookDeliveries(user?.id), enabled: Boolean(user?.accessToken) && enabled,
+    queryFn: ({ signal }) => getMerchantWebhookDeliveries({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
+}
+export function useRegisterMerchantWebhookMutation() {
+  const { user, refreshAccessToken } = useAuth(); const client = useQueryClient();
+  return useMutation({ mutationFn: (url: string) => registerMerchantWebhook({ accessToken: user?.accessToken, refreshAccessToken }, url), onSuccess: () => client.invalidateQueries({ queryKey: merchantQueryKeys.webhook(user?.id) }) });
+}
+export function useDisableMerchantWebhookMutation() {
+  const { user, refreshAccessToken } = useAuth(); const client = useQueryClient();
+  return useMutation({ mutationFn: () => disableMerchantWebhook({ accessToken: user?.accessToken, refreshAccessToken }), onSuccess: () => client.invalidateQueries({ queryKey: merchantQueryKeys.webhook(user?.id) }) });
+}
+export function useRotateMerchantWebhookSecretMutation() {
+  const { user, refreshAccessToken } = useAuth(); const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => rotateMerchantWebhookSecret({ accessToken: user?.accessToken, refreshAccessToken }),
+    onSuccess: () => client.invalidateQueries({ queryKey: merchantQueryKeys.webhook(user?.id) }),
+  });
+}
 
 export function useMerchantApplicationQuery(enabled = true) {
   const { user, refreshAccessToken } = useAuth();

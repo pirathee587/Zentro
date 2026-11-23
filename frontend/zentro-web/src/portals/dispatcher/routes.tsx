@@ -1,6 +1,8 @@
+import { NotificationHistory } from '@/shared/domain/notifications/NotificationBell';
 import type { RouteObject } from 'react-router-dom';
 import { DispatcherLayout } from './layout/DispatcherLayout';
 import { DispatchQueuePage } from './pages/DispatchQueuePage';
+import { ProofReviewsPage } from './pages/ProofReviewsPage';
 import {
   DispatchControlPage,
   ParcelsPage,
@@ -17,6 +19,7 @@ export const portalRoutes: RouteObject[] = [
   {
     element: <DispatcherLayout />,
     children: [
+      { path: 'notifications', element: <NotificationHistory portal="DISPATCHER" /> },
       { index: true, element: <DispatchControlPage /> },
       { path: 'dashboard', element: <DispatchControlPage /> },
       { path: 'parcels', element: <ParcelsPage /> },
@@ -29,6 +32,7 @@ export const portalRoutes: RouteObject[] = [
       { path: 'partner-approvals', element: <MerchantApprovalsPage /> },
       { path: 'zones-pricing', element: <ZonesPricingPage /> },
       { path: 'integration-attempts', element: <IntegrationAttemptsPage /> },
+      { path: 'proof-reviews', element: <ProofReviewsPage /> },
     ],
   },
 ];

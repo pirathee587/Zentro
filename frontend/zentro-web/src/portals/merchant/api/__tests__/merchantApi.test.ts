@@ -5,6 +5,7 @@ import {
   getMerchantApiKey,
   getMerchantApplication,
   getMerchantOrders,
+  getMerchantWebhook,
   issueMerchantApiKey,
   revokeMerchantApiKey,
 } from '../merchantApi';
@@ -90,6 +91,21 @@ describe('merchant API', () => {
     expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/merchants/api-key', expect.any(Object));
   });
 
+  it('treats API-key 404 as no key while preserving authorization errors', async () => {
+    const notFound = Object.assign(new Error('Not Found'), {
+      isAxiosError: true,
+      response: { status: 404 },
+    });
+    const forbidden = Object.assign(new Error('Forbidden'), {
+      isAxiosError: true,
+      response: { status: 403 },
+    });
+    vi.mocked(apiClient.get).mockRejectedValueOnce(notFound).mockRejectedValueOnce(forbidden);
+
+    await expect(getMerchantApiKey(auth)).resolves.toBeNull();
+    await expect(getMerchantApiKey(auth)).rejects.toBe(forbidden);
+  });
+
   it('loads only the authenticated merchant order list through the scoped endpoint', async () => {
     const orders = [{ id: 'order-1', merchantId: 'merchant-1', status: 'DELIVERED' }];
     vi.mocked(apiClient.get).mockResolvedValueOnce({ data: orders } as never);
@@ -101,5 +117,26 @@ describe('merchant API', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/api/v1/merchant/orders', expect.objectContaining({
       headers: expect.objectContaining({ Authorization: expect.any(String) }),
     }));
+  });
+
+  it('treats the webhook service 404 as no registered webhook', async () => {
+    const notFound = Object.assign(new Error('Not Found'), {
+      isAxiosError: true,
+      response: { status: 404 },
+    });
+    vi.mocked(apiClient.get).mockRejectedValueOnce(notFound);
+
+    await expect(getMerchantWebhook(auth)).resolves.toBeNull();
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/merchant/webhooks', expect.any(Object));
+  });
+
+  it('does not treat webhook authorization failures as an unconfigured endpoint', async () => {
+    const forbidden = Object.assign(new Error('Forbidden'), {
+      isAxiosError: true,
+      response: { status: 403 },
+    });
+    vi.mocked(apiClient.get).mockRejectedValueOnce(forbidden);
+
+    await expect(getMerchantWebhook(auth)).rejects.toBe(forbidden);
   });
 });

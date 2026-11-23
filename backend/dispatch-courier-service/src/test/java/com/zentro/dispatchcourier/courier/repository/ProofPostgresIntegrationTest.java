@@ -46,7 +46,7 @@ class ProofPostgresIntegrationTest {
   }
   @AfterAll static void close() { if (context != null) context.close(); }
   @BeforeEach void assignment() {
-    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.delivery_assignment");
+    jdbc.execute("TRUNCATE dispatch.proof_completion_attempt, dispatch.proof_review_audit, dispatch.proof_review, dispatch.proof_revision, dispatch.proof_upload_stage, dispatch.proof_of_delivery, dispatch.delivery_assignment");
     jdbc.update("INSERT INTO dispatch.delivery_assignment(parcel_id,courier_profile_id,courier_user_id,assigned_by_subject) VALUES (?,?,?,?)",
         parcel, profile, user, "dispatcher");
   }

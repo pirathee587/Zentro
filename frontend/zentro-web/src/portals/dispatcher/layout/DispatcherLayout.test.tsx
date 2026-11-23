@@ -1,9 +1,13 @@
-import { render, screen, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render as testingRender, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthContext, type Auth } from '@/shared/auth/authContext';
 import type { Role } from '@/shared/config/roles';
 import { DispatcherLayout } from './DispatcherLayout';
+
+const render = (ui: ReactElement) => testingRender(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>);
 
 const auth = (roles: Role[]): Auth => ({
   user: { id: 'dispatcher', name: 'Dispatch Desk', roles, accessToken: '' },
@@ -39,6 +43,7 @@ describe('dispatcher navigation', () => {
       ['User Management', '/dispatcher/couriers'],
       ['Zones & pricing', '/dispatcher/zones-pricing'],
       ['Reports', '/dispatcher/reports'],
+      ['Proof reviews', '/dispatcher/proof-reviews'],
     ]);
     // In-page links such as "Skip to main content" (#main-content) are not navigation.
     for (const link of screen.getAllByRole('link').filter((item) => item.getAttribute('href')?.startsWith('/'))) {

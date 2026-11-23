@@ -7,7 +7,7 @@ import { apiClient, setAccessToken } from '@/shared/api/apiClient';
 import { queryClient } from '@/shared/api/queryClient';
 import type { AuthUser } from '@/shared/auth/authContext';
 import { isMerchantOrderId, type MerchantOrder } from '../api/merchantApi';
-import { merchantQueryKeys, useMerchantOrderQuery } from './useMerchantQueries';
+import { merchantQueryKeys, useMerchantOrderQuery, useRotateMerchantWebhookSecretMutation } from './useMerchantQueries';
 
 const auth = vi.hoisted(() => ({
   user: null as AuthUser | null,
@@ -195,5 +195,26 @@ describe('merchant order detail query', () => {
     auth.user = null;
     rerender();
     expect(result.current.data).toBeUndefined();
+  });
+});
+
+describe('merchant webhook secret rotation', () => {
+  it('invalidates cached webhook configuration after the secret is rotated', async () => {
+    const queryKey = merchantQueryKeys.webhook('merchant-a');
+    client.setQueryData(queryKey, { id: 'webhook-1', url: 'https://merchant.example/hook', active: true, secretPrefix: 'old-prefix', createdAt: '', updatedAt: '' });
+    apiClient.defaults.adapter = async (config) => ({
+      data: { id: 'webhook-1', url: 'https://merchant.example/hook', secret: 'one-time-secret', secretPrefix: 'new-prefix', active: true },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    });
+
+    const { result } = renderHook(() => useRotateMerchantWebhookSecretMutation(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+
+    expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
   });
 });

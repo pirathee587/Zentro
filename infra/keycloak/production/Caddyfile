@@ -1,0 +1,33 @@
+# PREPARED, NOT DEPLOYED. HTTPS front for the single Zentro Keycloak.
+# Caddy obtains and renews a Let's Encrypt certificate automatically for {$KC_PUBLIC_HOST}.
+# Caddy overwrites X-Forwarded-* headers from clients (no trusted_proxies set), as Keycloak's
+# xforwarded mode requires.
+{
+	email {$ACME_EMAIL}
+}
+
+{$KC_PUBLIC_HOST} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Health and metrics stay on Keycloak's private management port; never expose them publicly.
+	@internal path /health* /metrics*
+	respond @internal 404
+
+	# Admin console UI only from the owner's allow-listed networks. The admin REST API
+	# (/admin/realms/...) stays reachable because it is protected by Keycloak tokens and is
+	# used by S1 to provision accounts.
+	@adminConsole {
+		path /admin/master/console* /admin/zentro/console*
+		not remote_ip {$ADMIN_ALLOW_CIDRS}
+	}
+	respond @adminConsole 403
+
+	reverse_proxy keycloak:8080
+}

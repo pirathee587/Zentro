@@ -1,14 +1,16 @@
 package com.zentro.dispatchcourier.dispatch.coordination;
 
+import com.zentro.dispatchcourier.dispatch.service.ParcelSource;
 import java.util.UUID;
 import java.util.function.Function;
-import org.springframework.stereotype.Component;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
-import com.zentro.dispatchcourier.dispatch.service.ParcelSource;
 
 @Component
+@Primary
 public class CoordinatedParcelSource implements ParcelSource {
   private final AssignmentOperationStore operations;
   private final ParcelClaimClient claims;
@@ -25,7 +27,7 @@ public class CoordinatedParcelSource implements ParcelSource {
   @Override public <T>T inspectEligibleParcel(UUID parcel,String token,Function<Parcel,T> read) {
     return read.apply(claims.candidate(parcel,token));
   }
-  public Snapshot eligibleParcels(String token) {
+  @Override public Snapshot eligibleParcels(String token) {
     return claims.candidates(token);
   }
   public <T>T withEligibleParcel(UUID parcel,String token,Function<Parcel,T> work) {

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.zentro.dispatchcourier.courier.repository.ProofRepository;
 import com.zentro.dispatchcourier.courier.service.*;
 import com.zentro.dispatchcourier.dispatch.service.ParcelSource;
+import com.zentro.dispatchcourier.pod.SupabaseProofStorage;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -47,6 +49,7 @@ class CourierWorkflowIntegrationTest {
   @MockBean IdentityCourierClient identity;
   @MockBean ParcelSource source;
   @MockBean ParcelStatusClient parcels;
+  @MockBean SupabaseProofStorage storage;
   UUID a, b;
   IdentityCourierClient.Courier courierA, courierB;
   static final String ROOT = "/api/v1/courier/deliveries";
@@ -56,7 +59,7 @@ class CourierWorkflowIntegrationTest {
     // HttpURLConnection's streaming client throws on a 401 POST before exposing
     // the response. Use the existing JDK client to assert actual denial responses.
     http.getRestTemplate().setRequestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory());
-    jdbc.execute("TRUNCATE dispatch.proof_of_delivery, dispatch.delivery_assignment");
+    jdbc.execute("TRUNCATE dispatch.proof_completion_attempt, dispatch.proof_review_audit, dispatch.proof_review, dispatch.proof_revision, dispatch.proof_upload_stage, dispatch.proof_of_delivery, dispatch.delivery_assignment");
     a = UUID.randomUUID(); b = UUID.randomUUID();
     courierA = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "A", true, "ACTIVE");
     courierB = new IdentityCourierClient.Courier(UUID.randomUUID(), UUID.randomUUID(), "B", true, "ACTIVE");
@@ -90,6 +93,41 @@ class CourierWorkflowIntegrationTest {
   }
   ResponseEntity<String> submit(UUID id, String token, Object evidence) {
     return request(HttpMethod.POST, ROOT + "/" + id + "/proof", token, evidence);
+  }
+
+  ResponseEntity<String> submitPhoto(UUID id, String token, UUID key, String recipient) {
+    var body = new org.springframework.util.LinkedMultiValueMap<String, Object>();
+    body.add("recipientName", recipient);
+    body.add("proofReference", "PHOTO-" + key);
+    body.add("notes", "isolated fixture");
+    body.add("photo", new ByteArrayResource(new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff, 0, 1}) {
+      @Override public String getFilename() { return "delivery.jpg"; }
+    });
+    var headers = new HttpHeaders();
+    if (token != null) headers.setBearerAuth(token);
+    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+    headers.set("Idempotency-Key", key.toString());
+    return http.exchange(ROOT + "/" + id + "/proof-photo", HttpMethod.POST,
+        new HttpEntity<>(body, headers), String.class);
+  }
+
+  UUID review(UUID parcel, String decision, Instant updatedAt) {
+    return review(parcel, decision, updatedAt, UUID.randomUUID());
+  }
+  UUID review(UUID parcel, String decision, Instant updatedAt, UUID proof) {
+    UUID revision = UUID.randomUUID(), review = UUID.randomUUID();
+    jdbc.update("INSERT INTO dispatch.proof_of_delivery(id,parcel_id,recipient_name,proof_reference,submitted_by_subject,completion_state) VALUES(?,?,?,?,?,'PENDING')",
+        proof, parcel, "Fixture recipient", "FIXTURE", "subject-courier-a");
+    jdbc.update("INSERT INTO dispatch.proof_revision(id,proof_id,revision_no,object_path,original_filename,content_type,byte_size,content_sha256,submitted_by_subject) VALUES(?,?,1,?,?,?,?,?,?)",
+        revision, proof, "proofs/" + revision + ".jpg", "test.jpg", "image/jpeg", 10L, "a".repeat(64), "subject-courier-a");
+    if ("COMPLETION_PROCESSING".equals(decision) || "PENDING_REVIEW".equals(decision)) {
+      jdbc.update("INSERT INTO dispatch.proof_review(id,revision_id,decision,updated_at) VALUES(?,?,?,?)",
+          review, revision, decision, java.sql.Timestamp.from(updatedAt));
+    } else {
+      jdbc.update("INSERT INTO dispatch.proof_review(id,revision_id,decision,reviewed_by_subject,reviewed_at,updated_at) VALUES(?,?,?,?,?,?)",
+          review, revision, decision, "subject-dispatcher", java.sql.Timestamp.from(updatedAt), java.sql.Timestamp.from(updatedAt));
+    }
+    return review;
   }
 
   @Test void workloadHttpContractUsesPersistedLifetimeCountsIncludingCompletedProofs() throws Exception {
@@ -258,5 +296,79 @@ class CourierWorkflowIntegrationTest {
     assertThat(after.completionState()).isEqualTo("COMPLETED");
     assertThat(jdbc.queryForObject("SELECT attempts FROM dispatch.proof_of_delivery WHERE parcel_id = ?", Integer.class, a)).isEqualTo(2);
     verify(parcels, times(2)).complete(a);
+  }
+
+  @Test void courierMultipartUploadIsOwnedIdempotentAndCreatesOneRevision() {
+    UUID key = UUID.randomUUID();
+    assertThat(submitPhoto(a, "courier-a", key, "Photo recipient").getStatusCode().value()).isEqualTo(201);
+    assertThat(submitPhoto(a, "courier-a", key, "Photo recipient").getStatusCode().value()).isEqualTo(200);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_of_delivery WHERE parcel_id=?", Integer.class, a)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_revision", Integer.class)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_upload_stage WHERE idempotency_key=?", Integer.class, key)).isEqualTo(1);
+    verify(storage, times(1)).uploadToPath(contains("proofs/staged/" + a), any(), eq("image/jpeg"));
+    UUID otherKey = UUID.randomUUID();
+    assertThat(submitPhoto(a, "courier-b", otherKey, "Not owner").getStatusCode().value()).isEqualTo(403);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_revision", Integer.class)).isEqualTo(1);
+  }
+
+  @Test void storageFailureLeavesNoProofOrRevisionForRetry() {
+    UUID key = UUID.randomUUID();
+    doThrow(new IllegalStateException("isolated storage unavailable")).when(storage)
+        .uploadToPath(anyString(), any(), anyString());
+    assertThat(submitPhoto(a, "courier-a", key, "Photo recipient").getStatusCode().is5xxServerError()).isTrue();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_of_delivery", Integer.class)).isZero();
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_revision", Integer.class)).isZero();
+    assertThat(jdbc.queryForObject("SELECT state FROM dispatch.proof_upload_stage WHERE idempotency_key=?", String.class, key)).isEqualTo("UPLOADING");
+  }
+
+  @Test void simultaneousCompletionClaimsInvokeS2ExactlyOnce() throws Exception {
+    UUID review = review(a, "COMPLETION_PENDING", Instant.now());
+    doAnswer(invocation -> { Thread.sleep(250); return null; }).when(parcels).complete(a);
+    var gate = new CyclicBarrier(2);
+    try (var pool = Executors.newFixedThreadPool(2)) {
+      Callable<Integer> call = () -> { gate.await(5, TimeUnit.SECONDS); return request(HttpMethod.POST,
+          "/api/v1/dispatch/proof-reviews/" + review + "/complete", "dispatcher", null).getStatusCode().value(); };
+      var one = pool.submit(call); var two = pool.submit(call);
+      assertThat(List.of(one.get(10, TimeUnit.SECONDS), two.get(10, TimeUnit.SECONDS))).contains(200, 409);
+    }
+    verify(parcels, times(1)).complete(a);
+    assertThat(jdbc.queryForObject("SELECT decision FROM dispatch.proof_review WHERE id=?", String.class, review)).isEqualTo("COMPLETED");
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_completion_attempt WHERE review_id=? AND outcome='CONFIRMED'", Integer.class, review)).isEqualTo(1);
+  }
+
+  @Test void staleRecoveryReconcilesDeliveredAndBlocksUncertainWithoutReplay() {
+    UUID delivered = review(a, "COMPLETION_PROCESSING", Instant.now().minusSeconds(360));
+    when(parcels.getParcel(a)).thenReturn(com.zentro.contracts.parcel.v1.ParcelResponse.newBuilder()
+        .setParcelId(a.toString()).setStatus("DELIVERED").build());
+    assertThat(request(HttpMethod.POST, "/api/v1/dispatch/proof-reviews/" + delivered + "/recover", "dispatcher", null).getStatusCode().value()).isEqualTo(200);
+    assertThat(jdbc.queryForObject("SELECT decision FROM dispatch.proof_review WHERE id=?", String.class, delivered)).isEqualTo("COMPLETED");
+    verify(parcels, never()).complete(a);
+
+    UUID uncertain = review(b, "COMPLETION_PROCESSING", Instant.now().minusSeconds(360));
+    when(parcels.getParcel(b)).thenThrow(new IllegalStateException("S2 unavailable"));
+    assertThat(request(HttpMethod.POST, "/api/v1/dispatch/proof-reviews/" + uncertain + "/recover", "dispatcher", null).getStatusCode().value()).isEqualTo(503);
+    assertThat(jdbc.queryForObject("SELECT decision FROM dispatch.proof_review WHERE id=?", String.class, uncertain)).isEqualTo("BLOCKED");
+    assertThat(jdbc.queryForObject("SELECT outcome FROM dispatch.proof_completion_attempt WHERE review_id=?", String.class, uncertain)).isEqualTo("BLOCKED_FAILURE");
+    verify(parcels, never()).complete(b);
+  }
+
+  @Test void podEndpointsEnforceRolesAndOptimisticReviewVersion() {
+    UUID pending = review(a, "PENDING_REVIEW", Instant.now());
+    String base = "/api/v1/dispatch/proof-reviews/" + pending;
+    assertThat(request(HttpMethod.POST, base + "/approve", null, Map.of("version", 0)).getStatusCode().value()).isEqualTo(401);
+    assertThat(request(HttpMethod.POST, base + "/approve", "courier-a", Map.of("version", 0)).getStatusCode().value()).isEqualTo(403);
+    assertThat(request(HttpMethod.POST, base + "/reject", "dispatcher", Map.of("version", 0, "reason", " ")).getStatusCode().value()).isEqualTo(400);
+    assertThat(request(HttpMethod.POST, base + "/approve", "dispatcher", Map.of("version", 0)).getStatusCode().value()).isEqualTo(200);
+    assertThat(request(HttpMethod.POST, base + "/approve", "dispatcher", Map.of("version", 0)).getStatusCode().value()).isEqualTo(409);
+    assertThat(jdbc.queryForObject("SELECT count(*) FROM dispatch.proof_review_audit WHERE review_id=?", Integer.class, pending)).isEqualTo(1);
+    assertThat(request(HttpMethod.POST, base + "/complete", "courier-a", null).getStatusCode().value()).isEqualTo(403);
+  }
+
+  @Test void recoveryExcludesHistoricalBlockedProof() {
+    UUID historical = UUID.fromString("a4f5e154-0bea-4df3-b04b-7df25aecc0a1");
+    UUID review = review(a, "COMPLETION_PROCESSING", Instant.now().minusSeconds(360), historical);
+    assertThat(request(HttpMethod.POST, "/api/v1/dispatch/proof-reviews/" + review + "/recover", "dispatcher", null).getStatusCode().value()).isEqualTo(409);
+    assertThat(jdbc.queryForObject("SELECT decision FROM dispatch.proof_review WHERE id=?", String.class, review)).isEqualTo("COMPLETION_PROCESSING");
+    verify(parcels, never()).getParcel(a);
   }
 }

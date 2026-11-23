@@ -13,6 +13,8 @@ export function invalidateAfterDispatchAssignment(client: QueryClient) {
   return Promise.all([
     client.invalidateQueries({ queryKey: queryKeys.dispatcher.queue() }),
     client.invalidateQueries({ queryKey: queryKeys.dispatcher.workload() }),
+    client.invalidateQueries({ queryKey: queryKeys.dispatcher.assignments() }),
+    client.invalidateQueries({ queryKey: queryKeys.dispatcher.parcel() }),
   ]);
 }
 

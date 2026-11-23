@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/shared/domain/notifications/NotificationBell';
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,8 +9,8 @@ import {
   Button,
   SunIcon,
   MoonIcon,
-  BellIcon,
   UserIcon,
+  LogoPill,
 } from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './courier.css';
@@ -57,15 +58,8 @@ export function CourierLayout() {
       {/* Top Header */}
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
-          {/* Logo pill "Zentro Courier" */}
-          <Link
-            to="/courier"
-            className="sd-logo-pill sd-courier-logo"
-            aria-label="Zentro Courier Home"
-          >
-            <span className="sd-brand-name">Zentro</span>
-            <span className="sd-brand-role">Courier</span>
-          </Link>
+          {/* Logo pill "SwiftDrop Courier" */}
+          <LogoPill to="/courier" role="Courier" ariaLabel="SwiftDrop Courier Home" />
 
           {/* Center pill nav */}
           <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -122,14 +116,7 @@ export function CourierLayout() {
             </Button>
 
             {/* Notifications button */}
-            <Button
-              type="button"
-              className="sd-icon-btn"
-              aria-label="View notifications"
-              title="Notifications"
-            >
-              <BellIcon size={20} strokeWidth={2} />
-            </Button>
+            <NotificationBell portal="COURIER" />
 
             {/* User profile dropdown button */}
             <div className="sd-profile-menu-wrap" ref={profileRef}>
@@ -167,6 +154,26 @@ export function CourierLayout() {
                   >
                     Earnings
                   </Link>
+                  {user?.roles?.includes('CUSTOMER') && (
+                    <Link
+                      to="/customer"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Customer Portal
+                    </Link>
+                  )}
+                  {user?.roles?.includes('DISPATCHER') && (
+                    <Link
+                      to="/dispatcher"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Dispatch Desk
+                    </Link>
+                  )}
                   <hr className="sd-dropdown-divider" />
                   <Button
                     type="button"

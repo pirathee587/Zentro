@@ -2,32 +2,9 @@
 <#import "field.ftl" as field>
 <#import "buttons.ftl" as buttons>
 <#import "passkeys.ftl" as passkeys>
-<#-- Keycloak can land on this screen when an earlier login action expired. Restart
-     the same authorization flow automatically instead of making the user click
-     "Restart login" before reaching the normal sign-in form. -->
-<#if message?? && message.summary == msg("reauthenticate")>
-<!doctype html>
-<html lang="en" style="background: #120e0b;">
-  <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="refresh" content="0;url=${url.loginRestartFlowUrl}" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script>window.location.replace("${url.loginRestartFlowUrl}");</script>
-    <style>
-      html, body {
-        background: #120e0b !important;
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-    </style>
-    <title>Signing in...</title>
-  </head>
-  <body style="background: #120e0b !important;"></body>
-</html>
-<#else>
+<#-- Keycloak shows its standard "reauthenticate" message when prompt=login meets an existing
+     SSO session. Render the normal form for it: auto-restarting the flow here re-enters the
+     same prompt=login request and loops forever. Expired actions use login-page-expired.ftl. -->
 <@layout.registrationLayout displayMessage=true displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>
   <#if section = "header">
     <span class="zentro-login-brand"><span class="zentro-login-mark">z</span>zentro</span>
@@ -265,4 +242,3 @@
     </#if>
   </#if>
 </@layout.registrationLayout>
-</#if>

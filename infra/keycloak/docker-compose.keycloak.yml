@@ -1,10 +1,13 @@
-﻿services:
+services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
     container_name: zentro-keycloak
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: "8080"
       KC_HOSTNAME: http://localhost:8180
       KC_HEALTH_ENABLED: "true"
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -13,6 +16,16 @@
       KC_SPI_THEME_CACHE_TEMPLATES: "false"
       KC_SPI_THEME_STATIC_MAX_AGE: "-1"
       JAVA_OPTS_APPEND: "-XX:ActiveProcessorCount=2"
+      # Shared identity database (Supabase schema "keycloak", session pooler 5432, TLS).
+      # Values come from the ignored infra/keycloak/.env. Only these six keys are passed: the file also
+      # sets KC_HTTP_PORT, which would move Keycloak off the container port 8080 that services use.
+      # Run exactly ONE Keycloak against this database at a time (see identity-migration/README).
+      KC_DB: ${KC_DB:?KC_DB must be set in infra/keycloak/.env}
+      KC_DB_URL: ${KC_DB_URL:?KC_DB_URL must be set in infra/keycloak/.env}
+      KC_DB_USERNAME: ${KC_DB_USERNAME:?KC_DB_USERNAME must be set in infra/keycloak/.env}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:?KC_DB_PASSWORD must be set in infra/keycloak/.env}
+      KC_DB_SCHEMA: ${KC_DB_SCHEMA:-keycloak}
+      KC_DB_POOL_MAX_SIZE: ${KC_DB_POOL_MAX_SIZE:-5}
     # Keep external Supabase hostname resolution independent of Docker Desktop's
     # embedded DNS forwarding.
     dns:
@@ -21,8 +34,11 @@
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:8180:8080"
       - "${BIND_ADDRESS:-127.0.0.1}:9000:9000"
-    command: ["start-dev", "--import-realm"]
+    # No --import-realm: the "zentro" realm already lives in the shared database and must never be
+    # overwritten or re-imported from realm-export.json.
+    command: ["start-dev"]
     volumes:
+      # Kept mounted and untouched: holds the previous local identity database for rollback.
       - keycloak-data:/opt/keycloak/data
       - ./realm-export.json:/opt/keycloak/data/import/zentro-realm.json:ro
       - ./themes:/opt/keycloak/themes:ro

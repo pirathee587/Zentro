@@ -232,8 +232,11 @@ class MerchantOrderIntegrationTest {
     String id = createOrder("merchant-events");
 
     List<Map<String, Object>> events = jdbc.queryForList(
-        "SELECT event_type, payload::text AS payload FROM parcel.outbox_event WHERE aggregate_id = ?::uuid", id);
+        "SELECT event_type, payload::text AS payload FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'parcel.created'", id);
     assertThat(events).hasSize(1);
+    assertThat(jdbc.queryForObject(
+        "SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid AND event_type = 'notification.parcel'",
+        Integer.class, id)).isEqualTo(1);
     assertThat(events.get(0).get("event_type")).isEqualTo("parcel.created");
     JsonNode payload = objectMapper.readTree((String) events.get(0).get("payload")).get("payload");
     assertThat(payload.get("source").asText()).isEqualTo("MERCHANT_ORDER");
@@ -254,8 +257,8 @@ class MerchantOrderIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("Test Customer", "Someone Else")))
         .andExpect(status().isConflict());
 
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM parcel.outbox_event WHERE aggregate_id = ?::uuid",
-        Integer.class, id)).isEqualTo(1);
+    assertThat(jdbc.queryForList("SELECT event_type FROM parcel.outbox_event WHERE aggregate_id = ?::uuid",
+        String.class, id)).containsExactlyInAnyOrder("parcel.created", "notification.parcel");
   }
 
   @Test
@@ -332,6 +335,65 @@ class MerchantOrderIntegrationTest {
         .andExpect(jsonPath("$.length()").value(1))
         .andExpect(jsonPath("$[0].merchantId").value("merchant-beta"))
         .andExpect(jsonPath("$[0].externalOrderRef").value("ORD-BETA-1"));
+  }
+
+  @Test
+  @DisplayName("Summary and billing aggregate all current-month PostgreSQL orders for only the authenticated merchant")
+  void summaryAndBillingUseFullCurrentMonthMerchantDataset() throws Exception {
+    String merchantId = "merchant-summary-alpha";
+    for (int i = 1; i <= 52; i++) {
+      String body = BODY.replace("ORD-IT-001", "ORD-SUMMARY-%03d".formatted(i));
+      mvc.perform(post(URL).with(merchant(merchantId))
+              .contentType(MediaType.APPLICATION_JSON).content(body))
+          .andExpect(status().isCreated());
+    }
+    mvc.perform(post(URL).with(merchant("merchant-summary-beta"))
+            .contentType(MediaType.APPLICATION_JSON).content(BODY.replace("ORD-IT-001", "ORD-SUMMARY-BETA")))
+        .andExpect(status().isCreated());
+
+    jdbc.update("UPDATE parcel.parcel SET status = 'DELIVERED' WHERE merchant_id = ? AND external_order_ref = ?",
+        merchantId, "ORD-SUMMARY-001");
+    jdbc.update("UPDATE parcel.parcel SET status = 'FAILED' WHERE merchant_id = ? AND external_order_ref = ?",
+        merchantId, "ORD-SUMMARY-002");
+    jdbc.update("UPDATE parcel.parcel SET created_at = date_trunc('month', NOW()) - interval '1 second' "
+        + "WHERE merchant_id = ? AND external_order_ref = ?", merchantId, "ORD-SUMMARY-052");
+
+    JsonNode summary = objectMapper.readTree(mvc.perform(get(URL + "/summary").with(merchant(merchantId)))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertThat(summary.get("totalOrders").asLong()).isEqualTo(51);
+    assertThat(summary.get("deliveredOrders").asLong()).isEqualTo(1);
+    assertThat(summary.get("failedOrders").asLong()).isEqualTo(1);
+    assertThat(summary.get("statusCounts").get("DELIVERED").asLong()).isEqualTo(1);
+    assertThat(summary.get("statusCounts").get("FAILED").asLong()).isEqualTo(1);
+    assertThat(summary.get("statusCounts").properties().stream().mapToLong(e -> e.getValue().asLong()).sum())
+        .isEqualTo(51);
+
+    JsonNode otherMerchantSummary = objectMapper.readTree(
+        mvc.perform(get(URL + "/summary").with(merchant("merchant-summary-beta")))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertThat(otherMerchantSummary.get("totalOrders").asLong()).isEqualTo(1);
+
+    String month = java.time.YearMonth.now(java.time.ZoneOffset.UTC).toString();
+    JsonNode billing = objectMapper.readTree(mvc.perform(get(URL + "/billing").with(merchant(merchantId))
+            .param("month", month))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    java.math.BigDecimal persistedFees = jdbc.queryForObject("""
+        SELECT COALESCE(SUM(fee), 0) FROM parcel.parcel
+         WHERE merchant_id = ? AND created_at >= date_trunc('month', NOW())
+           AND created_at < date_trunc('month', NOW()) + interval '1 month'
+        """, java.math.BigDecimal.class, merchantId);
+    assertThat(billing.get("month").asText()).isEqualTo(month);
+    assertThat(billing.get("orderCount").asInt()).isEqualTo(51);
+    assertThat(billing.get("quotedFeeTotal").decimalValue()).isEqualByComparingTo(persistedFees);
+    assertThat(billing.get("orders").size()).isEqualTo(51);
+    assertThat(billing.get("orders").findValuesAsText("merchantId")).containsOnly(merchantId);
+
+    JsonNode otherMerchantBilling = objectMapper.readTree(
+        mvc.perform(get(URL + "/billing").with(merchant("merchant-summary-beta")).param("month", month))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    assertThat(otherMerchantBilling.get("orderCount").asInt()).isEqualTo(1);
+    assertThat(otherMerchantBilling.get("orders").get(0).get("merchantId").asText())
+        .isEqualTo("merchant-summary-beta");
   }
 
   @Test

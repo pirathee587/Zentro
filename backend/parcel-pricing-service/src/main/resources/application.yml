@@ -29,6 +29,11 @@ spring:
         "[request.timeout.ms]": ${KAFKA_REQUEST_TIMEOUT_MS:10000}
         "[delivery.timeout.ms]": ${KAFKA_DELIVERY_TIMEOUT_MS:30000}
 zentro:
+  assignment:
+    eligible-statuses: ${ZENTRO_ASSIGNMENT_ELIGIBLE_STATUSES:}
+    # Claim verification calls the trusted S3 origin; Compose supplies its
+    # internal service DNS name rather than localhost.
+    dispatch-base-url: ${DISPATCH_SERVICE_BASE_URL:http://localhost:8083}
   service:
     token-uri: ${SERVICE_TOKEN_URI:}
     client-id: ${SERVICE_CLIENT_ID:zentro-parcel-service}
@@ -56,6 +61,7 @@ zentro:
     topic-replicas: ${OUTBOX_TOPIC_REPLICAS:1}
     # Outbox event_type -> Kafka topic.
     topics:
+      "[notification.parcel]": notification.parcel
       "[parcel.status.updated]": parcel.status.updated
       "[parcel.created]": parcel.created
 management:

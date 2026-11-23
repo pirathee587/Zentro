@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
 import { friendlyApiError } from '@/shared/api/apiClient';
+import { routeForRoles, type Role } from '@/shared/config/roles';
 import { ArrowIcon } from '../assets/ArrowIcon';
 import { SignupPage as ModernSignupPage } from '@/components/ui/sign-up-page';
 import { ModernLoginPage } from '@/components/ui/login-page';
@@ -29,20 +30,20 @@ export function LoginPage() { return <ModernLoginPage kind="customer"/>; }
 export function StaffLoginPage() { return <ModernLoginPage kind="staff"/>; }
 export function MerchantLoginPage() { return <ModernLoginPage kind="merchant"/>; }
 
-function GoogleSignInButton({returnTo,entryPoint}:{returnTo:string;entryPoint:'customer'|'merchant'}) {
-  const {login}=useAuth();
-  return <Button type="button" variant="secondary" className="google-login" onClick={()=>void login(returnTo,undefined,entryPoint,'google')}><span className="google-mark" aria-hidden="true">G</span>Continue with Google</Button>;
+function GoogleSignInButton({ returnTo, entryPoint }: { returnTo: string; entryPoint: 'customer' | 'merchant' }) {
+  const { login } = useAuth();
+  return <Button type="button" variant="secondary" className="google-login" onClick={() => void login(returnTo, undefined, entryPoint, 'google')}><span className="google-mark" aria-hidden="true">G</span>Continue with Google</Button>;
 }
 
 export function SignupPage() {
-  const {login, register, user}=useAuth();
-  const location=useLocation();
-  const navigate=useNavigate();
-  const page=location.pathname;
-  const merchantApplication=page==='/register/merchant'||new URLSearchParams(location.search).get('next')==='merchant';
-  const isRegisterPage=page==='/register'||page==='/register/customer'||page==='/register/merchant';
-  const returnTo=merchantApplication?'/merchant/register-business':'/customer';
-  const entryPoint=merchantApplication?'merchant':'customer';
+  const { login, register, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const page = location.pathname;
+  const merchantApplication = page === '/register/merchant' || new URLSearchParams(location.search).get('next') === 'merchant';
+  const isRegisterPage = page === '/register' || page === '/register/customer' || page === '/register/merchant';
+  const returnTo = merchantApplication ? '/merchant/register-business' : '/customer';
+  const entryPoint = merchantApplication ? 'merchant' : 'customer';
 
   const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
   const [name, setName] = useState('');
@@ -69,14 +70,14 @@ export function SignupPage() {
       <section className="auth-card" aria-labelledby="register-title">
         <span className="eyebrow">{merchantApplication ? 'ZENTRO BUSINESS' : 'WELCOME TO ZENTRO'}</span>
         <h1 id="register-title">
-          {merchantApplication ? <>One account.<br/><em>More ways to move.</em></> : <>Make room for<br/><em>one less worry.</em></>}
+          {merchantApplication ? <>One account.<br /><em>More ways to move.</em></> : <>Make room for<br /><em>one less worry.</em></>}
         </h1>
         <p>You are already signed in. Continue to your account, or create a separate Zentro account.</p>
         <Button className="auth-submit" onClick={() => navigate(returnTo, { replace: true })}>
-          Continue with this account <Arrow/>
+          Continue with this account <Arrow />
         </Button>
         <Button type="button" variant="secondary" className="auth-submit" onClick={() => void register(returnTo, entryPoint)}>
-          Create a different account <Arrow/>
+          Create a different account <Arrow />
         </Button>
         <p className="auth-switch">Already have an account? <Link to={merchantApplication ? '/merchant/login' : '/login'}>Sign in</Link></p>
       </section>
@@ -171,7 +172,7 @@ export function SignupPage() {
       <h1 id="success-title">Welcome to Zentro!</h1>
       <p>Your account has been created and verified. Connecting you to sign in...</p>
       <Button className="auth-submit" onClick={() => void login(returnTo, email.trim(), entryPoint)}>
-        Continue to Sign In <Arrow/>
+        Continue to Sign In <Arrow />
       </Button>
     </section>;
   }
@@ -203,7 +204,7 @@ export function SignupPage() {
         </label>
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button className="auth-submit" type="submit" disabled={loading}>
-          {loading ? 'Verifying...' : 'Verify & Complete Registration'} <Arrow/>
+          {loading ? 'Verifying...' : 'Verify & Complete Registration'} <Arrow />
         </Button>
       </form>
 
@@ -236,7 +237,7 @@ export function SignupPage() {
   return <section className="auth-card" aria-labelledby="register-title">
     <span className="eyebrow">{merchantApplication ? 'ZENTRO BUSINESS' : 'WELCOME TO ZENTRO'}</span>
     <h1 id="register-title">
-      {merchantApplication ? <>One account.<br/><em>More ways to move.</em></> : <>Make room for<br/><em>one less worry.</em></>}
+      {merchantApplication ? <>One account.<br /><em>More ways to move.</em></> : <>Make room for<br /><em>one less worry.</em></>}
     </h1>
     <p>
       {merchantApplication
@@ -319,12 +320,12 @@ export function SignupPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
 
       <Button className="auth-submit" type="submit" disabled={loading}>
-        {loading ? 'Sending code...' : (merchantApplication ? 'Create merchant account' : 'Create customer account')} <Arrow/>
+        {loading ? 'Sending code...' : (merchantApplication ? 'Create merchant account' : 'Create customer account')} <Arrow />
       </Button>
     </form>
 
     <div className="auth-divider"><span>or</span></div>
-    <GoogleSignInButton returnTo={returnTo} entryPoint={entryPoint}/>
+    <GoogleSignInButton returnTo={returnTo} entryPoint={entryPoint} />
 
     <p className="auth-switch">
       Already have an account? <Link to={merchantApplication ? '/merchant/login' : '/login'}>Sign in</Link>

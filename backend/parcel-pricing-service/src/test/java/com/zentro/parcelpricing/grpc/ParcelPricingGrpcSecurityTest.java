@@ -115,14 +115,16 @@ class ParcelPricingGrpcSecurityTest {
   }
 
   @Test
-  void dispatchServiceWithoutPodPermissionCannotReadPodRpc() {
+  void trackingServiceCanReadMinimalParcelIdentityWithoutPodWorkerPermission() {
+    UUID parcelId = UUID.randomUUID();
     when(jwtDecoder.decode("dispatch-no-permission"))
-        .thenReturn(jwt("zentro-dispatch-service", List.of("SERVICE"), ""));
+        .thenReturn(jwt("zentro-tracking-service", List.of("SERVICE"), ""));
+    when(bookingRepository.findById(parcelId)).thenReturn(java.util.Optional.empty());
     var stub = stubWithToken("dispatch-no-permission");
-    assertThatThrownBy(() -> stub.getParcel(GetParcelRequest.newBuilder().setParcelId(UUID.randomUUID().toString()).build()))
+    assertThatThrownBy(() -> stub.getParcel(GetParcelRequest.newBuilder().setParcelId(parcelId.toString()).build()))
         .isInstanceOf(StatusRuntimeException.class)
         .extracting(e -> ((StatusRuntimeException) e).getStatus().getCode())
-        .isEqualTo(Status.Code.PERMISSION_DENIED);
+        .isEqualTo(Status.Code.NOT_FOUND);
   }
 
   @Test

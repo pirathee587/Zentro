@@ -38,6 +38,10 @@ spring:
       # Offsets are committed only after the event was stored (see ParcelEventConsumer).
       ack-mode: manual
 zentro:
+  inbox:
+    consumer:
+      enabled: ${INBOX_CONSUMER_ENABLED:false}
+      group: ${INBOX_CONSUMER_GROUP:in-app-inbox-v1}
   service:
     token-uri: ${SERVICE_TOKEN_URI:}
     client-id: ${SERVICE_CLIENT_ID:zentro-notification-service}
@@ -45,6 +49,9 @@ zentro:
   identity:
     grpc-host: ${IDENTITY_GRPC_HOST:zentro-identity-partner-service}
     grpc-port: ${IDENTITY_GRPC_PORT:9081}
+  dispatch:
+    grpc-host: ${DISPATCH_GRPC_HOST:zentro-dispatch-courier-service}
+    grpc-port: ${DISPATCH_GRPC_PORT:9083}
   parcel:
     grpc-host: ${PARCEL_GRPC_HOST:zentro-parcel-pricing-service}
     grpc-port: ${PARCEL_GRPC_PORT:9082}

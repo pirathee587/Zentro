@@ -4,6 +4,7 @@ import { apiClient, friendlyApiError, withBearerToken } from '@/shared/api/apiCl
 export type CompletionState = 'PENDING' | 'COMPLETED' | 'REJECTED' | 'BLOCKED';
 export type AssignmentStatus = 'PENDING_ACCEPTANCE' | 'ACCEPTED' | 'REJECTED';
 export interface DeliverySummary {
+  trackingRef?: string | null; parcelStatus?: string | null;
   parcelId: string; courierId: string; assignedAt: string;
   proofId: string | null; completionState: CompletionState | null;
   assignmentStatus?: AssignmentStatus; respondedAt?: string | null; rejectionReason?: string | null;
@@ -32,6 +33,10 @@ export async function getProof(id: string, token: string, signal?: AbortSignal):
 export async function submitProof(id: string, body: SubmitProofRequest, token: string): Promise<ProofResponse> {
   return (await apiClient.post<ProofResponse>(`${path(id)}/proof`, body, auth(token))).data;
 }
+export async function submitProofPhoto(id: string, body: SubmitProofRequest, photo: File, token: string, idempotencyKey: string, onProgress?: (value: number) => void): Promise<ProofResponse> {
+  const form = new FormData(); form.append('recipientName', body.recipientName); if (body.notes) form.append('notes', body.notes); form.append('proofReference', body.proofReference); form.append('photo', photo);
+  return (await apiClient.post<ProofResponse>(`${path(id)}/proof-photo`, form, { ...auth(token), headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': idempotencyKey }, onUploadProgress: event => onProgress?.(event.total ? Math.round(event.loaded * 100 / event.total) : 0) })).data;
+}
 export async function acceptDelivery(id: string, token: string): Promise<unknown> {
   return (await apiClient.post(`${path(id)}/accept`, {}, auth(token))).data;
 }
@@ -46,6 +51,10 @@ export function deliveryAccessDenied(error: unknown): boolean {
 }
 export function deliverySessionExpired(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 401;
+}
+/** A 404 from the new photo endpoint is not proof that courier ownership was lost. */
+export function photoProofUploadUnavailable(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404;
 }
 export function deliveryError(error: unknown): string {
   if (axios.isAxiosError(error)) {
