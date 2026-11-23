@@ -34,6 +34,35 @@ export type ResetPasswordRequest = {
   newPassword: string;
 };
 
+export type DirectRegisterRequest = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+};
+
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
+
+export type TokenResponse = {
+  access_token: string;
+  id_token?: string;
+  refresh_token?: string;
+  token_type: string;
+  expires_in: number;
+  scope?: string;
+};
+
+export async function directRegister(request: DirectRegisterRequest): Promise<RegistrationResponse> {
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/register', request, { timeout: 30000 })).data;
+}
+
+export async function loginWithPassword(request: LoginRequest): Promise<TokenResponse> {
+  return (await apiClient.post<TokenResponse>('/api/v1/auth/login', request, { timeout: 30000 })).data;
+}
+
 export type VerifyResetOtpRequest = {
   email: string;
   code: string;

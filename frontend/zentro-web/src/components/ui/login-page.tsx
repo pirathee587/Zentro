@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowLeft, ArrowRight, Mail, Lock } from 'lucide-react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/auth/useAuth';
+import { isAuthPath } from '@/shared/auth/authContext';
+import { routeForRoles } from '@/shared/config/roles';
 import { ZentroAuthAnimatedBackground } from './ZentroAuthAnimatedBackground';
 
 const DELIVERY_WAREHOUSE_IMAGE =
@@ -16,59 +18,106 @@ export interface LoginPageProps {
 }
 
 export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
-  const { login, logout, user } = useAuth();
+  const { login, loginWithCredentials, logout, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const searchParams = new URLSearchParams(location.search);
-  const initialEmail = searchParams.get('login_hint') ?? '';
+  const stateData = location.state as { from?: string; email?: string; registered?: boolean; mode?: string; intent?: string } | null;
+  const initialEmail = stateData?.email ?? searchParams.get('login_hint') ?? '';
+  const isRegistered = Boolean(stateData?.registered);
 
+  const isMerchantRequested = searchParams.get('mode') === 'merchant'
+    || stateData?.mode === 'merchant'
+    || stateData?.intent === 'merchant'
+    || searchParams.get('intent') === 'merchant'
+    || sessionStorage.getItem('merchant_upgrade_intent') === '1'
+    || kind === 'merchant';
+
+  const [loginMode, setLoginMode] = useState<'customer' | 'merchant'>(
+    isMerchantRequested ? 'merchant' : 'customer'
+  );
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const from =
-    kind === 'staff'
-      ? '/staff/login'
-      : kind === 'merchant'
-        ? '/merchant/dashboard'
-        : (location.state as { from?: string } | null)?.from ?? '/customer';
-
-  const staff = kind === 'staff';
-  const merchant = kind === 'merchant';
+  const from = stateData?.from;
 
   if (user) {
-    if (kind === 'merchant' && user.roles.includes('MERCHANT')) {
-      return <Navigate to="/merchant/dashboard" replace />;
+    let targetDashboard: string | null = null;
+    const fromPath = stateData?.from;
+    const isValidFrom = fromPath && !isAuthPath(fromPath) && !fromPath.startsWith('//') ? fromPath : null;
+
+    if (loginMode === 'merchant' || isMerchantRequested) {
+      if (user.roles.includes('MERCHANT') || user.merchantStatus === 'APPROVED') {
+        targetDashboard = (isValidFrom && isValidFrom.startsWith('/merchant/dashboard')) ? isValidFrom : '/merchant/dashboard';
+      } else if (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED') {
+        targetDashboard = '/merchant/status';
+      } else {
+        targetDashboard = (isValidFrom && isValidFrom.startsWith('/merchant/register-business')) ? isValidFrom : '/merchant/register-business';
+      }
+    } else {
+      if (isValidFrom) {
+        targetDashboard = isValidFrom;
+      } else {
+        targetDashboard = routeForRoles(user.roles) ?? '/customer';
+      }
     }
-    if (kind === 'customer' && user.roles.includes('CUSTOMER')) {
-      return <Navigate to="/customer" replace />;
-    }
-    if (kind === 'staff') {
-      if (user.roles.includes('DISPATCHER')) return <Navigate to="/dispatcher" replace />;
-      if (user.roles.includes('COURIER')) return <Navigate to="/courier" replace />;
-    }
+    return <Navigate to={targetDashboard} replace />;
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setAuthError('');
     const value = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       setEmailError('Enter a valid email address.');
       return;
     }
     setEmailError('');
+
+    if (!password) {
+      setAuthError('Please enter your password.');
+      return;
+    }
+
     if (user && logout) {
       await logout(`${location.pathname}?login_hint=${encodeURIComponent(value)}`);
       return;
     }
-    void login(from, value, kind);
+
+    setLoading(true);
+    try {
+      const cleanFrom = from && !isAuthPath(from) && !from.startsWith('//') ? from : undefined;
+      if (loginWithCredentials) {
+        const result = await loginWithCredentials(value, password, cleanFrom, loginMode);
+        if (result.success && result.targetDashboard) {
+          navigate(result.targetDashboard, { replace: true });
+          return;
+        }
+        if (!result.success) {
+          setAuthError(result.error || 'Invalid email or password.');
+          return;
+        }
+      }
+      const defaultReturnTo = loginMode === 'merchant' ? '/merchant/register-business' : '/customer';
+      void login(cleanFrom ?? defaultReturnTo, value, loginMode);
+    } catch {
+      setAuthError('Sign in failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = () => {
-    void login(from, undefined, merchant ? 'merchant' : 'customer', 'google');
+    const isMerchant = loginMode === 'merchant' || sessionStorage.getItem('merchant_upgrade_intent') === '1';
+    const cleanFrom = from && !isAuthPath(from) && !from.startsWith('//') ? from : undefined;
+    const defaultReturnTo = isMerchant ? '/merchant/register-business' : '/customer';
+    void login(cleanFrom ?? defaultReturnTo, undefined, isMerchant ? 'merchant' : 'customer', 'google');
   };
 
   return (
@@ -100,13 +149,15 @@ export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
         <div className="flex-1 p-8 md:p-12 flex flex-col justify-center">
           <div className="mb-7">
             <span className="block text-xs font-semibold tracking-[0.16em] text-orange-600 uppercase mb-3">
-              {staff ? 'ZENTRO TEAM' : merchant ? 'ZENTRO BUSINESS' : 'WELCOME BACK'}
+              {loginMode === 'merchant' ? 'MERCHANT ACCESS' : 'WELCOME BACK'}
             </span>
             <h1 id="auth-title" className="text-4xl font-bold text-slate-900 leading-[1.15] tracking-tight mb-3">
-              {staff ? (
-                'Staff sign in'
-              ) : merchant ? (
-                'Merchant sign in'
+              {loginMode === 'merchant' ? (
+                <>
+                  Welcome,
+                  <br />
+                  Merchant.
+                </>
               ) : (
                 <>
                   Good to see you,
@@ -116,28 +167,21 @@ export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
               )}
             </h1>
             <p className="text-sm text-gray-500">
-              {staff
-                ? 'Use the separate staff account provided by your Zentro administrator.'
-                : merchant
-                  ? 'Sign in with your existing Zentro email and password to manage your business access.'
-                  : 'Sign in to see where your parcels are going.'}
+              {loginMode === 'merchant'
+                ? 'Sign in to manage your shipments and orders.'
+                : 'Sign in to see where your parcels are going.'}
             </p>
           </div>
 
-          {user && (
-            <div className="mb-5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-red-700 space-y-2">
-              <strong className="block">Currently signed in as {user.name || 'another account'}.</strong>
-              <p className="text-gray-800">
-                To sign in as {kind === 'merchant' ? 'a merchant' : kind === 'staff' ? 'staff' : 'a customer'}, switch
-                accounts below.
-              </p>
-              <button
-                type="button"
-                onClick={() => void logout?.(location.pathname)}
-                className="w-full py-1.5 px-3 bg-white border border-gray-300 rounded-lg font-medium text-red-700 hover:bg-gray-50"
-              >
-                Sign out current account
-              </button>
+          {isRegistered && !authError && (
+            <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium">
+              Account created successfully. Please sign in with your credentials.
+            </div>
+          )}
+
+          {authError && (
+            <div role="alert" className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+              {authError}
             </div>
           )}
 
@@ -145,7 +189,7 @@ export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
             {/* Email Address Field */}
             <div>
               <label htmlFor="auth-username" className="block text-sm font-semibold text-gray-800 mb-1.5">
-                {staff ? 'Staff email address' : 'Email address'}
+                Email address
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -161,8 +205,9 @@ export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setEmailError('');
+                    setAuthError('');
                   }}
-                  placeholder={staff ? 'your.work@zentro.lk' : 'you@example.com'}
+                  placeholder="you@example.com"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
@@ -189,7 +234,10 @@ export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setAuthError('');
+                  }}
                   placeholder="Enter your password"
                   className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
                 />
@@ -220,99 +268,98 @@ export function ModernLoginPage({ kind = 'customer' }: LoginPageProps) {
                 />
                 <span>Remember me</span>
               </label>
-              {!staff && (
-                <Link to="/forgot-password" className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline">
-                  Forgot your password?
-                </Link>
-              )}
+              <Link to="/forgot-password" className="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline">
+                Forgot your password?
+              </Link>
             </div>
 
             {/* Sign In Button */}
             <button
               type="submit"
-              className="w-full bg-neutral-900 text-white py-3.5 px-4 rounded-xl text-sm font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm"
+              disabled={loading}
+              className="w-full bg-neutral-900 text-white py-3.5 px-4 rounded-xl text-sm font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70"
             >
-              <span>Sign In</span>
+              <span>{loading ? 'Signing In...' : 'Sign In'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
             {/* OR Divider & Continue with Google */}
-            {!staff && (
-              <>
-                <div className="relative flex items-center py-1">
-                  <div className="flex-grow border-t border-gray-200" />
-                  <span className="flex-shrink mx-4 text-[11px] font-semibold text-gray-400 uppercase">OR</span>
-                  <div className="flex-grow border-t border-gray-200" />
-                </div>
+            <div className="relative flex items-center py-1">
+              <div className="flex-grow border-t border-gray-200" />
+              <span className="flex-shrink mx-4 text-[11px] font-semibold text-gray-400 uppercase">OR</span>
+              <div className="flex-grow border-t border-gray-200" />
+            </div>
 
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  className="w-full border border-gray-200 bg-white text-gray-800 py-3 px-4 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2.5 shadow-sm"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fill={H('4285F4')}
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill={H('34A853')}
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill={H('FBBC05')}
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill={H('EA4335')}
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="w-full border border-gray-200 bg-white text-gray-800 py-3 px-4 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2.5 shadow-sm"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill={H('4285F4')}
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill={H('34A853')}
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill={H('FBBC05')}
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill={H('EA4335')}
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              <span>Continue with Google</span>
+            </button>
           </form>
 
-          {/* Bottom Links */}
+          {/* Bottom Links with Customer/Merchant Switcher */}
           <div className="mt-6 text-center space-y-2 text-xs">
-            {staff ? (
-              <p className="text-gray-500">
-                For dispatchers and couriers only. Staff accounts are created by Zentro.
-              </p>
-            ) : merchant ? (
-              <>
-                <p className="text-gray-500">
-                  New to Zentro?{' '}
-                  <Link to="/register?next=merchant" className="text-orange-600 hover:text-orange-700 font-semibold">
-                    Create an account and apply
-                  </Link>
-                </p>
-                <p>
-                  <Link to="/merchant" className="text-orange-600 hover:text-orange-700 font-semibold">
-                    Business information
-                  </Link>
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-gray-500">
-                  New to Zentro?{' '}
-                  <Link to="/register" className="text-orange-600 hover:text-orange-700 font-semibold">
-                    Create an account
-                  </Link>
-                </p>
-                <p className="text-gray-400">
-                  <Link to="/staff/login" className="text-orange-600 hover:text-orange-700 font-semibold">
-                    Staff sign in
-                  </Link>{' '}
-                  |{' '}
-                  <Link to="/merchant/login" className="text-orange-600 hover:text-orange-700 font-semibold">
-                    Merchant sign in
-                  </Link>
-                </p>
-              </>
-            )}
+            <p className="text-gray-500">
+              New to Zentro?{' '}
+              <Link
+                to={loginMode === 'merchant' ? "/register?intent=merchant" : "/register"}
+                className="text-orange-600 hover:text-orange-700 font-semibold"
+              >
+                Create an account
+              </Link>
+            </p>
+            <p className="text-gray-500">
+              {loginMode === 'customer' ? (
+                <>
+                  Are you a merchant?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode('merchant');
+                      setAuthError('');
+                    }}
+                    className="text-orange-600 hover:text-orange-700 font-semibold cursor-pointer underline-offset-2 hover:underline"
+                  >
+                    Sign in as Merchant
+                  </button>
+                </>
+              ) : (
+                <>
+                  Not a merchant?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode('customer');
+                      setAuthError('');
+                      sessionStorage.removeItem('merchant_upgrade_intent');
+                    }}
+                    className="text-orange-600 hover:text-orange-700 font-semibold cursor-pointer underline-offset-2 hover:underline"
+                  >
+                    Sign in as Customer
+                  </button>
+                </>
+              )}
+            </p>
           </div>
         </div>
       </div>

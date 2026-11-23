@@ -1,18 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '@/shared/auth/authContext';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { sendRegistrationOtp, verifyRegistrationOtp } from '@/portals/public/api/registrationApi';
+import { routeForRoles } from '@/shared/config/roles';
 import { ZentroAuthAnimatedBackground } from './ZentroAuthAnimatedBackground';
 
-const DELIVERY_HANDOVER_IMAGE =
+const DELIVERY_WAREHOUSE_IMAGE =
   'https://images.unsplash.com/photo-1580674285054-bed31e145f59?auto=format&fit=crop&w=1200&q=80';
 
 const H = (c: string) => String.fromCharCode(35) + c;
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
+}
 
 function parseAuthApiError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -22,7 +30,7 @@ function parseAuthApiError(error: unknown, fallback: string): string {
       return data.message;
     }
     if (error.response?.status === 409) {
-      return 'An account with this email address already exists. Please sign in or use a different email.';
+      return 'This email is already registered. Please log in.';
     }
   }
   return friendlyApiError(error, fallback);
@@ -33,19 +41,27 @@ export function SignupPage() {
   const location = useLocation();
   const auth = useContext(AuthContext);
 
-  const page = location.pathname;
-  const merchantApplication =
-    page === '/register/merchant' || new URLSearchParams(location.search).get('next') === 'merchant';
-  const returnTo = merchantApplication ? '/merchant/register-business' : '/customer';
-  const entryPoint = merchantApplication ? 'merchant' : 'customer';
+  const searchParams = new URLSearchParams(location.search);
+  const stateData = location.state as { intent?: string } | null;
+  const isMerchantIntent = searchParams.get('intent') === 'merchant'
+    || stateData?.intent === 'merchant'
+    || sessionStorage.getItem('merchant_upgrade_intent') === '1';
 
+  useEffect(() => {
+    if (isMerchantIntent) {
+      sessionStorage.setItem('merchant_upgrade_intent', '1');
+    }
+  }, [isMerchantIntent]);
+
+  const [step, setStep] = useState<'form' | 'otp'>('form');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
-  const [otpCode, setOtpCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [cooldown, setCooldown] = useState(0);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -57,10 +73,26 @@ export function SignupPage() {
   });
 
   useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const interval = setInterval(() => setResendCooldown((c) => c - 1), 1000);
+    if (cooldown <= 0) return;
+    const interval = setInterval(() => {
+      setCooldown((c) => Math.max(0, c - 1));
+    }, 1000);
     return () => clearInterval(interval);
-  }, [resendCooldown]);
+  }, [cooldown]);
+
+  if (auth?.user) {
+    if (isMerchantIntent) {
+      if (auth.user.roles.includes('MERCHANT') || auth.user.merchantStatus === 'APPROVED') {
+        return <Navigate to="/merchant/dashboard" replace />;
+      }
+      if (auth.user.merchantStatus === 'PENDING' || auth.user.merchantStatus === 'REJECTED') {
+        return <Navigate to="/merchant/status" replace />;
+      }
+      return <Navigate to="/merchant/register-business" replace />;
+    }
+    const dashboard = routeForRoles(auth.user.roles) || '/customer';
+    return <Navigate to={dashboard} replace />;
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -73,56 +105,25 @@ export function SignupPage() {
 
   const handleGoogleSignUp = () => {
     if (auth?.login) {
-      void auth.login(returnTo, undefined, entryPoint, 'google');
+      const isMerchant = isMerchantIntent || sessionStorage.getItem('merchant_upgrade_intent') === '1';
+      const defaultReturnTo = isMerchant ? '/merchant/register-business' : '/customer';
+      void auth.login(defaultReturnTo, undefined, isMerchant ? 'merchant' : 'customer', 'google');
     }
   };
-
-  if (auth?.user) {
-    return (
-      <ZentroAuthAnimatedBackground>
-        <div className="auth-card-enter relative z-10 w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8 space-y-6 border border-orange-100/70">
-          <h1 className="text-3xl font-bold text-gray-900">Already Signed In</h1>
-          <p className="text-gray-600">
-            You are already signed in. Continue to your account, or create a separate Zentro account.
-          </p>
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => navigate(returnTo, { replace: true })}
-              className="w-full bg-neutral-900 text-white py-3 px-4 rounded-xl font-medium hover:bg-neutral-800 transition-colors"
-            >
-              Continue with this account
-            </button>
-            <button
-              type="button"
-              onClick={() => void auth.register(returnTo, entryPoint)}
-              className="w-full bg-gray-100 text-gray-900 py-3 px-4 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-            >
-              Create a different account
-            </button>
-          </div>
-        </div>
-      </ZentroAuthAnimatedBackground>
-    );
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-    const trimmedEmail = formData.email.trim();
+    const firstName = formData.firstName.trim();
+    const lastName = formData.lastName.trim();
+    const email = formData.email.trim();
 
-    if (!fullName && !trimmedEmail && auth?.register) {
-      void auth.register(returnTo, entryPoint);
-      return;
-    }
-
-    if (!fullName) {
+    if (!firstName || !lastName) {
       setError('Please enter your first and last name.');
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address.');
       return;
     }
@@ -141,11 +142,80 @@ export function SignupPage() {
 
     setLoading(true);
     try {
-      await sendRegistrationOtp({ email: trimmedEmail, name: fullName, entryPoint });
+      await sendRegistrationOtp({
+        email,
+        name: `${firstName} ${lastName}`.trim(),
+        entryPoint: 'customer',
+      });
       setStep('otp');
-      setResendCooldown(60);
+      setCooldown(60);
+      setOtpDigits(['', '', '', '', '', '']);
+      setTimeout(() => {
+        otpInputRefs.current[0]?.focus();
+      }, 100);
     } catch (err) {
-      setError(parseAuthApiError(err, 'Failed to send verification code. Please check your email and try again.'));
+      setError(parseAuthApiError(err, 'Failed to send verification code. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpDigitChange = (index: number, val: string) => {
+    const cleaned = val.replace(/\D/g, '');
+    if (!cleaned) {
+      setOtpDigits((prev) => {
+        const next = [...prev];
+        next[index] = '';
+        return next;
+      });
+      return;
+    }
+
+    if (cleaned.length > 1) {
+      const digits = cleaned.slice(0, 6).split('');
+      setOtpDigits((prev) => {
+        const next = [...prev];
+        digits.forEach((d, i) => {
+          if (index + i < 6) next[index + i] = d;
+        });
+        return next;
+      });
+      const nextFocus = Math.min(5, index + digits.length);
+      otpInputRefs.current[nextFocus]?.focus();
+      return;
+    }
+
+    setOtpDigits((prev) => {
+      const next = [...prev];
+      next[index] = cleaned[0];
+      return next;
+    });
+    setError('');
+
+    if (index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (cooldown > 0 || loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      await sendRegistrationOtp({
+        email: formData.email.trim(),
+        name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+        entryPoint: 'customer',
+      });
+      setCooldown(60);
+    } catch (err) {
+      setError(parseAuthApiError(err, 'Failed to resend verification code.'));
     } finally {
       setLoading(false);
     }
@@ -154,48 +224,35 @@ export function SignupPage() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const cleanCode = otpCode.trim().replace(/\D/g, '');
-    if (cleanCode.length !== 6) {
-      setError('Please enter the 6-digit verification code.');
+    const code = otpDigits.join('').trim();
+    if (code.length !== 6) {
+      setError('Please enter the full 6-digit verification code.');
       return;
     }
+
     setLoading(true);
     try {
       await verifyRegistrationOtp({
         email: formData.email.trim(),
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
         password: formData.password,
-        code: cleanCode,
-        entryPoint,
+        code,
+        entryPoint: 'customer',
       });
-      setStep('success');
-      setTimeout(() => {
-        if (auth?.login) {
-          void auth.login(returnTo, formData.email.trim(), entryPoint);
-        } else {
-          navigate('/login');
-        }
-      }, 1200);
-    } catch (err) {
-      setError(parseAuthApiError(err, 'Invalid or expired verification code.'));
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleResend = async () => {
-    if (resendCooldown > 0 || loading) return;
-    setError('');
-    setLoading(true);
-    try {
-      await sendRegistrationOtp({
-        email: formData.email.trim(),
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
-        entryPoint,
+      // Directly navigate to Login page without auto-login or intermediate success screen
+      const isMerchant = isMerchantIntent || sessionStorage.getItem('merchant_upgrade_intent') === '1';
+      navigate(isMerchant ? '/login?mode=merchant' : '/login', {
+        replace: true,
+        state: {
+          registered: true,
+          email: formData.email.trim(),
+          mode: isMerchant ? 'merchant' : 'customer',
+          intent: isMerchant ? 'merchant' : undefined,
+        },
       });
-      setResendCooldown(60);
     } catch (err) {
-      setError(parseAuthApiError(err, 'Failed to resend code. Please try again.'));
+      setError(parseAuthApiError(err, 'Invalid verification code. Please check and try again.'));
     } finally {
       setLoading(false);
     }
@@ -210,7 +267,7 @@ export function SignupPage() {
             <button
               type="button"
               aria-label="Back to home"
-              onClick={() => navigate('/')}
+              onClick={() => (step === 'otp' ? setStep('form') : navigate('/'))}
               className="w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/30 transition-all"
             >
               <ArrowLeft className="w-5 h-5 text-white" />
@@ -219,8 +276,8 @@ export function SignupPage() {
 
           <div className="absolute inset-0">
             <img
-              src={DELIVERY_HANDOVER_IMAGE}
-              alt="Delivery person handing over parcel"
+              src={DELIVERY_WAREHOUSE_IMAGE}
+              alt="Zentro delivery parcels"
               className="w-full h-full object-cover"
             />
           </div>
@@ -228,141 +285,31 @@ export function SignupPage() {
 
         {/* Right Panel */}
         <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
-          {step === 'success' ? (
-            <div className="space-y-6">
-              <div>
-                <span className="block text-xs font-semibold tracking-widest text-orange-600 uppercase mb-2">
-                  ACCOUNT VERIFIED
-                </span>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Zentro!</h1>
-                <p className="text-gray-600">
-                  Your account has been created and verified. Connecting you to sign in...
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (auth?.login) {
-                    void auth.login(returnTo, formData.email.trim(), entryPoint);
-                  } else {
-                    navigate('/login');
-                  }
-                }}
-                className="w-full bg-neutral-900 text-white py-3 px-4 rounded-xl font-semibold hover:bg-neutral-800 transition-colors"
-              >
-                Continue to Sign In
-              </button>
-            </div>
-          ) : step === 'otp' ? (
-            <div className="space-y-6">
-              <div>
-                <span className="block text-xs font-semibold tracking-widest text-orange-600 uppercase mb-2">
-                  VERIFY YOUR EMAIL
-                </span>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Enter verification code</h1>
-                <p className="text-gray-600">
-                  We sent a 6-digit verification code to <strong>{formData.email.trim()}</strong>. Enter it below to
-                  activate your account.
-                </p>
-              </div>
-              <form onSubmit={handleVerifyOtp} noValidate className="space-y-6">
-                <div>
-                  <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700 mb-2">
-                    Verification Code
-                  </label>
-                  <input
-                    type="text"
-                    id="otpCode"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={(e) => {
-                      setOtpCode(e.target.value.replace(/\D/g, ''));
-                      setError('');
-                    }}
-                    placeholder="000000"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-center text-2xl tracking-widest font-mono focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-                    required
-                  />
-                </div>
-                {error && (
-                  <p role="alert" className="text-sm text-red-600">
-                    {error}
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-neutral-900 text-white py-3.5 px-4 rounded-xl font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all shadow-sm"
-                >
-                  {loading ? 'Verifying...' : 'Verify & Complete Registration'}
-                </button>
-              </form>
-              <div className="flex items-center justify-between text-sm pt-2">
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={resendCooldown > 0 || loading}
-                  className="text-orange-600 hover:text-orange-700 font-medium disabled:text-gray-400"
-                >
-                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('form');
-                    setError('');
-                  }}
-                  className="text-gray-500 hover:text-gray-700 font-medium"
-                >
-                  Change email address
-                </button>
-              </div>
-            </div>
-          ) : (
+          {step === 'form' ? (
             <>
               <div className="mb-6">
                 <span className="block text-xs font-semibold tracking-[0.16em] text-orange-600 uppercase mb-2">
-                  {merchantApplication ? 'ZENTRO BUSINESS' : 'JOIN ZENTRO'}
+                  JOIN ZENTRO
                 </span>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {merchantApplication ? (
-                    <>
-                      One account.
-                      <br />
-                      <span className="italic font-normal">More ways to move.</span>
-                    </>
-                  ) : (
-                    'Create an Account'
-                  )}
+                  Create an Account
                 </h1>
                 <p className="text-gray-600 text-sm">
-                  {merchantApplication ? (
-                    'Create your Zentro account with email verification, then submit your business details.'
-                  ) : (
-                    <>
-                      Already have an account?{' '}
-                      <Link
-                        to="/login"
-                        className="text-orange-600 hover:text-orange-700 font-semibold"
-                      >
-                        Log in
-                      </Link>
-                    </>
-                  )}
+                  Already have an account?{' '}
+                  <Link
+                    to={isMerchantIntent ? "/login?mode=merchant" : "/login"}
+                    className="text-orange-600 hover:text-orange-700 font-semibold"
+                  >
+                    Log in
+                  </Link>
                 </p>
-                {merchantApplication && (
-                  <p className="text-gray-600 text-sm mt-1">
-                    Already have an account?{' '}
-                    <Link
-                      to="/merchant/login"
-                      className="text-orange-600 hover:text-orange-700 font-semibold"
-                    >
-                      Sign in
-                    </Link>
-                  </p>
-                )}
               </div>
+
+              {error && (
+                <div role="alert" className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                  {error}
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} noValidate className="space-y-4">
                 {/* Name Fields */}
@@ -491,30 +438,19 @@ export function SignupPage() {
                   />
                   <label htmlFor="agreeToTerms" className="text-sm text-gray-600">
                     I agree to the{' '}
-                    <button type="button" className="text-black font-semibold hover:underline">
+                    <span className="text-black font-semibold">
                       Terms & Conditions
-                    </button>
+                    </span>
                   </label>
                 </div>
-
-                {error && (
-                  <p role="alert" className="text-sm text-red-600">
-                    {error}
-                  </p>
-                )}
 
                 {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={loading}
-                  aria-label={merchantApplication ? 'Create merchant account' : 'Create customer account'}
-                  className="w-full bg-neutral-900 text-white py-3.5 px-4 rounded-xl text-sm font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all shadow-sm"
+                  className="w-full bg-neutral-900 text-white py-3.5 px-4 rounded-xl text-sm font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all shadow-sm disabled:opacity-70"
                 >
-                  {loading
-                    ? 'Sending code...'
-                    : merchantApplication
-                      ? 'Create merchant account'
-                      : 'Create Account'}
+                  {loading ? 'Sending Code...' : 'Create Account'}
                 </button>
 
                 {/* Divider */}
@@ -552,6 +488,95 @@ export function SignupPage() {
                 </button>
               </form>
             </>
+          ) : (
+            <>
+              <div className="mb-6">
+                <span className="block text-xs font-semibold tracking-[0.16em] text-orange-600 uppercase mb-2">
+                  VERIFY YOUR EMAIL
+                </span>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  Enter verification code
+                </h1>
+                <p className="text-gray-600 text-sm">
+                  We sent a 6-digit code to{' '}
+                  <span className="font-semibold text-gray-900">{maskEmail(formData.email)}</span>
+                </p>
+              </div>
+
+              {error && (
+                <div role="alert" className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyOtp} noValidate className="space-y-6">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-3 text-center uppercase tracking-wider">
+                    6-Digit Security Code
+                  </label>
+                  <div className="flex justify-center gap-2 sm:gap-3">
+                    {otpDigits.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={(el) => (otpInputRefs.current[index] = el)}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={digit}
+                        onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                        className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-xl border border-gray-200 bg-slate-50 text-gray-900 focus:bg-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-2.5 text-xs text-gray-400 text-center">
+                    Code expires in 5 minutes (max 5 attempts).
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otpDigits.join('').length !== 6}
+                  className="w-full bg-neutral-900 text-white py-3.5 px-4 rounded-xl text-sm font-semibold hover:bg-neutral-800 active:scale-[0.99] transition-all shadow-sm disabled:opacity-50"
+                >
+                  {loading ? 'Verifying...' : 'Verify & Complete Registration'}
+                </button>
+
+                <div className="text-center space-y-2 text-xs pt-1">
+                  <p className="text-gray-500">
+                    {cooldown > 0 ? (
+                      <span>Resend code in <strong className="text-orange-600">{cooldown}s</strong></span>
+                    ) : (
+                      <>
+                        Didn't receive the code?{' '}
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={handleResendOtp}
+                          className="text-orange-600 hover:text-orange-700 font-semibold underline-offset-2 hover:underline cursor-pointer"
+                        >
+                          Resend Code
+                        </button>
+                      </>
+                    )}
+                  </p>
+
+                  <p className="text-gray-500">
+                    Wrong email address?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep('form');
+                        setError('');
+                      }}
+                      className="text-gray-700 hover:text-black font-semibold underline-offset-2 hover:underline cursor-pointer"
+                    >
+                      Back to registration
+                    </button>
+                  </p>
+                </div>
+              </form>
+            </>
           )}
         </div>
       </div>
@@ -560,3 +585,4 @@ export function SignupPage() {
 }
 
 export default SignupPage;
+

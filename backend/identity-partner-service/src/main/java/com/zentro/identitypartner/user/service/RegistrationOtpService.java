@@ -1,6 +1,8 @@
 package com.zentro.identitypartner.user.service;
 
 import com.zentro.identitypartner.email.EmailSenderService;
+import com.zentro.identitypartner.user.dto.DirectRegisterRequest;
+import com.zentro.identitypartner.user.dto.LoginRequest;
 import com.zentro.identitypartner.user.dto.SendOtpRequest;
 import com.zentro.identitypartner.user.dto.VerifyOtpRequest;
 import java.nio.charset.StandardCharsets;
@@ -50,28 +52,37 @@ public class RegistrationOtpService {
         UUID.class,
         email);
     if (!existingInDb.isEmpty()) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with this email already exists. Please sign in instead.");
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "This email is already registered. Please log in.");
     }
 
     // 2. Check Keycloak
     if (keycloakAdmin.userExistsByEmail(email)) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with this email already exists. Please sign in instead.");
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "This email is already registered. Please log in.");
     }
 
-    // 3. Generate 6-digit numeric OTP code
+    // 3. Cooldown check: 60 seconds rate limit between OTP requests
+    List<java.time.OffsetDateTime> recentOtps = jdbc.queryForList(
+        "SELECT created_at FROM identity.registration_otp WHERE LOWER(email) = ? AND created_at > now() - INTERVAL '60 seconds' ORDER BY created_at DESC LIMIT 1",
+        java.time.OffsetDateTime.class,
+        email);
+    if (!recentOtps.isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Please wait 60 seconds before requesting another verification code.");
+    }
+
+    // 4. Generate 6-digit numeric OTP code
     String otpCode = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
     String codeHash = sha256(otpCode);
 
-    // 4. Invalidate prior unverified OTPs for this email
+    // 5. Invalidate prior unverified OTPs for this email
     jdbc.update("UPDATE identity.registration_otp SET expires_at = now() WHERE LOWER(email) = ? AND verified_at IS NULL", email);
 
-    // 5. Store OTP record valid for 10 minutes
+    // 6. Store OTP record valid for 5 minutes
     jdbc.update("""
         INSERT INTO identity.registration_otp (email, code_hash, entry_point, expires_at)
-        VALUES (?, ?, ?, now() + INTERVAL '10 minutes')
+        VALUES (?, ?, ?, now() + INTERVAL '5 minutes')
         """, email, codeHash, entryPoint);
 
-    // 6. Send OTP email
+    // 7. Send OTP email
     emailSender.sendRegistrationOtp(email, otpCode);
     log.info("Sent registration OTP code to email={}", email);
 
@@ -324,6 +335,51 @@ public class RegistrationOtpService {
         "success", true,
         "email", email,
         "message", "Your password has been reset successfully. You can now sign in.");
+  }
+
+  @Transactional
+  public Map<String, Object> directRegister(DirectRegisterRequest request) {
+    String email = request.email().trim().toLowerCase();
+    String fullName = (request.firstName().trim() + " " + request.lastName().trim()).trim();
+
+    // 1. Check if user already exists in DB
+    List<UUID> existingInDb = jdbc.queryForList(
+        "SELECT id FROM identity.app_user WHERE LOWER(email) = ?",
+        UUID.class,
+        email);
+    if (!existingInDb.isEmpty()) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "This email is already registered. Please log in.");
+    }
+
+    // 2. Check Keycloak
+    if (keycloakAdmin.userExistsByEmail(email)) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "This email is already registered. Please log in.");
+    }
+
+    // 3. Provision user in Keycloak (CUSTOMER role, permanent password)
+    String keycloakSubject = keycloakAdmin.createVerifiedCustomerUser(email, fullName, request.password());
+
+    // 4. Insert user into identity.app_user
+    jdbc.update("""
+        INSERT INTO identity.app_user (keycloak_subject, email, display_name, account_status)
+        VALUES (?, ?, ?, 'ACTIVE')
+        ON CONFLICT (keycloak_subject) DO UPDATE SET
+          email = EXCLUDED.email,
+          display_name = EXCLUDED.display_name,
+          updated_at = now()
+        """, keycloakSubject, email, fullName);
+
+    log.info("Direct registration created user: email={} subject={}", email, keycloakSubject);
+
+    return Map.of(
+        "success", true,
+        "email", email,
+        "message", "Account created successfully. Please sign in with your credentials.");
+  }
+
+  public Map<String, Object> login(LoginRequest request) {
+    String email = request.email().trim().toLowerCase();
+    return keycloakAdmin.authenticate(email, request.password());
   }
 
   private static String sha256(String input) {
