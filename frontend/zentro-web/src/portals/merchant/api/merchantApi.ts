@@ -1,7 +1,7 @@
 import { apiClient, withBearerToken } from '@/shared/api/apiClient';
 import axios from 'axios';
 
-export type MerchantApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type MerchantApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
 export type MerchantApplication = {
   businessName: string;

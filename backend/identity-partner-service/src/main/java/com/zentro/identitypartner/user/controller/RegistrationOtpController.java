@@ -1,5 +1,6 @@
 package com.zentro.identitypartner.user.controller;
 
+import com.zentro.identitypartner.user.dto.DirectRegisterRequest;
 import com.zentro.identitypartner.user.dto.SendOtpRequest;
 import com.zentro.identitypartner.user.dto.VerifyOtpRequest;
 import com.zentro.identitypartner.user.service.RegistrationOtpService;
@@ -19,6 +20,18 @@ public class RegistrationOtpController {
 
   public RegistrationOtpController(RegistrationOtpService otpService) {
     this.otpService = otpService;
+  }
+
+  @PostMapping
+  @ResponseStatus(HttpStatus.CREATED)
+  public Map<String, Object> register(@Valid @RequestBody DirectRegisterRequest request) {
+    return otpService.directRegister(request);
+  }
+
+  @PostMapping("/direct")
+  @ResponseStatus(HttpStatus.CREATED)
+  public Map<String, Object> registerDirect(@Valid @RequestBody DirectRegisterRequest request) {
+    return otpService.directRegister(request);
   }
 
   @PostMapping("/send-otp")

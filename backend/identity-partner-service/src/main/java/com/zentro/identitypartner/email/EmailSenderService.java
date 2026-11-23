@@ -138,6 +138,9 @@ public class EmailSenderService {
       log.info("Sent email '{}' to {}", subject, toEmail);
     } catch (Exception ex) {
       log.error("Failed to send email '{}' to {}: {}", subject, toEmail, ex.getMessage(), ex);
+      throw new org.springframework.web.server.ResponseStatusException(
+          org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+          "Failed to deliver verification email. Please check your email address and try again.");
     }
   }
 }

@@ -4,8 +4,13 @@ import type { Role } from '@/shared/config/roles';
 import { Spinner } from '@/shared/ui';
 
 export function RoleGuard({ roles }: { roles: Role[] }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
+
+  if (loading) {
+    return <main className="screen-loading"><Spinner label="Verifying access..." /></main>;
+  }
+
   const navigationMerchantStatus = (location.state as { merchantStatus?: string } | null)?.merchantStatus;
   const userIsStaff = Boolean(user?.roles.some((role) => role === 'DISPATCHER' || role === 'COURIER'));
   const staffOnlyPortal = roles.includes('DISPATCHER') || roles.includes('COURIER');

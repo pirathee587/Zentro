@@ -327,6 +327,38 @@ public class KeycloakAdminService {
     return null;
   }
 
+  public Map<String, Object> authenticate(String email, String password) {
+    try {
+      String form = "grant_type=password&client_id=zentro-web"
+          + "&username=" + urlEncode(email.trim().toLowerCase())
+          + "&password=" + urlEncode(password)
+          + "&scope=" + urlEncode("openid profile email roles");
+
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(adminUrl + "/realms/" + urlEncode(realm) + "/protocol/openid-connect/token"))
+          .timeout(Duration.ofSeconds(15))
+          .header("Content-Type", "application/x-www-form-urlencoded")
+          .POST(HttpRequest.BodyPublishers.ofString(form))
+          .build();
+
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() == 400 || response.statusCode() == 401) {
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+      }
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        log.error("Keycloak token error (HTTP {}): {}", response.statusCode(), response.body());
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+      }
+
+      return objectMapper.readValue(response.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+    } catch (ResponseStatusException rse) {
+      throw rse;
+    } catch (Exception ex) {
+      log.error("Authentication error for {}: {}", email, ex.getMessage());
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+    }
+  }
+
   private static String[] splitName(String fullName) {
     if (fullName == null || fullName.isBlank()) {
       return new String[] {"", ""};

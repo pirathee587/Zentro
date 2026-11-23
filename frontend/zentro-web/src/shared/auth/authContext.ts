@@ -29,10 +29,18 @@ export type LoginOptions = {
   reauthenticate?: boolean;
 };
 
+export type LoginCredentialsResult = {
+  success: boolean;
+  error?: string;
+  roles?: Role[];
+  targetDashboard?: string;
+};
+
 export type Auth = {
   user: AuthUser | null;
   setUser: (user: AuthUser | null) => void;
   login: (returnTo?: string, emailHint?: string, entryPoint?: EntryPoint, identityProvider?: IdentityProvider, options?: LoginOptions) => Promise<void>;
+  loginWithCredentials?: (email: string, password: string, returnTo?: string, loginMode?: 'customer' | 'merchant') => Promise<LoginCredentialsResult>;
   register: (returnTo?: string, entryPoint?: EntryPoint) => Promise<void>;
   logout: (returnTo?: string) => Promise<void>;
   refreshAccessToken?: (force?: boolean) => Promise<string | undefined>;
@@ -41,3 +49,21 @@ export type Auth = {
 };
 
 export const AuthContext = createContext<Auth | undefined>(undefined);
+
+export function isAuthPath(path?: string | null): boolean {
+  if (!path || typeof path !== 'string') return true;
+  const clean = path.split('?')[0].split('#')[0].replace(/\/+$/, '');
+  return (
+    clean === '' ||
+    clean === '/login' ||
+    clean === '/merchant/login' ||
+    clean === '/staff/login' ||
+    clean === '/register' ||
+    clean === '/register/customer' ||
+    clean === '/register/merchant' ||
+    clean === '/signup' ||
+    clean === '/forgot-password' ||
+    clean === '/callback' ||
+    clean === '/silent-callback'
+  );
+}

@@ -29,6 +29,7 @@ export function MerchantApplicationPage() {
   const [formError, setFormError] = useState('');
   const [forcedPending, setForcedPending] = useState(false);
   const [attemptedRoleRefresh, setAttemptedRoleRefresh] = useState(false);
+  const [isReapplying, setIsReapplying] = useState(false);
   const auth = { accessToken: user?.accessToken, refreshAccessToken };
 
   const createApplication = useMutation({
@@ -128,10 +129,23 @@ export function MerchantApplicationPage() {
     </section>;
   }
 
-  if (status === 'REJECTED') {
+  if (status === 'SUSPENDED') {
     return <section className="auth-card merchant-application-card">
+      <span className="eyebrow">ACCOUNT STATUS</span>
+      <h1>Your merchant account is suspended.</h1>
+      <p>{application.data?.rejectionReason || 'Your merchant account has been suspended by a dispatcher.'}</p>
+      <EmptyState message="Please contact a dispatcher to reinstate your merchant access." />
+    </section>;
+  }
+
+  if (status === 'REJECTED' && !isReapplying) {
+    return <section className="auth-card merchant-application-card">
+      <span className="eyebrow">APPLICATION STATUS</span>
       <h1>A little more information, please.</h1>
       <p>{application.data?.rejectionReason || 'Your application was not approved. Please contact our team for next steps.'}</p>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '16px', marginBottom: '16px' }}>
+        <Button variant="secondary" onClick={() => setIsReapplying(true)}>Update details &amp; Re-apply</Button>
+      </div>
       <EmptyState message="Only a dispatcher can approve merchant access." />
     </section>;
   }

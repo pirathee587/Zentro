@@ -90,7 +90,7 @@ function matchStaticFaq(query: string): { text: string; actionLabel?: string; ac
     return {
       text: 'Businesses can apply for a Zentro Merchant account to access bulk order dispatch, REST API credentials, and signed delivery webhooks. Register your merchant account and submit your business details for dispatcher review and approval.',
       actionLabel: 'Register as a Merchant',
-      actionPath: '/register/merchant',
+      actionPath: '/register?intent=merchant',
     };
   }
 

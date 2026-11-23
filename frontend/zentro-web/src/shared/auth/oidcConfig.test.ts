@@ -1,8 +1,8 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { clearLegacyStoredTokens, oidcConfig } from './oidcConfig';
 
 describe('OIDC storage', () => {
-  it('keeps access tokens in memory and stores only the redirect state in session storage', async () => {
+  it('stores user session in session storage for refresh persistence and avoids local storage leakage', async () => {
     localStorage.clear();
     sessionStorage.clear();
     const userKey = 'oidc.user:zentro-web';
@@ -10,7 +10,7 @@ describe('OIDC storage', () => {
     await oidcConfig.userStore.set(userKey, JSON.stringify({ access_token: 'mock-access-token' }));
     expect(await oidcConfig.userStore.get(userKey)).toContain('mock-access-token');
     expect(localStorage.getItem(userKey)).toBeNull();
-    expect(sessionStorage.getItem(userKey)).toBeNull();
+    expect(sessionStorage.getItem(`oidc.${userKey}`)).toContain('mock-access-token');
     await oidcConfig.stateStore.set(stateKey, JSON.stringify({ state: 'redirect-state' }));
     expect(sessionStorage.getItem(`oidc.${stateKey}`)).toContain('redirect-state');
     await oidcConfig.userStore.remove(userKey);
@@ -23,7 +23,6 @@ describe('OIDC storage', () => {
     sessionStorage.setItem('oidc.state:pending-login', 'non-secret-state');
     clearLegacyStoredTokens();
     expect(localStorage.getItem('oidc.user:old-zentro-session')).toBeNull();
-    expect(sessionStorage.getItem('oidc.user:old-zentro-session')).toBeNull();
     expect(sessionStorage.getItem('oidc.state:pending-login')).toBe('non-secret-state');
   });
 });

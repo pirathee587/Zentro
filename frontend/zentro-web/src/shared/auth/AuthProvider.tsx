@@ -1,13 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import type { User } from 'oidc-client-ts';
+import { User } from 'oidc-client-ts';
 import { apiClient, setAccessToken, withBearerToken } from '@/shared/api/apiClient';
 import { queryClient } from '@/shared/api/queryClient';
 import { ErrorState, Spinner } from '@/shared/ui';
-import { mapSupportedRoles } from '@/shared/config/roles';
-import { AuthContext, type AccountStatus, type Auth, type EntryPoint, type IdentityProvider, type LoginOptions, type MerchantStatus } from './authContext';
+import { mapSupportedRoles, routeForRoles } from '@/shared/config/roles';
+import { AuthContext, isAuthPath, type AccountStatus, type Auth, type EntryPoint, type IdentityProvider, type LoginCredentialsResult, type LoginOptions, type MerchantStatus } from './authContext';
 import { clearLegacyStoredTokens, oidcManager } from './oidcConfig';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
+import { loginWithPassword } from './authApi';
+
+function parseJwtPayload(token: string): Record<string, unknown> {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return {};
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return {};
+  }
+}
 
 type OidcProfile = User['profile'] & {
   realm_access?: { roles?: unknown };
@@ -233,7 +253,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   });
 
   const tokenProfile = oidcUser?.profile as OidcProfile | undefined;
-  const appProfile = profileQuery.data ?? {};
+  const appProfile = useMemo(() => profileQuery.data ?? {}, [profileQuery.data]);
   const idTokenRoles = getRealmRoles(tokenProfile);
   const tokenHasMerchantRole = idTokenRoles.includes('MERCHANT');
   const roles = mapSupportedRoles(idTokenRoles);
@@ -244,7 +264,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const accountStatus = readStatus<AccountStatus>(appProfile.accountStatus, ['ACTIVE', 'DISABLED', 'SUSPENDED']) ?? enabledStatus;
   const merchantStatus = readStatus<MerchantStatus>(appProfile.merchantStatus, ['PENDING', 'APPROVED', 'REJECTED']);
 
-  const user: Auth['user'] = oidcUser ? {
+  const user: Auth['user'] = useMemo(() => (oidcUser ? {
     id: String(tokenProfile?.sub ?? ''),
     userId: appProfile.id ? String(appProfile.id) : undefined,
     email: (appProfile.email ?? tokenProfile?.email) ? String(appProfile.email ?? tokenProfile?.email) : undefined,
@@ -256,7 +276,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     accountStatus,
     merchantStatus,
     profileLoaded: profileQuery.isFetched,
-  } : null;
+  } : null), [oidcUser, tokenProfile, appProfile, roles, accessToken, pendingMerchantFlow, oidcState, pendingAuthFlow, accountStatus, merchantStatus, profileQuery.isFetched]);
 
   useEffect(() => {
     const subject = tokenProfile?.sub;
@@ -304,6 +324,126 @@ export function AuthProvider({ children }: PropsWithChildren) {
       .then(() => queryClient.invalidateQueries({ queryKey: ['current-user', tokenProfile?.sub] }))
       .catch(() => profilePatchInFlight.current.delete(profileId));
   }, [accessToken, appProfile.id, appProfile.phone, profileQuery.data, profileQuery.isError, tokenProfile]);
+
+  const loginWithCredentials = useCallback(async (
+    email: string,
+    password: string,
+    returnTo?: string,
+    loginMode: 'customer' | 'merchant' = 'customer',
+  ): Promise<LoginCredentialsResult> => {
+    setAuthError('');
+    try {
+      const tokenData = await loginWithPassword({ email: email.trim(), password });
+      const jwtToken = tokenData.id_token || tokenData.access_token;
+      const idTokenProfile = tokenData.id_token ? (parseJwtPayload(tokenData.id_token) as OidcProfile) : undefined;
+      const accessTokenProfile = tokenData.access_token ? (parseJwtPayload(tokenData.access_token) as OidcProfile) : undefined;
+      const profile = (idTokenProfile || accessTokenProfile || parseJwtPayload(jwtToken)) as OidcProfile;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const expiresAt = nowSec + (tokenData.expires_in || 300);
+
+      const allRealmRoles = Array.from(new Set([
+        ...getRealmRoles(idTokenProfile),
+        ...getRealmRoles(accessTokenProfile),
+      ]));
+      const userRoles = mapSupportedRoles(allRealmRoles);
+
+      // Fetch user profile and application status immediately to avoid race conditions
+      let merchantStatus: string | undefined;
+      let userProfileData: AppProfile | undefined;
+      try {
+        const profileRes = await apiClient.get<AppProfile>('/api/v1/users/me', withBearerToken(tokenData.access_token));
+        userProfileData = profileRes.data;
+        const rawStatus = userProfileData.merchantStatus;
+        merchantStatus = typeof rawStatus === 'string' ? rawStatus : undefined;
+      } catch {
+        // ignore
+      }
+      if (!merchantStatus) {
+        try {
+          const appRes = await apiClient.get<{ status: string }>('/api/v1/merchants/me', withBearerToken(tokenData.access_token));
+          merchantStatus = appRes.data.status;
+          if (userProfileData) {
+            userProfileData.merchantStatus = merchantStatus;
+          }
+        } catch {
+          // 404 means no application exists yet
+        }
+      }
+
+      const subject = String(profile.sub ?? '');
+      if (userProfileData && subject) {
+        queryClient.setQueryData(['current-user', subject], userProfileData);
+      }
+      if (merchantStatus && subject) {
+        queryClient.setQueryData(queryKeys.merchant.application(principalCacheScope(subject)), { status: merchantStatus });
+      }
+
+      const cleanReturnTo = returnTo && !isAuthPath(returnTo) && !returnTo.startsWith('//') ? returnTo : undefined;
+
+      // Determine authorized target dashboard based on selected mode and roles
+      let targetDashboard: string;
+      if (loginMode === 'merchant') {
+        if (userRoles.includes('MERCHANT') || merchantStatus === 'APPROVED') {
+          targetDashboard = (cleanReturnTo && cleanReturnTo.startsWith('/merchant/dashboard')) ? cleanReturnTo : '/merchant/dashboard';
+        } else if (merchantStatus === 'PENDING' || merchantStatus === 'REJECTED') {
+          targetDashboard = '/merchant/status';
+        } else if (userRoles.includes('CUSTOMER')) {
+          targetDashboard = (cleanReturnTo && cleanReturnTo.startsWith('/merchant/register-business')) ? cleanReturnTo : '/merchant/register-business';
+        } else if (userRoles.includes('DISPATCHER')) {
+          targetDashboard = '/dispatcher';
+        } else if (userRoles.includes('COURIER')) {
+          targetDashboard = '/courier';
+        } else {
+          targetDashboard = '/merchant/register-business';
+        }
+        sessionStorage.removeItem('merchant_upgrade_intent');
+      } else {
+        // Customer login mode
+        if (userRoles.includes('DISPATCHER')) {
+          targetDashboard = (cleanReturnTo && (cleanReturnTo.startsWith('/dispatcher') || cleanReturnTo.startsWith('/admin'))) ? cleanReturnTo : '/dispatcher';
+        } else if (userRoles.includes('COURIER')) {
+          targetDashboard = (cleanReturnTo && cleanReturnTo.startsWith('/courier')) ? cleanReturnTo : '/courier';
+        } else if (userRoles.includes('CUSTOMER')) {
+          targetDashboard = (cleanReturnTo && cleanReturnTo.startsWith('/customer')) ? cleanReturnTo : '/customer';
+        } else if (userRoles.includes('MERCHANT')) {
+          targetDashboard = '/merchant/dashboard';
+        } else {
+          targetDashboard = routeForRoles(userRoles) || '/customer';
+        }
+      }
+
+      const loadedUser = new User({
+        id_token: tokenData.id_token,
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        token_type: tokenData.token_type || 'Bearer',
+        scope: tokenData.scope || 'openid profile email roles',
+        profile,
+        expires_at: expiresAt,
+        userState: { returnTo: targetDashboard, entryPoint: loginMode },
+      });
+
+      await oidcManager.storeUser(loadedUser);
+      setAccessToken(loadedUser.access_token);
+      setOidcUser(loadedUser);
+      setLoading(false);
+
+      return {
+        success: true,
+        roles: userRoles,
+        targetDashboard,
+      };
+    } catch (err: unknown) {
+      let message = 'Invalid email or password.';
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { detail?: string; message?: string } | undefined;
+        if (data?.detail && typeof data.detail === 'string') message = data.detail;
+        else if (data?.message && typeof data.message === 'string' && data.message.trim() && data.message !== 'No message available') message = data.message;
+        else if (err.response?.status === 401 || err.response?.status === 400) message = 'Invalid email or password.';
+      }
+      return { success: false, error: message };
+    }
+  }, []);
 
   const login = useCallback(async (
     returnTo = '/',
@@ -408,12 +548,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     user,
     setUser: () => undefined,
     login,
+    loginWithCredentials,
     register,
     logout,
     refreshAccessToken,
     loading,
     authError,
-  }), [user, login, register, logout, refreshAccessToken, loading, authError]);
+  }), [user, login, loginWithCredentials, register, logout, refreshAccessToken, loading, authError]);
 
   if (loading) return <main className="screen-loading"><Spinner label="Loading your account" /></main>;
   if (window.location.pathname === '/silent-callback') return <main className="screen-loading" aria-label="Completing session check" />;

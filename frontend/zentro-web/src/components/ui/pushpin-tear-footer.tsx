@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Link } from "react-router-dom"
+import { AuthContext } from '@/shared/auth/authContext'
 
 /**
  * Zentro Pushpin Tear Footer — an interactive torn-poster site footer for the
@@ -401,10 +402,10 @@ const ZENTRO_COLUMNS: FooterColumn[] = [
   {
     title: "For Business",
     links: [
-      { label: "Merchant Registration", href: "/register/merchant" },
-      { label: "Merchant Login", href: "/merchant/login" },
+      { label: "Merchant Portal", href: "/login?mode=merchant" },
+      { label: "Merchant Upgrade", href: "/register?intent=merchant" },
       { label: "Business Shipping", href: "#businesses" },
-      { label: "API Integration", href: "/merchant" },
+      { label: "API Integration", href: "/register?intent=merchant" },
     ],
   },
   {
@@ -425,6 +426,9 @@ const ZENTRO_COLUMNS: FooterColumn[] = [
 ]
 
 function NavItem({ item }: { item: TearLink }) {
+  const auth = React.useContext(AuthContext)
+  const user = auth?.user
+
   if (!item.href) {
     return <span className="tpf-static">{item.label}</span>
   }
@@ -441,6 +445,37 @@ function NavItem({ item }: { item: TearLink }) {
       </a>
     );
   }
+
+  if (item.label === "Merchant Upgrade" || item.label === "API Integration") {
+    return (
+      <Link
+        to="/register?intent=merchant"
+        onClick={() => {
+          if (!user) {
+            sessionStorage.setItem('merchant_upgrade_intent', '1')
+          }
+        }}
+      >
+        {item.label}
+      </Link>
+    )
+  }
+
+  if (item.label === "Merchant Portal") {
+    return (
+      <Link
+        to="/login?mode=merchant"
+        onClick={() => {
+          if (!user) {
+            sessionStorage.setItem('merchant_upgrade_intent', '1')
+          }
+        }}
+      >
+        {item.label}
+      </Link>
+    )
+  }
+
   if (item.href.startsWith("/")) {
     return <Link to={item.href}>{item.label}</Link>
   }

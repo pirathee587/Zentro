@@ -34,6 +34,23 @@ export type ResetPasswordRequest = {
   newPassword: string;
 };
 
+export type DirectRegisterRequest = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+};
+
+export {
+  loginWithPassword,
+  type LoginRequest,
+  type TokenResponse,
+} from '@/shared/auth/authApi';
+
+export async function directRegister(request: DirectRegisterRequest): Promise<RegistrationResponse> {
+  return (await apiClient.post<RegistrationResponse>('/api/v1/auth/register', request, { timeout: 30000 })).data;
+}
+
 export type VerifyResetOtpRequest = {
   email: string;
   code: string;
