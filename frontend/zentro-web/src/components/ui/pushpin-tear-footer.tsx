@@ -447,17 +447,9 @@ function NavItem({ item }: { item: TearLink }) {
   }
 
   if (item.label === "Merchant Upgrade" || item.label === "API Integration") {
-    const destination = user
-      ? (user.roles.includes('MERCHANT') || user.merchantStatus === 'APPROVED'
-          ? '/merchant/dashboard'
-          : (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED'
-              ? '/merchant/status'
-              : '/merchant/register-business'))
-      : '/register?intent=merchant'
-
     return (
       <Link
-        to={destination}
+        to="/register?intent=merchant"
         onClick={() => {
           if (!user) {
             sessionStorage.setItem('merchant_upgrade_intent', '1')
@@ -470,17 +462,9 @@ function NavItem({ item }: { item: TearLink }) {
   }
 
   if (item.label === "Merchant Portal") {
-    const destination = user
-      ? (user.roles.includes('MERCHANT') || user.merchantStatus === 'APPROVED'
-          ? '/merchant/dashboard'
-          : (user.merchantStatus === 'PENDING' || user.merchantStatus === 'REJECTED'
-              ? '/merchant/status'
-              : '/merchant/register-business'))
-      : '/login?mode=merchant'
-
     return (
       <Link
-        to={destination}
+        to="/login?mode=merchant"
         onClick={() => {
           if (!user) {
             sessionStorage.setItem('merchant_upgrade_intent', '1')
