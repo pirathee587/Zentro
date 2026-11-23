@@ -8,8 +8,8 @@ import { ErrorState, Spinner } from '@/shared/ui';
 import { mapSupportedRoles, routeForRoles } from '@/shared/config/roles';
 import { AuthContext, isAuthPath, type AccountStatus, type Auth, type EntryPoint, type IdentityProvider, type LoginCredentialsResult, type LoginOptions, type MerchantStatus } from './authContext';
 import { clearLegacyStoredTokens, oidcManager } from './oidcConfig';
-import { loginWithPassword } from '@/portals/public/api/registrationApi';
-import { merchantQueryKeys } from '@/portals/merchant/hooks/useMerchantQueries';
+import { principalCacheScope, queryKeys } from '@/shared/api/queryKeys';
+import { loginWithPassword } from './authApi';
 
 function parseJwtPayload(token: string): Record<string, unknown> {
   try {
@@ -253,7 +253,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   });
 
   const tokenProfile = oidcUser?.profile as OidcProfile | undefined;
-  const appProfile = profileQuery.data ?? {};
+  const appProfile = useMemo(() => profileQuery.data ?? {}, [profileQuery.data]);
   const idTokenRoles = getRealmRoles(tokenProfile);
   const tokenHasMerchantRole = idTokenRoles.includes('MERCHANT');
   const roles = mapSupportedRoles(idTokenRoles);
@@ -264,7 +264,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const accountStatus = readStatus<AccountStatus>(appProfile.accountStatus, ['ACTIVE', 'DISABLED', 'SUSPENDED']) ?? enabledStatus;
   const merchantStatus = readStatus<MerchantStatus>(appProfile.merchantStatus, ['PENDING', 'APPROVED', 'REJECTED']);
 
-  const user: Auth['user'] = oidcUser ? {
+  const user: Auth['user'] = useMemo(() => (oidcUser ? {
     id: String(tokenProfile?.sub ?? ''),
     userId: appProfile.id ? String(appProfile.id) : undefined,
     email: (appProfile.email ?? tokenProfile?.email) ? String(appProfile.email ?? tokenProfile?.email) : undefined,
@@ -276,7 +276,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     accountStatus,
     merchantStatus,
     profileLoaded: profileQuery.isFetched,
-  } : null;
+  } : null), [oidcUser, tokenProfile, appProfile, roles, accessToken, pendingMerchantFlow, oidcState, pendingAuthFlow, accountStatus, merchantStatus, profileQuery.isFetched]);
 
   useEffect(() => {
     const subject = tokenProfile?.sub;
@@ -375,7 +375,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         queryClient.setQueryData(['current-user', subject], userProfileData);
       }
       if (merchantStatus && subject) {
-        queryClient.setQueryData(merchantQueryKeys.application(subject), { status: merchantStatus });
+        queryClient.setQueryData(queryKeys.merchant.application(principalCacheScope(subject)), { status: merchantStatus });
       }
 
       const cleanReturnTo = returnTo && !isAuthPath(returnTo) && !returnTo.startsWith('//') ? returnTo : undefined;

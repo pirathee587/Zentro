@@ -5,7 +5,7 @@ import { routeForRoles } from '@/shared/config/roles';
 import { isAuthPath } from '@/shared/auth/authContext';
 
 export function CallbackPage() {
-  const { user, login, logout, loading } = useAuth();
+  const { user, login, loading } = useAuth();
   const location = useLocation();
 
   if (!user) {
