@@ -5,6 +5,9 @@ import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { ArrowIcon } from '../assets/ArrowIcon';
+import { SignupPage as ModernSignupPage } from '@/components/ui/sign-up-page';
+import { ModernLoginPage } from '@/components/ui/login-page';
+import { ModernForgotPasswordPage } from '@/components/ui/forgot-password-page';
 
 function authApiError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
@@ -25,9 +28,9 @@ import {
 
 const Arrow = ArrowIcon;
 
-export function LoginPage() { return <AuthForm kind="customer"/>; }
-export function StaffLoginPage() { return <AuthForm kind="staff"/>; }
-export function MerchantLoginPage() { return <AuthForm kind="merchant"/>; }
+export function LoginPage() { return <ModernLoginPage kind="customer"/>; }
+export function StaffLoginPage() { return <ModernLoginPage kind="staff"/>; }
+export function MerchantLoginPage() { return <ModernLoginPage kind="merchant"/>; }
 
 function GoogleSignInButton({returnTo,entryPoint}:{returnTo:string;entryPoint:'customer'|'merchant'}) {
   const {login}=useAuth();
@@ -61,7 +64,8 @@ export function SignupPage() {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  if(!isRegisterPage) return <Navigate to="/register" replace/>;
+  if(!isRegisterPage && page!=='/signup') return <Navigate to="/register" replace/>;
+  return <ModernSignupPage />;
 
   if (user) {
     return (
@@ -425,296 +429,5 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
 }
 
 export function ForgotPasswordPage() {
-  const [step, setStep] = useState<'email' | 'otp' | 'new-password' | 'success'>('email');
-  const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const interval = setInterval(() => setResendCooldown((c) => c - 1), 1000);
-    return () => clearInterval(interval);
-  }, [resendCooldown]);
-
-  const handleSendOtp = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-    const cleanEmail = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await sendForgotPasswordOtp(cleanEmail);
-      setStep('otp');
-      setResendCooldown(60);
-    } catch (err) {
-      setError(authApiError(err, 'Failed to send password reset code. Please check your email and try again.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (resendCooldown > 0 || loading) return;
-    setError('');
-    setLoading(true);
-    try {
-      await sendForgotPasswordOtp(email.trim());
-      setResendCooldown(60);
-    } catch (err) {
-      setError(authApiError(err, 'Failed to resend code. Please try again.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-    if (otpCode.trim().length !== 6) {
-      setError('Please enter the complete 6-digit verification code.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await verifyForgotPasswordOtp({
-        email: email.trim(),
-        code: otpCode.trim(),
-      });
-      setStep('new-password');
-    } catch (err) {
-      setError(authApiError(err, 'Invalid or expired verification code. Please check your code and try again.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await resetPasswordWithOtp({
-        email: email.trim(),
-        code: otpCode.trim(),
-        newPassword,
-      });
-      setStep('success');
-    } catch (err) {
-      setError(authApiError(err, 'Failed to reset password. Please try requesting a new code.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (step === 'success') {
-    return (
-      <section className="auth-card" aria-labelledby="success-title">
-        <span className="eyebrow" style={{ color: 'var(--umber)' }}>PASSWORD UPDATED</span>
-        <h1 id="success-title">Password Reset Successful!</h1>
-        <p>Your password has been changed successfully. You can now log in using your new credentials.</p>
-        <Link to="/login" style={{ textDecoration: 'none' }}>
-          <Button className="auth-submit" type="button">
-            Proceed to Sign In <Arrow/>
-          </Button>
-        </Link>
-      </section>
-    );
-  }
-
-  if (step === 'new-password') {
-    return (
-      <section className="auth-card" aria-labelledby="new-pwd-title">
-        <span className="eyebrow" style={{ color: 'var(--umber)' }}>CODE VERIFIED</span>
-        <h1 id="new-pwd-title">Set new password</h1>
-        <p>
-          Your verification code has been confirmed. Enter your new password for <strong>{email.trim()}</strong> below.
-        </p>
-
-        <form className="auth-form" noValidate onSubmit={handleResetPassword}>
-          <label htmlFor="new-password">New Password
-            <div style={{ position: 'relative' }}>
-              <Input
-                id="new-password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                autoFocus
-                required
-                value={newPassword}
-                onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
-                placeholder="At least 8 characters"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowPassword((v) => !v)}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--muted)',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  padding: 0,
-                }}
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </Button>
-            </div>
-          </label>
-
-          <label htmlFor="confirm-new-password">Confirm New Password
-            <Input
-              id="confirm-new-password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              required
-              value={confirmPassword}
-              onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
-              placeholder="Re-enter new password"
-            />
-          </label>
-
-          {error && <p className="form-error" role="alert">{error}</p>}
-
-          <Button className="auth-submit" type="submit" disabled={loading || !newPassword || !confirmPassword}>
-            {loading ? 'Updating password...' : 'Update Password'} <Arrow/>
-          </Button>
-        </form>
-
-        <p className="auth-switch" style={{ marginTop: '24px' }}>
-          Remembered your password? <Link to="/login">Sign in</Link>
-        </p>
-      </section>
-    );
-  }
-
-  if (step === 'otp') {
-    return (
-      <section className="auth-card" aria-labelledby="otp-title">
-        <span className="eyebrow">VERIFY CODE</span>
-        <h1 id="otp-title">Enter verification code</h1>
-        <p>
-          We sent a 6-digit verification code to <strong>{email.trim()}</strong>. Enter it below to verify your request.
-        </p>
-
-        <form className="auth-form" noValidate onSubmit={handleVerifyOtp}>
-          <label htmlFor="otp-input">6-Digit Verification Code
-            <Input
-              id="otp-input"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              autoFocus
-              required
-              value={otpCode}
-              placeholder="000000"
-              style={{ fontSize: '26px', letterSpacing: '8px', textAlign: 'center', fontFamily: 'monospace' }}
-              onChange={(e) => {
-                setOtpCode(e.target.value.replace(/\D/g, ''));
-                setError('');
-              }}
-            />
-          </label>
-
-          {error && <p className="form-error" role="alert">{error}</p>}
-
-          <Button className="auth-submit" type="submit" disabled={loading || otpCode.length !== 6}>
-            {loading ? 'Verifying code...' : 'Verify Code'} <Arrow/>
-          </Button>
-        </form>
-
-        <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleResend}
-            disabled={resendCooldown > 0 || loading}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: resendCooldown > 0 ? 'var(--stone)' : 'var(--umber)',
-              cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
-              fontWeight: 500,
-              fontSize: '14px',
-              padding: 0,
-            }}
-          >
-            {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => { setStep('email'); setError(''); }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--muted)',
-              cursor: 'pointer',
-              fontSize: '14px',
-              padding: 0,
-            }}
-          >
-            Change email
-          </Button>
-        </div>
-
-        <p className="auth-switch" style={{ marginTop: '24px' }}>
-          Remembered your password? <Link to="/login">Sign in</Link>
-        </p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="auth-card" aria-labelledby="forgot-title">
-      <span className="eyebrow">ACCOUNT RECOVERY</span>
-      <h1 id="forgot-title">Forgot your password?</h1>
-      <p>Enter the email address associated with your Zentro account and we will send you a 6-digit verification code to reset your password.</p>
-
-      <form className="auth-form" noValidate onSubmit={handleSendOtp}>
-        <label htmlFor="forgot-email">Email address
-          <Input
-            id="forgot-email"
-            type="email"
-            autoComplete="email"
-            autoFocus
-            required
-            value={email}
-            onChange={(e) => { setEmail(e.target.value); setError(''); }}
-            placeholder="you@example.com"
-          />
-        </label>
-
-        {error && <p className="form-error" role="alert">{error}</p>}
-
-        <Button className="auth-submit" type="submit" disabled={loading}>
-          {loading ? 'Sending code...' : 'Send verification code'} <Arrow/>
-        </Button>
-      </form>
-
-      <p className="auth-switch">
-        Remembered your password? <Link to="/login">Sign in</Link>
-      </p>
-    </section>
-  );
+  return <ModernForgotPasswordPage />;
 }

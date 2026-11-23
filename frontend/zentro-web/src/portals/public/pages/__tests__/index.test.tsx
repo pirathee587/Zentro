@@ -31,11 +31,19 @@ describe('public landing page', () => {
   it('shows customer and business delivery tabs and the real service features', () => {
     render(<MemoryRouter><HomePage /></MemoryRouter>);
     expect(screen.getByRole('tab', { name: 'Customers' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('Clear fee estimates')).toBeInTheDocument();
-    expect(screen.getByText('PDF receipts')).toBeInTheDocument();
+    expect(screen.getByText('Estimate and book')).toBeInTheDocument();
+    expect(screen.getByText('Hand it over')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: 'Businesses' }));
     expect(screen.getByText('Apply for access')).toBeInTheDocument();
     expect(screen.getAllByText(/signed webhooks/i).length).toBeGreaterThan(0);
+  });
+  it('renders the interactive Sri Lanka delivery network map and feature cards', () => {
+    render(<MemoryRouter><HomePage /></MemoryRouter>);
+    expect(screen.getByText('Delivery Network')).toBeInTheDocument();
+    expect(screen.getByText('Connected hubs: Colombo, Kandy, Jaffna, Galle, Trincomalee')).toBeInTheDocument();
+    expect(screen.getByText('Islandwide delivery network')).toBeInTheDocument();
+    expect(screen.getByText('Care at every handoff')).toBeInTheDocument();
+    expect(screen.getByText('Real-time parcel tracking')).toBeInTheDocument();
   });
 });
 
@@ -43,7 +51,7 @@ describe('staff login page', () => {
   it('offers staff login without a registration link', () => {
     const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     render(<MemoryRouter><AuthContext.Provider value={auth}><StaffLoginPage /></AuthContext.Provider></MemoryRouter>);
-    expect(screen.getByRole('button', { name: /continue securely/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in|continue securely/i })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /create an account|register/i })).not.toBeInTheDocument();
   });
 });
@@ -53,7 +61,7 @@ describe('customer sign in form', () => {
     const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
     expect(screen.getByText('Use your Zentro account email.')).toBeInTheDocument();
-    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'not-an-email' } });
     fireEvent.submit(screen.getByLabelText('Email address').closest('form')!);
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a valid email address');
@@ -64,7 +72,7 @@ describe('customer sign in form', () => {
     const auth: Auth = { user: null, setUser: vi.fn(), login: vi.fn(async () => undefined), register: vi.fn(async () => undefined), logout: vi.fn(async () => undefined), loading: false };
     render(<MemoryRouter><AuthContext.Provider value={auth}><LoginPage /></AuthContext.Provider></MemoryRouter>);
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: ' person@example.com ' } });
-    fireEvent.click(screen.getByRole('button', { name: /continue securely/i }));
+    fireEvent.click(screen.getByRole('button', { name: /sign in|continue securely/i }));
     expect(auth.login).toHaveBeenCalledWith('/customer', 'person@example.com', 'customer');
   });
 });
@@ -75,7 +83,7 @@ describe('merchant sign in and registration', () => {
     render(<MemoryRouter initialEntries={['/merchant/login']}><AuthContext.Provider value={auth}><MerchantLoginPage /></AuthContext.Provider></MemoryRouter>);
 
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'business@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /continue securely/i }));
+    fireEvent.click(screen.getByRole('button', { name: /sign in|continue securely/i }));
     expect(auth.login).toHaveBeenCalledWith('/merchant/dashboard', 'business@example.com', 'merchant');
   });
 
