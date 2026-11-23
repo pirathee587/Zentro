@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Package,
   Laptop,
@@ -7,53 +7,6 @@ import {
   Layers,
   Activity,
 } from 'lucide-react';
-
-const H = (c: string) => String.fromCharCode(35) + c;
-const C_ALPHA = (c: string) => 'r' + 'gba(' + c + ')';
-
-const COLORS = {
-  orange: H('FF7A2F'),
-  orangeStrong: H('FF6418'),
-  orangeSoft: H('FFF0E4'),
-  orangeBorder: H('F5D9C5'),
-  darkHeading: H('171717'),
-  mutedText: H('918B85'),
-  white: H('FFFFFF'),
-  warmCream: H('FAF6F0'),
-  softGrey: H('E8DFD5'),
-  screenBorder: H('D9CEBF'),
-  headerTone: H('F2EAE0'),
-  goldTone: H('E5B574'),
-  stoneTone: H('8A8178'),
-  boxTop: H('F6C898'),
-  boxLeft: H('E7A566'),
-  boxRight: H('D6914F'),
-  handSleeve: H('EAE2D8'),
-  handCuff: H('D1C4B4'),
-  skinTone1: H('F3D1B4'),
-  skinTone2: H('F5D6BD'),
-  phoneFrame: H('FAF8F5'),
-  phoneNotch: H('C9BEAF'),
-  phoneGrid: H('FFF5EA'),
-  orderRotated: H('FAF2E6'),
-  orderRow: H('F7F4EF'),
-  groundShadow: C_ALPHA('245, 217, 197, 0.55'),
-  boxShadow: C_ALPHA('23, 23, 23, 0.1'),
-  routeLine: C_ALPHA('255, 122, 47, 0.15'),
-  laptopDark: H('2C2D30'),
-  laptopSilver: H('E2E4E8'),
-  laptopSilverDark: H('B6BAC2'),
-  laptopDeck: H('D2D5DC'),
-  laptopTrackpad: H('EDEFF3'),
-  glowPeach: H('FFE2CD'),
-  inputBg: H('FAF7F2'),
-  inputLine: H('E6DFD5'),
-  boxKraftTop: H('E8BC8C'),
-  boxKraftFront: H('D69D64'),
-  boxKraftSide: H('BE854C'),
-  boxTapeTop: H('FF6E20'),
-  boxTapeFront: H('E85C10'),
-};
 
 interface StepItem {
   n: string;
