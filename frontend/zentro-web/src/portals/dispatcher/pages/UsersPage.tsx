@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 import { X } from 'lucide-react';
 import './UsersPage.css';
 import { useState, useId, useRef, useEffect, type FormEvent } from 'react';
@@ -61,18 +62,31 @@ function DeleteUserModal({
 }) {
   const dialog = useRef<HTMLDivElement>(null);
   useDialogFocus(dialog, onClose);
+  const { user: currentUser } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const isSelf = user.id === currentUser?.userId || (Boolean(currentUser?.email) && user.email.toLowerCase() === currentUser?.email?.toLowerCase());
+
   const handleDelete = async () => {
+    if (isSelf) {
+      setError('You cannot delete your own account.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       await deleteUser(user.id);
       onDeleted();
     } catch (err) {
-      setError(friendlyApiError(err, 'Failed to delete user account.'));
+      if (axios.isAxiosError(err) && (err.response?.status === 404 || err.response?.status === 204)) {
+        onDeleted();
+        return;
+      }
+      const problem = (err as { response?: { data?: { detail?: string; message?: string } } })?.response?.data;
+      const detail = problem?.detail || problem?.message;
+      setError(detail || friendlyApiError(err, 'Failed to delete user account.'));
       setLoading(false);
     }
   };
@@ -473,7 +487,7 @@ export function UsersPage({ embedded = false }: { embedded?: boolean } = {}) {
               </div>
               <div role="rowgroup">
                 {usersQuery.data.map((u) => {
-                  const isSelf = u.id === currentUser?.id;
+                  const isSelf = u.id === currentUser?.userId || (Boolean(currentUser?.email) && u.email.toLowerCase() === currentUser?.email?.toLowerCase());
                   return (
                     <div className="staff-user-row" key={u.id} role="row">
                       <span role="cell" className="staff-user-identity">

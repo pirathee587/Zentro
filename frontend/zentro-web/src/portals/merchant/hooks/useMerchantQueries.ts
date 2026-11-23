@@ -32,7 +32,7 @@ export const merchantQueryKeys = {
 
 export function useMerchantWebhookQuery(enabled = true) {
   const { user, refreshAccessToken } = useAuth();
-  return useQuery({ queryKey: merchantQueryKeys.webhook(user?.id), enabled: Boolean(user?.accessToken) && enabled, retry: false,
+  return useQuery({ queryKey: merchantQueryKeys.webhook(user?.id), enabled: Boolean(user?.accessToken) && enabled, retry: false, staleTime: 30_000,
     queryFn: ({ signal }) => getMerchantWebhook({ accessToken: user?.accessToken, refreshAccessToken, signal }) });
 }
 

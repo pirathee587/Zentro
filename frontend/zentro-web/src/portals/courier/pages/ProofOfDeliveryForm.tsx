@@ -77,18 +77,18 @@ export function ProofOfDeliveryForm({ save, reconcile, saved }: Props) {
     <div className="courier-form-group"><label htmlFor="pod-recipientName">Recipient Name (required)</label>
       <Input id="pod-recipientName" name="recipientName" value={recipientName} onChange={e => setRecipientName(e.target.value)}
         required disabled={pending} aria-invalid={Boolean(errors.recipientName)} aria-describedby="pod-recipientName-hint" />
-      <span id="pod-recipientName-hint">{errors.recipientName || 'Maximum 100 characters.'}</span></div>
+      <span id="pod-recipientName-hint" className={errors.recipientName ? 'is-error' : ''}>{errors.recipientName || 'Maximum 100 characters.'}</span></div>
     <div className="courier-form-group"><label htmlFor="pod-notes">Delivery Notes (optional)</label>
       <Textarea id="pod-notes" name="notes" value={notes} onChange={e => setNotes(e.target.value)}
         disabled={pending} aria-invalid={Boolean(errors.notes)} aria-describedby="pod-notes-hint" />
-      <span id="pod-notes-hint">{errors.notes || 'Maximum 500 characters. Do not include unnecessary personal details.'}</span></div>
+      <span id="pod-notes-hint" className={errors.notes ? 'is-error' : ''}>{errors.notes || 'Maximum 500 characters. Do not include unnecessary personal details.'}</span></div>
     <div className="courier-form-group"><label htmlFor="pod-photo">Delivery photo (required)</label>
       <Input id="pod-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} aria-invalid={Boolean(errors.photo)} onChange={e => selectPhoto(e.target.files?.[0] || null)} />
-      <span>{errors.photo || 'JPEG, PNG or WebP. Maximum 5 MB.'}</span>{preview && <img src={preview} alt="Delivery proof preview" style={{maxWidth:'260px',display:'block',marginTop:8}} />}{pending && <progress value={progress} max="100">{progress}%</progress>}</div>
+      <span className={errors.photo ? 'is-error' : ''}>{errors.photo || 'JPEG, PNG or WebP. Maximum 5 MB.'}</span>{preview && <img src={preview} alt="Delivery proof preview" style={{ maxWidth: '280px', maxHeight: '200px', objectFit: 'contain', display: 'block', marginTop: 10, borderRadius: 10, border: '1px solid var(--line)' }} />}{pending && <progress value={progress} max="100">{progress}%</progress>}</div>
     <div className="courier-form-group"><label htmlFor="pod-proofReference">Proof Reference (required)</label>
       <Input id="pod-proofReference" name="proofReference" value={proofReference} onChange={e => setProofReference(e.target.value)}
         required disabled={pending} aria-invalid={Boolean(errors.proofReference)} aria-describedby="pod-proofReference-hint" />
-      <span id="pod-proofReference-hint">{errors.proofReference || 'Maximum 200 characters.'}</span></div>
-    <Button type="submit" disabled={pending}>{pending ? 'Saving proof…' : uncertain ? 'Check and retry' : 'Submit proof'}</Button>
+      <span id="pod-proofReference-hint" className={errors.proofReference ? 'is-error' : ''}>{errors.proofReference || 'Maximum 200 characters.'}</span></div>
+    <Button className="courier-form-submit-btn" type="submit" disabled={pending}>{pending ? 'Saving proof…' : uncertain ? 'Check and retry' : 'Submit proof'}</Button>
   </form>;
 }

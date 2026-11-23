@@ -5,7 +5,7 @@ import { Search } from 'lucide-react';
 import { friendlyApiError } from '@/shared/api/apiClient';
 import { useDispatcherParcels, type DispatcherParcel, type ParcelStatus } from '../api/parcelsApi';
 import { useAuth } from '@/shared/auth/useAuth';
-import { decideProofReview, listProofReviews, proofPhotoUrl, type ProofReview } from '../api/proofReviewsApi';
+import { completeProofReview, decideProofReview, listProofReviews, proofPhotoUrl, type ProofReview } from '../api/proofReviewsApi';
 import './ParcelsPage.css';
 
 export type { ParcelStatus } from '../api/parcelsApi';
@@ -27,14 +27,51 @@ export function ParcelsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [photo, setPhoto] = useState('');
   const [proofNotice, setProofNotice] = useState('');
-  const reviews = useQuery({ queryKey: ['proof-reviews', 'PENDING_REVIEW'], enabled: Boolean(token), queryFn: () => listProofReviews('PENDING_REVIEW', token) });
+  const reviews = useQuery({
+    queryKey: ['proof-reviews', 'ALL'],
+    enabled: Boolean(token),
+    queryFn: async () => {
+      const [pending, approved, completed] = await Promise.all([
+        listProofReviews('PENDING_REVIEW', token).catch(() => []),
+        listProofReviews('COMPLETION_PENDING', token).catch(() => []),
+        listProofReviews('COMPLETED', token).catch(() => []),
+      ]);
+      return [...pending, ...approved, ...completed];
+    }
+  });
   const selectedParcel = parcels.find(parcel => parcel.parcelId === selectedId) ?? null;
   const selectedReview = reviews.data?.find(review => review.parcelId === selectedId) ?? null;
+
+  const photoQuery = useQuery({
+    queryKey: ['proof-photo', selectedReview?.id],
+    enabled: Boolean(selectedReview?.id && token),
+    queryFn: () => proofPhotoUrl(selectedReview!.id, token),
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
+
   const decide = async (review: ProofReview, choice: 'approve' | 'reject') => {
     if (choice === 'reject' && !rejectionReason.trim()) { setProofNotice('A rejection reason is required.'); return; }
-    try { await decideProofReview(review, choice, token, rejectionReason.trim()); setProofNotice(`Proof ${choice}d.`); setRejectionReason(''); void client.invalidateQueries({ queryKey: ['proof-reviews'] }); void data.refresh(); }
+    try {
+      if (review.decision === 'COMPLETION_PENDING') {
+        await completeProofReview(review.id, token);
+        setProofNotice('Delivery completed.');
+      } else {
+        await decideProofReview(review, choice, token, rejectionReason.trim());
+        if (choice === 'approve') {
+          try {
+            await completeProofReview(review.id, token);
+          } catch {
+            // completion might take a moment
+          }
+        }
+        setProofNotice(`Proof ${choice}d.`);
+      }
+      setRejectionReason('');
+      void client.invalidateQueries({ queryKey: ['proof-reviews'] });
+      void data.refresh();
+    }
     catch { setProofNotice('The proof review could not be saved. Refresh and try again.'); }
   };
   const loaded = !data.isPending && !data.error;
@@ -239,7 +276,7 @@ export function ParcelsPage() {
           aria-label="Parcel detail"
         >
           {selectedParcel ? (
-            <ParcelDetailPanel parcel={selectedParcel} review={selectedReview} rejectionReason={rejectionReason} setRejectionReason={setRejectionReason} photo={photo} onPhoto={() => selectedReview && void proofPhotoUrl(selectedReview.id, token).then(setPhoto).catch(() => setProofNotice('Private photo is unavailable.'))} onDecide={decide} isMilestoneReached={isMilestoneReached} />
+            <ParcelDetailPanel parcel={selectedParcel} review={selectedReview} rejectionReason={rejectionReason} setRejectionReason={setRejectionReason} photoUrl={photoQuery.data} photoLoading={photoQuery.isLoading} photoError={photoQuery.isError} onRetryPhoto={() => void photoQuery.refetch()} onDecide={decide} isMilestoneReached={isMilestoneReached} />
           ) : (
             <div className="sd-detail-empty">
               <h2 className="sd-detail-title" id="parcel-detail-title">
@@ -259,8 +296,10 @@ function ParcelDetailPanel({
   review,
   rejectionReason,
   setRejectionReason,
-  photo,
-  onPhoto,
+  photoUrl,
+  photoLoading,
+  photoError,
+  onRetryPhoto,
   onDecide,
   isMilestoneReached,
 }: {
@@ -268,8 +307,10 @@ function ParcelDetailPanel({
   review: ProofReview | null;
   rejectionReason: string;
   setRejectionReason: (value: string) => void;
-  photo: string;
-  onPhoto: () => void;
+  photoUrl?: string;
+  photoLoading?: boolean;
+  photoError?: boolean;
+  onRetryPhoto: () => void;
   onDecide: (review: ProofReview, choice: 'approve' | 'reject') => Promise<void>;
   isMilestoneReached: (milestone: string, status: ParcelStatus) => boolean;
 }) {
@@ -313,11 +354,36 @@ function ParcelDetailPanel({
       )}
       <section className="sd-proof-panel">
         <h3>Proof review</h3>
-        {review ? <><p><span className="sd-badge-yellow">Pending review</span> Recipient: {review.recipientName}</p>
-          <p>Proof reference: {review.proofReference || 'Unavailable'}</p><p>Notes: {review.notes || 'None'}</p>
-          <button onClick={onPhoto}>View proof</button>{photo && <img className="proof-photo" src={photo} alt="Private delivery proof"/>}
-          <input value={rejectionReason} placeholder="Rejection reason" onChange={e => setRejectionReason(e.target.value)}/>
-          <div className="sd-proof-actions"><button className="sd-btn-yellow" onClick={() => void onDecide(review, 'approve')}>Approve</button><button onClick={() => void onDecide(review, 'reject')}>Reject</button></div>
+        {review ? <>
+          <p>
+            <span className="sd-badge-yellow">
+              {review.decision === 'COMPLETED' ? 'Completed' : review.decision === 'COMPLETION_PENDING' ? 'Approved' : 'Pending review'}
+            </span> Recipient: {review.recipientName}
+          </p>
+          <p>Proof reference: {review.proofReference || 'Unavailable'}</p>
+          <p>Notes: {review.notes || 'None'}</p>
+          {photoLoading && (
+            <div style={{ padding: '12px', background: 'var(--warm-pale)', borderRadius: '8px', textAlign: 'center', margin: '8px 0', fontSize: '13px', color: 'var(--stone)' }}>
+              Loading proof photo…
+            </div>
+          )}
+          {photoUrl && (
+            <img className="proof-photo" src={photoUrl} alt="Private delivery proof" style={{ maxWidth: '100%', maxHeight: '260px', objectFit: 'contain', borderRadius: '8px', margin: '8px 0', display: 'block' }} />
+          )}
+          {photoError && (
+            <div style={{ margin: '8px 0', fontSize: '13px', color: 'var(--err)' }}>
+              Photo unavailable. <button type="button" onClick={onRetryPhoto} style={{ marginLeft: '8px', fontSize: '12px' }}>Retry</button>
+            </div>
+          )}
+          {review.decision === 'PENDING_REVIEW' && (
+            <>
+              <input value={rejectionReason} placeholder="Rejection reason" onChange={e => setRejectionReason(e.target.value)}/>
+              <div className="sd-proof-actions"><button className="sd-btn-yellow" onClick={() => void onDecide(review, 'approve')}>Approve & Complete</button><button onClick={() => void onDecide(review, 'reject')}>Reject</button></div>
+            </>
+          )}
+          {review.decision === 'COMPLETION_PENDING' && (
+            <div className="sd-proof-actions"><button className="sd-btn-yellow" onClick={() => void onDecide(review, 'approve')}>Complete delivery</button></div>
+          )}
         </> : <p className="sd-timeline-note">No persisted pending proof review for this parcel.</p>}
       </section>
 

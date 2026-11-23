@@ -69,8 +69,7 @@ export function CourierRoutePage() {
                       <p className="cs-muted">{stop.status ? `Shipment status: ${stop.status.replaceAll('_', ' ')}` : 'Shipment status is unavailable.'}</p>
                       {stop.recipient && <p className="cs-muted">{[stop.recipient.address, stop.recipient.city].filter(Boolean).join(' · ')}</p>}
                     </div>
-                    <div className="cs-actions"><Link to={`/courier/deliveries/${stop.parcelId}`}>View delivery</Link>
-                      {stop.trackingRef && <Link to={`/track/${encodeURIComponent(stop.trackingRef)}`}>Track parcel</Link>}</div>
+                    <div className="cs-actions"><Link to={`/courier/deliveries/${stop.parcelId}`}>View delivery</Link></div>
                   </li>
                 ))}
               </ol>

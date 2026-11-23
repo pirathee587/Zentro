@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '@/shared/auth/useAuth';
 import { Button, Input } from '@/shared/ui';
 import { friendlyApiError } from '@/shared/api/apiClient';
+import { routeForRoles, type Role } from '@/shared/config/roles';
 import { ArrowIcon } from '../assets/ArrowIcon';
 
 function authApiError(error: unknown, fallback: string): string {
@@ -25,24 +26,24 @@ import {
 
 const Arrow = ArrowIcon;
 
-export function LoginPage() { return <AuthForm kind="customer"/>; }
-export function StaffLoginPage() { return <AuthForm kind="staff"/>; }
-export function MerchantLoginPage() { return <AuthForm kind="merchant"/>; }
+export function LoginPage() { return <AuthForm kind="customer" />; }
+export function StaffLoginPage() { return <AuthForm kind="staff" />; }
+export function MerchantLoginPage() { return <AuthForm kind="merchant" />; }
 
-function GoogleSignInButton({returnTo,entryPoint}:{returnTo:string;entryPoint:'customer'|'merchant'}) {
-  const {login}=useAuth();
-  return <Button type="button" variant="secondary" className="google-login" onClick={()=>void login(returnTo,undefined,entryPoint,'google')}><span className="google-mark" aria-hidden="true">G</span>Continue with Google</Button>;
+function GoogleSignInButton({ returnTo, entryPoint }: { returnTo: string; entryPoint: 'customer' | 'merchant' }) {
+  const { login } = useAuth();
+  return <Button type="button" variant="secondary" className="google-login" onClick={() => void login(returnTo, undefined, entryPoint, 'google')}><span className="google-mark" aria-hidden="true">G</span>Continue with Google</Button>;
 }
 
 export function SignupPage() {
-  const {login, register, user}=useAuth();
-  const location=useLocation();
-  const navigate=useNavigate();
-  const page=location.pathname;
-  const merchantApplication=page==='/register/merchant'||new URLSearchParams(location.search).get('next')==='merchant';
-  const isRegisterPage=page==='/register'||page==='/register/customer'||page==='/register/merchant';
-  const returnTo=merchantApplication?'/merchant/register-business':'/customer';
-  const entryPoint=merchantApplication?'merchant':'customer';
+  const { login, register, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const page = location.pathname;
+  const merchantApplication = page === '/register/merchant' || new URLSearchParams(location.search).get('next') === 'merchant';
+  const isRegisterPage = page === '/register' || page === '/register/customer' || page === '/register/merchant';
+  const returnTo = merchantApplication ? '/merchant/register-business' : '/customer';
+  const entryPoint = merchantApplication ? 'merchant' : 'customer';
 
   const [step, setStep] = useState<'form' | 'otp' | 'success'>('form');
   const [name, setName] = useState('');
@@ -61,21 +62,21 @@ export function SignupPage() {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  if(!isRegisterPage) return <Navigate to="/register" replace/>;
+  if (!isRegisterPage) return <Navigate to="/register" replace />;
 
   if (user) {
     return (
       <section className="auth-card" aria-labelledby="register-title">
         <span className="eyebrow">{merchantApplication ? 'ZENTRO BUSINESS' : 'WELCOME TO ZENTRO'}</span>
         <h1 id="register-title">
-          {merchantApplication ? <>One account.<br/><em>More ways to move.</em></> : <>Make room for<br/><em>one less worry.</em></>}
+          {merchantApplication ? <>One account.<br /><em>More ways to move.</em></> : <>Make room for<br /><em>one less worry.</em></>}
         </h1>
         <p>You are already signed in. Continue to your account, or create a separate Zentro account.</p>
         <Button className="auth-submit" onClick={() => navigate(returnTo, { replace: true })}>
-          Continue with this account <Arrow/>
+          Continue with this account <Arrow />
         </Button>
         <Button type="button" variant="secondary" className="auth-submit" onClick={() => void register(returnTo, entryPoint)}>
-          Create a different account <Arrow/>
+          Create a different account <Arrow />
         </Button>
         <p className="auth-switch">Already have an account? <Link to={merchantApplication ? '/merchant/login' : '/login'}>Sign in</Link></p>
       </section>
@@ -170,7 +171,7 @@ export function SignupPage() {
       <h1 id="success-title">Welcome to Zentro!</h1>
       <p>Your account has been created and verified. Connecting you to sign in...</p>
       <Button className="auth-submit" onClick={() => void login(returnTo, email.trim(), entryPoint)}>
-        Continue to Sign In <Arrow/>
+        Continue to Sign In <Arrow />
       </Button>
     </section>;
   }
@@ -202,7 +203,7 @@ export function SignupPage() {
         </label>
         {error && <p className="form-error" role="alert">{error}</p>}
         <Button className="auth-submit" type="submit" disabled={loading}>
-          {loading ? 'Verifying...' : 'Verify & Complete Registration'} <Arrow/>
+          {loading ? 'Verifying...' : 'Verify & Complete Registration'} <Arrow />
         </Button>
       </form>
 
@@ -235,7 +236,7 @@ export function SignupPage() {
   return <section className="auth-card" aria-labelledby="register-title">
     <span className="eyebrow">{merchantApplication ? 'ZENTRO BUSINESS' : 'WELCOME TO ZENTRO'}</span>
     <h1 id="register-title">
-      {merchantApplication ? <>One account.<br/><em>More ways to move.</em></> : <>Make room for<br/><em>one less worry.</em></>}
+      {merchantApplication ? <>One account.<br /><em>More ways to move.</em></> : <>Make room for<br /><em>one less worry.</em></>}
     </h1>
     <p>
       {merchantApplication
@@ -318,12 +319,12 @@ export function SignupPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
 
       <Button className="auth-submit" type="submit" disabled={loading}>
-        {loading ? 'Sending code...' : (merchantApplication ? 'Create merchant account' : 'Create customer account')} <Arrow/>
+        {loading ? 'Sending code...' : (merchantApplication ? 'Create merchant account' : 'Create customer account')} <Arrow />
       </Button>
     </form>
 
     <div className="auth-divider"><span>or</span></div>
-    <GoogleSignInButton returnTo={returnTo} entryPoint={entryPoint}/>
+    <GoogleSignInButton returnTo={returnTo} entryPoint={entryPoint} />
 
     <p className="auth-switch">
       Already have an account? <Link to={merchantApplication ? '/merchant/login' : '/login'}>Sign in</Link>
@@ -331,23 +332,31 @@ export function SignupPage() {
   </section>;
 }
 
-function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
-  const {login, logout, user}=useAuth();
-  const location=useLocation();
+function AuthForm({ kind }: { kind: 'customer' | 'staff' | 'merchant' }) {
+  const { login, logout, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
   const initialEmail = searchParams.get('login_hint') ?? '';
-  const [email,setEmail]=useState(initialEmail);
-  const [emailError,setEmailError]=useState('');
-  const from=kind==='staff'?'/staff/login':kind==='merchant'?'/merchant/dashboard':(location.state as {from?:string}|null)?.from ?? '/customer';
-  const staff=kind==='staff';
-  const merchant=kind==='merchant';
+  const [email, setEmail] = useState(initialEmail);
+  const [emailError, setEmailError] = useState('');
+  const from = kind === 'staff' ? '/staff/login' : kind === 'merchant' ? '/merchant/dashboard' : (location.state as { from?: string } | null)?.from ?? '/customer';
+  const staff = kind === 'staff';
+  const merchant = kind === 'merchant';
+
+  const userPortalRoute = user ? routeForRoles(user.roles as Role[]) : null;
+  const userPortalLabel = user?.roles.includes('DISPATCHER') ? 'Dispatch Desk'
+    : user?.roles.includes('COURIER') ? 'Courier Dashboard'
+      : user?.roles.includes('MERCHANT') ? 'Merchant Dashboard'
+        : 'Customer Dashboard';
 
   if (user) {
+    if (kind === 'customer') {
+      const target = routeForRoles(user.roles as Role[]) ?? '/customer';
+      return <Navigate to={target} replace />;
+    }
     if (kind === 'merchant' && user.roles.includes('MERCHANT')) {
       return <Navigate to="/merchant/dashboard" replace />;
-    }
-    if (kind === 'customer' && user.roles.includes('CUSTOMER')) {
-      return <Navigate to="/customer" replace />;
     }
     if (kind === 'staff') {
       if (user.roles.includes('DISPATCHER')) return <Navigate to="/dispatcher" replace />;
@@ -364,60 +373,72 @@ function AuthForm({kind}:{kind:'customer'|'staff'|'merchant'}) {
     }
     setEmailError('');
     if (user && logout) {
-      await logout(`${location.pathname}?login_hint=${encodeURIComponent(value)}&switch_account=1`);
+      await logout(`${location.pathname}?login_hint=${encodeURIComponent(value)}`);
       return;
     }
     void login(from, value, kind);
   };
 
   return <section className="auth-card" aria-labelledby="auth-title">
-    <span className="eyebrow">{staff?'ZENTRO TEAM':merchant?'ZENTRO BUSINESS':'WELCOME BACK'}</span>
-    <h1 id="auth-title">{staff?'Staff sign in':merchant?'Merchant sign in':'Good to see you, again.'}</h1>
-    <p>{staff?'Use the separate staff account provided by your Zentro administrator.':merchant?'Sign in with your existing Zentro email and password to manage your business access.':'Sign in to see where your parcels are going.'}</p>
+    <span className="eyebrow">{staff ? 'ZENTRO TEAM' : merchant ? 'ZENTRO BUSINESS' : 'WELCOME BACK'}</span>
+    <h1 id="auth-title">{staff ? 'Staff sign in' : merchant ? 'Merchant sign in' : 'Good to see you, again.'}</h1>
+    <p>{staff ? 'Use the separate staff account provided by your Zentro administrator.' : merchant ? 'Sign in with your existing Zentro email and password to manage your business access.' : 'Sign in to see where your parcels are going.'}</p>
     {user && (
       <div style={{
         marginBottom: '16px',
-        padding: '12px 14px',
+        padding: '14px 16px',
         background: 'var(--warm-pale)',
         border: '1px solid var(--line)',
         borderRadius: '10px',
-        color: 'var(--err)',
         fontSize: '13px',
         lineHeight: '1.5',
       }}>
-        <strong>Currently signed in as {user.name || 'another account'}.</strong>
-        <p style={{ margin: '4px 0 8px 0', fontSize: '12px', color: 'var(--espresso)' }}>
-          To sign in as {kind === 'merchant' ? 'a merchant' : kind === 'staff' ? 'staff' : 'a customer'}, switch accounts below.
+        <strong style={{ color: 'var(--espresso)', display: 'block', marginBottom: '4px' }}>
+          Currently signed in as {user.name || 'another account'}.
+        </strong>
+        <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: 'var(--stone)' }}>
+          {userPortalRoute
+            ? `You have access to ${userPortalLabel}. You can proceed to your portal or sign in with another account below.`
+            : `To sign in with another account, sign out first or continue below.`}
         </p>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => void logout?.(`${location.pathname}?switch_account=1`)}
-          style={{
-            width: '100%',
-            fontSize: '12px',
-            padding: '6px 12px',
-            color: 'var(--err)',
-            borderColor: 'var(--line)',
-          }}
-        >
-          Switch account
-        </Button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {userPortalRoute && (
+            <Button
+              type="button"
+              onClick={() => navigate(userPortalRoute, { replace: true })}
+              style={{ fontSize: '12px', padding: '6px 14px' }}
+            >
+              Go to {userPortalLabel} <Arrow />
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void logout?.(location.pathname)}
+            style={{
+              fontSize: '12px',
+              padding: '6px 14px',
+              borderColor: 'var(--line)',
+            }}
+          >
+            Sign out
+          </Button>
+        </div>
       </div>
     )}
     <form className="auth-form" noValidate onSubmit={handleSubmit}>
-      <label htmlFor="auth-username">{staff?'Staff email address':'Email address'}
-        <Input id="auth-username" type="email" autoComplete="username" autoFocus required value={email} aria-invalid={Boolean(emailError)} aria-describedby={emailError?'auth-email-error':'auth-email-hint'} onChange={event=>{setEmail(event.target.value);setEmailError('');}} placeholder={staff?'your.work@zentro.lk':'you@example.com'}/>
+      <label htmlFor="auth-username">{staff ? 'Staff email address' : 'Email address'}
+        <Input id="auth-username" type="email" autoComplete="username" autoFocus required value={email} aria-invalid={Boolean(emailError)} aria-describedby={emailError ? 'auth-email-error' : 'auth-email-hint'} onChange={event => { setEmail(event.target.value); setEmailError(''); }} placeholder={staff ? 'your.work@zentro.lk' : 'you@example.com'} />
       </label>
-      {emailError?<p id="auth-email-error" className="form-error" role="alert" aria-live="polite">{emailError}</p>:<small id="auth-email-hint" className="auth-hint">Use your Zentro account email.</small>}
-      <Button className="auth-submit" type="submit">Continue securely <Arrow/></Button>
+      {emailError ? <p id="auth-email-error" className="form-error" role="alert" aria-live="polite">{emailError}</p> : <small id="auth-email-hint" className="auth-hint">Use your Zentro account email.</small>}
+      <Button className="auth-submit" type="submit">Continue securely <Arrow /></Button>
     </form>
-    {!staff&&<div style={{ textAlign: 'center', marginTop: '10px' }}><Link to="/forgot-password" style={{ color: 'var(--umber)', fontSize: '13px', fontWeight: 500, textDecoration: 'none' }}>Forgot your password?</Link></div>}
-    {!staff&&<><div className="auth-divider"><span>or</span></div><GoogleSignInButton returnTo={from} entryPoint={merchant?'merchant':'customer'}/></>}
-    {staff?<p className="auth-switch">For dispatchers and couriers only. Staff accounts are created by Zentro.</p>:merchant?<>
+    {!staff && <div style={{ textAlign: 'center', marginTop: '10px' }}><Link to="/forgot-password" style={{ color: 'var(--umber)', fontSize: '13px', fontWeight: 500, textDecoration: 'none' }}>Forgot your password?</Link></div>}
+    {!staff && <><div className="auth-divider"><span>or</span></div><GoogleSignInButton returnTo={from} entryPoint={merchant ? 'merchant' : 'customer'} /></>}
+    {staff ? <p className="auth-switch">For dispatchers and couriers only. Staff accounts are created by Zentro.</p> : merchant ? <>
       <p className="auth-switch">New to Zentro? <Link to="/register?next=merchant">Create an account and apply</Link></p>
       <p className="auth-switch"><Link to="/merchant">Business information</Link></p>
-    </>:<>
+    </> : <>
       <p className="auth-switch">New to Zentro? <Link to="/register">Create an account</Link></p>
       <p className="auth-switch"><Link to="/staff/login">Staff sign in</Link> | <Link to="/merchant/login">Merchant sign in</Link></p>
     </>}
@@ -530,7 +551,7 @@ export function ForgotPasswordPage() {
         <p>Your password has been changed successfully. You can now log in using your new credentials.</p>
         <Link to="/login" style={{ textDecoration: 'none' }}>
           <Button className="auth-submit" type="button">
-            Proceed to Sign In <Arrow/>
+            Proceed to Sign In <Arrow />
           </Button>
         </Link>
       </section>
@@ -596,7 +617,7 @@ export function ForgotPasswordPage() {
           {error && <p className="form-error" role="alert">{error}</p>}
 
           <Button className="auth-submit" type="submit" disabled={loading || !newPassword || !confirmPassword}>
-            {loading ? 'Updating password...' : 'Update Password'} <Arrow/>
+            {loading ? 'Updating password...' : 'Update Password'} <Arrow />
           </Button>
         </form>
 
@@ -639,7 +660,7 @@ export function ForgotPasswordPage() {
           {error && <p className="form-error" role="alert">{error}</p>}
 
           <Button className="auth-submit" type="submit" disabled={loading || otpCode.length !== 6}>
-            {loading ? 'Verifying code...' : 'Verify Code'} <Arrow/>
+            {loading ? 'Verifying code...' : 'Verify Code'} <Arrow />
           </Button>
         </form>
 
@@ -708,7 +729,7 @@ export function ForgotPasswordPage() {
         {error && <p className="form-error" role="alert">{error}</p>}
 
         <Button className="auth-submit" type="submit" disabled={loading}>
-          {loading ? 'Sending code...' : 'Send verification code'} <Arrow/>
+          {loading ? 'Sending code...' : 'Send verification code'} <Arrow />
         </Button>
       </form>
 

@@ -8,6 +8,7 @@ import {
   SunIcon,
   MoonIcon,
   UserIcon,
+  LogoPill,
 } from '@/shared/ui';
 import { RouteAccessibility } from '@/shared/ui/RouteAccessibility';
 import './dispatcher.css';
@@ -40,14 +41,7 @@ export function DispatcherLayout() {
       <header className="sd-header-wrap" role="banner">
         <div className="sd-header">
           {/* Logo pill "SwiftDrop Dispatcher" */}
-          <Link
-            to="/dispatcher"
-            className="sd-logo-pill sd-dispatcher-logo"
-            aria-label="SwiftDrop Dispatcher Home"
-          >
-            <span className="sd-brand-name">SwiftDrop</span>
-            <span className="sd-brand-role">Dispatcher</span>
-          </Link>
+          <LogoPill to="/dispatcher" role="Dispatcher" ariaLabel="SwiftDrop Dispatcher Home" />
 
           {/* Center pill nav */}
           <div className="sd-nav-scroll-wrap" role="region" aria-label="Main Navigation Scroll">
@@ -155,18 +149,27 @@ export function DispatcherLayout() {
                   >
                     Notification Logs
                   </Link>
+                  {user?.roles?.includes('COURIER') && (
+                    <Link
+                      to="/courier"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Courier Portal
+                    </Link>
+                  )}
+                  {user?.roles?.includes('CUSTOMER') && (
+                    <Link
+                      to="/customer"
+                      className="sd-dropdown-item"
+                      role="menuitem"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Customer Portal
+                    </Link>
+                  )}
                   <hr className="sd-dropdown-divider" />
-                  <Button
-                    type="button"
-                    className="sd-dropdown-logout-btn"
-                    role="menuitem"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      void logout('/staff/login?switch_account=1');
-                    }}
-                  >
-                    Switch account
-                  </Button>
                   <Button
                     type="button"
                     className="sd-dropdown-logout-btn"

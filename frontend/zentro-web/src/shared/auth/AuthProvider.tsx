@@ -17,6 +17,7 @@ type OidcProfile = User['profile'] & {
 
 type AppProfile = {
   id?: string | number;
+  email?: string;
   name?: string;
   phone?: string;
   roles?: unknown;
@@ -245,6 +246,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const user: Auth['user'] = oidcUser ? {
     id: String(tokenProfile?.sub ?? ''),
+    userId: appProfile.id ? String(appProfile.id) : undefined,
+    email: (appProfile.email ?? tokenProfile?.email) ? String(appProfile.email ?? tokenProfile?.email) : undefined,
     name: appProfile.name ?? tokenProfile?.name ?? [tokenProfile?.given_name, tokenProfile?.family_name].filter(Boolean).join(' '),
     roles,
     accessToken: accessToken ?? '',

@@ -162,6 +162,21 @@ html[data-theme="dark"] {
 .sd-logo-box-svg {
   display: block;
   flex-shrink: 0;
+  width: 28px;
+  height: 24px;
+}
+
+.sd-brand-name {
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+
+.sd-brand-role {
+  font-weight: 400;
+  color: var(--mute, #686868);
+  margin-left: 2px;
+  letter-spacing: -0.2px;
 }
 
 .sd-logo-pill:hover {

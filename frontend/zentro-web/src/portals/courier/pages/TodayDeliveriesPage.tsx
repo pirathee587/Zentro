@@ -19,8 +19,12 @@ function StatusBadge({ delivery }: { delivery: DashboardDelivery }) {
   </span>;
 }
 function ProofState({ delivery }: { delivery: DashboardDelivery }) {
-  const messages = { PENDING: 'Proof recorded; completion pending confirmation.', COMPLETED: 'Proof completion confirmed.',
-    REJECTED: 'Completion was rejected. Contact dispatch.', BLOCKED: 'Completion needs attention. Contact dispatch.' };
+  const messages = {
+    PENDING: 'Proof recorded; completion pending confirmation.',
+    COMPLETED: 'Proof completion confirmed.',
+    REJECTED: 'Completion was rejected. Contact dispatch.',
+    BLOCKED: 'Completion needs attention. Contact dispatch.',
+  };
   return delivery.completionState ? <p className="ct-note">{messages[delivery.completionState]}</p> : null;
 }
 function CurrentDelivery({ delivery }: { delivery: DashboardDelivery }) {
@@ -29,7 +33,7 @@ function CurrentDelivery({ delivery }: { delivery: DashboardDelivery }) {
     <div className="ct-card-heading"><div><p className="ct-eyebrow">Your next stop</p><h2 id="current-delivery-heading">Current delivery</h2></div>
       <span className="ct-icon"><Truck aria-hidden="true" size={24} /></span></div>
     <h3 className="ct-reference">{delivery.trackingRef
-      ? <Link to={`/track/${encodeURIComponent(delivery.trackingRef)}`}>{delivery.trackingRef}</Link>
+      ? <Link to={`/courier/deliveries/${delivery.parcelId}`}>{delivery.trackingRef}</Link>
       : 'Tracking reference unavailable'}</h3>
     <StatusBadge delivery={delivery} />
     {!delivery.projectionAvailable ? <p className="ct-note">Tracking details are not available yet. Open the delivery to check its details.</p>
@@ -100,13 +104,16 @@ function CourierToday() {
               <span className="ct-count">{dashboard.pageInfo.totalElements}</span></div>
             {dashboard.deliveries.length ? <ul className="ct-list">{dashboard.deliveries.map(delivery => <li key={delivery.parcelId}>
               <div className="ct-list-main"><h3>{delivery.trackingRef
-                ? <Link to={`/track/${encodeURIComponent(delivery.trackingRef)}`}>{delivery.trackingRef}</Link>
+                ? <Link to={`/courier/deliveries/${delivery.parcelId}`}>{delivery.trackingRef}</Link>
                 : 'Tracking reference unavailable'}</h3>
                 {delivery.projectionAvailable && delivery.recipient && <p>{[delivery.recipient.name, delivery.recipient.city].filter(Boolean).join(' · ')}</p>}
                 {!delivery.projectionAvailable && <p>Shipment details are not available yet.</p>}
-                <StatusBadge delivery={delivery} /><ProofState delivery={delivery} /></div>
-              <div className="ct-list-actions"><Link className="ct-link" to={`/courier/deliveries/${delivery.parcelId}`}>View delivery <ArrowRight aria-hidden="true" size={16} /></Link>
-                {delivery.trackingRef && <Link className="ct-link" to={`/track/${encodeURIComponent(delivery.trackingRef)}`}>Track parcel</Link>}</div>
+                <div className="ct-item-badges">
+                  <StatusBadge delivery={delivery} />
+                  <ProofState delivery={delivery} />
+                </div>
+              </div>
+              <div className="ct-list-actions"><Link className="ct-link" to={`/courier/deliveries/${delivery.parcelId}`}>View delivery <ArrowRight aria-hidden="true" size={16} /></Link></div>
             </li>)}</ul> : <p className="ct-note">No deliveries on this page. Return to an earlier page.</p>}
             <nav className="ct-pagination" aria-label="Delivery pages"><Button variant="secondary" disabled={!dashboard.pageInfo.hasPrevious || query.isFetching}
               onClick={() => setPage(dashboard.pageInfo.page - 1)}>Previous</Button>
