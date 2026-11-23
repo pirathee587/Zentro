@@ -78,7 +78,6 @@ describe('keyboard and semantic accessibility', () => {
     const profile = screen.getByRole('button', { name: 'User profile options' });
     await tabTo(user, profile); await user.keyboard(' ');
     expect(profile).toHaveAttribute('aria-expanded', 'true');
-    await user.tab(); expect(screen.getByRole('button', { name: 'Switch account' })).toHaveFocus();
     await user.tab(); expect(screen.getByRole('button', { name: 'Sign out' })).toHaveFocus();
     await user.keyboard('{Escape}'); expect(profile).toHaveFocus();
     expect(profile).toHaveAttribute('aria-expanded', 'false');

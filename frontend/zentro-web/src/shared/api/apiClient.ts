@@ -3,7 +3,7 @@ import { env } from '@/shared/config/env';
 let token: string | undefined;
 export const setAccessToken=(value:string|undefined) => { token=value; };
 export const getAccessToken=() => token;
-export const apiClient=axios.create({baseURL:env.VITE_API_BASE_URL,timeout:30000});
+export const apiClient=axios.create({baseURL:env.VITE_API_BASE_URL,timeout:5000});
 
 export type ApiProblem = {
   title?: string;

@@ -348,7 +348,7 @@ export function ProofReviewsPage() {
                           onClick={() => window.open(photoQuery.data, '_blank')}
                           title="Click to view full size photo"
                         />
-                        <div style={{ padding: '8px 12px', background: 'rgba(0,0,0,0.02)', textAlign: 'right', borderTop: '1px solid var(--line)' }}>
+                        <div style={{ padding: '8px 12px', background: 'var(--paper)', textAlign: 'right', borderTop: '1px solid var(--line)' }}>
                           <a
                             href={photoQuery.data}
                             target="_blank"
@@ -384,13 +384,13 @@ export function ProofReviewsPage() {
                   </div>
 
                   {selected.rejectionReason && (
-                    <div style={{ margin: '14px 0', padding: '10px 14px', background: 'rgba(220,38,38,0.06)', borderRadius: 10, border: '1px solid rgba(220,38,38,0.2)', fontSize: 13, color: 'var(--err, #dc2626)' }}>
+                    <div style={{ margin: '14px 0', padding: '10px 14px', background: 'var(--badge-danger-bg)', borderRadius: 10, border: '1px solid var(--badge-danger-border)', fontSize: 13, color: 'var(--err)' }}>
                       <strong>Rejection reason:</strong> {selected.rejectionReason}
                     </div>
                   )}
 
                   {selected.completionErrorCode && (
-                    <div style={{ margin: '14px 0', padding: '10px 14px', background: 'rgba(0,0,0,0.03)', borderRadius: 10, fontSize: 13 }}>
+                    <div style={{ margin: '14px 0', padding: '10px 14px', background: 'var(--paper)', borderRadius: 10, fontSize: 13 }}>
                       <strong>Completion outcome:</strong> {selected.completionErrorCode}
                     </div>
                   )}

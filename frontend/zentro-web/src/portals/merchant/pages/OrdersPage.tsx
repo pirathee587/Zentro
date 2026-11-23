@@ -134,21 +134,11 @@ export function OrdersPage() {
                         aria-selected={active?.id === o.id}
                         style={{
                           cursor: 'pointer',
-                          background: active?.id === o.id ? 'var(--parcel-selected, #fffdf2)' : undefined,
+                          background: active?.id === o.id ? 'var(--parcel-selected)' : undefined,
                         }}
                       >
                         <td className="sd-cell-bold">
                           <strong>{o.externalOrderRef}</strong>
-                          <small
-                            style={{
-                              display: 'block',
-                              color: 'var(--mute, #686868)',
-                              fontSize: 11,
-                              marginTop: 2,
-                            }}
-                          >
-                            {o.trackingRef}
-                          </small>
                         </td>
                         <td>{o.recipient.city ?? o.recipient.address}</td>
                         <td>
@@ -162,7 +152,7 @@ export function OrdersPage() {
                             currency: o.currency,
                           }).format(o.fee)}
                         </td>
-                        <td style={{ color: 'var(--mute, #686868)', fontSize: 12 }}>
+                        <td style={{ color: 'var(--mute)', fontSize: 12 }}>
                           {new Date(o.createdAt).toLocaleDateString([], {
                             month: 'short',
                             day: 'numeric',
@@ -209,16 +199,16 @@ export function OrdersPage() {
           >
             <div>
               <span className="sd-eyebrow" style={{ fontSize: 11, letterSpacing: '0.08em' }}>
-                ORDER DETAIL
+                ORDER · {active.externalOrderRef}
               </span>
               <h2 className="sd-card-title" style={{ margin: '4px 0 0', fontSize: 20 }}>
-                {active.externalOrderRef}
+                Order detail
               </h2>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
                 style={{
-                  background: 'rgba(250, 204, 21, 0.2)',
+                  background: 'var(--gold-soft)',
                   padding: '4px 10px',
                   borderRadius: 6,
                   fontWeight: 700,
@@ -246,7 +236,7 @@ export function OrdersPage() {
             <div
               style={{
                 padding: 16,
-                background: 'var(--paper, rgba(0,0,0,0.02))',
+                background: 'var(--paper)',
                 borderRadius: 12,
                 border: '1px solid var(--line)',
               }}
@@ -256,7 +246,7 @@ export function OrdersPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  color: 'var(--mute, #686868)',
+                  color: 'var(--mute)',
                   fontSize: 12,
                   fontWeight: 600,
                   marginBottom: 8,
@@ -266,7 +256,7 @@ export function OrdersPage() {
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>{active.sender.city ?? active.sender.address}</span>
-                <ArrowRight size={14} style={{ color: 'var(--mute, #686868)' }} />
+                <ArrowRight size={14} style={{ color: 'var(--mute)' }} />
                 <span>{active.recipient.city ?? active.recipient.address}</span>
               </div>
             </div>
@@ -275,7 +265,7 @@ export function OrdersPage() {
             <div
               style={{
                 padding: 16,
-                background: 'var(--paper, rgba(0,0,0,0.02))',
+                background: 'var(--paper)',
                 borderRadius: 12,
                 border: '1px solid var(--line)',
               }}
@@ -285,7 +275,7 @@ export function OrdersPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  color: 'var(--mute, #686868)',
+                  color: 'var(--mute)',
                   fontSize: 12,
                   fontWeight: 600,
                   marginBottom: 8,
@@ -297,7 +287,7 @@ export function OrdersPage() {
               <div
                 style={{
                   fontSize: 12,
-                  color: 'var(--mute, #686868)',
+                  color: 'var(--mute)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 4,
@@ -312,7 +302,7 @@ export function OrdersPage() {
             <div
               style={{
                 padding: 16,
-                background: 'var(--paper, rgba(0,0,0,0.02))',
+                background: 'var(--paper)',
                 borderRadius: 12,
                 border: '1px solid var(--line)',
               }}
@@ -322,7 +312,7 @@ export function OrdersPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  color: 'var(--mute, #686868)',
+                  color: 'var(--mute)',
                   fontSize: 12,
                   fontWeight: 600,
                   marginBottom: 8,

@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState, useContext, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, ErrorState, Input } from '@/shared/ui';
-import { AuthContext } from '@/shared/auth/authContext';
-import { routeForRoles, type Role } from '@/shared/config/roles';
 import { ArrowIcon } from '../assets/ArrowIcon';
 import { LandingIcon } from '../assets/LandingIcon';
 import { DeliveryTruckArt } from '../assets/DeliveryTruckArt';
@@ -74,9 +72,6 @@ export function HomePage() {
   };
 
   const steps = audience === 'Customers' ? customerSteps : businessSteps;
-  const auth = useContext(AuthContext);
-  const user = auth?.user;
-  const dashboardRoute = user ? (routeForRoles(user.roles as Role[]) ?? '/customer') : null;
 
   return (
     <div className="landing">
@@ -92,14 +87,8 @@ export function HomePage() {
             <a href="#faqs">FAQs</a>
           </nav>
           <div className="nav-actions">
-            {user && dashboardRoute ? (
-              <Link to={dashboardRoute} className="button-link">Dashboard <Arrow/></Link>
-            ) : (
-              <>
-                <Link to="/login" className="nav-login">Login</Link>
-                <Link to="/register" className="button-link">Get Started <Arrow/></Link>
-              </>
-            )}
+            <Link to="/login" className="nav-login">Login</Link>
+            <Link to="/register" className="button-link">Get Started <Arrow/></Link>
           </div>
         </header>
 
@@ -109,11 +98,7 @@ export function HomePage() {
             <h1>Your parcel,<br/>in <em>good hands.</em></h1>
             <p>From your doorstep to theirs, Zentro brings thoughtful, fast delivery to every corner of Sri Lanka.</p>
             <div className="hero-actions">
-              {user && dashboardRoute ? (
-                <Link to={dashboardRoute} className="button-link button-large">Go to Dashboard <Arrow/></Link>
-              ) : (
-                <Link to="/register" className="button-link button-large">Send a parcel <Arrow/></Link>
-              )}
+              <Link to="/register" className="button-link button-large">Send a parcel <Arrow/></Link>
               <a href="#how-it-works" className="text-link">See how it works <Arrow/></a>
             </div>
             <div className="hero-proof">

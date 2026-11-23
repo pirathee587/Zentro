@@ -19,18 +19,13 @@ function StatusBadge({ delivery }: { delivery: DashboardDelivery }) {
   </span>;
 }
 function ProofState({ delivery }: { delivery: DashboardDelivery }) {
-  if (!delivery.completionState) return null;
-  const labels: Record<string, string> = {
-    PENDING: 'Proof under review',
-    COMPLETED: 'Proof confirmed',
-    REJECTED: 'Proof rejected',
-    BLOCKED: 'Needs attention',
+  const messages = {
+    PENDING: 'Proof recorded; completion pending confirmation.',
+    COMPLETED: 'Proof completion confirmed.',
+    REJECTED: 'Completion was rejected. Contact dispatch.',
+    BLOCKED: 'Completion needs attention. Contact dispatch.',
   };
-  return (
-    <span className={`ct-proof-pill ct-proof-${delivery.completionState.toLowerCase()}`}>
-      {labels[delivery.completionState] || delivery.completionState}
-    </span>
-  );
+  return delivery.completionState ? <p className="ct-note">{messages[delivery.completionState]}</p> : null;
 }
 function CurrentDelivery({ delivery }: { delivery: DashboardDelivery }) {
   const stage = delivery.status ? stages.indexOf(delivery.status) : -1;
