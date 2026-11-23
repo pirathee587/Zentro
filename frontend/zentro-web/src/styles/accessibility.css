@@ -4,6 +4,12 @@
   outline-offset: 3px !important;
   box-shadow: 0 0 0 2px var(--white) !important;
 }
+/* Programmatic container focus (main layout landmark, skip target) should never draw an outline across the page. */
+:is(main, #main-content, [tabindex="-1"]):focus,
+:is(main, #main-content, [tabindex="-1"]):focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
 .skip-to-content {
   position: fixed; top: 8px; left: 8px; z-index: 10000;
   padding: 12px 18px; background: var(--paper); color: var(--espresso);
