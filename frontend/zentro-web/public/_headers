@@ -1,0 +1,8 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.unsplash.com https://*.supabase.co; connect-src 'self' https://zentro-production.indiasouthcentral.cloudapp.azure.com; frame-src 'self' https://zentro-production.indiasouthcentral.cloudapp.azure.com/auth/; frame-ancestors 'self'; form-action 'self' https://zentro-production.indiasouthcentral.cloudapp.azure.com
+
+/silent-callback
+  Cache-Control: no-store
