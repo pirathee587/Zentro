@@ -1,0 +1,221 @@
+name: zentro-production
+
+x-runtime: &runtime
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+x-app-env: &app-env
+  JAVA_TOOL_OPTIONS: "-Xms128m -Xmx512m"
+  SPRING_FLYWAY_ENABLED: "false"
+  SPRING_FLYWAY_CLEAN_DISABLED: "true"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: none
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "4"
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "0"
+  SPRING_DATASOURCE_HIKARI_DATA_SOURCE_PROPERTIES_SSLMODE: verify-full
+  SPRING_DATASOURCE_HIKARI_DATA_SOURCE_PROPERTIES_SSLROOTCERT: /run/supabase/root.crt
+  JWT_ISSUER_URI: https://${API_HOST:?set API_HOST}/auth/realms/zentro
+  JWT_JWKS_URI: http://keycloak:8080/auth/realms/zentro/protocol/openid-connect/certs
+  SERVICE_TOKEN_URI: http://keycloak:8080/auth/realms/zentro/protocol/openid-connect/token
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+x-app: &app
+  <<: *runtime
+  mem_limit: 1g
+  networks: [services, outbound]
+  depends_on:
+    kafka-topics:
+      condition: service_completed_successfully
+    keycloak:
+      condition: service_healthy
+  volumes:
+    - ${SUPABASE_CA_FILE:?set SUPABASE_CA_FILE}:/run/supabase/root.crt:ro
+
+x-probe: &probe
+  interval: 15s
+  timeout: 5s
+  retries: 8
+  start_period: 60s
+
+services:
+  api-gateway:
+    <<: *runtime
+    image: ${GATEWAY_IMAGE:?set GATEWAY_IMAGE}
+    mem_limit: 768m
+    networks: [edge, services]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m"
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_ISSUER_URI: https://${API_HOST}/auth/realms/zentro
+      JWT_JWKS_URI: http://keycloak:8080/auth/realms/zentro/protocol/openid-connect/certs
+      CORS_ALLOWED_ORIGINS: ${FRONTEND_ORIGIN:?set FRONTEND_ORIGIN}
+      S1_URI: http://identity-partner-service:8081
+      S2_URI: http://parcel-pricing-service:8082
+      S3_URI: http://dispatch-courier-service:8083
+      S4_URI: http://tracking-reporting-service:8084
+      S5_URI: http://notification-integration-service:8085
+    healthcheck:
+      <<: *probe
+      test: [CMD, bash, -ec, 'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /actuator/health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3; grep -q ''"status":"UP"'' <&3']
+  identity-partner-service:
+    <<: *app
+    image: ${S1_IMAGE:?set S1_IMAGE}
+    env_file: ./secrets/s1.env
+    environment:
+      <<: *app-env
+      KEYCLOAK_ADMIN_URL: http://keycloak:8080/auth
+      APP_BASE_URL: ${FRONTEND_ORIGIN:?set FRONTEND_ORIGIN}
+    healthcheck:
+      <<: *probe
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8081/actuator/health]
+  parcel-pricing-service:
+    <<: *app
+    image: ${S2_IMAGE:?set S2_IMAGE}
+    env_file: ./secrets/s2.env
+    environment:
+      <<: *app-env
+      DISPATCH_SERVICE_BASE_URL: http://dispatch-courier-service:8083
+      IDENTITY_GRPC_HOST: identity-partner-service
+    healthcheck:
+      <<: *probe
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8082/actuator/health]
+  dispatch-courier-service:
+    <<: *app
+    image: ${S3_IMAGE:?set S3_IMAGE}
+    env_file: ./secrets/s3.env
+    environment:
+      <<: *app-env
+      POD_TOKEN_URI: http://keycloak:8080/auth/realms/zentro/protocol/openid-connect/token
+      PARCEL_BASE_URL: http://parcel-pricing-service:8082
+      ZENTRO_IDENTITY_BASE_URL: http://identity-partner-service:8081
+      IDENTITY_GRPC_HOST: identity-partner-service
+      PARCEL_GRPC_HOST: parcel-pricing-service
+    healthcheck:
+      <<: *probe
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8083/actuator/health]
+  tracking-reporting-service:
+    <<: *app
+    image: ${S4_IMAGE:?set S4_IMAGE}
+    env_file: ./secrets/s4.env
+    environment:
+      <<: *app-env
+      PARCEL_GRPC_HOST: parcel-pricing-service
+      DISPATCH_GRPC_HOST: dispatch-courier-service
+      ZENTRO_DASHBOARD_DISPATCH_BASE_URL: http://dispatch-courier-service:8083
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      <<: *probe
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8084/actuator/health]
+  notification-integration-service:
+    <<: *app
+    image: ${S5_IMAGE:?set S5_IMAGE}
+    env_file: ./secrets/s5.env
+    environment:
+      <<: *app-env
+      IDENTITY_GRPC_HOST: identity-partner-service
+      DISPATCH_GRPC_HOST: dispatch-courier-service
+      PARCEL_GRPC_HOST: parcel-pricing-service
+    healthcheck:
+      <<: *probe
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8085/actuator/health]
+
+  kafka:
+    <<: *runtime
+    image: ${KAFKA_IMAGE:?set KAFKA_IMAGE}
+    mem_limit: 2g
+    networks: [services]
+    volumes:
+      - ${DATA_ROOT:-/opt/zentro/data}/kafka:/var/lib/kafka/data
+    environment:
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:?set KAFKA_CLUSTER_ID}
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: "48"
+      KAFKA_LOG_RETENTION_BYTES: "134217728"
+      KAFKA_LOG_SEGMENT_BYTES: "33554432"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx768m"
+    healthcheck:
+      <<: *probe
+      test: [CMD, kafka-broker-api-versions, --bootstrap-server, 'kafka:9092']
+
+  kafka-topics:
+    image: ${KAFKA_IMAGE}
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    networks: [services]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [/bin/bash, -ec]
+    command:
+      - |
+        for topic in parcel.created parcel.status.updated notification.parcel notification.assignment notification.proof delivery.assigned delivery.reassigned delivery.cancelled delivery.accepted delivery.rejected; do
+          kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1
+        done
+
+  keycloak:
+    <<: *runtime
+    image: ${KEYCLOAK_IMAGE:?set the approved live-compatible Keycloak image}
+    mem_limit: 1536m
+    env_file: ./secrets/keycloak.env
+    command:
+      - start
+      - --spi-connections-jpa--quarkus--migration-strategy=validate
+      - --spi-connections-jpa--quarkus--initialize-empty=false
+      - --spi-connections-jpa--quarkus--auto-create-missing-indexes=false
+    networks: [edge, services, outbound]
+    environment:
+      KC_DB: postgres
+      KC_DB_SCHEMA: keycloak
+      KC_DB_POOL_MIN_SIZE: "2"
+      KC_DB_POOL_MAX_SIZE: "10"
+      KC_HOSTNAME: https://${API_HOST}/auth
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HTTP_MANAGEMENT_RELATIVE_PATH: /
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_CACHE: local
+      JAVA_OPTS_APPEND: "-Xms256m -Xmx768m"
+    volumes:
+      - ../../keycloak/themes:/opt/keycloak/themes:ro
+      - ${KEYCLOAK_CA_FILE:?set KEYCLOAK_CA_FILE}:/run/supabase/root.crt:ro
+    healthcheck:
+      <<: *probe
+      start_period: 120s
+      test: [CMD-SHELL, 'exec 3<>/dev/tcp/127.0.0.1/9000 && printf "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && grep -q ''"UP"'' <&3']
+
+  caddy:
+    <<: *runtime
+    image: ${CADDY_IMAGE:?set CADDY_IMAGE}
+    mem_limit: 256m
+    networks: [edge, outbound]
+    ports: ["80:80", "443:443"]
+    environment:
+      API_HOST: ${API_HOST:?set API_HOST}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${DATA_ROOT:-/opt/zentro/data}/caddy/data:/data
+      - ${DATA_ROOT:-/opt/zentro/data}/caddy/config:/config
+
+networks:
+  edge:
+    internal: true
+  services:
+    internal: true
+  outbound:

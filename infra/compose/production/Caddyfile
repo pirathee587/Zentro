@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_HOST} {
+	@oidc path /auth/realms/zentro /auth/realms/zentro/* /auth/resources/*
+	handle @oidc {
+		reverse_proxy keycloak:8080
+	}
+
+	@identityPrivate path /auth /auth/*
+	handle @identityPrivate {
+		respond 404
+	}
+
+	@private path /actuator* /internal* /api/internal*
+	handle @private {
+		respond 404
+	}
+	handle {
+		reverse_proxy api-gateway:8080 {
+			flush_interval -1
+		}
+	}
+}

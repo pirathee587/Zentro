@@ -135,10 +135,15 @@ public final class CustomerSupportTools {
   private SyncToolSpecification tool(String name, String description, String properties, String required,
       java.util.function.Function<Map<String, Object>, JsonNode> action) {
     String schema = "{\"type\":\"object\",\"properties\":" + properties + ",\"required\":[" + required + "],\"additionalProperties\":false}";
-    Set<String> allowed;
-    try { allowed = mapper.readTree(properties).properties().stream().map(Map.Entry::getKey).collect(java.util.stream.Collectors.toSet()); }
-    catch (Exception ex) { throw new IllegalStateException("Invalid tool schema"); }
-    return new SyncToolSpecification(new McpSchema.Tool(name, description, schema), (exchange, args) -> {
+    McpSchema.JsonSchema inputSchema;
+    try {
+      inputSchema = mapper.readValue(schema, McpSchema.JsonSchema.class);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+      throw new IllegalStateException("Invalid tool schema", ex);
+    }
+    Set<String> allowed = Set.copyOf(inputSchema.properties().keySet());
+    var tool = new McpSchema.Tool(name, null, description, inputSchema, null, null, null);
+    return new SyncToolSpecification(tool, (exchange, args) -> {
       if (calls.incrementAndGet() > 6 || System.nanoTime() > deadline) return new McpSchema.CallToolResult("Tool budget exceeded. Ask a narrower question.", true);
       try {
         if (args == null || !allowed.containsAll(args.keySet())) throw new IllegalArgumentException();

@@ -1,0 +1,333 @@
+name: Production release
+on:
+  workflow_dispatch:
+    inputs:
+      publish_images:
+        description: Request approval to publish production images to GHCR
+        type: boolean
+        default: false
+      deploy_backend:
+        description: Deploy after the production cutover prerequisites have been verified
+        type: boolean
+        default: false
+      deploy_frontend:
+        description: Request separate approval to deploy the production Worker
+        type: boolean
+        default: false
+      publication_run_id:
+        description: Successful publication-only run ID for this main commit when deploy_backend is true and publish_images is false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zentro-production
+  cancel-in-progress: false
+
+env:
+  WRANGLER_VERSION: '4.47.0'
+  WRANGLER_SEND_METRICS: 'false'
+  VITE_API_BASE_URL: https://zentro-production.indiasouthcentral.cloudapp.azure.com
+  VITE_KEYCLOAK_URL: https://zentro-production.indiasouthcentral.cloudapp.azure.com/auth
+  VITE_KEYCLOAK_REALM: zentro
+  VITE_KEYCLOAK_CLIENT_ID: zentro-web
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+
+  validate-inputs:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a verified publication for deployments
+        env:
+          PUBLISH: ${{ inputs.publish_images }}
+          DEPLOY: ${{ inputs.deploy_backend }}
+          PUBLICATION_RUN_ID: ${{ inputs.publication_run_id }}
+        run: |
+          set -euo pipefail
+          if [[ "$DEPLOY" == true && "$PUBLISH" == false ]]; then
+            [[ "$PUBLICATION_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          else
+            [[ -z "$PUBLICATION_RUN_ID" ]]
+          fi
+      - name: Require backend deployment before frontend deployment
+        if: inputs.deploy_frontend && !inputs.deploy_backend
+        run: exit 1
+
+  build-images:
+    if: inputs.publish_images || !inputs.deploy_backend
+    needs: [verify, validate-inputs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate production Compose and Caddy
+        working-directory: infra/compose/production
+        run: |
+          set -euo pipefail
+          docker compose --env-file release.env.example config --quiet --no-env-resolution
+          caddy_image="$(sed -n 's/^CADDY_IMAGE=//p' release.env.example)"
+          docker run --rm --env-file release.env.example -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            "$caddy_image" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm --network none -v "$PWD:/fixtures:ro" maven:3.9-eclipse-temurin-21 \
+            bash /fixtures/test-deploy-app-images.sh /fixtures/deploy-app-images.sh
+      - name: Build production images
+        env:
+          TRIVY_IMAGE: ${{ vars.RELEASE_TRIVY_IMAGE }}
+        run: |
+          set -euo pipefail
+          [[ "$TRIVY_IMAGE" =~ ^(docker.io/)?aquasec/trivy@sha256:[a-f0-9]{64}$ ]]
+          mkdir -p release-scans
+          services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service)
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tags=()
+          for service in "${services[@]}"; do
+            tag="$registry/$service:$GITHUB_SHA"
+            context=.
+            if [[ "$service" == api-gateway ]]; then context=backend; fi
+            docker buildx build --platform linux/amd64 --provenance=false --sbom=false --pull --load --build-arg "GIT_SHA=$GITHUB_SHA" \
+              -f "backend/$service/Dockerfile" -t "$tag" "$context"
+            tags+=("$tag")
+          done
+          failed=0
+          for i in "${!services[@]}"; do
+            service="${services[i]}"
+            docker image save "${tags[i]}" -o "$PWD/release-scans/image.tar"
+            scan=(docker run --rm -v "$PWD/release-scans:/reports" -v zentro-trivy-cache:/root/.cache/trivy "$TRIVY_IMAGE")
+            "${scan[@]}" image --timeout 15m --input /reports/image.tar --format cyclonedx --output "/reports/$service.sbom.json"
+            "${scan[@]}" image --timeout 15m --input /reports/image.tar --scanners vuln \
+              --severity HIGH,CRITICAL --exit-code 1 --format json --output "/reports/$service.vulnerabilities.json" || failed=1
+            docker image inspect "${tags[i]}" --format '{{.Id}}' >> release-scans/image-ids.txt
+            rm release-scans/image.tar
+          done
+          for service in kafka keycloak caddy; do
+            image="$(sed -n "s/^${service^^}_IMAGE=//p" infra/compose/production/release.env.example)"
+            [[ -n "$image" ]]
+            docker pull --platform linux/amd64 "$image"
+            docker image save -o "$PWD/release-scans/image.tar" "$image"
+            "${scan[@]}" image --timeout 15m --input /reports/image.tar --scanners vuln \
+              --severity HIGH,CRITICAL --exit-code 1 --format json \
+              --output "/reports/$service.vulnerabilities.json" || failed=1
+            rm release-scans/image.tar
+          done
+          [[ "$failed" == 0 ]]
+          if [[ "${{ inputs.publish_images }}" == true ]]; then
+            docker save "${tags[@]}" | gzip > production-images.tar.gz
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: production-image-security
+          path: |
+            release-scans/*.json
+            release-scans/image-ids.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: inputs.publish_images
+        with:
+          name: production-images
+          path: production-images.tar.gz
+          retention-days: 3
+
+  publish:
+    if: github.ref == 'refs/heads/main' && inputs.publish_images
+    needs: [build-images, frontend]
+    runs-on: ubuntu-latest
+    environment: production-publication
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: production-images
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: production-image-security
+          path: release-scans
+      - name: Publish digest manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORIZED_RELEASE_SHA: ${{ vars.AUTHORIZED_RELEASE_SHA }}
+        run: |
+          set -euo pipefail
+          [[ "$AUTHORIZED_RELEASE_SHA" == "$GITHUB_SHA" ]]
+          docker load -i production-images.tar.gz
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service)
+          keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE)
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          for service in "${services[@]}"; do
+            docker image inspect "$registry/$service:$GITHUB_SHA" --format '{{.Id}}'
+          done > loaded-image-ids.txt
+          cmp release-scans/image-ids.txt loaded-image-ids.txt
+          : > images.env
+          for i in "${!services[@]}"; do
+            repo="$registry/${services[i]}"
+            # Keep an existing commit tag immutable on retries.
+            tag="$repo:$GITHUB_SHA"
+            if remote="$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest}}' 2>inspect.err)"; then
+              remote_config="$(docker buildx imagetools inspect "$tag" --raw | jq -er .config.digest)"
+              [[ "$remote_config" == "$(docker image inspect "$tag" --format '{{.Id}}')" ]]
+              digest="$(jq -er .digest <<< "$remote")"
+            else
+              grep -Eiq 'manifest unknown|not found' inspect.err || { cat inspect.err >&2; exit 1; }
+              digest="$(docker push "$tag" | tee /dev/stderr | awk '$2 == "digest:" {print $3}')"
+            fi
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            remote_config="$(docker buildx imagetools inspect "$repo@$digest" --raw | jq -er .config.digest)"
+            [[ "$remote_config" == "$(docker image inspect "$tag" --format '{{.Id}}')" ]]
+            printf '%s=%s@%s\n' "${keys[i]}" "$repo" "$digest" >> images.env
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-image-manifest
+          path: images.env
+
+  frontend:
+    needs: [verify, validate-inputs]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/zentro-web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm test -- --maxWorkers=2 --minWorkers=1
+      - run: npm run build
+      - run: npx --yes "wrangler@$WRANGLER_VERSION" deploy --dry-run --config wrangler.jsonc
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-worker
+          path: |
+            frontend/zentro-web/dist
+            frontend/zentro-web/wrangler.jsonc
+
+  previous-publication:
+    if: github.ref == 'refs/heads/main' && inputs.deploy_backend && !inputs.publish_images
+    needs: [verify, validate-inputs, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Verify publication workflow provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLICATION_RUN_ID: ${{ inputs.publication_run_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PUBLICATION_RUN_ID" |
+            jq -e --arg sha "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" '
+              .head_sha == $sha and .head_branch == "main" and .head_repository.full_name == $repo
+              and .event == "workflow_dispatch" and .path == ".github/workflows/production.yml"
+              and .conclusion == "success"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PUBLICATION_RUN_ID/jobs?per_page=100" |
+            jq -e 'any(.jobs[]; .name == "publish" and .conclusion == "success")
+              and all(.jobs[]; .name != "azure" or .conclusion == "skipped")' >/dev/null
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.publication_run_id }}
+          name: production-image-manifest
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-image-manifest
+          path: images.env
+
+  azure:
+    if: >-
+      ${{ !cancelled() && github.ref == 'refs/heads/main' && inputs.deploy_backend && needs.frontend.result == 'success'
+      && ((inputs.publish_images && needs.publish.result == 'success') ||
+          (!inputs.publish_images && needs.previous-publication.result == 'success')) }}
+    needs: [publish, previous-publication, frontend]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: production-image-manifest
+      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy app images via the VM agent
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_VM_NAME: ${{ vars.AZURE_VM_NAME }}
+          AZURE_DEPLOYMENT_AUTHORIZED: ${{ vars.AZURE_DEPLOYMENT_AUTHORIZED }}
+        run: |
+          set -euo pipefail
+          [[ "$AZURE_DEPLOYMENT_AUTHORIZED" == true ]]
+          [[ "$AZURE_RESOURCE_GROUP" == zentro-production-rg && "$AZURE_VM_NAME" == zentro-production-vm ]]
+          [[ "$(az vm show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_VM_NAME" --query provisioningState -o tsv)" == Succeeded ]]
+          probe="$(az vm run-command invoke --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_VM_NAME" --command-id RunShellScript --scripts 'printf "%s\n" ZENTRO_VM_AUTHORIZED')"
+          jq -er '.value[].message' <<< "$probe" | grep -Fx ZENTRO_VM_AUTHORIZED
+          manifest="$(base64 -w0 images.env)"
+          result="$(az vm run-command invoke --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_VM_NAME" --command-id RunShellScript \
+            --scripts "printf '%s' '$manifest' | base64 -d | /opt/zentro/bin/deploy-app-images")"
+          jq -er '.value[].message' <<< "$result" |
+            grep -Ex 'ZENTRO_(DEPLOY_OK|BASELINE_REQUIRED|IMAGE_PULL_FAILED|PREVIOUS_HEALTH_FAILED|CANDIDATE_HEALTH_FAILED|ROLLBACK_OK|ROLLBACK_FAILED|INITIAL_APPS_STOPPED|INITIAL_STOP_FAILED)' || true
+          jq -er '.value[].message' <<< "$result" | grep -Fx 'ZENTRO_DEPLOY_OK'
+
+  workers:
+    if: github.ref == 'refs/heads/main' && inputs.deploy_backend && inputs.deploy_frontend
+    needs: azure
+    runs-on: ubuntu-latest
+    environment: production-frontend
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: production-worker
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Deploy and verify Workers Static Assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+          WORKERS_ACTIONS_ENABLED: ${{ vars.WORKERS_ACTIONS_ENABLED }}
+        run: |
+          set -euo pipefail
+          [[ "$WORKERS_ACTIONS_ENABLED" == true ]]
+          [[ "$FRONTEND_ORIGIN" =~ ^https://zentro\.[a-z0-9-]+\.workers\.dev$ ]]
+          curl -fsS -D cors.headers -o /dev/null -X OPTIONS "$VITE_API_BASE_URL/api/v1/parcels" \
+            -H "Origin: $FRONTEND_ORIGIN" -H 'Access-Control-Request-Method: GET'
+          tr -d '\r' < cors.headers | grep -Fix "access-control-allow-origin: $FRONTEND_ORIGIN"
+          authorization="$VITE_KEYCLOAK_URL/realms/$VITE_KEYCLOAK_REALM/protocol/openid-connect/auth"
+          challenge="$(openssl rand -hex 32 | openssl dgst -sha256 -binary | openssl base64 -A | tr -- '+/' '-_' | tr -d '=')"
+          for path in /callback /silent-callback; do
+            curl -fsS -G -D oidc.headers -o /dev/null "$authorization" \
+              --data-urlencode "client_id=$VITE_KEYCLOAK_CLIENT_ID" \
+              --data-urlencode "redirect_uri=$FRONTEND_ORIGIN$path" \
+              --data-urlencode 'response_type=code' --data-urlencode 'scope=openid' \
+              --data-urlencode 'prompt=none' --data-urlencode 'state=zentro-release-check' \
+              --data-urlencode "code_challenge=$challenge" --data-urlencode 'code_challenge_method=S256'
+            grep -Fi "location: $FRONTEND_ORIGIN$path?" oidc.headers | grep -F 'error=login_required' >/dev/null
+          done
+          npx --yes "wrangler@$WRANGLER_VERSION" deploy --config wrangler.jsonc
+          for path in / /callback /silent-callback; do
+            curl -fsS --retry 5 --retry-delay 3 -H 'Sec-Fetch-Mode: navigate' -D headers -o shell.html "$FRONTEND_ORIGIN$path"
+            grep -qi '^content-type: text/html' headers
+            grep -qi '^x-content-type-options: nosniff' headers
+            grep -qi '^x-frame-options: sameorigin' headers
+            grep -qi '^referrer-policy: strict-origin-when-cross-origin' headers
+            grep -q 'id="root"' shell.html
+          done

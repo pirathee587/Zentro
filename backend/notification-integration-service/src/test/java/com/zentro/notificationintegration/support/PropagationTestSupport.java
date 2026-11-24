@@ -1,5 +1,7 @@
 package com.zentro.notificationintegration.support;
 
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import com.zentro.security.observability.*;
 import io.micrometer.tracing.otel.bridge.*;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
@@ -8,7 +10,9 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider;
 
 public final class PropagationTestSupport implements AutoCloseable {
   public static final String TRACE = "0123456789abcdef0123456789abcdef";
-  private final SdkTracerProvider provider = SdkTracerProvider.builder().build();
+  private final SdkTracerProvider provider = SdkTracerProvider.builder()
+        .addSpanProcessor(SimpleSpanProcessor.create(SpanExporter.noop()))
+        .build();
   private final io.opentelemetry.api.trace.Tracer sdk = provider.get("test");
   public final OtelTracer tracer = new OtelTracer(sdk, new OtelCurrentTraceContext(), event -> {});
   public final PropagationContext context = new PropagationContext(tracer,

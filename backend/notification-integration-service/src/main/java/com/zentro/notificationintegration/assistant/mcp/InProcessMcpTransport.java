@@ -1,9 +1,10 @@
 package com.zentro.notificationintegration.assistant.mcp;
 
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.spec.*;
+import java.util.List;
 import java.util.function.Function;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
@@ -18,13 +19,15 @@ public final class InProcessMcpTransport implements McpClientTransport, McpServe
 
   public InProcessMcpTransport(ObjectMapper mapper) { this.mapper = mapper; }
 
+  @Override public List<String> protocolVersions() { return McpClientTransport.super.protocolVersions(); }
+
   @Override public void setSessionFactory(McpServerSession.Factory factory) {
     session = factory.create(new McpServerTransport() {
       @Override public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
         return Mono.fromRunnable(() -> replies.emitNext(message, Sinks.EmitFailureHandler.FAIL_FAST));
       }
-      @Override public <T> T unmarshalFrom(Object value, TypeReference<T> type) {
-        return mapper.convertValue(value, type);
+      @Override public <T> T unmarshalFrom(Object value, TypeRef<T> type) {
+        return InProcessMcpTransport.this.unmarshalFrom(value, type);
       }
       @Override public Mono<Void> closeGracefully() { return Mono.empty(); }
     });
@@ -34,7 +37,9 @@ public final class InProcessMcpTransport implements McpClientTransport, McpServe
     return Mono.fromRunnable(() -> subscription = replies.asFlux().flatMap(m -> handler.apply(Mono.just(m))).subscribe());
   }
   @Override public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) { return session.handle(message); }
-  @Override public <T> T unmarshalFrom(Object value, TypeReference<T> type) { return mapper.convertValue(value, type); }
+  @Override public <T> T unmarshalFrom(Object value, TypeRef<T> type) {
+    return mapper.convertValue(value, mapper.constructType(type.getType()));
+  }
   @Override public Mono<Void> notifyClients(String method, Object params) { return session.sendNotification(method, params); }
   @Override public void close() { closeGracefully().block(); }
   @Override public Mono<Void> closeGracefully() {

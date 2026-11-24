@@ -1,5 +1,7 @@
 package com.zentro.identitypartner.grpc;
 
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import com.zentro.contracts.identity.v1.*;
@@ -25,7 +27,9 @@ import org.springframework.security.oauth2.jwt.*;
 
 @ExtendWith(OutputCaptureExtension.class)
 class IdentityPartnerGrpcPropagationTest {
-  private final SdkTracerProvider provider = SdkTracerProvider.builder().build();
+  private final SdkTracerProvider provider = SdkTracerProvider.builder()
+        .addSpanProcessor(SimpleSpanProcessor.create(SpanExporter.noop()))
+        .build();
   private final io.opentelemetry.api.trace.Tracer sdk = provider.get("test");
   private final OtelTracer tracer = new OtelTracer(sdk, new OtelCurrentTraceContext(), event -> {});
   private IdentityPartnerGrpcServer server;

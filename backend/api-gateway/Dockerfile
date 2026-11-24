@@ -3,9 +3,9 @@ WORKDIR /workspace
 ARG GIT_SHA=unknown
 COPY pom.xml pom.xml
 COPY api-gateway api-gateway
-RUN mvn -B -f api-gateway/pom.xml -DskipTests -Dbuild.revision="$GIT_SHA" package
+RUN --mount=type=cache,target=/root/.m2 mvn -B -f api-gateway/pom.xml -DskipTests -Dbuild.revision="$GIT_SHA" package
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre@sha256:d77e090ae1f6970c047b443c6f0a6c1358b0426d44432bb5a7753408cd43de0d
 ARG GIT_SHA=unknown
 ARG APP_VERSION=unknown
 LABEL org.opencontainers.image.source="https://github.com/pirathee587/Zentro" org.opencontainers.image.revision="${GIT_SHA}" org.opencontainers.image.version="${APP_VERSION}"
