@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches: [develop, main, feature/merchant-portal-integration, test/full-ui-flow-check]
   pull_request:

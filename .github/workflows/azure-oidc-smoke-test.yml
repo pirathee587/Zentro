@@ -1,0 +1,80 @@
+name: Azure OIDC authentication smoke test
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  authenticate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      EXPECTED_SUBJECT: repo:pirathee587@173920912/Zentro@1428763563:environment:production
+      OIDC_AUDIENCE: api://AzureADTokenExchange
+    steps:
+      - name: Verify subject and exchange the assertion with Microsoft Entra
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import uuid
+          from urllib.error import HTTPError, URLError
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+
+          try:
+              tenant = str(uuid.UUID(os.environ["AZURE_TENANT_ID"]))
+              client = str(uuid.UUID(os.environ["AZURE_CLIENT_ID"]))
+          except (KeyError, ValueError):
+              raise SystemExit("Set the production Azure tenant and client UUID variables.")
+
+          audience = os.environ["OIDC_AUDIENCE"]
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
+          request = Request(url + "&" + urlencode({"audience": audience}), headers={
+              "Authorization": "Bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"],
+          })
+          try:
+              with urlopen(request, timeout=30) as response:
+                  assertion = json.load(response)["value"]
+          except (URLError, KeyError, ValueError):
+              raise SystemExit("GitHub failed to issue an OIDC assertion.")
+          payload = assertion.split(".")[1]
+          claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+          if claims.get("sub") != os.environ["EXPECTED_SUBJECT"]:
+              raise SystemExit("GitHub OIDC subject differs from the expected immutable production subject.")
+          if claims.get("aud") != audience or claims.get("iss") != "https://token.actions.githubusercontent.com":
+              raise SystemExit("GitHub OIDC audience or issuer differs from the expected value.")
+
+          request = Request(
+              f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+              data=urlencode({
+                  "client_id": client,
+                  "scope": "https://management.azure.com/.default",
+                  "grant_type": "client_credentials",
+                  "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                  "client_assertion": assertion,
+              }).encode(),
+          )
+          try:
+              with urlopen(request, timeout=30) as response:
+                  if not json.load(response).get("access_token"):
+                      raise SystemExit("Microsoft Entra returned no Azure access token.")
+          except HTTPError as error:
+              try:
+                  codes = json.load(error).get("error_codes", [])
+              except ValueError:
+                  codes = []
+              safe_codes = ", ".join(str(code) for code in codes if type(code) is int)
+              raise SystemExit(f"Microsoft Entra authentication failed (HTTP {error.code}, codes: {safe_codes or 'none'}).")
+          except URLError:
+              raise SystemExit("Microsoft Entra authentication endpoint was unreachable.")
+          print("Azure authentication succeeded. VM RBAC authorization was outside this check.")
+          PY

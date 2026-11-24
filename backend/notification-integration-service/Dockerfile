@@ -12,7 +12,7 @@ COPY backend/notification-integration-service/pom.xml backend/notification-integ
 COPY backend/ backend/
 COPY contracts/ contracts/
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -Dbuild.revision="$GIT_SHA" -Dmaven.wagon.http.retryHandler.count=5 -f backend/pom.xml -pl notification-integration-service -am package -DskipTests && JAR_FILE="$(find backend/notification-integration-service/target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)" && test -n "$JAR_FILE" && cp "$JAR_FILE" /workspace/app.jar
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
 ARG GIT_SHA=unknown
 ARG APP_VERSION=unknown
 LABEL org.opencontainers.image.title="Zentro Notification Integration Service" org.opencontainers.image.source="https://github.com/pirathee587/Zentro" org.opencontainers.image.revision="${GIT_SHA}" org.opencontainers.image.version="${APP_VERSION}"

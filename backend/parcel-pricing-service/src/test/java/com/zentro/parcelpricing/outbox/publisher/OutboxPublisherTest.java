@@ -1,5 +1,7 @@
 package com.zentro.parcelpricing.outbox.publisher;
 
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import com.zentro.parcelpricing.outbox.repository.OutboxRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,7 +51,9 @@ class OutboxPublisherTest {
   @Test
   @SuppressWarnings("unchecked")
   void retriesKeepOriginButUseFreshProducerSpansAndLegacyRowsRemainUsable() {
-    try (var provider = io.opentelemetry.sdk.trace.SdkTracerProvider.builder().build()) {
+    try (var provider = io.opentelemetry.sdk.trace.SdkTracerProvider.builder()
+        .addSpanProcessor(SimpleSpanProcessor.create(SpanExporter.noop()))
+        .build()) {
       var sdk = provider.get("test");
       var tracer = new io.micrometer.tracing.otel.bridge.OtelTracer(sdk,
           new io.micrometer.tracing.otel.bridge.OtelCurrentTraceContext(), event -> {});

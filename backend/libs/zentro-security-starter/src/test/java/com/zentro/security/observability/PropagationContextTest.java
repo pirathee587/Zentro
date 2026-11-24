@@ -6,6 +6,8 @@ import io.micrometer.tracing.otel.bridge.*;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +19,10 @@ import org.slf4j.MDC;
 
 class PropagationContextTest {
   private static final String TRACE = "0123456789abcdef0123456789abcdef";
-  private final SdkTracerProvider provider = SdkTracerProvider.builder().build();
+  // The SDK uses a propagation-only tracer when no span processor is configured.
+  private final SdkTracerProvider provider = SdkTracerProvider.builder()
+      .addSpanProcessor(SimpleSpanProcessor.create(SpanExporter.noop()))
+      .build();
   private final io.opentelemetry.api.trace.Tracer sdk = provider.get("test");
   private final OtelTracer tracer = new OtelTracer(sdk, new OtelCurrentTraceContext(), event -> {});
   private final PropagationContext propagation = new PropagationContext(tracer,

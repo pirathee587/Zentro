@@ -1,5 +1,7 @@
 package com.zentro.dispatchcourier.courier.service;
 
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import static org.mockito.Mockito.*;
 
 import com.zentro.dispatchcourier.courier.repository.ProofRepository;
@@ -10,7 +12,9 @@ import org.junit.jupiter.api.Test;
 
 class ProofCompletionWorkerTest {
   @Test void restoredJobContextSurvivesRetriesAndWorkerScopeIsCleaned() {
-    try (var provider = io.opentelemetry.sdk.trace.SdkTracerProvider.builder().build()) {
+    try (var provider = io.opentelemetry.sdk.trace.SdkTracerProvider.builder()
+        .addSpanProcessor(SimpleSpanProcessor.create(SpanExporter.noop()))
+        .build()) {
       var sdk = provider.get("test");
       var tracer = new io.micrometer.tracing.otel.bridge.OtelTracer(sdk, new io.micrometer.tracing.otel.bridge.OtelCurrentTraceContext(), event -> {});
       var propagation = new com.zentro.security.observability.PropagationContext(tracer,

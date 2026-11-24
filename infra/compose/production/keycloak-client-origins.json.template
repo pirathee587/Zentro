@@ -1,0 +1,11 @@
+{
+  "clientId": "zentro-web",
+  "webOrigins": ["${FRONTEND_ORIGIN}"],
+  "redirectUris": [
+    "${FRONTEND_ORIGIN}/callback",
+    "${FRONTEND_ORIGIN}/silent-callback"
+  ],
+  "attributes": {
+    "post.logout.redirect.uris": "${FRONTEND_ORIGIN}/##${FRONTEND_ORIGIN}/?zentro_signed_out=1##${FRONTEND_ORIGIN}/login/*"
+  }
+}
