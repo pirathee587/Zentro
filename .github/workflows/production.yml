@@ -204,7 +204,7 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm audit --audit-level=high
-      - run: npm test -- --maxWorkers=2 --minWorkers=1
+      - run: npm test -- --maxWorkers=2
       - run: npm run build
       - run: npx --yes "wrangler@$WRANGLER_VERSION" deploy --dry-run --config wrangler.jsonc
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

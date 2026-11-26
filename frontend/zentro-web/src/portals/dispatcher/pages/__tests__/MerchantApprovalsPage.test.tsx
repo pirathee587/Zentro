@@ -1,9 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
+import { server } from '@/shared/testing/mocks/server';
 import { AuthContext, type Auth } from '@/shared/auth/authContext';
 import { MerchantApprovalsPage } from '../MerchantApprovalsPage';
 
@@ -68,12 +68,12 @@ const REJECTED_APP = {
 };
 
 // ─── MSW server ───────────────────────────────────────────────────────────────
-const server = setupServer(
+const merchantHandlers = [
   http.get('*/api/v1/admin/merchants', () =>
     HttpResponse.json([PENDING_APP, APPROVED_APP, REJECTED_APP]),
   ),
   http.patch('*/api/v1/admin/merchants/:id', async ({ params, request }) => {
-    const body = (await request.clone().json()) as { decision: string; rejectionReason?: string };
+    const body = (await request.json()) as { decision: string; rejectionReason?: string };
     if (params['id'] === 'app-pending') {
       return HttpResponse.json({
         ...PENDING_APP,
@@ -85,11 +85,9 @@ const server = setupServer(
     // Simulate 409 for already-reviewed
     return HttpResponse.json({ message: 'Conflict' }, { status: 409 });
   }),
-);
+];
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
-afterAll(() => server.close());
-afterEach(() => server.resetHandlers());
+beforeEach(() => server.use(...merchantHandlers));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function makeQueryClient() {
