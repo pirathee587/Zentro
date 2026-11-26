@@ -16,7 +16,7 @@ FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648ea
 ARG GIT_SHA=unknown
 ARG APP_VERSION=unknown
 LABEL org.opencontainers.image.title="Zentro Notification Integration Service" org.opencontainers.image.source="https://github.com/pirathee587/Zentro" org.opencontainers.image.revision="${GIT_SHA}" org.opencontainers.image.version="${APP_VERSION}"
-RUN addgroup -S -g 1001 zentro && adduser -S -D -H -u 1001 -G zentro zentro
+RUN apk upgrade --no-cache && addgroup -S -g 1001 zentro && adduser -S -D -H -u 1001 -G zentro zentro
 WORKDIR /app
 COPY --from=build /workspace/app.jar /app/app.jar
 USER 1001:1001
