@@ -42,7 +42,7 @@ jobs:
         run: npm ci
       - name: Run frontend tests
         # Bound concurrent jsdom processes on hosted runners; keep the complete suite and isolation.
-        run: npm test -- --maxWorkers=2 --minWorkers=1 --reporter=default --reporter=junit --outputFile=reports/vitest.xml
+        run: npm test -- --maxWorkers=2 --reporter=default --reporter=junit --outputFile=reports/vitest.xml
       - name: Run lint
         run: npm run lint
       - name: Type-check frontend
