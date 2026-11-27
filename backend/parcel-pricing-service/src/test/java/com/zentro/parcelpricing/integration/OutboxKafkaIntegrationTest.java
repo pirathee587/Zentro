@@ -34,10 +34,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuate.health.Status;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.health.contributor.Status;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -63,7 +63,7 @@ import org.testcontainers.utility.DockerImageName;
 @AutoConfigureMockMvc
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext // stop the publisher's scheduler with this class instead of keeping it in the context cache
-@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
+@org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing
 class OutboxKafkaIntegrationTest {
   private static final String STATUS_TOPIC = "parcel.status.updated";
   private static final String CREATED_TOPIC = "parcel.created";
@@ -127,7 +127,7 @@ class OutboxKafkaIntegrationTest {
   @Autowired ObjectMapper objectMapper;
   @Autowired KafkaTemplate<String, String> kafkaTemplate;
   @Autowired OutboxHealthIndicator outboxHealth;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   KafkaConsumer<String, String> consumer;
   final List<ConsumerRecord<String, String>> received = new ArrayList<>();

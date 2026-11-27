@@ -18,7 +18,7 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.DefaultErrorHandler;
@@ -42,10 +42,10 @@ class NotificationRecoveryIntegrationTest extends AbstractNotificationIntegratio
   @Autowired com.zentro.notificationintegration.config.NotificationProperties properties;
   @Autowired com.zentro.notificationintegration.notification.service.NotificationMetrics metrics;
   @Autowired java.time.Clock clock;
-  @SpyBean NotificationRepository repository;
-  @SpyBean NotificationSender sender;
+  @MockitoSpyBean NotificationRepository repository;
+  @MockitoSpyBean NotificationSender sender;
   // Drive durable work explicitly so the scheduler cannot race injected rollback windows.
-  @org.springframework.boot.test.mock.mockito.MockBean
+  @org.springframework.test.context.bean.override.mockito.MockitoBean
   com.zentro.notificationintegration.delivery.service.NotificationRetryScheduler retryScheduler;
 
   @Test

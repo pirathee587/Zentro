@@ -39,8 +39,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.MediaType;
@@ -70,12 +70,12 @@ class ParcelPricingAuthorizationAndEndpointTests {
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper objectMapper;
-  @MockBean PricingService pricingService;
-  @MockBean ZoneService zoneService;
-  @MockBean ParcelBookingRepository bookingRepository;
-  @MockBean MerchantOrderRepository merchantOrderRepository;
-  @MockBean ParcelStatusRepository statusRepository;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean PricingService pricingService;
+  @MockitoBean ZoneService zoneService;
+  @MockitoBean ParcelBookingRepository bookingRepository;
+  @MockitoBean MerchantOrderRepository merchantOrderRepository;
+  @MockitoBean ParcelStatusRepository statusRepository;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("Fee estimate requires authentication (401 when token is missing)")

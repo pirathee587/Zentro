@@ -13,8 +13,8 @@ import com.zentro.trackingreporting.tracking.entity.TrackingParcel;
 import java.util.List;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.graphql.test.autoconfigure.GraphQlTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.security.authentication.TestingAuthenticationToken;
@@ -23,13 +23,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @GraphQlTest(controllers = {CustomerDashboardGraphQlEndpoint.class, TrackingGraphQlEndpoint.class})
 @Import({GraphQlConfig.class, GraphQlExceptionResolver.class, DeliveryAuthorizationService.class})
 class CustomerDashboardGraphQlTest {
-  @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
+  @MockitoBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   @Autowired GraphQlTester tester;
-  @MockBean CustomerDashboardService dashboard;
-  @MockBean DashboardPricingClient pricing;
-  @MockBean TrackingParcelRepository parcels;
-  @MockBean TrackingEventRepository events;
-  @MockBean org.springframework.security.oauth2.jwt.JwtDecoder decoder;
+  @MockitoBean CustomerDashboardService dashboard;
+  @MockitoBean DashboardPricingClient pricing;
+  @MockitoBean TrackingParcelRepository parcels;
+  @MockitoBean TrackingEventRepository events;
+  @MockitoBean org.springframework.security.oauth2.jwt.JwtDecoder decoder;
   private org.springframework.security.core.Authentication authentication(String... roles) {
     var jwt=org.springframework.security.oauth2.jwt.Jwt.withTokenValue("synthetic-customer-token").header("alg","RS256").subject("alice").build();
     return new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(jwt,

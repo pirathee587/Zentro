@@ -39,8 +39,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -67,10 +67,10 @@ import org.springframework.test.web.servlet.MockMvc;
 class RoleBasedAuthorizationMatrixTests {
 
   @Autowired private MockMvc mvc;
-  @MockBean private UserProfileService profiles;
-  @MockBean private MerchantApplicationService applications;
-  @MockBean private MerchantApiKeyService apiKeys;
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private UserProfileService profiles;
+  @MockitoBean private MerchantApplicationService applications;
+  @MockitoBean private MerchantApiKeyService apiKeys;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("Anonymous requests cannot retrieve runtime OpenAPI or Swagger UI documents")

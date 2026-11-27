@@ -14,8 +14,8 @@ import com.zentro.security.config.ZentroSecurityAutoConfiguration;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,9 +27,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Import({ZentroSecurityAutoConfiguration.class, AssistantConversationService.class})
 class AssistantControllerTest {
   @Autowired MockMvc mvc;
-  @MockBean AssistantConversationStore store;
-  @MockBean DeepSeekAssistant assistant;
-  @MockBean JwtDecoder decoder;
+  @MockitoBean AssistantConversationStore store;
+  @MockitoBean DeepSeekAssistant assistant;
+  @MockitoBean JwtDecoder decoder;
   private org.springframework.test.web.servlet.request.RequestPostProcessor customer() {
     return jwt().jwt(j -> j.subject("alice")).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
   }

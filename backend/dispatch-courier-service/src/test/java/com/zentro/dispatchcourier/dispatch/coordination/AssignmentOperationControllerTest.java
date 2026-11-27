@@ -9,8 +9,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.*;
@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @ImportAutoConfiguration(com.zentro.security.config.ZentroSecurityAutoConfiguration.class)
 @Import({com.zentro.dispatchcourier.security.DispatchCourierSecurityConfig.class,com.zentro.dispatchcourier.security.DispatchPermissions.class})
 class AssignmentOperationControllerTest {
- @Autowired MockMvc mvc;@MockBean JwtDecoder decoder;@MockBean AssignmentOperationStore operations;@MockBean CoordinatedParcelSource source;
+ @Autowired MockMvc mvc;@MockitoBean JwtDecoder decoder;@MockitoBean AssignmentOperationStore operations;@MockitoBean CoordinatedParcelSource source;
  final UUID id=UUID.randomUUID(),parcel=UUID.randomUUID();
  AssignmentOperationStore.Operation op(String mode,String owner){return new AssignmentOperationStore.Operation(id,parcel,owner,mode,"PREPARED",false);}
  @Test void anonymousDenied() throws Exception {mvc.perform(get("/internal/dispatch/assignment-operations")).andExpect(status().isUnauthorized());verifyNoInteractions(operations,source);}

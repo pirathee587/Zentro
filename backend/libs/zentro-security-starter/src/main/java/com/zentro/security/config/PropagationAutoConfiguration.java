@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 
-@AutoConfiguration(afterName = "org.springframework.boot.actuate.autoconfigure.tracing.MicrometerTracingAutoConfiguration")
+@AutoConfiguration(afterName = "org.springframework.boot.micrometer.tracing.autoconfigure.MicrometerTracingAutoConfiguration")
 public class PropagationAutoConfiguration {
   @Bean @ConditionalOnMissingBean
   PropagationContext propagationContext(ObjectProvider<Tracer> tracer, ObjectProvider<Propagator> propagator) {

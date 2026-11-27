@@ -18,7 +18,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +34,7 @@ import org.springframework.web.client.RestClient;
 @SpringBootTest(classes = HttpPropagationIntegrationTest.App.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {"management.tracing.propagation.type=w3c", "management.tracing.baggage.enabled=false",
         "management.tracing.sampling.probability=1"})
-@AutoConfigureObservability
+@AutoConfigureTracing
 class HttpPropagationIntegrationTest {
   private static final String TRACE = "0123456789abcdef0123456789abcdef";
   private static final HttpServer upstream = upstream();

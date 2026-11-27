@@ -17,8 +17,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -36,8 +36,8 @@ class MerchantWebhookControllerTest {
   private static final String PATH = "/api/v1/merchant/webhooks";
 
   @Autowired MockMvc mvc;
-  @MockBean WebhookSubscriptionService service;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean WebhookSubscriptionService service;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("Webhook configuration requires authentication")

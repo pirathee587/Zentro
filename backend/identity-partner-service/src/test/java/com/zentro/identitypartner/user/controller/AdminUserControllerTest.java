@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -43,8 +43,8 @@ import org.springframework.web.server.ResponseStatusException;
 class AdminUserControllerTest {
 
   @Autowired private MockMvc mvc;
-  @MockBean private UserProfileService profiles;
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private UserProfileService profiles;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   private static final UUID TARGET_USER_ID = UUID.randomUUID();
 

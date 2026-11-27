@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,7 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(ParcelClaimController.class)
 @Import({com.zentro.security.config.ZentroSecurityAutoConfiguration.class,AssignmentPermissions.class})
 class ParcelClaimControllerTest {
- @Autowired MockMvc mvc;@MockBean JwtDecoder decoder;@MockBean ParcelClaimService claims;
+ @Autowired MockMvc mvc;@MockitoBean JwtDecoder decoder;@MockitoBean ParcelClaimService claims;
  final UUID operation=UUID.randomUUID(),parcel=UUID.randomUUID();
  String body(String mode){return "{\"parcelId\":\""+parcel+"\",\"mode\":\""+mode+"\"}";}
  @Test void anonymousCannotAcquire() throws Exception {mvc.perform(post("/internal/assignment-claims/{id}/acquire",operation).contentType(MediaType.APPLICATION_JSON).content(body("ASSIGN"))).andExpect(status().isUnauthorized());verifyNoInteractions(claims);}

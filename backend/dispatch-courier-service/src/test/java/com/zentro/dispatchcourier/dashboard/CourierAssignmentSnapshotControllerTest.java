@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,9 +27,9 @@ import com.zentro.dispatchcourier.dashboard.CourierIdentityReadClient;
 class CourierAssignmentSnapshotControllerTest {
   private static final String PATH = "/internal/courier-dashboard/assignments";
   @Autowired MockMvc mvc;
-  @MockBean JwtDecoder decoder;
-  @MockBean CourierIdentityReadClient identity;
-  @MockBean CourierAssignmentSnapshotRepository assignments;
+  @MockitoBean JwtDecoder decoder;
+  @MockitoBean CourierIdentityReadClient identity;
+  @MockitoBean CourierAssignmentSnapshotRepository assignments;
 
   private final UUID user = UUID.randomUUID(), profile = UUID.randomUUID();
   @BeforeEach void setup() { when(identity.resolve("synthetic-courier")).thenReturn(new CourierIdentityReadClient.Identity(user, profile));

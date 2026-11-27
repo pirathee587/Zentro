@@ -27,8 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.MediaType;
@@ -51,8 +51,8 @@ class ParcelStatusControllerTest {
   private static final String PROBLEM_JSON = "application/problem+json";
 
   @Autowired MockMvc mvc;
-  @MockBean ParcelStatusService statusService;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean ParcelStatusService statusService;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   private static RequestPostProcessor as(String subject, String... roles) {
     SimpleGrantedAuthority[] authorities = new SimpleGrantedAuthority[roles.length];

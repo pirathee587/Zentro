@@ -16,7 +16,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -48,7 +48,7 @@ class UserProfileEmailGuardPostgresIntegrationTest {
 
   @Autowired UserProfileService service;
   @Autowired JdbcTemplate jdbc;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   private static Jwt jwt(String subject, String email) {
     return Jwt.withTokenValue("token-" + subject).header("alg", "RS256").subject(subject)

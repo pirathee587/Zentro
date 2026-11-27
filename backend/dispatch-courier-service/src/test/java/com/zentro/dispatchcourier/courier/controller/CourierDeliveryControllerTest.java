@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -40,10 +40,10 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 @TestPropertySource(properties = {"zentro.security.issuer-uri=http://localhost/realm", "zentro.security.audience=zentro-api"})
 class CourierDeliveryControllerTest {
   @Autowired MockMvc mvc;
-  @MockBean JwtDecoder decoder;
-  @MockBean IdentityCourierClient identity;
-  @MockBean AssignmentRepository assignments;
-  @MockBean ProofRepository proofs;
+  @MockitoBean JwtDecoder decoder;
+  @MockitoBean IdentityCourierClient identity;
+  @MockitoBean AssignmentRepository assignments;
+  @MockitoBean ProofRepository proofs;
   static final UUID PARCEL = UUID.randomUUID(), PROFILE = UUID.randomUUID(), USER = UUID.randomUUID();
   static final String ROOT = "/api/v1/courier/deliveries";
   static final String PROOF = ROOT + "/" + PARCEL + "/proof";

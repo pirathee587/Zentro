@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.config.TopicBuilder;
@@ -61,7 +61,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext // stop the listener and retry scheduler with the class, before its containers go away
-@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
+@org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing
 class WebhookDeliveryIntegrationTest {
   private static final String CREATED_TOPIC = "parcel.created";
   private static final String STATUS_TOPIC = "parcel.status.updated";
@@ -152,8 +152,8 @@ class WebhookDeliveryIntegrationTest {
   @Autowired ObjectMapper objectMapper;
   @Autowired WebhookSubscriptionService subscriptions;
   @Autowired WebhookReplayService replayService;
-  @MockBean IdentityMerchantClient identity; // approval is covered by the API tests
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean IdentityMerchantClient identity; // approval is covered by the API tests
+  @MockitoBean JwtDecoder jwtDecoder;
 
   /** Registers a local endpoint for a new merchant and returns {merchantId, path, secret}. */
   private String[] newMerchant(Integer... script) {

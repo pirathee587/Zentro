@@ -15,8 +15,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.graphql.test.autoconfigure.GraphQlTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.graphql.test.tester.GraphQlTester;
 
@@ -24,17 +24,17 @@ import org.springframework.graphql.test.tester.GraphQlTester;
 @Import({GraphQlConfig.class, GraphQlExceptionResolver.class, DeliveryAuthorizationService.class})
 class TrackingGraphQlReadOnlyTest {
 
-  @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
+  @MockitoBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
   @Autowired
   private GraphQlTester graphQlTester;
 
-  @MockBean
+  @MockitoBean
   private TrackingParcelRepository parcelRepository;
 
-  @MockBean
+  @MockitoBean
   private TrackingEventRepository eventRepository;
 
-  @MockBean
+  @MockitoBean
   private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
   @Test

@@ -19,7 +19,7 @@
   <properties>
     <java.version>21</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
-    <spring-boot.version>3.5.16</spring-boot.version>
+    <spring-boot.version>4.0.10</spring-boot.version>
     <postgresql.version>42.7.12</postgresql.version>
     <junit.version>5.10.3</junit.version>
     <maven-surefire-plugin.version>3.5.1</maven-surefire-plugin.version>
@@ -36,17 +36,10 @@
         <artifactId>postgresql</artifactId>
         <version>${postgresql.version}</version>
       </dependency>
-      <!-- Security updates for the dependency lines used by Spring Boot 3.5. -->
       <dependency>
-        <groupId>com.fasterxml.jackson</groupId>
-        <artifactId>jackson-bom</artifactId>
-        <version>2.21.8</version>
-        <type>pom</type><scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-bom</artifactId>
-        <version>4.1.141.Final</version>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>1.20.4</version>
         <type>pom</type><scope>import</scope>
       </dependency>
       <dependency>
@@ -61,6 +54,13 @@
         <version>2.25.5</version>
         <type>pom</type><scope>import</scope>
       </dependency>
+      <!-- Jackson 2 remains available for existing application payloads. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>2.21.8</version>
+        <type>pom</type><scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
@@ -70,21 +70,6 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>33.7.2-android</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-core</artifactId>
-        <version>10.1.62</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-el</artifactId>
-        <version>10.1.62</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.tomcat.embed</groupId>
-        <artifactId>tomcat-embed-websocket</artifactId>
-        <version>10.1.62</version>
       </dependency>
       <dependency>
         <groupId>org.bouncycastle</groupId>

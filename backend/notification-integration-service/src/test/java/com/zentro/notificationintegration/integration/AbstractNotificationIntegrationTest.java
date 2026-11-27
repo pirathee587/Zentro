@@ -11,10 +11,10 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.config.TopicBuilder;
@@ -99,7 +99,7 @@ abstract class AbstractNotificationIntegrationTest {
   @Autowired KafkaTemplate<String, String> kafka;
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectMapper objectMapper;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   static String newTrackingRef() {
     StringBuilder ref = new StringBuilder("ZT-");
