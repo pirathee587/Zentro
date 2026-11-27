@@ -40,7 +40,7 @@ jobs:
           case "$SERVICE" in
             caddy) docker run --rm --env-file release.env.example -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" candidate caddy validate --config /etc/caddy/Caddyfile ;;
             keycloak)
-              docker run -d --name fixture -p 127.0.0.1:8080:8080 candidate start-dev --http-relative-path=/auth
+              docker run -d --name fixture -p 127.0.0.1:8080:8080 candidate start-dev --http-host=0.0.0.0 --http-relative-path=/auth
               curl --fail --retry 40 --retry-delay 3 --retry-all-errors http://127.0.0.1:8080/auth/realms/master/.well-known/openid-configuration >/dev/null || { docker logs --tail 80 fixture; exit 1; } ;;
             kafka)
               docker network create fixture
