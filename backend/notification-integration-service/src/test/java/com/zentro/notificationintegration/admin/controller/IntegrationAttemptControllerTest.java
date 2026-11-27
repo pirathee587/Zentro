@@ -23,8 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -61,10 +61,10 @@ class IntegrationAttemptControllerTest {
 
   @Autowired MockMvc mvc;
 
-  @MockBean JwtDecoder jwtDecoder;
-  @MockBean NotificationRepository notificationRepository;
-  @MockBean WebhookDeliveryRepository webhookDeliveryRepository;
-  @MockBean WebhookReplayService webhookReplayService;
+  @MockitoBean JwtDecoder jwtDecoder;
+  @MockitoBean NotificationRepository notificationRepository;
+  @MockitoBean WebhookDeliveryRepository webhookDeliveryRepository;
+  @MockitoBean WebhookReplayService webhookReplayService;
 
   // ---- unauthenticated ----
 

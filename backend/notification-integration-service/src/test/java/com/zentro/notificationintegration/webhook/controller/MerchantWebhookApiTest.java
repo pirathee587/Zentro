@@ -26,9 +26,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -76,8 +76,8 @@ class MerchantWebhookApiTest {
   @Autowired MockMvc mvc;
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectMapper objectMapper;
-  @MockBean JwtDecoder jwtDecoder;
-  @MockBean IdentityMerchantClient identity;
+  @MockitoBean JwtDecoder jwtDecoder;
+  @MockitoBean IdentityMerchantClient identity;
 
   @BeforeEach
   void reset() {

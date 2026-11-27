@@ -19,8 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -38,10 +38,10 @@ import org.springframework.test.web.servlet.MockMvc;
 })
 class DispatchQueueControllerTest {
   @Autowired MockMvc mvc;
-  @MockBean JwtDecoder decoder;
-  @MockBean ParcelSource source;
-  @MockBean AssignmentRepository assignments;
-  @MockBean IdentityCourierClient identity;
+  @MockitoBean JwtDecoder decoder;
+  @MockitoBean ParcelSource source;
+  @MockitoBean AssignmentRepository assignments;
+  @MockitoBean IdentityCourierClient identity;
   static final String PARCEL = "11111111-1111-4111-8111-111111111111";
   static final String COURIER = "22222222-2222-4222-8222-222222222222";
   static final String BODY = "{\"parcelId\":\"" + PARCEL + "\",\"courierId\":\"" + COURIER + "\"}";

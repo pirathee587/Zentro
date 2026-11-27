@@ -5,14 +5,15 @@ import com.zentro.notificationintegration.assistant.mcp.CustomerMcpClientFactory
 
 import java.time.Duration;
 import java.util.*;
-import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.deepseek.DeepSeekChatModel;
 import org.springframework.ai.deepseek.DeepSeekChatOptions;
 import org.springframework.ai.deepseek.api.DeepSeekApi;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.retry.support.RetryTemplate;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
@@ -52,15 +53,14 @@ public class DeepSeekAssistant {
             @Override public boolean hasError(org.springframework.http.client.ClientHttpResponse response) throws java.io.IOException {
               return response.getStatusCode().isError();
             }
-            @Override public void handleError(org.springframework.http.client.ClientHttpResponse response) throws java.io.IOException {
+            @Override public void handleError(java.net.URI uri, org.springframework.http.HttpMethod method, org.springframework.http.client.ClientHttpResponse response) throws java.io.IOException {
               throw new ProviderFailure(response.getStatusCode().value());
             }
           }).build();
       var model = DeepSeekChatModel.builder().deepSeekApi(api)
-          .retryTemplate(RetryTemplate.builder().maxAttempts(1).build())
-          .defaultOptions(DeepSeekChatOptions.builder().model(properties.model()).maxTokens(1000)
-              .internalToolExecutionEnabled(false).build()).build();
-      var chat = ChatClient.create(model);
+          .retryTemplate(new RetryTemplate(RetryPolicy.withMaxRetries(0)))
+          .options(DeepSeekChatOptions.builder().model(properties.model()).maxTokens(1000)
+              .toolCallbacks(callbacks).build()).build();
       List<Message> messages = new ArrayList<>();
       messages.add(new SystemMessage(SYSTEM));
       messages.addAll(history);
@@ -68,7 +68,7 @@ public class DeepSeekAssistant {
       int executed = 0;
       for (int round = 0; round < 3; round++) {
         if (System.nanoTime() > deadline) break;
-        var response = chat.prompt().messages(messages).toolCallbacks(callbacks).call().chatResponse();
+        var response = model.call(new Prompt(messages));
         if (response == null || response.getResult() == null) break;
         AssistantMessage answer = response.getResult().getOutput();
         if (!answer.hasToolCalls()) {
@@ -85,7 +85,7 @@ public class DeepSeekAssistant {
           String result = callback == null ? "Unknown tool. No action was performed." : callback.call(call.arguments());
           results.add(new ToolResponseMessage.ToolResponse(call.id(), call.name(), result));
         }
-        messages.add(new ToolResponseMessage(results));
+        messages.add(ToolResponseMessage.builder().responses(results).build());
       }
       return "I could not complete that lookup. Please ask about one parcel or price quotation at a time.";
     } catch (RuntimeException ex) {

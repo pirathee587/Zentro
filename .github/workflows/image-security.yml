@@ -1,0 +1,89 @@
+name: Image security
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'contracts/**'
+      - 'infra/compose/production/**'
+      - '.dockerignore'
+      - '.github/workflows/image-security.yml'
+  workflow_call:
+    inputs:
+      archive_images:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate production Compose and Caddy
+        working-directory: infra/compose/production
+        run: |
+          set -euo pipefail
+          docker compose --env-file release.env.example config --quiet --no-env-resolution
+          docker run --rm --network none -v "$PWD:/fixtures:ro" maven:3.9-eclipse-temurin-21 \
+            bash /fixtures/test-deploy-app-images.sh /fixtures/deploy-app-images.sh
+      - name: Build production images
+        env:
+          TRIVY_IMAGE: ${{ vars.RELEASE_TRIVY_IMAGE }}
+        run: |
+          set -euo pipefail
+          [[ "$TRIVY_IMAGE" =~ ^(docker.io/)?aquasec/trivy@sha256:[a-f0-9]{64}$ ]]
+          mkdir -p release-scans
+          services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service)
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tags=()
+          for service in "${services[@]}"; do
+            tag="$registry/$service:$GITHUB_SHA"
+            context=.
+            if [[ "$service" == api-gateway ]]; then context=backend; fi
+            docker buildx build --platform linux/amd64 --provenance=false --sbom=false --pull --load --build-arg "GIT_SHA=$GITHUB_SHA" \
+              -f "backend/$service/Dockerfile" -t "$tag" "$context"
+            tags+=("$tag")
+          done
+          for service in kafka keycloak caddy; do
+            tag="$registry/$service:$GITHUB_SHA"
+            directory=infra/compose/production
+            docker buildx build --platform linux/amd64 --provenance=false --sbom=false --pull --load \
+              -f "$directory/candidates/$service.Dockerfile" -t "$tag" "$directory/candidates"
+            bash "$directory/test-infrastructure-image.sh" "$service" "$tag"
+            services+=("$service")
+            tags+=("$tag")
+          done
+          failed=0
+          for i in "${!services[@]}"; do
+            service="${services[i]}"
+            docker image save "${tags[i]}" -o "$PWD/release-scans/image.tar"
+            scan=(docker run --rm -v "$PWD/release-scans:/reports" -v zentro-trivy-cache:/root/.cache/trivy "$TRIVY_IMAGE")
+            "${scan[@]}" image --timeout 15m --input /reports/image.tar --format cyclonedx --output "/reports/$service.sbom.json"
+            "${scan[@]}" image --timeout 15m --input /reports/image.tar --scanners vuln \
+              --severity HIGH,CRITICAL --exit-code 1 --format json --output "/reports/$service.vulnerabilities.json" || failed=1
+            docker image inspect "${tags[i]}" --format '{{.Id}}' >> release-scans/image-ids.txt
+            rm release-scans/image.tar
+          done
+          [[ "$failed" == 0 ]]
+          if [[ "${{ inputs.archive_images }}" == true ]]; then
+            docker save "${tags[@]}" | gzip > production-images.tar.gz
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: production-image-security
+          path: |
+            release-scans/*.json
+            release-scans/image-ids.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: github.event_name == 'workflow_dispatch' && inputs.archive_images
+        with:
+          name: production-images
+          path: production-images.tar.gz
+          retention-days: 3

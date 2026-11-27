@@ -17,9 +17,10 @@ import java.util.function.Function;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.*;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -32,6 +33,7 @@ import org.testcontainers.junit.jupiter.*;
 /** Real S3 HTTP/filter chain/services/Flyway/PostgreSQL. S1, parcel source and JWT decoder are doubles.
  * Not a Keycloak, gateway or cross-service E2E test. */
 @Testcontainers(disabledWithoutDocker = true)
+@org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "zentro.pod.worker-enabled=false", "zentro.security.issuer-uri=http://test/realm",
     "zentro.security.audience=zentro-api"})
@@ -45,11 +47,11 @@ class CourierWorkflowIntegrationTest {
   @Autowired TestRestTemplate http;
   @Autowired JdbcTemplate jdbc;
   @Autowired ProofRepository proofs;
-  @MockBean JwtDecoder decoder;
-  @MockBean IdentityCourierClient identity;
-  @MockBean ParcelSource source;
-  @MockBean ParcelStatusClient parcels;
-  @MockBean SupabaseProofStorage storage;
+  @MockitoBean JwtDecoder decoder;
+  @MockitoBean IdentityCourierClient identity;
+  @MockitoBean ParcelSource source;
+  @MockitoBean ParcelStatusClient parcels;
+  @MockitoBean SupabaseProofStorage storage;
   UUID a, b;
   IdentityCourierClient.Courier courierA, courierB;
   static final String ROOT = "/api/v1/courier/deliveries";

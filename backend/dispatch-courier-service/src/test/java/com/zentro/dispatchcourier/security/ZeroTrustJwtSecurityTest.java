@@ -48,8 +48,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -112,10 +112,10 @@ class ZeroTrustJwtSecurityTest {
   }
 
   @Autowired MockMvc mvc;
-  @MockBean ParcelSource parcelSource;
-  @MockBean AssignmentRepository assignmentRepository;
-  @MockBean ProofRepository proofRepository;
-  @MockBean IdentityCourierClient identityCourierClient;
+  @MockitoBean ParcelSource parcelSource;
+  @MockitoBean AssignmentRepository assignmentRepository;
+  @MockitoBean ProofRepository proofRepository;
+  @MockitoBean IdentityCourierClient identityCourierClient;
 
   @BeforeEach
   void stubDependencies() {

@@ -36,7 +36,7 @@ class InternalCorrelationInterceptorTest {
   void stripsPropagationForOtherDestinations(String target) throws Exception {
     var request = request(target);
     new InternalCorrelationInterceptor(List.of("http://identity:8081")).intercept(request, new byte[0], (req, body) -> {
-      assertThat(req.getHeaders()).doesNotContainKeys("X-Correlation-Id", "traceparent", "tracestate", "baggage");
+      assertThat(req.getHeaders().headerSet()).extracting(java.util.Map.Entry::getKey).doesNotContain("X-Correlation-Id", "traceparent", "tracestate", "baggage");
       return new MockClientHttpResponse(new byte[0], org.springframework.http.HttpStatus.OK);
     });
   }

@@ -12,7 +12,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.*;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.test.context.TestPropertySource;
@@ -21,8 +21,8 @@ import org.springframework.test.context.TestPropertySource;
     "spring.kafka.producer.properties[request.timeout.ms]=10000"})
 @Import(InboxKafkaIntegrationTest.Topics.class)
 class InboxKafkaIntegrationTest extends AbstractNotificationIntegrationTest {
-  @MockBean IdentityPartnerGrpcClient identities;
-  @MockBean NotificationAssignmentClient assignments;
+  @MockitoBean IdentityPartnerGrpcClient identities;
+  @MockitoBean NotificationAssignmentClient assignments;
   @Autowired InboxRepository inbox;
   @TestConfiguration static class Topics {
     @Bean NewTopic inboxParcel() {return TopicBuilder.name("notification.parcel").partitions(1).replicas(1).build();}

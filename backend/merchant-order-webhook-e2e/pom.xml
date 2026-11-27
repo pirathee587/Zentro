@@ -13,6 +13,7 @@
     <testcontainers.version>1.19.8</testcontainers.version>
   </properties>
   <dependencies>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-jackson2</artifactId></dependency>
     <dependency><groupId>org.apache.kafka</groupId><artifactId>kafka-clients</artifactId><scope>test</scope></dependency>
     <!-- Reactor ordering only. The services are exercised as separate executable processes. -->
     <dependency><groupId>com.zentro</groupId><artifactId>api-gateway</artifactId><version>${project.version}</version><scope>provided</scope><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>

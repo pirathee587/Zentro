@@ -49,8 +49,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -98,12 +98,12 @@ class BookingBoundaryContractTest {
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
-  @MockBean ParcelBookingService bookingService;
-  @MockBean PricingService pricingService;
-  @MockBean ZoneService zoneService;
-  @MockBean MerchantOrderService merchantOrderService;
-  @MockBean com.zentro.parcelpricing.integration.IdentityMerchantClient identityMerchantClient;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean ParcelBookingService bookingService;
+  @MockitoBean PricingService pricingService;
+  @MockitoBean ZoneService zoneService;
+  @MockitoBean MerchantOrderService merchantOrderService;
+  @MockitoBean com.zentro.parcelpricing.integration.IdentityMerchantClient identityMerchantClient;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   private ParcelBookingResponse sampleBookingResponse() {
     return new ParcelBookingResponse(PARCEL_ID, TRACKING_REF, ParcelStatus.CREATED, new BigDecimal("1072.00"), "LKR", 3,

@@ -23,8 +23,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -39,10 +39,10 @@ import org.springframework.test.web.servlet.MockMvc;
 })
 class IdentityAuthorizationTests {
   @Autowired MockMvc mvc;
-  @MockBean UserProfileService profiles;
-  @MockBean MerchantApplicationService applications;
-  @MockBean MerchantApiKeyService apiKeys;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean UserProfileService profiles;
+  @MockitoBean MerchantApplicationService applications;
+  @MockitoBean MerchantApiKeyService apiKeys;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   @Test
   void userProfileRequiresAuthentication() throws Exception {

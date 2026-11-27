@@ -10,8 +10,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.actuate.health.HealthContributorRegistry;
-import org.springframework.boot.actuate.health.Status;
+import org.springframework.boot.health.registry.HealthContributorRegistry;
+import org.springframework.boot.health.contributor.Status;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 

@@ -38,8 +38,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -61,6 +61,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /** S3 HTTP, security, transactions and PostgreSQL; local S1 and parcel-port responses only.
  * The parcel fixture path is test-only, not an S2 contract or a production adapter. */
 @Testcontainers
+@org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "zentro.pod.worker-enabled=false", "zentro.outbox.enabled=false",
     "zentro.security.issuer-uri=http://test/realm", "zentro.security.audience=zentro-api"})
@@ -89,12 +90,12 @@ class AssignmentToCourierScenarioTest {
   @Autowired TestRestTemplate http;
   @Autowired JdbcTemplate jdbc;
   // Ownership scenarios isolate S2 enrichment; no live parcel-service connection.
-  @MockBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
+  @MockitoBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
   @Autowired AssignmentRepository assignments;
   @Autowired ObjectMapper json;
-  @MockBean JwtDecoder decoder;
-  @MockBean ParcelSource source;
-  @MockBean ServiceTokenProvider serviceTokens;
+  @MockitoBean JwtDecoder decoder;
+  @MockitoBean ParcelSource source;
+  @MockitoBean ServiceTokenProvider serviceTokens;
 
   @BeforeEach void setup() throws Exception {
     when(serviceTokens.token()).thenReturn("test-service-token");

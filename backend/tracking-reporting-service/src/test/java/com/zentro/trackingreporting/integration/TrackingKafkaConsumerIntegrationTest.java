@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.config.TopicBuilder;
@@ -37,7 +37,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
 @DirtiesContext
-@org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability
+@org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing
 @org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 class TrackingKafkaConsumerIntegrationTest {
 
@@ -104,7 +104,7 @@ class TrackingKafkaConsumerIntegrationTest {
   @Autowired ObjectMapper objectMapper;
   @Autowired TrackingEventRepository trackingEventRepository;
   @Autowired ProcessedEventRepository processedEventRepository;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean JwtDecoder jwtDecoder;
   @Autowired org.springframework.kafka.config.KafkaListenerEndpointRegistry listeners;
 
   @Test

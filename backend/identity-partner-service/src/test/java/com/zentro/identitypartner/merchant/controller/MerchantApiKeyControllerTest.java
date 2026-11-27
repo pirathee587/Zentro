@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -46,9 +46,9 @@ import org.springframework.web.server.ResponseStatusException;
 class MerchantApiKeyControllerTest {
 
   @Autowired private MockMvc mvc;
-  @MockBean private MerchantApiKeyService keys;
-  @MockBean private MerchantApplicationService applications;
-  @MockBean private JwtDecoder jwtDecoder;
+  @MockitoBean private MerchantApiKeyService keys;
+  @MockitoBean private MerchantApplicationService applications;
+  @MockitoBean private JwtDecoder jwtDecoder;
 
   private final UUID keyId = UUID.randomUUID();
   private final UUID applicationId = UUID.randomUUID();

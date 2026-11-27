@@ -17,15 +17,17 @@ trap cleanup EXIT
 head -c 4097 > "$candidate"
 [[ "$(wc -c < "$candidate")" -le 4096 ]]
 
-keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE)
+keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE KAFKA_IMAGE KEYCLOAK_IMAGE CADDY_IMAGE)
 services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service)
+infrastructure=(kafka keycloak caddy)
+repositories=("${services[@]}" "${infrastructure[@]}")
 unset "${keys[@]}"
 validate_manifest() {
   local entries i expected
   mapfile -t entries < "$1" || return 1
-  [[ "${#entries[@]}" -eq "${#keys[@]}" ]] || return 1
-  for i in "${!keys[@]}"; do
-    expected="${keys[i]}=ghcr.io/pirathee587/zentro/${services[i]}@sha256:"
+  [[ "${#entries[@]}" -eq "${#keys[@]}" || ( "$1" == images.env && "${#entries[@]}" -eq "${#services[@]}" ) ]] || return 1
+  for i in "${!entries[@]}"; do
+    expected="${keys[i]}=ghcr.io/pirathee587/zentro/${repositories[i]}@sha256:"
     [[ "${entries[i]}" == "$expected"* && "${entries[i]#"$expected"}" =~ ^[a-f0-9]{64}$ ]] || return 1
   done
 }
@@ -102,17 +104,7 @@ verify_previous_health() {
   verify_release
 }
 
-if [[ -z "$("${next[@]}" ps -q kafka)" ]]; then
-  "${next[@]}" up -d --no-deps --wait --wait-timeout 90 kafka >/dev/null 2>&1
-fi
-for dependency in kafka keycloak; do
-  [[ "$(docker inspect --format '{{.State.Health.Status}}' "$("${next[@]}" ps -q "$dependency")")" == healthy ]]
-done
-"${next[@]}" run --rm --no-deps kafka-topics >/dev/null 2>&1
-"${next[@]}" exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1
-verify_identity
-
-if ! "${next[@]}" pull "${services[@]}" >/dev/null 2>&1; then
+if ! "${next[@]}" pull "${repositories[@]}" >/dev/null 2>&1; then
   printf '%s\n' ZENTRO_IMAGE_PULL_FAILED >&2
   if [[ -s "$previous" ]]; then
     if ! verify_previous_health >/dev/null 2>&1; then
@@ -122,10 +114,30 @@ if ! "${next[@]}" pull "${services[@]}" >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! { "${next[@]}" up -d --no-deps --wait --wait-timeout 180 "${services[@]}" && verify_release; } >/dev/null 2>&1; then
+# Never switch a populated broker directory to an unverified Kafka version.
+kafka_dir="$(find /opt/zentro/data/kafka -mindepth 1 -maxdepth 1 -print -quit)"
+if [[ -n "$kafka_dir" ]]; then
+  kafka_container="$("${current[@]}" ps -a -q kafka)"
+  kafka_image="$(sed -n 's/^KAFKA_IMAGE=//p' "$candidate")"
+  if [[ -z "$kafka_container" || "$(docker inspect --format '{{.Image}}' "$kafka_container")" != "$(docker image inspect --format '{{.Id}}' "$kafka_image")" ]]; then
+    printf '%s\n' ZENTRO_KAFKA_UPGRADE_REQUIRED >&2
+    exit 1
+  fi
+fi
+
+start_stack() {
+  local -n compose="$1"
+  "${compose[@]}" up -d --no-deps --wait --wait-timeout 180 "${infrastructure[@]}" &&
+    "${compose[@]}" run --rm --no-deps kafka-topics &&
+    "${compose[@]}" exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile &&
+    "${compose[@]}" up -d --no-deps --wait --wait-timeout 180 "${services[@]}" &&
+    verify_release
+}
+
+if ! { start_stack next; } >/dev/null 2>&1; then
   printf '%s\n' ZENTRO_CANDIDATE_HEALTH_FAILED >&2
   if [[ -s "$previous" ]]; then
-    if { "${current[@]}" up -d --no-deps --wait --wait-timeout 180 "${services[@]}" && verify_release; } >/dev/null 2>&1; then
+    if { start_stack current; } >/dev/null 2>&1; then
       printf '%s\n' ZENTRO_ROLLBACK_OK >&2
     else
       printf '%s\n' ZENTRO_ROLLBACK_FAILED >&2

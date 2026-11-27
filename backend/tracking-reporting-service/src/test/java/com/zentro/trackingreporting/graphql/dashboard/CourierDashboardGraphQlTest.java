@@ -13,8 +13,8 @@ import java.util.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.graphql.test.autoconfigure.GraphQlTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,8 +25,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
     CourierDashboardExceptionResolver.class, DeliveryAuthorizationService.class})
 class CourierDashboardGraphQlTest {
   @Autowired GraphQlTester graph;
-  @MockBean CourierAssignmentSnapshotClient snapshots;
-  @MockBean com.zentro.trackingreporting.graphql.service.ParcelPricingGrpcClient parcelPricing;
+  @MockitoBean CourierAssignmentSnapshotClient snapshots;
+  @MockitoBean com.zentro.trackingreporting.graphql.service.ParcelPricingGrpcClient parcelPricing;
   @org.junit.jupiter.api.BeforeEach void isolateAuthoritativeReads() {
     when(parcelPricing.getParcel(any())).thenReturn(com.zentro.contracts.parcel.v1.ParcelResponse.getDefaultInstance());
     when(bookings.publicTracking("ZT-SYNTHETIC1")).thenReturn(
@@ -35,11 +35,11 @@ class CourierDashboardGraphQlTest {
             null, null, 0, null, null, null, null, List.of()));
   }
 
-  @MockBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
-  @MockBean TrackingParcelRepository parcels;
-  @MockBean TrackingEventRepository events;
-  @MockBean JwtDecoder decoder;
-  @MockBean CourierEventProjectionRepository eventProjections;
+  @MockitoBean com.zentro.trackingreporting.graphql.service.CustomerBookingClient bookings;
+  @MockitoBean TrackingParcelRepository parcels;
+  @MockitoBean TrackingEventRepository events;
+  @MockitoBean JwtDecoder decoder;
+  @MockitoBean CourierEventProjectionRepository eventProjections;
   @AfterEach void clear() { SecurityContextHolder.clearContext(); }
   @Test void returnsCanonicalParcelIdWithIndependentTrackingRowIdAndExistingQueryStillWorks() {
     UUID parcelId = UUID.randomUUID(), trackingId = UUID.randomUUID();

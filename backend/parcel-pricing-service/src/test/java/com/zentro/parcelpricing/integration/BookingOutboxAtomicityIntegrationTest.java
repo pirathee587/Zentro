@@ -10,9 +10,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -59,7 +59,7 @@ class BookingOutboxAtomicityIntegrationTest {
   @Autowired MockMvc mvc;
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectMapper objectMapper;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   private MockHttpServletResponse book(String subject, String idempotencyKey) throws Exception {
     var request = post("/api/v1/parcels")

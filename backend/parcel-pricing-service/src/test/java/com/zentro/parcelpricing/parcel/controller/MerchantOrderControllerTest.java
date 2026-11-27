@@ -41,8 +41,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
@@ -75,9 +75,9 @@ class MerchantOrderControllerTest {
       """;
 
   @Autowired MockMvc mvc;
-  @MockBean MerchantOrderService orderService;
-  @MockBean IdentityMerchantClient identityClient;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean MerchantOrderService orderService;
+  @MockitoBean IdentityMerchantClient identityClient;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("Approved merchant can create an order: returns 201, Location header, and order details")

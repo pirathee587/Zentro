@@ -8,12 +8,12 @@ import java.util.UUID;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@AutoConfigureObservability
+@AutoConfigureTracing
 @TestPropertySource(properties = {"zentro.notifications.mock.fail-mode=first-attempt", "zentro.notifications.retry.poll-interval-ms=600000"})
 class DurableNotificationPropagationIntegrationTest extends AbstractNotificationIntegrationTest {
   @Autowired NotificationDispatcher dispatcher;

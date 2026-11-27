@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -59,8 +59,8 @@ class GatewayCourierOwnershipIntegrationTest {
   @LocalServerPort int s3Port;
   @Autowired JdbcTemplate jdbc;
   // Ownership scenarios isolate S2 enrichment; no live parcel-service connection.
-  @MockBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
-  @MockBean IdentityCourierClient identity;
+  @MockitoBean com.zentro.dispatchcourier.courier.service.ParcelStatusClient parcelStatus;
+  @MockitoBean IdentityCourierClient identity;
   static Process gateway;
   int gatewayPort;
   final Map<String, String> tokens = new HashMap<>();

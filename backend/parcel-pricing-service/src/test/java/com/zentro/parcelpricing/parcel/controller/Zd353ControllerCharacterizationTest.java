@@ -31,8 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -58,10 +58,10 @@ import org.springframework.test.web.servlet.MockMvc;
 class Zd353ControllerCharacterizationTest {
 
   @Autowired MockMvc mvc;
-  @MockBean ParcelBookingService bookingService;
-  @MockBean MerchantOrderService orderService;
-  @MockBean IdentityMerchantClient identityClient;
-  @MockBean JwtDecoder jwtDecoder;
+  @MockitoBean ParcelBookingService bookingService;
+  @MockitoBean MerchantOrderService orderService;
+  @MockitoBean IdentityMerchantClient identityClient;
+  @MockitoBean JwtDecoder jwtDecoder;
 
   @Test
   @DisplayName("X01: POST /api/v1/parcels returns Location header resolving to the owner-scoped GET endpoint")

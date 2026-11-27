@@ -53,8 +53,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.Status;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.Status;
 
 /**
  * Acceptance test suite for [ZD-37] Webhook retry testing (Issue #72).

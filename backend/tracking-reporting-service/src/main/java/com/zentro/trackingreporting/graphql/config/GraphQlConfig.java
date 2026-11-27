@@ -13,7 +13,7 @@ import graphql.execution.instrumentation.SimpleInstrumentationContext;
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
 import graphql.language.OperationDefinition;
 import java.util.List;
-import org.springframework.boot.autoconfigure.graphql.GraphQlSourceBuilderCustomizer;
+import org.springframework.boot.graphql.autoconfigure.GraphQlSourceBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

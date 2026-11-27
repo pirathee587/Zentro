@@ -24,13 +24,18 @@ public final class InProcessMcpTransport implements McpClientTransport, McpServe
   @Override public void setSessionFactory(McpServerSession.Factory factory) {
     session = factory.create(new McpServerTransport() {
       @Override public Mono<Void> sendMessage(McpSchema.JSONRPCMessage message) {
-        return Mono.fromRunnable(() -> replies.emitNext(message, Sinks.EmitFailureHandler.FAIL_FAST));
+        return Mono.fromRunnable(() -> emitReply(message));
       }
       @Override public <T> T unmarshalFrom(Object value, TypeRef<T> type) {
         return InProcessMcpTransport.this.unmarshalFrom(value, type);
       }
       @Override public Mono<Void> closeGracefully() { return Mono.empty(); }
     });
+  }
+
+  // The session can send a notification and a tool response on different threads.
+  private synchronized void emitReply(McpSchema.JSONRPCMessage message) {
+    replies.emitNext(message, Sinks.EmitFailureHandler.FAIL_FAST);
   }
 
   @Override public Mono<Void> connect(Function<Mono<McpSchema.JSONRPCMessage>, Mono<McpSchema.JSONRPCMessage>> handler) {

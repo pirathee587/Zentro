@@ -10,8 +10,8 @@ import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -21,7 +21,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = "management.tracing.sampling.probability=1")
 @AutoConfigureWebTestClient
-@AutoConfigureObservability
+@AutoConfigureTracing
 @Import(GatewayBehaviorTests.DecoderStub.class)
 class GatewayHttpPropagationTests {
   static final MockWebServer upstream = start();
