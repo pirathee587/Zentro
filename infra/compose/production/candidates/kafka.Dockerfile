@@ -1,4 +1,4 @@
-FROM apache/kafka:3.9.2@sha256:05b4616e0702ef2729327705d54ad6b50ea70b271c4b730fabd2320789fb7b02
+FROM apache/kafka:4.4.0@sha256:833b867a9585a141da455dc2b57431c65cbccb27f11c91f694444cca9f777e0f
 USER root
 RUN apk upgrade --no-cache && \
     for command in kafka-broker-api-versions kafka-topics; do \
