@@ -142,19 +142,20 @@ public final class CustomerSupportTools {
       throw new IllegalStateException("Invalid tool schema", ex);
     }
     Set<String> allowed = Set.copyOf(inputSchema.properties().keySet());
-    var tool = new McpSchema.Tool(name, null, description, inputSchema, null, null, null);
-    return new SyncToolSpecification(tool, (exchange, args) -> {
-      if (calls.incrementAndGet() > 6 || System.nanoTime() > deadline) return new McpSchema.CallToolResult("Tool budget exceeded. Ask a narrower question.", true);
+    var tool = McpSchema.Tool.builder().name(name).description(description).inputSchema(inputSchema).build();
+    return new SyncToolSpecification(tool, (exchange, request) -> {
+      var args = request.arguments();
+      if (calls.incrementAndGet() > 6 || System.nanoTime() > deadline) return McpSchema.CallToolResult.builder().addTextContent("Tool budget exceeded. Ask a narrower question.").isError(true).build();
       try {
         if (args == null || !allowed.containsAll(args.keySet())) throw new IllegalArgumentException();
         JsonNode result = action.apply(args);
-        return new McpSchema.CallToolResult(mapper.writeValueAsString(result), false);
+        return McpSchema.CallToolResult.builder().addTextContent(mapper.writeValueAsString(result)).isError(false).build();
       } catch (IllegalArgumentException ex) {
-        return new McpSchema.CallToolResult("Invalid tool arguments. Ask the customer for valid values.", true);
+        return McpSchema.CallToolResult.builder().addTextContent("Invalid tool arguments. Ask the customer for valid values.").isError(true).build();
       } catch (StatusRuntimeException ex) {
-        return new McpSchema.CallToolResult("Authorized delivery information is unavailable. Do not infer a result.", true);
+        return McpSchema.CallToolResult.builder().addTextContent("Authorized delivery information is unavailable. Do not infer a result.").isError(true).build();
       } catch (Exception ex) {
-        return new McpSchema.CallToolResult("Tool unavailable. Please try again later.", true);
+        return McpSchema.CallToolResult.builder().addTextContent("Tool unavailable. Please try again later.").isError(true).build();
       }
     });
   }

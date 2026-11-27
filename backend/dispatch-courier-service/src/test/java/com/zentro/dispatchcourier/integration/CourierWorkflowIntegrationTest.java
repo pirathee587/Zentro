@@ -20,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.*;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.security.oauth2.jwt.Jwt;

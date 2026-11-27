@@ -13,6 +13,7 @@ import com.zentro.notificationintegration.assistant.mcp.CustomerMcpClientFactory
 import com.zentro.notificationintegration.assistant.mcp.CustomerSupportTools;
 import com.zentro.notificationintegration.assistant.mcp.ParcelPricingGrpcClient;
 import com.zentro.notificationintegration.config.AssistantProperties;
+import io.modelcontextprotocol.spec.McpSchema;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -142,7 +143,7 @@ class DeepSeekAssistantTest {
     var spec = tools.specifications().stream()
         .filter(t -> t.tool().name().equals("get_parcel_details"))
         .findFirst().orElseThrow();
-    var result = spec.call().apply(null, Map.of("parcelId", "../../admin/users", "customerId", "bob"));
+    var result = spec.callHandler().apply(null, new McpSchema.CallToolRequest(spec.tool().name(), Map.of("parcelId", "../../admin/users", "customerId", "bob")));
     assertThat(result.isError()).isTrue();
     assertThat(result.content().toString()).contains("Invalid tool arguments");
   }
@@ -195,7 +196,7 @@ class DeepSeekAssistantTest {
     var spec = tools.specifications().stream()
         .filter(t -> t.tool().name().equals("get_tracking_history"))
         .findFirst().orElseThrow();
-    var result = spec.call().apply(null, Map.of("trackingRef", "ZTR-FOREIGN"));
+    var result = spec.callHandler().apply(null, new McpSchema.CallToolRequest(spec.tool().name(), Map.of("trackingRef", "ZTR-FOREIGN")));
     assertThat(result.content().toString()).contains("not found in your deliveries");
     assertThat(historyReads).hasValue(0);
   }
