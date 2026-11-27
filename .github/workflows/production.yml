@@ -90,8 +90,8 @@ jobs:
           [[ "$AUTHORIZED_RELEASE_SHA" == "$GITHUB_SHA" ]]
           docker load -i production-images.tar.gz
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service)
-          keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE)
+          services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service kafka keycloak caddy)
+          keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE KAFKA_IMAGE KEYCLOAK_IMAGE CADDY_IMAGE)
           registry="ghcr.io/${GITHUB_REPOSITORY,,}"
           for service in "${services[@]}"; do
             docker image inspect "$registry/$service:$GITHUB_SHA" --format '{{.Id}}'
@@ -213,7 +213,7 @@ jobs:
             --name "$AZURE_VM_NAME" --command-id RunShellScript \
             --scripts "printf '%s' '$manifest' | base64 -d | /opt/zentro/bin/deploy-app-images")"
           jq -er '.value[].message' <<< "$result" |
-            grep -Ex 'ZENTRO_(DEPLOY_OK|BASELINE_REQUIRED|IMAGE_PULL_FAILED|PREVIOUS_HEALTH_FAILED|CANDIDATE_HEALTH_FAILED|ROLLBACK_OK|ROLLBACK_FAILED|INITIAL_APPS_STOPPED|INITIAL_STOP_FAILED)' || true
+            grep -Ex 'ZENTRO_(DEPLOY_OK|KAFKA_UPGRADE_REQUIRED|BASELINE_REQUIRED|IMAGE_PULL_FAILED|PREVIOUS_HEALTH_FAILED|CANDIDATE_HEALTH_FAILED|ROLLBACK_OK|ROLLBACK_FAILED|INITIAL_APPS_STOPPED|INITIAL_STOP_FAILED)' || true
           jq -er '.value[].message' <<< "$result" | grep -Fx 'ZENTRO_DEPLOY_OK'
 
   workers:

@@ -74,8 +74,8 @@ exec /usr/bin/awk "$@"
 MOCK
 chmod 750 /opt/zentro/mocks/*
 
-keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE)
-services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service)
+keys=(GATEWAY_IMAGE S1_IMAGE S2_IMAGE S3_IMAGE S4_IMAGE S5_IMAGE KAFKA_IMAGE KEYCLOAK_IMAGE CADDY_IMAGE)
+services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service kafka keycloak caddy)
 for i in "${!keys[@]}"; do
   printf '%s=ghcr.io/pirathee587/zentro/%s@sha256:%064d\n' "${keys[i]}" "${services[i]}" 1 >> baseline.env
   printf '%s=ghcr.io/pirathee587/zentro/%s@sha256:%064d\n' "${keys[i]}" "${services[i]}" 2 >> candidate.env
@@ -107,6 +107,14 @@ fi
 cmp baseline.env images.env
 printf 'PASS malformed manifest\n'
 
+# Existing six-image manifests remain valid rollback inputs.
+head -n 6 baseline.env > images.env
+if output="$(FAILURE=https bash "$script" < candidate.env 2>&1)"; then exit 1; fi
+[[ "$output" == *ZENTRO_ROLLBACK_OK* && "$(wc -l < images.env)" == 6 ]]
+touch /opt/zentro/data/kafka/meta.properties
+if output="$(bash "$script" < candidate.env 2>&1)"; then exit 1; fi
+[[ "$output" == *ZENTRO_KAFKA_UPGRADE_REQUIRED* ]]
+rm /opt/zentro/data/kafka/meta.properties
 mv images.env baseline.active.env
 if output="$(FAILURE=baseline bash "$script" < candidate.env 2>&1)"; then
   exit 1
