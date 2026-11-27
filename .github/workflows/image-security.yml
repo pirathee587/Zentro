@@ -18,6 +18,44 @@ permissions:
   contents: read
 
 jobs:
+  infrastructure-candidates:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [caddy, kafka, keycloak]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build and exercise candidate image
+        working-directory: infra/compose/production
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          docker build --pull -f "candidates/$SERVICE.Dockerfile" -t candidate candidates
+          case "$SERVICE" in
+            caddy) docker run --rm --env-file release.env.example -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" candidate caddy validate --config /etc/caddy/Caddyfile ;;
+            keycloak)
+              docker run -d --name fixture -p 127.0.0.1:8080:8080 candidate start-dev --http-relative-path=/auth
+              curl --fail --retry 40 --retry-delay 3 --retry-all-errors http://127.0.0.1:8080/auth/realms/master/.well-known/openid-configuration >/dev/null ;;
+            kafka)
+              docker network create fixture
+              docker run -d --name kafka --network fixture -e CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk -e KAFKA_NODE_ID=1 -e KAFKA_PROCESS_ROLES=broker,controller -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093 -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER -e KAFKA_LISTENERS=INTERNAL://:9092,CONTROLLER://:9093 -e KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092 -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT -e KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL candidate
+              timeout 120 bash -c 'until docker exec kafka kafka-broker-api-versions --bootstrap-server kafka:9092 >/dev/null 2>&1; do sleep 3; done'
+              docker exec kafka kafka-topics --bootstrap-server kafka:9092 --create --topic fixture --partitions 1 --replication-factor 1 ;;
+          esac
+      - name: Check candidate vulnerabilities
+        env:
+          TRIVY_IMAGE: ${{ vars.RELEASE_TRIVY_IMAGE }}
+        run: |
+          set -euo pipefail
+          [[ "$TRIVY_IMAGE" =~ ^(docker.io/)?aquasec/trivy@sha256:[a-f0-9]{64}$ ]]
+          docker save candidate -o "$RUNNER_TEMP/candidate.tar"
+          docker run --rm -v "$RUNNER_TEMP/candidate.tar:/candidate.tar:ro" "$TRIVY_IMAGE" image --input /candidate.tar --scanners vuln --severity HIGH,CRITICAL --exit-code 1
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 90
