@@ -67,9 +67,12 @@ jobs:
             "${scan[@]}" image --timeout 15m --input /reports/image.tar --format cyclonedx --output "/reports/$service.sbom.json"
             "${scan[@]}" image --timeout 15m --input /reports/image.tar --scanners vuln \
               --severity HIGH,CRITICAL --exit-code 1 --format json --output "/reports/$service.vulnerabilities.json" || failed=1
-            config="$(jq -er '."containerimage.config.digest"' "release-scans/$service.build.json")"
             manifest="$(jq -er '."containerimage.digest"' "release-scans/$service.build.json")"
-            [[ "$config" =~ ^sha256:[a-f0-9]{64}$ && "$manifest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            [[ "$manifest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            tar -xOf release-scans/image.tar "blobs/sha256/${manifest#sha256:}" > release-scans/scanned-manifest.tmp
+            [[ "sha256:$(sha256sum release-scans/scanned-manifest.tmp | cut -d' ' -f1)" == "$manifest" ]]
+            config="$(jq -er '.config.digest' release-scans/scanned-manifest.tmp)"
+            [[ "$config" =~ ^sha256:[a-f0-9]{64}$ ]]
             jq -e --arg config "$config" '.Metadata.ImageID == $config' "release-scans/$service.vulnerabilities.json" >/dev/null
             docker image inspect "${tags[i]}" --format '{{.Id}}' >> release-scans/image-ids.txt
             rm release-scans/image.tar
