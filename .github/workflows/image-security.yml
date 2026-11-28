@@ -32,6 +32,8 @@ jobs:
           docker compose --env-file release.env.example config --quiet --no-env-resolution
           docker run --rm --network none -v "$PWD:/fixtures:ro" maven:3.9-eclipse-temurin-21 \
             bash /fixtures/test-deploy-app-images.sh /fixtures/deploy-app-images.sh
+      - name: Test the VM pull deployment agent
+        run: sudo bash infra/compose/production/test-deploy-agent.sh infra/compose/production/deploy-agent.sh
       - name: Build production images
         env:
           TRIVY_IMAGE: ${{ vars.RELEASE_TRIVY_IMAGE }}

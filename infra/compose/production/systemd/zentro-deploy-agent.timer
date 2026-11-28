@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll for approved Zentro releases every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+AccuracySec=15s
+Persistent=false
+
+[Install]
+WantedBy=timers.target
