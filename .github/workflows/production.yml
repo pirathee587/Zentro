@@ -1,5 +1,17 @@
 name: Production release
 on:
+  # Approved merges to main publish and deploy automatically, still behind the production-publication
+  # and production environment approvals. Frontend-only changes stay with the Cloudflare Git integration.
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'contracts/**'
+      - 'infra/compose/production/**'
+      - '.dockerignore'
+      - '.github/workflows/production.yml'
+      - '.github/workflows/image-security.yml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
     inputs:
       publish_images:
@@ -60,14 +72,14 @@ jobs:
         run: exit 1
 
   build-images:
-    if: inputs.publish_images || !inputs.deploy_backend
+    if: github.event_name == 'push' || inputs.publish_images || !inputs.deploy_backend
     needs: [verify, validate-inputs]
     uses: ./.github/workflows/image-security.yml
     with:
-      archive_images: ${{ inputs.publish_images }}
+      archive_images: ${{ github.event_name == 'push' || inputs.publish_images }}
 
   publish:
-    if: github.ref == 'refs/heads/main' && inputs.publish_images
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish_images)
     needs: [build-images, frontend]
     runs-on: ubuntu-latest
     environment: production-publication
@@ -85,9 +97,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AUTHORIZED_RELEASE_SHA: ${{ vars.AUTHORIZED_RELEASE_SHA }}
+          AUTOMATIC_RELEASES_AUTHORIZED: ${{ vars.AUTOMATIC_RELEASES_AUTHORIZED }}
         run: |
           set -euo pipefail
-          [[ "$AUTHORIZED_RELEASE_SHA" == "$GITHUB_SHA" ]]
+          # Manual runs keep the per-commit gate. Merges to main may rely on this environment's required
+          # reviewers instead, only after the repository owner sets AUTOMATIC_RELEASES_AUTHORIZED=true here.
+          if [[ "$GITHUB_EVENT_NAME" != push || "$AUTOMATIC_RELEASES_AUTHORIZED" != true ]]; then
+            [[ "$AUTHORIZED_RELEASE_SHA" == "$GITHUB_SHA" ]]
+          fi
           docker load -i production-images.tar.gz
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           services=(api-gateway identity-partner-service parcel-pricing-service dispatch-courier-service tracking-reporting-service notification-integration-service kafka keycloak caddy)
@@ -166,7 +183,7 @@ jobs:
               and .conclusion == "success"' >/dev/null
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PUBLICATION_RUN_ID/jobs?per_page=100" |
             jq -e 'any(.jobs[]; .name == "publish" and .conclusion == "success")
-              and all(.jobs[]; .name != "azure" or .conclusion == "skipped")' >/dev/null
+              and all(.jobs[]; (.name != "azure" and .name != "vm-release") or .conclusion == "skipped")' >/dev/null
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           github-token: ${{ github.token }}
@@ -177,49 +194,50 @@ jobs:
           name: production-image-manifest
           path: images.env
 
-  azure:
+  vm-release:
+    # The VM pulls this approved release (deploy-agent.sh): no inbound port, runner or Azure role is used.
     if: >-
-      ${{ !cancelled() && github.ref == 'refs/heads/main' && inputs.deploy_backend && needs.frontend.result == 'success'
-      && ((inputs.publish_images && needs.publish.result == 'success') ||
-          (!inputs.publish_images && needs.previous-publication.result == 'success')) }}
+      ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.deploy_backend)
+      && needs.frontend.result == 'success'
+      && (((github.event_name == 'push' || inputs.publish_images) && needs.publish.result == 'success') ||
+          (github.event_name != 'push' && !inputs.publish_images && needs.previous-publication.result == 'success')) }}
     needs: [publish, previous-publication, frontend]
     runs-on: ubuntu-latest
     environment: production
+    timeout-minutes: 45
     permissions:
-      id-token: write
+      deployments: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: production-image-manifest
-      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy app images via the VM agent
+      - name: Record the approved release and wait for the VM agent's result
         env:
-          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-          AZURE_VM_NAME: ${{ vars.AZURE_VM_NAME }}
-          AZURE_DEPLOYMENT_AUTHORIZED: ${{ vars.AZURE_DEPLOYMENT_AUTHORIZED }}
+          GH_TOKEN: ${{ github.token }}
+          PUBLICATION_RUN_ID: ${{ inputs.publication_run_id || github.run_id }}
         run: |
           set -euo pipefail
-          [[ "$AZURE_DEPLOYMENT_AUTHORIZED" == true ]]
-          [[ "$AZURE_RESOURCE_GROUP" == zentro-production-rg && "$AZURE_VM_NAME" == zentro-production-vm ]]
-          [[ "$(az vm show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_VM_NAME" --query provisioningState -o tsv)" == Succeeded ]]
-          probe="$(az vm run-command invoke --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$AZURE_VM_NAME" --command-id RunShellScript --scripts 'printf "%s\n" ZENTRO_VM_AUTHORIZED')"
-          jq -er '.value[].message' <<< "$probe" | grep -Fx ZENTRO_VM_AUTHORIZED
-          manifest="$(base64 -w0 images.env)"
-          result="$(az vm run-command invoke --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$AZURE_VM_NAME" --command-id RunShellScript \
-            --scripts "printf '%s' '$manifest' | base64 -d | /opt/zentro/bin/deploy-app-images")"
-          jq -er '.value[].message' <<< "$result" |
-            grep -Ex 'ZENTRO_(DEPLOY_OK|KAFKA_UPGRADE_REQUIRED|BASELINE_REQUIRED|IMAGE_PULL_FAILED|PREVIOUS_HEALTH_FAILED|CANDIDATE_HEALTH_FAILED|ROLLBACK_OK|ROLLBACK_FAILED|INITIAL_APPS_STOPPED|INITIAL_STOP_FAILED)' || true
-          jq -er '.value[].message' <<< "$result" | grep -Fx 'ZENTRO_DEPLOY_OK'
+          [[ "$PUBLICATION_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          id="$(jq -nc --arg ref "$GITHUB_SHA" --argjson release "$GITHUB_RUN_ID" --argjson publication "$PUBLICATION_RUN_ID" '
+            {ref: $ref, task: "zentro-vm-deploy", environment: "production-vm", auto_merge: false,
+             required_contexts: [], production_environment: true, transient_environment: false,
+             description: "Approved Zentro release",
+             payload: {release_run_id: $release, publication_run_id: $publication}}' |
+            gh api "repos/$GITHUB_REPOSITORY/deployments" --input - --jq .id)"
+          [[ "$id" =~ ^[0-9]+$ ]]
+          echo "Recorded deployment $id; the VM agent polls every two minutes."
+          for _ in $(seq 1 240); do
+            sleep 10
+            status="$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses?per_page=1" \
+              --jq '.[0] // {} | "\(.state // "pending")|\(.description // "")"' 2>/dev/null || echo 'pending|')"
+            case "${status%%|*}" in
+              success) echo "VM: ${status#*|}"; exit 0 ;;
+              failure|error) echo "VM: ${status#*|}"; exit 1 ;;
+            esac
+          done
+          echo "The VM agent did not report within 40 minutes."
+          exit 1
 
   workers:
     if: github.ref == 'refs/heads/main' && inputs.deploy_backend && inputs.deploy_frontend
-    needs: azure
+    needs: vm-release
     runs-on: ubuntu-latest
     environment: production-frontend
     permissions: {}
