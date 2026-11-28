@@ -99,20 +99,21 @@ jobs:
           cmp release-scans/image-ids.txt loaded-image-ids.txt
           : > images.env
           for i in "${!services[@]}"; do
-            repo="$registry/${services[i]}"
+            service="${services[i]}"
+            repo="$registry/$service"
+            expected_manifest="$(jq -er '."containerimage.digest"' "release-scans/$service.build.json")"
+            scanned_config="$(jq -er '.Metadata.ImageID' "release-scans/$service.vulnerabilities.json")"
             # Keep an existing commit tag immutable on retries.
             tag="$repo:$GITHUB_SHA"
             if remote="$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest}}' 2>inspect.err)"; then
-              remote_config="$(docker buildx imagetools inspect "$tag" --raw | jq -er .config.digest)"
-              [[ "$remote_config" == "$(docker image inspect "$tag" --format '{{.Id}}')" ]]
               digest="$(jq -er .digest <<< "$remote")"
             else
               grep -Eiq 'manifest unknown|not found' inspect.err || { cat inspect.err >&2; exit 1; }
               digest="$(docker push "$tag" | tee /dev/stderr | awk '$2 == "digest:" {print $3}')"
             fi
-            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ && "$digest" == "$expected_manifest" ]]
             remote_config="$(docker buildx imagetools inspect "$repo@$digest" --raw | jq -er .config.digest)"
-            [[ "$remote_config" == "$(docker image inspect "$tag" --format '{{.Id}}')" ]]
+            [[ "$remote_config" == "$scanned_config" ]]
             printf '%s=%s@%s\n' "${keys[i]}" "$repo" "$digest" >> images.env
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

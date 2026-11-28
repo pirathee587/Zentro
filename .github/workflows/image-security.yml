@@ -47,14 +47,14 @@ jobs:
             context=.
             if [[ "$service" == api-gateway ]]; then context=backend; fi
             docker buildx build --platform linux/amd64 --provenance=false --sbom=false --pull --load --build-arg "GIT_SHA=$GITHUB_SHA" \
-              -f "backend/$service/Dockerfile" -t "$tag" "$context"
+              --metadata-file "release-scans/$service.build.json" -f "backend/$service/Dockerfile" -t "$tag" "$context"
             tags+=("$tag")
           done
           for service in kafka keycloak caddy; do
             tag="$registry/$service:$GITHUB_SHA"
             directory=infra/compose/production
             docker buildx build --platform linux/amd64 --provenance=false --sbom=false --pull --load \
-              -f "$directory/candidates/$service.Dockerfile" -t "$tag" "$directory/candidates"
+              --metadata-file "release-scans/$service.build.json" -f "$directory/candidates/$service.Dockerfile" -t "$tag" "$directory/candidates"
             bash "$directory/test-infrastructure-image.sh" "$service" "$tag"
             services+=("$service")
             tags+=("$tag")
@@ -67,6 +67,13 @@ jobs:
             "${scan[@]}" image --timeout 15m --input /reports/image.tar --format cyclonedx --output "/reports/$service.sbom.json"
             "${scan[@]}" image --timeout 15m --input /reports/image.tar --scanners vuln \
               --severity HIGH,CRITICAL --exit-code 1 --format json --output "/reports/$service.vulnerabilities.json" || failed=1
+            manifest="$(jq -er '."containerimage.digest"' "release-scans/$service.build.json")"
+            [[ "$manifest" =~ ^sha256:[a-f0-9]{64}$ ]]
+            tar -xOf release-scans/image.tar "blobs/sha256/${manifest#sha256:}" > release-scans/scanned-manifest.tmp
+            [[ "sha256:$(sha256sum release-scans/scanned-manifest.tmp | cut -d' ' -f1)" == "$manifest" ]]
+            config="$(jq -er '.config.digest' release-scans/scanned-manifest.tmp)"
+            [[ "$config" =~ ^sha256:[a-f0-9]{64}$ ]]
+            jq -e --arg config "$config" '.Metadata.ImageID == $config' "release-scans/$service.vulnerabilities.json" >/dev/null
             docker image inspect "${tags[i]}" --format '{{.Id}}' >> release-scans/image-ids.txt
             rm release-scans/image.tar
           done
